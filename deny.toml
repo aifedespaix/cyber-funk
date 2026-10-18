@@ -5,11 +5,20 @@ all-features = true
 [advisories]
 version = 2
 yanked = "deny"
+# Exceptions à revoir à chaque montée de Bevy (skill bevy-patterns) : supprimer la ligne dès que la dépendance suit.
+ignore = [
+  # ruzstd 0.8 (bombe de décompression) : imposé par bevy_image 0.20, le correctif est en 0.9 (incompatible).
+  # Il ne décode que les textures KTX2 que nous embarquons nous-mêmes, jamais une entrée venue de l'extérieur.
+  { id = "RUSTSEC-2026-0344", reason = "ruzstd imposé par bevy_image 0.20 ; n'ouvre que nos propres assets" },
+  # ttf-parser non maintenu : tiré par winit (décorations de fenêtre Wayland), aucune police externe chargée par là.
+  { id = "RUSTSEC-2026-0192", reason = "transitive via winit/sctk-adwaita, en attente d'une montée de winit dans Bevy" },
+]
 
 [licenses]
 version = 2
 allow = [
   "MIT",
+  "MIT-0",            # encase (Bevy) : MIT sans obligation d'attribution
   "Apache-2.0",
   "Apache-2.0 WITH LLVM-exception",
   "BSD-2-Clause",
@@ -24,6 +33,12 @@ allow = [
   "Ubuntu-font-1.0",
 ]
 confidence-threshold = 0.9
+# Licences autorisées par avance pour les dépendances à venir : pas d'avertissement si elles manquent.
+unused-allowed-license = "allow"
+
+# Nos crates ne sont pas publiées et la licence du projet reste à définir.
+[licenses.private]
+ignore = true
 
 [bans]
 multiple-versions = "warn"

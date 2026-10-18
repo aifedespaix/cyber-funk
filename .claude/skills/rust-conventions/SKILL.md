@@ -7,7 +7,8 @@ description: Use for any Rust code in cyber-funk - style, error handling, worksp
 
 ## Workspace
 
-Le `Cargo.toml` racine porte les versions communes et les lints. Chaque crate écrit `[lints] workspace = true` et
+Le `Cargo.toml` racine porte les versions communes et les lints (extrait ci-dessous ; la référence est le fichier
+lui-même). Chaque crate écrit `[lints] workspace = true` et
 prend ses dépendances par `dep.workspace = true`.
 
 ```toml
@@ -17,8 +18,8 @@ members = ["crates/*"]
 
 [workspace.package]
 edition = "2024"
-rust-version = "1.97"          # dernier stable au moment de J0-01, à monter avec la toolchain
-license = "TBD"                # à trancher par le propriétaire du dépôt
+rust-version = "1.99"          # dernier stable au moment de J0-01 (Bevy 0.20 exige ≥ 1.97.1)
+publish = false                # pas de champ license tant que le propriétaire n'a pas tranché
 repository = "https://github.com/aifedespaix/cyber-funk"
 
 [workspace.lints.rust]

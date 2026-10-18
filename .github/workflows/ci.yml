@@ -50,6 +50,13 @@ jobs:
         run: sudo apt-get update -qq && sudo apt-get install -y -qq libasound2-dev libudev-dev libxkbcommon-dev libwayland-dev
       - uses: Swatinem/rust-cache@v2
       - run: cargo clippy --workspace --all-targets --all-features --locked
+      - name: Garde d'architecture (logique métier sans Bevy)
+        run: |
+          for c in cf-audio cf-analysis cf-control cf-show; do
+            if cargo tree -p "$c" -e normal --prefix none --locked | grep -q '^bevy'; then
+              echo "::error::$c dépend de Bevy (interdit, voir CLAUDE.md règle 5)"; exit 1
+            fi
+          done
 
   test:
     needs: detect
