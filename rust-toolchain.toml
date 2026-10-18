@@ -1,0 +1,5 @@
+# Politique : toujours le dernier Rust stable (voir CLAUDE.md §3).
+[toolchain]
+channel = "stable"
+components = ["rustfmt", "clippy"]
+profile = "minimal"

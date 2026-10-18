@@ -1,0 +1,8 @@
+# Seuils au-delà desquels clippy signale une fonction à découper.
+too-many-lines-threshold = 120
+too-many-arguments-threshold = 8
+cognitive-complexity-threshold = 30
+# Les tests peuvent utiliser unwrap/expect.
+allow-unwrap-in-tests = true
+allow-expect-in-tests = true
+allow-print-in-tests = true

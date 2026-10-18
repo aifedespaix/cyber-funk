@@ -1,6 +1,7 @@
 # cyber-funk : proposition d'architecture (étape 1)
 
-> Statut : **proposition, en attente de validation.** Aucun code n'est écrit tant que ce document n'est pas validé.
+> Statut : **validé le 2026-10-18.** Les réponses par défaut du §4 s'appliquent tant qu'elles ne sont pas changées.
+> Découpage en tâches : `docs/TASKS.md`.
 >
 > Source analysée : Sillage, `aifedespaix/aifedespaix.com` → `apps/main/src/components/sillage/` (≈ 37 400 lignes
 > TypeScript + Svelte, Three.js / WebGL, ~150 fichiers moteur) et ses assets dans `apps/main/public/` (`music/`,
@@ -84,8 +85,8 @@ La caméra libre (`free-camera.ts`) est conservée **uniquement** dans l'outil d
 - **Les shaders GLSL de Sillage se portent en WGSL** dans des `Material` / `ExtendedMaterial` : même logique, syntaxe
   différente, et rechargement à chaud pendant le développement.
 
-**Version :** la dernière version stable de Bevy au moment du jalon J0 (vérifiée à ce moment-là, changelog lu). On la
-fige au niveau mineur, et chaque montée de version fait l'objet d'une PR dédiée.
+**Version :** la dernière version stable de Bevy (0.20 au 2026-10-18, à revérifier au jalon J0). On la fige au niveau
+mineur, et chaque montée de version fait l'objet d'une PR dédiée.
 
 **Gestion du risque « API instable » :** toute la logique métier (audio, analyse, show, contrôle) vit dans des crates
 **sans dépendance à Bevy** (voir §1.5). Une montée de Bevy ne touche que la couche de rendu et la colle ECS.
@@ -144,6 +145,7 @@ recyclage** du monde. Il faut les deux.
 | **Streaming par tronçons + pools** | Saturer la mémoire, allocations en live | Le monde est découpé en tronçons le long de la route ; ceux qui sortent derrière la caméra sont **recyclés** (pool d'entités), jamais détruits/recréés. Zéro allocation en régime établi. |
 | **LOD / visibility ranges** | Géométrie fine au loin | `VisibilityRange` (fondu entre niveaux de détail) ; au-delà de la brume, imposteurs ou rien. |
 | **Instancing / batching** | Un draw call par objet | Batching automatique de Bevy (même mesh + même matériau) ; atlas de textures pour les façades et enseignes. |
+| **Origine flottante** | Les tremblements en fin de set | Bevy calcule en `f32` : à 400 km du départ, la précision tombe au centimètre. Le monde rendu est recentré par pas de `ORIGIN_STEP` (28 800 m, repris de `world-origin.ts`) ; les positions absolues restent en `f64` dans la logique. |
 | **Rendus annexes cadencés** | Rendre la scène 3 fois par image | Le rétroviseur disparaît (c'était du jeu). Les enseignes « caméra live » de Sillage sont rendues à basse résolution et à cadence réduite, et seulement si elles sont visibles. |
 | **Qualité adaptative** | Les saccades en live | Portage de `quality.ts` : échelle de rendu dynamique, puis bloom, puis densité de particules. Budget mesuré au GPU (requêtes de timestamp wgpu), pas seulement au temps d'image CPU. |
 
@@ -197,6 +199,8 @@ cyber-funk/
 │   └── shows/demo.ron            un show d'exemple
 └── docs/
 ```
+
+Le type `Action` vit dans `cf-control` ; `cf-show` le consomme.
 
 Le monde « Neon City » est **un plugin parmi d'autres** qui implémente un trait `World` (ce qu'il peut filmer,
 comment il réagit aux portes). Un deuxième univers pourra s'ajouter sans toucher au reste.
@@ -381,9 +385,9 @@ quand elles relèvent de la mise en scène.
 
 ---
 
-## 4. Questions à trancher avant de coder
+## 4. Questions ouvertes
 
-Mes réponses par défaut entre parenthèses ; je les applique si tu n'as pas d'avis.
+Réponses par défaut entre parenthèses : elles s'appliquent tant que le propriétaire du dépôt n'en décide pas autrement.
 
 1. **Matériel cible** : quel ordinateur et quelle carte graphique en soirée ? Quel OS ? (Windows + GPU NVIDIA milieu
    de gamme, macOS Apple Silicon en second.)

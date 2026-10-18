@@ -1,0 +1,19 @@
+# Politique « dernière version stable » : Dependabot propose les montées, la CI les valide.
+# Bevy et les crates de son écosystème (bevy_*) montent ensemble, à la main (voir skill bevy-patterns).
+version: 2
+updates:
+  - package-ecosystem: cargo
+    directory: /
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 10
+    ignore:
+      - dependency-name: "bevy"
+      - dependency-name: "bevy_*"
+    groups:
+      mineures:
+        update-types: [minor, patch]
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: monthly
