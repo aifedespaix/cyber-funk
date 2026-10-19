@@ -57,7 +57,7 @@ streaming, réalisateur, MIDI Clock) ; `high` par défaut ; `medium`/`low` pour 
 | J2-06 | [Limiteur photosensible](tasks/J2.md) | Sonnet 5.5 | `high` | J0-01 | ⬜ |
 | J2-07 | [Sauvegarde continue et reprise](tasks/J2.md) | Sonnet 5.5 | `medium` | J2-05 | ⬜ |
 | J2-08 | [Simulateur de set sans rendu](tasks/J2.md) | Sonnet 5.5 | `high` | J2-05 | ⬜ |
-| J3-01 | [Vocabulaire `Action` et couche de correspondance](tasks/J3.md) | Opus 5.5 | `high` | J0-01 | ⬜ |
+| J3-01 | [Vocabulaire `Action` et couche de correspondance](tasks/J3.md) | Opus 5.5 | `high` | J0-01 | 🟦 |
 | J3-02 | [Entrée MIDI, profils et MIDI learn](tasks/J3.md) | Opus 5.5 | `high` | J3-01 | ⬜ |
 | J3-03 | [MIDI Clock et arbitrage des sources de tempo](tasks/J3.md) | Opus 5.5 | `xhigh` | J3-02, J1-05 | ⬜ |
 | J3-04 | [Ableton Link (option)](tasks/J3.md) | Sonnet 5.5 | `high` | J3-03 | ⬜ |
