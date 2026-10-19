@@ -1,0 +1,92 @@
+/* ═══════════════════════════════════════════════════
+   SCÈNE SILLAGE - palette lumineuse de la route 3D
+   Toujours sombre : la scène ne suit pas le thème du site.
+   Hex et non OKLCH : three.js lit ces valeurs telles quelles.
+   ═══════════════════════════════════════════════════ */
+
+:root,
+[data-scene-theme="velvet"] {
+  /* Void Velvet : noir mat, violet nuit, cyan électrique, corail pour la chaleur. */
+  --scene-ink: #050508;
+  --scene-velvet: #1c132b;
+  --scene-cyan: #00e5ff;
+  --scene-ember: #ff5733;
+  /* Rôles dans la scène : le cyan se ramasse, le corail se fuit. */
+  --scene-mint: var(--scene-cyan);
+  --scene-azure: #12a8d4;
+  /* Version éclairée du violet nuit : les lueurs doivent se voir sur le noir. */
+  --scene-violet: #6a4cc2;
+  --scene-rose: var(--scene-ember);
+  --scene-amber: #ff9a5c;
+  --scene-ice: #e6f7ff;
+  /* Gyrophares : le seul rouge franc de la scène. */
+  --scene-alarm: #ff2e1f;
+  /* Immeubles-vitrines : vert terminal (pluie de code) et jaune soleil (smiley, lave). */
+  --scene-lime: #39ff6a;
+  --scene-sun: #ffd23f;
+}
+
+/* ─── Thèmes de la scène ───────────────────────────────────────────
+   Choisis depuis les réglages de Sillage (attribut data-scene-theme sur la scène).
+   Les rôles dérivés (mint, rose) sont redéclarés ici : une variable qui pointe vers
+   une autre est résolue là où elle est déclarée, pas là où elle est lue. */
+[data-scene-theme] {
+  --scene-mint: var(--scene-cyan);
+  --scene-rose: var(--scene-ember);
+}
+
+[data-scene-theme="synthwave"] {
+  --scene-ink: #0b0214;
+  --scene-velvet: #2b0f57;
+  --scene-cyan: #ff3df0;
+  --scene-ember: #ffb000;
+  --scene-azure: #b026ff;
+  --scene-violet: #7a3cff;
+  --scene-amber: #ffcc66;
+  --scene-ice: #ffe9fb;
+  --scene-alarm: #ff2e5a;
+}
+
+[data-scene-theme="terminal"] {
+  --scene-ink: #020804;
+  --scene-velvet: #0c2a16;
+  --scene-cyan: #39ff6a;
+  --scene-ember: #ff5a36;
+  --scene-azure: #1fb85a;
+  --scene-violet: #2f8f6b;
+  --scene-amber: #ffb347;
+  --scene-ice: #e8ffe9;
+}
+
+[data-scene-theme="aurora"] {
+  --scene-ink: #040a12;
+  --scene-velvet: #0f2a3d;
+  --scene-cyan: #5cffd0;
+  --scene-ember: #ff6b9a;
+  --scene-azure: #2ea8b8;
+  --scene-violet: #7a5cff;
+  --scene-amber: #ffb48a;
+  --scene-ice: #eafff8;
+}
+
+[data-scene-theme="gold"] {
+  --scene-ink: #0a0604;
+  --scene-velvet: #2a1708;
+  --scene-cyan: #ffcf3f;
+  --scene-ember: #ff3b2e;
+  --scene-azure: #e09a1f;
+  --scene-violet: #a8501e;
+  --scene-amber: #ff9a5c;
+  --scene-ice: #fff4e0;
+}
+
+[data-scene-theme="frost"] {
+  --scene-ink: #04080f;
+  --scene-velvet: #12203a;
+  --scene-cyan: #9ad7ff;
+  --scene-ember: #ff5c7a;
+  --scene-azure: #4a8fe0;
+  --scene-violet: #6a7de0;
+  --scene-amber: #ffa07a;
+  --scene-ice: #f2f8ff;
+}
