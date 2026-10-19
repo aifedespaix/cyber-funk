@@ -69,17 +69,25 @@ pub struct Spectrum {
 impl Golden {
     /// BPM de Sillage après le pas `step` (valeur tenue depuis le dernier changement).
     pub fn bpm_at(&self, step: u64) -> Option<f64> {
-        self.bpm.iter().take_while(|c| c.step <= step).last().and_then(|c| c.bpm)
+        self.bpm
+            .iter()
+            .take_while(|c| c.step <= step)
+            .last()
+            .and_then(|c| c.bpm)
     }
 }
 
 /// Charge `tests/golden/<name>.json`.
 pub fn load(name: &str) -> Result<Golden, Box<dyn Error>> {
-    let path = Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/golden").join(format!("{name}.json"));
+    let path = Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("tests/golden")
+        .join(format!("{name}.json"));
     Ok(serde_json::from_slice(&std::fs::read(path)?)?)
 }
 
 /// Chemin d'une piste CC0 versionnée.
 pub fn music_path(file: &str) -> PathBuf {
-    Path::new(env!("CARGO_MANIFEST_DIR")).join("../../assets/music").join(file)
+    Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("../../assets/music")
+        .join(file)
 }

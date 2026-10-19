@@ -179,7 +179,14 @@ impl BeatDetector {
 
     /// Un pas. `spectrum` : spectre 0..255 de l'analyseur (`None` : pas de signal, les énergies retombent) ;
     /// `now` et `dt` en secondes. Aucune allocation.
-    pub fn update(&mut self, spectrum: Option<&[u8]>, sample_rate: u32, fft_size: usize, now: f64, dt: f64) -> &BeatState {
+    pub fn update(
+        &mut self,
+        spectrum: Option<&[u8]>,
+        sample_rate: u32,
+        fft_size: usize,
+        now: f64,
+        dt: f64,
+    ) -> &BeatState {
         self.state.kick = false;
         self.state.pulse = (self.state.pulse - dt * PULSE_DECAY).max(0.0);
 
@@ -193,15 +200,27 @@ impl BeatDetector {
             return &self.state;
         };
 
-        let ranges = *self.ranges.get_or_insert_with(|| {
-            compute_ranges(f64::from(sample_rate), fft_size, spectrum.len())
-        });
+        let ranges = *self
+            .ranges
+            .get_or_insert_with(|| compute_ranges(f64::from(sample_rate), fft_size, spectrum.len()));
 
         let bass_now = band_average(spectrum, ranges.bass);
         let s = &mut self.state;
         s.bass = smooth(s.bass, bass_now, dt, 0.04, 0.25);
-        s.mid = smooth(s.mid, (band_average(spectrum, ranges.mid) * MID_GAIN).min(1.0), dt, 0.05, 0.2);
-        s.high = smooth(s.high, (band_average(spectrum, ranges.high) * HIGH_GAIN).min(1.0), dt, 0.03, 0.12);
+        s.mid = smooth(
+            s.mid,
+            (band_average(spectrum, ranges.mid) * MID_GAIN).min(1.0),
+            dt,
+            0.05,
+            0.2,
+        );
+        s.high = smooth(
+            s.high,
+            (band_average(spectrum, ranges.high) * HIGH_GAIN).min(1.0),
+            dt,
+            0.03,
+            0.12,
+        );
         s.loud = loudness(s);
 
         if self.detect(bass_now, now, dt) {
@@ -295,7 +314,9 @@ fn compute_ranges(sample_rate: f64, fft_size: usize, bin_count: usize) -> Ranges
 }
 
 fn band_average(spectrum: &[u8], (lo, hi): (usize, usize)) -> f64 {
-    let sum: f64 = (lo..=hi).map(|i| f64::from(spectrum.get(i).copied().unwrap_or(0))).sum();
+    let sum: f64 = (lo..=hi)
+        .map(|i| f64::from(spectrum.get(i).copied().unwrap_or(0)))
+        .sum();
     sum / (hi + 1).saturating_sub(lo).max(1) as f64 / 255.0
 }
 
@@ -427,9 +448,17 @@ mod tests {
 
     #[test]
     fn beat_position_is_continuous_between_kicks() {
-        let s = BeatState { count: 5, pulse: 1.0, ..BeatState::NEW };
+        let s = BeatState {
+            count: 5,
+            pulse: 1.0,
+            ..BeatState::NEW
+        };
         assert!((beat_position(&s) - 5.0).abs() < 1e-12);
-        let s = BeatState { count: 5, pulse: 0.0, ..BeatState::NEW };
+        let s = BeatState {
+            count: 5,
+            pulse: 0.0,
+            ..BeatState::NEW
+        };
         assert!((beat_position(&s) - 6.0).abs() < 1e-12);
     }
 }

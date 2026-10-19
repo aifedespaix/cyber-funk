@@ -14,7 +14,7 @@ use symphonia::core::codecs::audio::AudioDecoderOptions;
 use symphonia::core::errors::Error as SymphoniaError;
 use symphonia::core::formats::probe::Hint;
 use symphonia::core::formats::{FormatOptions, TrackType};
-use symphonia::core::io::MediaSourceStream;
+use symphonia::core::io::{MediaSourceStream, MediaSourceStreamOptions};
 use symphonia::core::meta::MetadataOptions;
 
 /// Fréquence d'analyse.
@@ -35,19 +35,27 @@ pub fn load_mono_48k_ffmpeg(path: &Path, channels: usize) -> Option<Vec<f32>> {
         .filter(|o| o.status.success())?;
     let interleaved: Vec<f32> = output
         .stdout
-        .chunks_exact(4)
-        .map(|b| f32::from_le_bytes([b[0], b[1], b[2], b[3]]))
+        .as_chunks::<4>()
+        .0
+        .iter()
+        .map(|b| f32::from_le_bytes(*b))
         .collect();
     Some(match channels {
         1 => interleaved,
-        2 => interleaved.chunks_exact(2).map(|f| 0.5 * (f[0] + f[1])).collect(),
+        // `(G + D) / 2` calculé en double puis arrondi, comme le script de référence.
+        2 => interleaved
+            .as_chunks::<2>()
+            .0
+            .iter()
+            .map(|f| f32::midpoint(f[0], f[1]))
+            .collect(),
         _ => return None,
     })
 }
 
 /// PCM mono 48 kHz de `path` et fréquence d'origine.
 pub fn load_mono_48k(path: &Path) -> Result<(Vec<f32>, u32), Box<dyn Error>> {
-    let mss = MediaSourceStream::new(Box::new(File::open(path)?), Default::default());
+    let mss = MediaSourceStream::new(Box::new(File::open(path)?), MediaSourceStreamOptions::default());
     let mut format = symphonia::default::get_probe().probe(
         &Hint::new(),
         mss,

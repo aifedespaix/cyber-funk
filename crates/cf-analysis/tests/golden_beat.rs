@@ -19,6 +19,7 @@
 mod support;
 
 use std::collections::BTreeMap;
+use std::error::Error;
 
 use cf_analysis::analyser_emulation::{FFT_SIZE, SMOOTHING_TIME_CONSTANT};
 use cf_analysis::{AnalyserEmulation, BeatDetector};
@@ -59,7 +60,10 @@ impl Replay {
             }
         }
         // `max_by_key` garde le dernier ex æquo ; le script garde le plus petit BPM : on inverse l'ordre.
-        held.iter().rev().max_by_key(|(_, steps)| **steps).map(|(bpm, _)| f64::from(*bpm))
+        held.iter()
+            .rev()
+            .max_by_key(|(_, steps)| **steps)
+            .map(|(bpm, _)| f64::from(*bpm))
     }
 }
 
@@ -121,7 +125,10 @@ fn bpm_agreement(golden: &Golden, replay: &Replay, steps: impl Iterator<Item = u
 fn steady_steps(golden: &Golden) -> Vec<u64> {
     let mut steps = Vec::new();
     for (i, change) in golden.bpm.iter().enumerate() {
-        let end = golden.bpm.get(i + 1).map_or(golden.analysis.steps + 1, |next| next.step);
+        let end = golden
+            .bpm
+            .get(i + 1)
+            .map_or(golden.analysis.steps + 1, |next| next.step);
         if change.bpm.is_some() && end - change.step >= STEADY_STEPS {
             steps.extend((change.step + STEADY_STEPS / 5)..end);
         }
@@ -166,23 +173,40 @@ fn report(name: &str, golden: &Golden, replay: &Replay) {
 }
 
 /// Critères de la fiche J1-04 avec le décodeur du dépôt.
-fn check_with_repo_decoder(name: &str, file: &str) {
-    let golden = golden::load(name).expect("golden illisible");
-    let (pcm, source_rate) = pcm::load_mono_48k(&golden::music_path(file)).expect("décodage de la piste");
-    eprintln!("{name} : source {source_rate} Hz, PCM {} échantillons (golden {})", pcm.len(), golden.track.pcm_samples);
-    assert!(pcm.len().abs_diff(golden.track.pcm_samples) <= 16, "durée décodée différente de celle du golden");
+fn check_with_repo_decoder(name: &str, file: &str) -> Result<(), Box<dyn Error>> {
+    let golden = golden::load(name)?;
+    let (pcm, source_rate) = pcm::load_mono_48k(&golden::music_path(file))?;
+    eprintln!(
+        "{name} : source {source_rate} Hz, PCM {} échantillons (golden {})",
+        pcm.len(),
+        golden.track.pcm_samples
+    );
+    assert!(
+        pcm.len().abs_diff(golden.track.pcm_samples) <= 16,
+        "durée décodée différente de celle du golden"
+    );
     let replay = replay(&golden, &pcm);
     report(name, &golden, &replay);
 
     let recall = matched_share(&golden.kicks, &replay.kicks, KICK_TOLERANCE_STEPS);
     let precision = matched_share(&replay.kicks, &golden.kicks, KICK_TOLERANCE_STEPS);
-    assert!(recall >= MIN_KICK_SHARE, "{name} : {recall:.3} des kicks de Sillage retrouvés à ±1 pas");
-    assert!(precision >= MIN_KICK_SHARE, "{name} : {precision:.3} des kicks du portage sont dans le golden");
+    assert!(
+        recall >= MIN_KICK_SHARE,
+        "{name} : {recall:.3} des kicks de Sillage retrouvés à ±1 pas"
+    );
+    assert!(
+        precision >= MIN_KICK_SHARE,
+        "{name} : {precision:.3} des kicks du portage sont dans le golden"
+    );
 
     // Les deux erreurs de tempo de Sillage (Night Prowler, Winning the Race) sont dans le golden : le portage doit
     // y arriver aussi, au tempo final comme au tempo tenu le plus longtemps.
     let final_bpm = replay.bpm.last().and_then(|(_, b)| b.map(f64::from));
-    assert_eq!(final_bpm.map(f64::round), golden.summary.final_bpm, "{name} : BPM final");
+    assert_eq!(
+        final_bpm.map(f64::round),
+        golden.summary.final_bpm,
+        "{name} : BPM final"
+    );
     let steady = replay.steady_bpm(golden.analysis.steps);
     assert!(
         steady.is_some_and(|b| (b - golden.summary.steady_bpm).abs() <= BPM_TOLERANCE),
@@ -192,45 +216,75 @@ fn check_with_repo_decoder(name: &str, file: &str) {
     // L'émulation de l'analyseur : tous les octets à ±2 près malgré le rééchantillonneur différent.
     let (gap, _, _) = spectrum_gap(&golden, &replay);
     assert!(gap <= 2, "{name} : écart de spectre {gap}");
+    Ok(())
 }
 
 /// Même PCM que le golden : tout doit coïncider.
-fn check_with_ffmpeg_pcm(name: &str, file: &str) {
-    let golden = golden::load(name).expect("golden illisible");
+fn check_with_ffmpeg_pcm(name: &str, file: &str) -> Result<(), Box<dyn Error>> {
+    let golden = golden::load(name)?;
     let Some(pcm) = pcm::load_mono_48k_ffmpeg(&golden::music_path(file), golden.track.source_channels) else {
         eprintln!("{name} : ffmpeg absent, comparaison sur le PCM exact du golden ignorée");
-        return;
+        return Ok(());
     };
-    assert_eq!(pcm.len(), golden.track.pcm_samples, "{name} : même nombre d'échantillons que le golden");
+    assert_eq!(
+        pcm.len(),
+        golden.track.pcm_samples,
+        "{name} : même nombre d'échantillons que le golden"
+    );
     let replay = replay(&golden, &pcm);
     report(name, &golden, &replay);
 
-    assert!(matched_share(&golden.kicks, &replay.kicks, KICK_TOLERANCE_STEPS) >= 0.99, "{name} : kicks");
-    assert!(matched_share(&replay.kicks, &golden.kicks, KICK_TOLERANCE_STEPS) >= 0.99, "{name} : kicks en trop");
+    assert!(
+        matched_share(&golden.kicks, &replay.kicks, KICK_TOLERANCE_STEPS) >= 0.99,
+        "{name} : kicks"
+    );
+    assert!(
+        matched_share(&replay.kicks, &golden.kicks, KICK_TOLERANCE_STEPS) >= 0.99,
+        "{name} : kicks en trop"
+    );
     let (established, steps) = bpm_agreement(&golden, &replay, steady_steps(&golden).into_iter());
-    assert!(steps > 0 && established >= 0.99, "{name} : BPM en régime établi {established:.3}");
+    assert!(
+        steps > 0 && established >= 0.99,
+        "{name} : BPM en régime établi {established:.3}"
+    );
     let (all, _) = bpm_agreement(&golden, &replay, 1..=golden.analysis.steps);
     assert!(all >= 0.99, "{name} : BPM, tous pas confondus {all:.3}");
     // Chromium calcule sa FFT en `f32`, le script en `f64` : un octet peut différer d'une unité près d'une frontière.
     let (gap, _, _) = spectrum_gap(&golden, &replay);
     assert!(gap <= 1, "{name} : écart de spectre {gap}");
+    Ok(())
 }
 
 macro_rules! golden_track {
     ($repo:ident, $exact:ident, $name:literal, $file:literal) => {
         #[test]
-        fn $repo() {
-            check_with_repo_decoder($name, $file);
+        fn $repo() -> Result<(), Box<dyn Error>> {
+            check_with_repo_decoder($name, $file)
         }
 
         #[test]
-        fn $exact() {
-            check_with_ffmpeg_pcm($name, $file);
+        fn $exact() -> Result<(), Box<dyn Error>> {
+            check_with_ffmpeg_pcm($name, $file)
         }
     };
 }
 
-golden_track!(robotic_city, robotic_city_exact_pcm, "enprogames-robotic-city", "enprogames - Robotic City.mp3");
-golden_track!(night_prowler, night_prowler_exact_pcm, "snabisch-night-prowler", "Snabisch - Night Prowler.mp3");
-golden_track!(winning_the_race, winning_the_race_exact_pcm, "tozan-winning-the-race", "Tozan - Winning the Race.mp3");
+golden_track!(
+    robotic_city,
+    robotic_city_exact_pcm,
+    "enprogames-robotic-city",
+    "enprogames - Robotic City.mp3"
+);
+golden_track!(
+    night_prowler,
+    night_prowler_exact_pcm,
+    "snabisch-night-prowler",
+    "Snabisch - Night Prowler.mp3"
+);
+golden_track!(
+    winning_the_race,
+    winning_the_race_exact_pcm,
+    "tozan-winning-the-race",
+    "Tozan - Winning the Race.mp3"
+);
 golden_track!(chase, chase_exact_pcm, "yongki-chase", "Yongki - Chase.mp3");

@@ -71,9 +71,13 @@ impl Analyzer for BeatAnalyzer {
     fn step(&mut self, hop: &[f32; HOP], ctx: &StepContext, out: &mut AudioFeatures, events: &mut EventSink<'_>) {
         self.analyser.push(hop);
         let spectrum = self.analyser.byte_frequency_data();
-        let state = self
-            .detector
-            .update(Some(spectrum), ctx.sample_rate, FFT_SIZE, ctx.time_s, f64::from(ctx.dt_s));
+        let state = self.detector.update(
+            Some(spectrum),
+            ctx.sample_rate,
+            FFT_SIZE,
+            ctx.time_s,
+            f64::from(ctx.dt_s),
+        );
         Self::publish(state, out);
         if state.kick {
             events.emit(AudioEventKind::Kick);

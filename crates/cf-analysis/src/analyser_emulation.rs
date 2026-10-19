@@ -131,7 +131,12 @@ impl AnalyserEmulation {
 
         let k = self.smoothing;
         let range_scale = 255.0 / (MAX_DECIBELS - MIN_DECIBELS);
-        for ((bin, smoothed), byte) in self.output.iter().zip(self.smoothed.iter_mut()).zip(self.bytes.iter_mut()) {
+        for ((bin, smoothed), byte) in self
+            .output
+            .iter()
+            .zip(self.smoothed.iter_mut())
+            .zip(self.bytes.iter_mut())
+        {
             let (re, im) = (f64::from(bin.re), f64::from(bin.im));
             let magnitude = re.hypot(im) * MAGNITUDE_SCALE;
             let value = k * f64::from(*smoothed) + (1.0 - k) * magnitude;
