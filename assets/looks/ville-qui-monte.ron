@@ -1,0 +1,37 @@
+// Look d'exemple (format v1, voir crates/cf-show/src/model/). Le nom du fichier est l'identifiant du look.
+// Les six niveaux de Sillage (niveau-0-pre-intro … niveau-5-cosmos) arrivent avec la tâche J2-02.
+Look(
+    version: 1,
+    id: "ville-qui-monte",
+    name: "La ville qui monte",
+    world: "neon",
+    layers: (background: 1.0, world: 1.0, foreground: 0.3, overlay: 1.0),
+    palette: Inherit,
+    hue_shift_deg: 0.0,
+    gates: (
+        max_floor: 4,
+        flight_rate: 1.0,
+        flight_on_drop_only: false,
+        tricks: true,
+        stunt_tiers: ["common", "uncommon"],
+        stunt_kinds: ["off-road", "slalom", "near-miss", "head-on", "threading", "wall-ride", "sign-hop"],
+        stunt_gap_scale: 1.0,
+        shot_tiers: ["common", "uncommon", "rare"],
+        shot_block: ["meteor-ride", "moon-pass", "ringworld"],
+        cut_grid: (calm: 8, groove: 4, peak: 4),
+        salvo: false,
+        events: ["lanterns", "fish", "refuel", "airship", "escort", "chase", "convoy", "bikes", "tower", "race"],
+        event_rate: 1.0,
+        meteor_rate: 1.5,
+        meteor_shower: false,
+        cruise: 1.07,
+        ground_traffic: 1.0,
+        fx: (rgb_split: 0.3, flash: 0.3, city_pulse: 0.6),
+        ascension: false,
+    ),
+    macros: [
+        Macro(name: "Chaos", drives: [("gates.event_rate", 0.5, 2.0), ("gates.stunt_gap_scale", 1.5, 0.6)]),
+        Macro(name: "Vitesse", drives: [("gates.cruise", 0.9, 1.2)]),
+        Macro(name: "Couleur", drives: [("hue_shift_deg", -60.0, 60.0)]),
+    ],
+)

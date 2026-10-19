@@ -6,5 +6,8 @@
 //! vivent aussi ici (voir skills `show-model` et `live-safety`).
 
 pub mod freshness;
+pub mod load;
+pub mod model;
 pub mod time_scale;
+pub mod validate;
 pub mod wait;
