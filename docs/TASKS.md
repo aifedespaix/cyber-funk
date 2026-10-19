@@ -51,7 +51,7 @@ vient de la taille de la tâche et du nombre d'itérations, bien plus que du dé
 ## Statuts
 
 ⬜ à faire · 🟨 en cours · 🟦 PR ouverte · ✅ fusionnée.
-En cours au dernier point : J1-02, J1-03, J2-06, J4-03 (les lignes passent à ✅ après leur fusion).
+En cours au dernier point : J1-02, J4-03 (les lignes passent à ✅ après leur fusion).
 
 | ID | Tâche | Modèle | Effort | Dépend de | Statut |
 | --- | --- | --- | --- | --- | --- |
@@ -61,7 +61,7 @@ En cours au dernier point : J1-02, J1-03, J2-06, J4-03 (les lignes passent à �
 | J0-04 | [Outillage qualité vérifié de bout en bout](tasks/J0.md) | Haiku 5.5 | `medium` | J0-01 | ✅ |
 | J1-01 | [Données de référence extraites de Sillage (golden)](tasks/J1.md) | Opus 5.5 | `high` | J0-03 | ✅ |
 | J1-02 | [Lecture des pistes de démo](tasks/J1.md) | Opus 5.5 | `high` | J0-01, J0-03 | ⬜ |
-| J1-03 | [Capture d'entrée et thread d'analyse](tasks/J1.md) | Opus 5.5 | `xhigh` | J0-01 | 🟦 |
+| J1-03 | [Capture d'entrée et thread d'analyse](tasks/J1.md) | Opus 5.5 | `xhigh` | J0-01 | ✅ |
 | J1-04 | [Détecteur de kicks et tempo (portage de `beat.ts`)](tasks/J1.md) | Sonnet 5.5 | `high` | J1-01, J1-03 | ⬜ |
 | J1-05 | [Sections, intensité, gain automatique du micro](tasks/J1.md) | Sonnet 5.5 | `medium` | J1-04 | ⬜ |
 | J1-06 | [Pont Bevy et panneau audio de l'opérateur](tasks/J1.md) | Sonnet 5.5 | `medium` | J0-02, J1-02, J1-05 | ⬜ |
@@ -71,7 +71,7 @@ En cours au dernier point : J1-02, J1-03, J2-06, J4-03 (les lignes passent à �
 | J2-03 | [Fraîcheur, ralenti du monde, attente de la musique](tasks/J2.md) | Sonnet 5.5 | `medium` | J0-01 | ✅ |
 | J2-04 | [Chef d'orchestre du drop](tasks/J2.md) | Sonnet 5.5 | `high` | J2-02, J2-03 | ⬜ |
 | J2-05 | [Chef du spectacle : créneaux, cues, modes, passation](tasks/J2.md) | Opus 5.5 | `high` | J2-01, J2-02, J2-03, J2-04, J3-01 | ⬜ |
-| J2-06 | [Limiteur photosensible](tasks/J2.md) | Sonnet 5.5 | `high` | J0-01 | ⬜ |
+| J2-06 | [Limiteur photosensible](tasks/J2.md) | Sonnet 5.5 | `high` | J0-01 | ✅ |
 | J2-07 | [Sauvegarde continue et reprise](tasks/J2.md) | Sonnet 5.5 | `medium` | J2-05 | ⬜ |
 | J2-08 | [Simulateur de set sans rendu](tasks/J2.md) | Sonnet 5.5 | `medium` | J2-05 | ⬜ |
 | J3-01 | [Vocabulaire `Action` et couche de correspondance](tasks/J3.md) | Opus 5.5 | `high` | J0-01 | ✅ |
