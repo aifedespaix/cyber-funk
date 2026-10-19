@@ -2310,6 +2310,7 @@ dependencies = [
 name = "cf-audio"
 version = "0.1.0"
 dependencies = [
+ "anyhow",
  "assert_no_alloc",
  "cpal 0.18.2",
  "crossbeam-channel",
