@@ -6,3 +6,7 @@
 //!
 //! Règle absolue : rien dans un callback `cpal` n'alloue, ne verrouille, ne journalise ni ne fait d'I/O
 //! (voir skill `realtime-audio`).
+
+pub mod capture;
+pub mod feed;
+pub mod source;
