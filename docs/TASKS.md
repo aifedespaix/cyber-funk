@@ -102,7 +102,7 @@ streaming, réalisateur, MIDI Clock) ; `high` par défaut ; `medium`/`low` pour 
 | J8-06 | [Caméra libre de préparation](tasks/J8.md) | Sonnet 5.5 | `low` | J6-01 | ⬜ |
 | J9-01 | [Tests d'endurance](tasks/J9.md) | Opus 5.5 | `high` | J8-01, J7 terminé | ⬜ |
 | J9-02 | [Pertes de sources et replis](tasks/J9.md) | Opus 5.5 | `high` | J3-03, J2-05 | ⬜ |
-| J9-03 | [Paquets d'installation](tasks/J9.md) | Sonnet 5.5 | `medium` | J0-01 | ⬜ |
+| J9-03 | [Paquets d'installation](tasks/J9.md) | Sonnet 5.5 | `medium` | J0-01 | 🟦 |
 | J9-04 | [Guide de l'opérateur](tasks/J9.md) | Sonnet 5.5 | `medium` | J8 terminé | ⬜ |
 | J9-05 | [Campagne de performance sur le matériel cible](tasks/J9.md) | Opus 5.5 | `high` | J9-01 | ⬜ |
 
