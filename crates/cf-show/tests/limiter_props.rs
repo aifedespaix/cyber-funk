@@ -370,3 +370,47 @@ fn requests_are_clamped_to_caps_and_min_fade() {
         l.value(Channel::Flash)
     );
 }
+
+/// Graine `ca1fadda…` (J2-06b), réduite : une vague repart sous `BUSY_LEVEL` (0,02) sans être vide, avec un pic demandé
+/// plus bas que ce qui brille encore. Sillage (et J2-06) ramenait le niveau au nouveau pic en une image : chute de
+/// 0,0131 en 4,6 ms, soit 2,85/s pour une pente maximale de `MAX_SWEEP_PEAK / MIN_FADE` = 1,75/s.
+#[test]
+fn retrigger_below_current_level_never_drops_instantly() {
+    let sweep = |peak| FlashRequest {
+        channel: Channel::Sweep,
+        peak,
+        attack_s: 0.0,
+        decay_s: 0.0,
+    };
+    let mut l = FlashLimiter::new();
+    assert!(l.trigger(sweep(0.017_057_538), 0.0));
+    // Trois trous d'image, chacun borné à MAX_STEP : 0,1 s de limiteur ≥ MIN_FADE, la vague est à son sommet.
+    let mut now = 0.0f64;
+    for dt in [0.254_805_4f32, 0.038_025_68, 0.047_331_773] {
+        l.step(dt);
+        now += f64::from(dt);
+    }
+    let top = l.value(Channel::Sweep);
+    assert!((top - 0.017_057_538).abs() < 1e-7, "{top}");
+    // Voie sous BUSY_LEVEL et dernier départ à plus de MIN_GAP : le second départ est accordé (règle de Sillage).
+    assert!(l.trigger(sweep(0.003_962_981), now));
+    let dt = 0.004_592_938_3f32;
+    l.step(dt);
+    let after = l.value(Channel::Sweep);
+    let max_delta = MAX_SWEEP_PEAK / MIN_FADE * dt;
+    assert!(
+        (top - after).abs() <= max_delta,
+        "Δ={} > {max_delta} : chute instantanée vers le nouveau pic",
+        (top - after).abs()
+    );
+    // Le niveau n'est pas ramené au nouveau pic : il garde son sommet puis redescend à la pente du nouveau départ.
+    assert!((after - top).abs() < 1e-7, "{after}");
+    let mut prev = after;
+    for _ in 0..30 {
+        l.step(MAX_STEP);
+        let v = l.value(Channel::Sweep);
+        assert!(v <= prev && prev - v <= MAX_SWEEP_PEAK / MIN_FADE * MAX_STEP * (1.0 + SLOPE_EPS));
+        prev = v;
+    }
+    assert!(prev == 0.0, "la vague doit finir par s'éteindre : {prev}");
+}
