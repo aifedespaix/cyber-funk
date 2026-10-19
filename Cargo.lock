@@ -2300,6 +2300,7 @@ dependencies = [
  "assert_no_alloc",
  "cf-audio",
  "crossbeam-channel",
+ "realfft",
  "thiserror 2.0.21",
  "tracing",
  "tracing-subscriber",

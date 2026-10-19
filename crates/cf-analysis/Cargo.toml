@@ -17,6 +17,7 @@ crossbeam-channel.workspace = true
 thiserror.workspace = true
 tracing.workspace = true
 assert_no_alloc.workspace = true
+realfft.workspace = true
 
 [dev-dependencies]
 tracing-subscriber.workspace = true
