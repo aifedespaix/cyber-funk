@@ -32,6 +32,10 @@ const GAIN_SMOOTHING_S: f32 = 0.03;
 /// absorber un retard du décodeur sans retomber à sec aussitôt.
 const PRIME_S: f32 = 0.085;
 
+/// Écart de gain sous lequel le lissage se pose sur la cible (-80 dB) : sans cela, l'arrondi `f32` le fige un peu
+/// avant elle.
+const GAIN_SNAP: f32 = 1e-4;
+
 /// Ce que le rendu fait une fois le fondu sortant terminé.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum After {
@@ -271,7 +275,12 @@ impl Renderer {
             .zip(block.chunks_exact_mut(channels))
         {
             self.fade = (self.fade + fade_dir).clamp(0.0, 1.0);
-            self.gain += (target_gain - self.gain) * self.gain_coef;
+            let gap = target_gain - self.gain;
+            self.gain = if gap.abs() < GAIN_SNAP {
+                target_gain
+            } else {
+                self.gain + gap * self.gain_coef
+            };
             let left = frame[0] * self.fade;
             let right = frame[1] * self.fade;
             write_frame(out, left * self.gain, right * self.gain);
