@@ -1,0 +1,16 @@
+{
+  "productName": "cyber-funk",
+  "identifier": "com.aifedespaix.cyber-funk",
+  "version": "0.1.0",
+  "description": "Visuels 3D temps réel pour soirées DJ",
+  "authors": ["aifedespaix"],
+  "category": "Video",
+  "outDir": "dist",
+  "binariesDir": "target/release",
+  "binaries": [{ "path": "cyber-funk", "main": true }],
+  "icons": ["packaging/icons/icon.png"],
+  "resources": [{ "src": "assets", "target": "assets" }],
+  "appimage": { "files": { "assets": "usr/bin/assets" } },
+  "macos": { "minimumSystemVersion": "12.0" },
+  "nsis": { "installMode": "currentUser" }
+}

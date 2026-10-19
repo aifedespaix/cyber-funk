@@ -1,0 +1,113 @@
+name: Release
+
+# Déclenché par un tag `v*` (ex. v0.1.0, ou v0.1.0-test pour un essai). Produit les paquets d'installation et les
+# dépose dans une release GitHub en BROUILLON et PRÉ-VERSION : rien n'est public tant que le propriétaire ne l'a pas
+# publiée à la main. Garde de licence : voir docs/distribution.md (CyberCar, assets/README.md).
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: read
+
+env:
+  CARGO_TERM_COLOR: always
+  CARGO_INCREMENTAL: 0
+  # Version de cargo-packager épinglée : le format de configuration change d'une version à l'autre.
+  CARGO_PACKAGER_VERSION: "0.11.8"
+
+jobs:
+  checks:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Le tag correspond à la version du workspace
+        run: |
+          version="$(grep -m1 '^version' Cargo.toml | sed -E 's/.*"([^"]+)".*/\1/')"
+          tag="${GITHUB_REF_NAME#v}"
+          case "$tag" in
+            "$version"|"$version"-*) ;;
+            *) echo "::error::Le tag $GITHUB_REF_NAME ne correspond pas à la version $version de Cargo.toml"; exit 1 ;;
+          esac
+          json_version="$(sed -nE 's/.*"version": *"([^"]+)".*/\1/p' packager.json)"
+          if [ "$json_version" != "$version" ]; then
+            echo "::error::packager.json ($json_version) et Cargo.toml ($version) ne sont pas alignés"; exit 1
+          fi
+      - name: Aucune piste personnelle dans le paquet
+        run: |
+          if [ -d assets/music/local ] && [ -n "$(ls -A assets/music/local)" ]; then
+            echo "::error::assets/music/local n'est pas vide : ces pistes ne doivent jamais être distribuées"; exit 1
+          fi
+      - name: Rappel licence CyberCar
+        run: |
+          if grep -q 'À confirmer' assets/README.md; then
+            echo "::warning::La licence de la CyberCar est encore à confirmer (assets/README.md). La release reste en brouillon : ne la publier qu'une fois la licence notée."
+          fi
+
+  package:
+    needs: checks
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-22.04 # glibc ancienne : l'AppImage tourne sur plus de distributions
+            formats: appimage
+          - os: windows-latest
+            formats: nsis
+          - os: macos-latest # Apple Silicon (arm64)
+            formats: dmg
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - name: Dépendances système (Linux)
+        if: runner.os == 'Linux'
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq libasound2-dev libudev-dev libxkbcommon-dev libwayland-dev pkg-config libfuse2
+      - name: Installer cargo-packager
+        run: cargo install cargo-packager --locked --version "$CARGO_PACKAGER_VERSION"
+      - name: Compiler le binaire
+        run: cargo build --release --locked -p cyber-funk
+      - name: Créer les paquets
+        run: cargo packager --release --formats ${{ matrix.formats }}
+      - name: Archive tar.gz portable (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          name="cyber-funk-${GITHUB_REF_NAME}-linux-x86_64"
+          mkdir -p "dist/$name"
+          cp target/release/cyber-funk "dist/$name/"
+          cp -r assets "dist/$name/assets"
+          tar -C dist -czf "dist/$name.tar.gz" "$name"
+          rm -rf "dist/$name"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: paquet-${{ matrix.os }}
+          path: |
+            dist/*.AppImage
+            dist/*.tar.gz
+            dist/*.exe
+            dist/*.dmg
+          if-no-files-found: error
+
+  release:
+    needs: package
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: paquets
+          merge-multiple: true
+      - name: Somme de contrôle
+        run: cd paquets && sha256sum * > SHA256SUMS.txt
+      - name: Release GitHub en brouillon et pré-version
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "$GITHUB_REF_NAME" paquets/* \
+            --repo "$GITHUB_REPOSITORY" \
+            --draft --prerelease \
+            --title "$GITHUB_REF_NAME" \
+            --notes "Brouillon : ne pas publier avant confirmation de la licence de la CyberCar (assets/README.md) et test d'installation sur chaque OS (docs/distribution.md)."
