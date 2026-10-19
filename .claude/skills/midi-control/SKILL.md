@@ -12,16 +12,19 @@ de l'app ne connaît que les `Action`. `Action` est défini dans `cf-control` (v
 
 ```rust
 pub enum Action {
-    Go, Back, GotoCue(u16), Hold(bool), NextDj, PrevDj, ArmDj(u16),
-    ForceDrop, SkipShot, ShowDj, Title(TitleId), Trigger(TriggerId), Ascension,
-    Macro { index: u8, value: f32 }, Master(f32), LayerFade { layer: Layer, value: f32 },
-    Blackout(bool), SafeLook, FlashKill(bool), Breathing(bool),
-    TapTempo, Resync, NudgePhase(f32),
+    Go, Back, GotoCue(u16), NextDj, PrevDj, ArmDj(u16),
+    Hold(Switch), Blackout(Switch), FlashKill(Switch), Breathing(Switch), SafeLook,
+    ForceDrop, SkipShot, ShowDj, RandomEvent, Ascension, Title(Arc<str>), Trigger(Arc<str>),
+    Macro { index: u8, value: Level }, Master(Level), LayerFade { layer: Layer, value: Level },
+    TapTempo, Resync, NudgePhase { beats: f32 },
+    OperatorOverlay(Switch), Playback(Switch), // famille App
 }
 ```
 
-Valeurs continues normalisées 0..1. Les actions bascule (`Hold`, `Blackout`…) portent leur état ou ont une variante
-`Toggle` selon le mapping (bouton momentané vs bascule).
+`Switch` = `On | Off | Toggle` ; `Level` = `Set(f32) | Shift(f32)`. `cf-control` ne garde aucun état : c'est `cf-show`
+qui résout `Toggle` et `Shift` (source : J3-01). Les identifiants texte sont des `Arc<str>` : cloner une action n'alloue pas.
+
+Valeurs continues normalisées 0..1.
 
 ## Mapping
 

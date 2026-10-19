@@ -1,0 +1,118 @@
+// Événement de démonstration (format v1, voir crates/cf-show/src/model/) : deux créneaux DJ.
+// Les looks référencés viennent de assets/looks/ ou de la liste `looks` ci-dessous (celle-ci prime).
+//
+//   cargo run -p cyber-funk -- --show assets/shows/demo.ron
+Event(
+    version: 1,
+    settings: (
+        name: "Démo cyber-funk",
+        theme: Preset(Velvet),
+        flashes: Limited,
+        latency_offset_ms: 0.0,
+        projector: Auto,
+        safe_look: "calme",
+        dj_sign: true,
+        dj_on_ads: true,
+    ),
+    looks: [
+        // Look de secours (action SafeLook) et d'ouverture : rien ne vole, aucun flash, coupes lentes.
+        Look(
+            version: 1,
+            id: "calme",
+            name: "Calme",
+            world: "neon",
+            layers: (background: 1.0, world: 1.0, foreground: 0.0, overlay: 1.0),
+            palette: Dj,
+            hue_shift_deg: 0.0,
+            gates: (
+                max_floor: 0,
+                flight_rate: 0.0,
+                flight_on_drop_only: false,
+                tricks: false,
+                stunt_tiers: [],
+                stunt_kinds: [],
+                stunt_gap_scale: 1.6,
+                shot_tiers: ["common", "uncommon"],
+                shot_block: ["top-down", "god-view", "sky-tilt", "crane", "vertigo", "spiral", "strobe", "flyby"],
+                cut_grid: (calm: 16, groove: 16, peak: 8),
+                salvo: false,
+                events: ["lanterns", "fish", "refuel", "airship"],
+                event_rate: 0.5,
+                meteor_rate: 0.0,
+                meteor_shower: false,
+                cruise: 1.0,
+                ground_traffic: 0.5,
+                fx: (rgb_split: 0.05, flash: 0.0, city_pulse: 0.2),
+                ascension: false,
+            ),
+        ),
+    ],
+    slots: [
+        DjSlot(
+            id: "aya",
+            dj: (
+                name: "Aya",
+                theme: Preset(Synthwave),
+                schedule: (start: "22:00", end: "23:30"),
+            ),
+            audio: (bpm_min: 118.0, bpm_max: 128.0, sensitivity: 0.5, tempo_source: Auto),
+            mode: Semi,
+            cues: [
+                Cue(
+                    id: "ouverture",
+                    name: "Ouverture",
+                    look: "calme",
+                    entry: Cut,
+                    triggers: [ShowDj],
+                    advance: After(seconds: 900.0),
+                ),
+                Cue(
+                    id: "la-ville",
+                    name: "La ville qui monte",
+                    look: "ville-qui-monte",
+                    entry: Fade(bars: 4),
+                    advance: Manual,
+                ),
+            ],
+        ),
+        DjSlot(
+            id: "krmn",
+            dj: (
+                name: "KRMN",
+                theme: Custom((ink: "#0b0614", velvet: "#7a1fa2", cyan: "#21d4fd", ember: "#ff5e3a", ice: "#e8f6ff")),
+                schedule: (start: "23:30", end: "01:00"),
+            ),
+            audio: (bpm_min: 126.0, bpm_max: 140.0, sensitivity: 0.6, tempo_source: MidiClock),
+            mode: Auto,
+            cues: [
+                Cue(
+                    id: "passation",
+                    name: "Passation",
+                    look: "ville-qui-monte",
+                    entry: OnPhrase,
+                    triggers: [DjLogo, Title("KRMN")],
+                    advance: Bars(bars: 64),
+                ),
+                Cue(
+                    id: "demesure",
+                    name: "Démesure",
+                    look: "ville-qui-monte",
+                    overrides: (
+                        palette: Dj,
+                        gates: (max_floor: 6, cruise: 1.12, salvo: true, fx: (flash: 0.6)),
+                    ),
+                    entry: OnDrop,
+                    triggers: [Event("fireworks")],
+                    advance: OnDrop,
+                ),
+                Cue(
+                    id: "fin",
+                    name: "Retour au calme",
+                    look: "calme",
+                    entry: Fade(bars: 8),
+                    advance: At(time: "01:00"),
+                ),
+            ],
+        ),
+    ],
+)

@@ -13,8 +13,11 @@ workspace = true
 [dependencies]
 cf-analysis.workspace = true
 cf-control.workspace = true
+ron.workspace = true
+serde.workspace = true
+serde_path_to_error.workspace = true
+thiserror.workspace = true
 
 [dev-dependencies]
 proptest.workspace = true
-serde.workspace = true
 serde_json.workspace = true

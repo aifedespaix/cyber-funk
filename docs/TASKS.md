@@ -39,25 +39,25 @@ streaming, réalisateur, MIDI Clock) ; `high` par défaut ; `medium`/`low` pour 
 | ID | Tâche | Modèle | Effort | Dépend de | Statut |
 | --- | --- | --- | --- | --- | --- |
 | J0-01 | [Workspace Cargo et squelette des crates](tasks/J0.md) | Opus 5.5 | `high` | — | 🟦 |
-| J0-02 | [Fenêtres projecteur et opérateur, journaux, ligne de commande](tasks/J0.md) | Sonnet 5.5 | `high` | J0-01 | ⬜ |
+| J0-02 | [Fenêtres projecteur et opérateur, journaux, ligne de commande](tasks/J0.md) | Sonnet 5.5 | `high` | J0-01 | 🟦 |
 | J0-03 | [Assets de base et licences](tasks/J0.md) | Haiku 5.5 | `medium` | — | 🟦 |
-| J0-04 | [Outillage qualité vérifié de bout en bout](tasks/J0.md) | Haiku 5.5 | `medium` | J0-01 | ⬜ |
-| J1-01 | [Données de référence extraites de Sillage (golden)](tasks/J1.md) | Opus 5.5 | `high` | J0-03 | ⬜ |
+| J0-04 | [Outillage qualité vérifié de bout en bout](tasks/J0.md) | Haiku 5.5 | `medium` | J0-01 | 🟦 |
+| J1-01 | [Données de référence extraites de Sillage (golden)](tasks/J1.md) | Opus 5.5 | `high` | J0-03 | 🟦 |
 | J1-02 | [Lecture des pistes de démo](tasks/J1.md) | Opus 5.5 | `high` | J0-01, J0-03 | ⬜ |
 | J1-03 | [Capture d'entrée et thread d'analyse](tasks/J1.md) | Opus 5.5 | `xhigh` | J0-01 | ⬜ |
 | J1-04 | [Détecteur de kicks et tempo (portage de `beat.ts`)](tasks/J1.md) | Opus 5.5 | `high` | J1-01, J1-03 | ⬜ |
 | J1-05 | [Sections, intensité, gain automatique du micro](tasks/J1.md) | Sonnet 5.5 | `high` | J1-04 | ⬜ |
 | J1-06 | [Pont Bevy et panneau audio de l'opérateur](tasks/J1.md) | Sonnet 5.5 | `medium` | J0-02, J1-02, J1-05 | ⬜ |
 | J1-07 | [Analyse hors ligne des démos (grille de temps en cache)](tasks/J1.md) | Sonnet 5.5 | `medium` | J1-04 | ⬜ |
-| J2-01 | [Modèle de données et format RON](tasks/J2.md) | Opus 5.5 | `high` | J0-01 | ⬜ |
+| J2-01 | [Modèle de données et format RON](tasks/J2.md) | Opus 5.5 | `high` | J0-01 | 🟦 |
 | J2-02 | [Les 6 looks de Sillage et le fondu des portes](tasks/J2.md) | Sonnet 5.5 | `high` | J2-01 | ⬜ |
-| J2-03 | [Fraîcheur, ralenti du monde, attente de la musique](tasks/J2.md) | Sonnet 5.5 | `medium` | J0-01 | ⬜ |
+| J2-03 | [Fraîcheur, ralenti du monde, attente de la musique](tasks/J2.md) | Sonnet 5.5 | `medium` | J0-01 | 🟦 |
 | J2-04 | [Chef d'orchestre du drop](tasks/J2.md) | Opus 5.5 | `high` | J2-02, J2-03 | ⬜ |
 | J2-05 | [Chef du spectacle : créneaux, cues, modes, passation](tasks/J2.md) | Opus 5.5 | `xhigh` | J2-01, J2-02, J2-03, J2-04, J3-01 | ⬜ |
 | J2-06 | [Limiteur photosensible](tasks/J2.md) | Sonnet 5.5 | `high` | J0-01 | 🟦 |
 | J2-07 | [Sauvegarde continue et reprise](tasks/J2.md) | Sonnet 5.5 | `medium` | J2-05 | ⬜ |
 | J2-08 | [Simulateur de set sans rendu](tasks/J2.md) | Sonnet 5.5 | `high` | J2-05 | ⬜ |
-| J3-01 | [Vocabulaire `Action` et couche de correspondance](tasks/J3.md) | Opus 5.5 | `high` | J0-01 | ⬜ |
+| J3-01 | [Vocabulaire `Action` et couche de correspondance](tasks/J3.md) | Opus 5.5 | `high` | J0-01 | 🟦 |
 | J3-02 | [Entrée MIDI, profils et MIDI learn](tasks/J3.md) | Opus 5.5 | `high` | J3-01 | ⬜ |
 | J3-03 | [MIDI Clock et arbitrage des sources de tempo](tasks/J3.md) | Opus 5.5 | `xhigh` | J3-02, J1-05 | ⬜ |
 | J3-04 | [Ableton Link (option)](tasks/J3.md) | Sonnet 5.5 | `high` | J3-03 | ⬜ |
@@ -102,7 +102,7 @@ streaming, réalisateur, MIDI Clock) ; `high` par défaut ; `medium`/`low` pour 
 | J8-06 | [Caméra libre de préparation](tasks/J8.md) | Sonnet 5.5 | `low` | J6-01 | ⬜ |
 | J9-01 | [Tests d'endurance](tasks/J9.md) | Opus 5.5 | `high` | J8-01, J7 terminé | ⬜ |
 | J9-02 | [Pertes de sources et replis](tasks/J9.md) | Opus 5.5 | `high` | J3-03, J2-05 | ⬜ |
-| J9-03 | [Paquets d'installation](tasks/J9.md) | Sonnet 5.5 | `medium` | J0-01 | ⬜ |
+| J9-03 | [Paquets d'installation](tasks/J9.md) | Sonnet 5.5 | `medium` | J0-01 | 🟦 |
 | J9-04 | [Guide de l'opérateur](tasks/J9.md) | Sonnet 5.5 | `medium` | J8 terminé | ⬜ |
 | J9-05 | [Campagne de performance sur le matériel cible](tasks/J9.md) | Opus 5.5 | `high` | J9-01 | ⬜ |
 
