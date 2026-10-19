@@ -30,7 +30,10 @@ fn spawn_scene(
     mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
     // Sans cible explicite, une caméra 3D rend dans la fenêtre principale : le projecteur.
-    commands.spawn((Camera3d::default(), Transform::from_xyz(2.5, 2.0, 3.5).looking_at(Vec3::ZERO, Vec3::Y)));
+    commands.spawn((
+        Camera3d::default(),
+        Transform::from_xyz(2.5, 2.0, 3.5).looking_at(Vec3::ZERO, Vec3::Y),
+    ));
     commands.spawn((
         DirectionalLight::default(),
         Transform::from_xyz(3.0, 5.0, 2.0).looking_at(Vec3::ZERO, Vec3::Y),

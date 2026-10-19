@@ -139,7 +139,10 @@ mod tests {
     fn le_niveau_de_la_ligne_de_commande_l_emporte_sur_rust_log() {
         let filter = build_filter(Some(LogLevel::Debug), Some("error")).unwrap().to_string();
         assert!(filter.split(',').any(|directive| directive == "debug"), "{filter}");
-        assert!(!filter.split(',').any(|directive| directive == "error"), "RUST_LOG ignoré : {filter}");
+        assert!(
+            !filter.split(',').any(|directive| directive == "error"),
+            "RUST_LOG ignoré : {filter}"
+        );
     }
 
     #[test]

@@ -25,7 +25,9 @@ impl Plugin for OperatorPlugin {
         app.add_plugins((EguiPlugin::default(), QuitGuardPlugin::dialog()));
         // Le contexte egui est posé à la main sur la caméra opérateur : par défaut bevy_egui le poserait sur la
         // première caméra créée, c'est-à-dire celle du projecteur.
-        app.world_mut().resource_mut::<EguiGlobalSettings>().auto_create_primary_context = false;
+        app.world_mut()
+            .resource_mut::<EguiGlobalSettings>()
+            .auto_create_primary_context = false;
         app.add_systems(Startup, window::spawn_operator_window)
             .add_systems(EguiPrimaryContextPass, (ui::main_panel, ui::quit_dialog).chain());
     }

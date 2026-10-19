@@ -34,7 +34,11 @@ fn main() -> anyhow::Result<ExitCode> {
     let cli = Cli::parse();
 
     // Fichier journal en release seulement : en développement la console suffit et on évite d'encombrer le disque.
-    let log_dir = if cfg!(debug_assertions) { None } else { logging::default_log_dir() };
+    let log_dir = if cfg!(debug_assertions) {
+        None
+    } else {
+        logging::default_log_dir()
+    };
     let _log_guard = logging::init(&LogConfig {
         level: cli.log,
         dir: log_dir,
@@ -54,7 +58,7 @@ fn main() -> anyhow::Result<ExitCode> {
 /// Assemble l'application : les plugins de cyber-funk, les fenêtres et la scène de test.
 fn build_app(cli: &Cli) -> App {
     let projector = ProjectorConfig {
-        monitor: cli.projector_monitor.clone(),
+        monitor: cli.projector_monitor.clone().unwrap_or_default(),
         windowed: cli.windowed,
     };
 

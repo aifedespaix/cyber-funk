@@ -242,16 +242,28 @@ mod tests {
     #[test]
     fn un_nom_s_apparie_sans_la_casse_puis_par_fragment() {
         let two = monitors(&[Some("DELL U2720Q"), Some("Projector XJ")]);
-        assert_eq!(resolve(&MonitorChoice::Name("projector xj".into()), &two), Ok(Target::Slot(1)));
+        assert_eq!(
+            resolve(&MonitorChoice::Name("projector xj".into()), &two),
+            Ok(Target::Slot(1))
+        );
         assert_eq!(resolve(&MonitorChoice::Name("dell".into()), &two), Ok(Target::Slot(0)));
-        assert_eq!(resolve(&MonitorChoice::Name("benq".into()), &two), Err(ResolveError::NoMatch));
+        assert_eq!(
+            resolve(&MonitorChoice::Name("benq".into()), &two),
+            Err(ResolveError::NoMatch)
+        );
     }
 
     #[test]
     fn un_fragment_ambigu_est_refuse_mais_le_nom_exact_gagne() {
         let two = monitors(&[Some("HDMI-1"), Some("HDMI-10"), None]);
-        assert_eq!(resolve(&MonitorChoice::Name("hdmi".into()), &two), Err(ResolveError::Ambiguous));
-        assert_eq!(resolve(&MonitorChoice::Name("hdmi-1".into()), &two), Ok(Target::Slot(0)));
+        assert_eq!(
+            resolve(&MonitorChoice::Name("hdmi".into()), &two),
+            Err(ResolveError::Ambiguous)
+        );
+        assert_eq!(
+            resolve(&MonitorChoice::Name("hdmi-1".into()), &two),
+            Ok(Target::Slot(0))
+        );
     }
 
     #[test]
@@ -264,7 +276,10 @@ mod tests {
         assert!(!window.decorations);
         assert!(matches!(window.mode, WindowMode::BorderlessFullscreen(_)));
         assert!(!plugin.primary_cursor_options.unwrap().visible);
-        assert!(!plugin.close_when_requested, "la fermeture passe par le garde-fou de sortie");
+        assert!(
+            !plugin.close_when_requested,
+            "la fermeture passe par le garde-fou de sortie"
+        );
     }
 
     #[test]

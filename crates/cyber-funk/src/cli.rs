@@ -21,14 +21,12 @@ pub enum MonitorChoice {
 impl FromStr for MonitorChoice {
     type Err = Infallible;
 
-    /// Un entier est un index ; tout autre texte non vide est un nom d'écran.
+    /// Un entier est un index ; tout autre texte est un nom d'écran.
     fn from_str(value: &str) -> Result<Self, Self::Err> {
         let value = value.trim();
-        Ok(match value.parse::<usize>() {
-            Ok(index) => Self::Index(index),
-            Err(_) if value.is_empty() => Self::Primary,
-            Err(_) => Self::Name(value.to_owned()),
-        })
+        Ok(value
+            .parse::<usize>()
+            .map_or_else(|_| Self::Name(value.to_owned()), Self::Index))
     }
 }
 
@@ -70,8 +68,8 @@ pub struct Cli {
     pub show: Option<PathBuf>,
 
     /// Écran du projecteur : index (0, 1, …) ou nom (les écrans détectés sont listés dans les journaux).
-    #[arg(long, value_name = "INDEX|NOM", default_value = "")]
-    pub projector_monitor: MonitorChoice,
+    #[arg(long, value_name = "INDEX|NOM")]
+    pub projector_monitor: Option<MonitorChoice>,
 
     /// Projecteur dans une fenêtre ordinaire plutôt qu'en plein écran (développement).
     #[arg(long)]
@@ -98,17 +96,20 @@ mod tests {
     fn sans_argument_tout_est_par_defaut() {
         let cli = parse(&[]);
         assert_eq!(cli.show, None);
-        assert_eq!(cli.projector_monitor, MonitorChoice::Primary);
+        assert_eq!(cli.projector_monitor, None);
         assert!(!cli.windowed && !cli.no_operator);
         assert_eq!(cli.log, None);
     }
 
     #[test]
     fn l_ecran_est_un_index_ou_un_nom() {
-        assert_eq!(parse(&["--projector-monitor", "2"]).projector_monitor, MonitorChoice::Index(2));
+        assert_eq!(
+            parse(&["--projector-monitor", "2"]).projector_monitor,
+            Some(MonitorChoice::Index(2))
+        );
         assert_eq!(
             parse(&["--projector-monitor", "DP-1"]).projector_monitor,
-            MonitorChoice::Name("DP-1".into())
+            Some(MonitorChoice::Name("DP-1".into()))
         );
     }
 

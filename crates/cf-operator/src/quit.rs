@@ -188,7 +188,10 @@ mod tests {
         request_close(&mut app, projector);
         app.update();
         assert!(app.should_exit().is_none());
-        assert_eq!(app.world().resource::<QuitPrompt>().pending, Some(QuitSource::Projector));
+        assert_eq!(
+            app.world().resource::<QuitPrompt>().pending,
+            Some(QuitSource::Projector)
+        );
     }
 
     #[test]
