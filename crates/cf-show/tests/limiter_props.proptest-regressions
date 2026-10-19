@@ -1,0 +1,9 @@
+# Seeds for failure cases proptest has generated in the past. It is
+# automatically read and these particular cases re-run before any
+# novel cases are generated.
+#
+# It is recommended to check this file in to source control so that
+# everyone who runs the test benefits from these saved cases.
+cc eb8ca9a26e63bfc806d81a2b6b323903b4814e1707412e2a5757343ed9c5fe99 # shrinks to ops = [Step(0.0), Step(0.0), Step(0.0), Step(0.0), Step(0.0), Step(0.0), Trigger(FlashRequest { channel: Sweep, peak: 0.5043419, attack_s: 0.0, decay_s: inf }), Step(0.025002545), Step(0.20378062), Step(0.037245527), Trigger(FlashRequest { channel: Flash, peak: 0.20158564, attack_s: inf, decay_s: inf }), Step(0.16224505), Policy(false, false), Policy(true, false), Step(0.014254786), Step(0.03417926), Step(0.012392483), Step(0.03902705), Trigger(FlashRequest { channel: Flash, peak: 3.4028235e38, attack_s: inf, decay_s: inf }), Step(0.23909388), Step(0.026493656), Trigger(FlashRequest { channel: Sweep, peak: 0.6603212, attack_s: 0.0, decay_s: inf })]
+cc 00a0fee058670f6eaafcf0e1ff99e33107db99a152404bd62215f1c2130f912b # shrinks to ops = [Trigger(FlashRequest { channel: Flash, peak: 0.20315626, attack_s: 0.0, decay_s: 0.0 }), Step(0.011504878)]
+cc 74c554b5dccb4f01aec871661d52461487c82e1d4f9aff861fdc80c9b601ecec # shrinks to r = 0.0, g = 0.0, b = 0.0, red_bias = 0.0, strong = 0.29237184

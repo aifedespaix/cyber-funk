@@ -54,7 +54,7 @@ streaming, réalisateur, MIDI Clock) ; `high` par défaut ; `medium`/`low` pour 
 | J2-03 | [Fraîcheur, ralenti du monde, attente de la musique](tasks/J2.md) | Sonnet 5.5 | `medium` | J0-01 | ⬜ |
 | J2-04 | [Chef d'orchestre du drop](tasks/J2.md) | Opus 5.5 | `high` | J2-02, J2-03 | ⬜ |
 | J2-05 | [Chef du spectacle : créneaux, cues, modes, passation](tasks/J2.md) | Opus 5.5 | `xhigh` | J2-01, J2-02, J2-03, J2-04, J3-01 | ⬜ |
-| J2-06 | [Limiteur photosensible](tasks/J2.md) | Sonnet 5.5 | `high` | J0-01 | ⬜ |
+| J2-06 | [Limiteur photosensible](tasks/J2.md) | Sonnet 5.5 | `high` | J0-01 | 🟦 |
 | J2-07 | [Sauvegarde continue et reprise](tasks/J2.md) | Sonnet 5.5 | `medium` | J2-05 | ⬜ |
 | J2-08 | [Simulateur de set sans rendu](tasks/J2.md) | Sonnet 5.5 | `high` | J2-05 | ⬜ |
 | J3-01 | [Vocabulaire `Action` et couche de correspondance](tasks/J3.md) | Opus 5.5 | `high` | J0-01 | ⬜ |
