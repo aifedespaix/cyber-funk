@@ -148,7 +148,8 @@ Dépendances système Linux : `libasound2-dev libudev-dev libxkbcommon-dev libwa
   pousser. Commits locaux fréquents (une coupure ne doit rien coûter).
 - Bloqué deux fois sur le même critère (clippy, test, perf) : arrête, note-le dans la PR, ne continue pas à itérer.
 - Cloud : le hook de session fixe `CARGO_TARGET_DIR` (dossier de compilation partagé entre les worktrees) ; n'en crée
-  jamais un autre, le disque est limité. Pas d'écran ni de carte son : tests sans matériel (`Xvfb` + rendu logiciel pour
+  jamais un autre, le disque est limité. Piège : deux branches qui modifient le même crate peuvent s'écraser dans ce
+  dossier (faux « unresolved import ») ; un `touch crates/<crate>/src/lib.rs` avant `cargo test` force la recompilation. Pas d'écran ni de carte son : tests sans matériel (`Xvfb` + rendu logiciel pour
   le visuel) et dis dans la PR ce qui n'a pas pu être vérifié.
 
 ---
