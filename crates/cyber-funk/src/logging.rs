@@ -177,7 +177,8 @@ mod tests {
         assert_eq!(files.len(), 1, "un fichier par jour");
         let path = files[0].as_ref().unwrap().path();
         let name = path.file_name().unwrap().to_string_lossy().into_owned();
-        assert!(name.starts_with("cyber-funk.") && name.ends_with(".log"), "{name}");
+        assert!(name.starts_with("cyber-funk."), "{name}");
+        assert_eq!(path.extension().and_then(|ext| ext.to_str()), Some("log"), "{name}");
         let content = std::fs::read_to_string(path).unwrap();
         assert!(content.contains("bonjour le journal"), "{content}");
         assert!(!content.contains('\u{1b}'), "pas de séquences ANSI dans le fichier");
