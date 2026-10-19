@@ -1,11 +1,17 @@
 // Données de référence du limiteur photosensible : rejoue un scénario déterministe sur le vrai `show-fx-limiter.ts` de
 // Sillage et écrit les sorties en JSON. Utilisé par `crates/cf-show/tests/limiter_golden.rs`.
 //
-//   SILLAGE_DIR=/chemin/aifedespaix.com bun tools/sillage-golden/limiter.ts > crates/cf-show/tests/golden/limiter.json
+//   bun run tools/sillage-golden/limiter.ts > crates/cf-show/tests/golden/limiter.json
+//
+// Le limiteur lui-même est la copie conforme `sillage/engine/show-fx-limiter.ts` (Sillage fd34481, voir README) : le
+// script s'arrête si son empreinte git ne correspond plus. `SILLAGE_DIR` (facultatif) la compare à un clone local.
 //
 // Le scénario (opérations + sorties) est entièrement dans le JSON : le test Rust le rejoue tel quel, sans réimplémenter
 // le générateur pseudo-aléatoire.
-import { join } from "node:path";
+import { createHash } from "node:crypto";
+import { readFile } from "node:fs/promises";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
 
 interface Rgb {
   r: number;
@@ -25,9 +31,19 @@ interface LimiterModule {
   FX_SWEEP: number;
 }
 
-const root = process.env.SILLAGE_DIR;
-if (!root) throw new Error("SILLAGE_DIR doit pointer vers le dépôt aifedespaix.com");
-const engine = join(root, "apps/main/src/components/sillage/engine/show-fx-limiter.ts");
+const TOOL_DIR = dirname(fileURLToPath(import.meta.url));
+const VENDORED_FILE = "engine/show-fx-limiter.ts";
+/** Empreinte git (blob SHA-1) de la copie, telle qu'au commit fd34481 de Sillage. */
+const VENDORED_BLOB = "d985586f0d2d5ac17e6f9ea56844ee8122a4d207";
+const gitBlobSha = (content: Buffer): string =>
+  createHash("sha1").update(`blob ${content.length}\0`).update(content).digest("hex");
+const copy = await readFile(join(TOOL_DIR, "sillage", VENDORED_FILE));
+if (gitBlobSha(copy) !== VENDORED_BLOB) throw new Error(`sillage/${VENDORED_FILE} ne correspond plus à Sillage fd34481`);
+const sillageDir = process.env.SILLAGE_DIR;
+if (sillageDir && !copy.equals(await readFile(join(sillageDir, VENDORED_FILE)))) {
+  throw new Error(`sillage/${VENDORED_FILE} diffère de ${sillageDir}`);
+}
+const engine = join(TOOL_DIR, "sillage", VENDORED_FILE);
 const { FlashLimiter, defuseRed, FX_FLASH, FX_SWEEP } = (await import(engine)) as LimiterModule;
 
 // LCG 32 bits (Numerical Recipes) : même suite à chaque exécution.

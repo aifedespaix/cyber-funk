@@ -33,6 +33,7 @@ Dépôt `aifedespaix/aifedespaix.com`, branche `main`, commit **`fd344819121f292
 | `sillage/engine/beat.ts` | `apps/main/src/components/sillage/engine/beat.ts` | `d5bae734eb70` |
 | `sillage/engine/sections.ts` | `apps/main/src/components/sillage/engine/sections.ts` | `ac63a6b01b06` |
 | `sillage/engine/show/build.ts` | `apps/main/src/components/sillage/engine/show/build.ts` | `d2d9946dc6d5` |
+| `sillage/engine/show-fx-limiter.ts` | `apps/main/src/components/sillage/engine/show-fx-limiter.ts` | `d985586f0d2d` |
 
 Ces trois fichiers ne sont **jamais modifiés** : `index.ts` recalcule leur empreinte git au lancement et s'arrête si
 elle ne correspond plus au commit ci-dessus. Pour suivre une nouvelle version de Sillage : recopier les fichiers,
@@ -90,3 +91,15 @@ pour garder des fichiers de 35 à 60 ko.
   arrondie) ne prend que certaines valeurs (… 120, 124, 129, 133, 138, 144, 150 …). C'est le comportement de Sillage à
   60 i/s, pas un défaut du script.
 - Le gain automatique du micro (`BandGain` de `audio.ts`) n'est pas exercé : les pistes sont lues comme des fichiers.
+
+## Limiteur photosensible (J2-06)
+
+`limiter.ts` rejoue un scénario déterministe (1500 opérations : demandes de flash, pas de temps, changements de
+réglage, plus des couleurs pour `defuseRed`) sur la copie conforme `sillage/engine/show-fx-limiter.ts` et écrit le JSON
+dans `crates/cf-show/tests/golden/limiter.json`, relu par `crates/cf-show/tests/limiter_golden.rs` :
+
+```bash
+bun run tools/sillage-golden/limiter.ts > crates/cf-show/tests/golden/limiter.json
+```
+
+Le script vérifie lui-même l'empreinte git de la copie (comme `index.ts` pour les autres), indépendamment d'`index.ts`.
