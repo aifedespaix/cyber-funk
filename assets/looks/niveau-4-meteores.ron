@@ -1,0 +1,34 @@
+// Niveau 4 de Sillage (`ACTS[4]` de engine/show/acts.ts, valeurs identiques) : salves de coupes, pluies d'astéroïdes, tous les événements.
+// Les nombres sont ceux atteints au début de l'acte ; Sillage les fait glisser vers ceux du niveau suivant, ce que
+// fait `cf_show::gates::GateBlender` entre deux looks. Fichier relu par crates/cf-show/tests/levels.rs.
+// Couches, palette et teinte : Sillage n'en règle pas par niveau, donc tout plein et palette inchangée.
+Look(
+    version: 1,
+    id: "niveau-4-meteores",
+    name: "Niveau 4 · Les météores",
+    world: "neon",
+    layers: (background: 1.0, world: 1.0, foreground: 1.0, overlay: 1.0),
+    palette: Inherit,
+    hue_shift_deg: 0.0,
+    gates: (
+        max_floor: 6,
+        flight_rate: 1.3,
+        flight_on_drop_only: false,
+        tricks: true,
+        stunt_tiers: ["common", "uncommon", "rare"],
+        stunt_kinds: ["off-road", "slalom", "near-miss", "head-on", "threading", "wall-ride", "sign-hop", "loop", "inverted", "rooftop", "big-jump"],
+        stunt_gap_scale: 0.8,
+        shot_tiers: ["common", "uncommon", "rare"],
+        shot_block: ["ringworld"],
+        cut_grid: (calm: 8, groove: 4, peak: 2),
+        salvo: true,
+        events: ["chase", "convoy", "crossroad", "tower", "airship", "swarm", "escort", "landmark", "bikes", "adship", "storm", "aurora", "fireworks", "race", "lanterns", "dancer", "blackout", "fish", "toll", "refuel", "tunnel", "city-pulse", "holo-title"],
+        event_rate: 1.3,
+        meteor_rate: 5.0,
+        meteor_shower: true,
+        cruise: 1.1,
+        ground_traffic: 1.0,
+        fx: (rgb_split: 0.55, flash: 0.6, city_pulse: 0.8),
+        ascension: false,
+    ),
+)
