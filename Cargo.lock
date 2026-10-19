@@ -2354,6 +2354,7 @@ version = "0.1.0"
 dependencies = [
  "bevy",
  "cf-show",
+ "thiserror 2.0.21",
 ]
 
 [[package]]
