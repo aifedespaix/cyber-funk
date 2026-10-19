@@ -1,0 +1,46 @@
+// Profil clavier par défaut : les raccourcis du mode cinéma de Sillage (engine/show/operator.ts).
+// Copie lisible de `ControlProfile::sillage_keyboard()` (cf-control) ; un test vérifie que les deux sont identiques.
+// Pour changer une touche, ne pas éditer ce fichier : placer un profil au-dessus dans la pile (événement ou créneau),
+// il remplace les gestes qu'il redéfinit.
+//
+// Lettres lues par caractère (`Char`, suit la disposition : AZERTY compris), autres touches par code physique (`Code`).
+ControlProfile(
+    name: "Clavier (Sillage)",
+    bindings: [
+        Binding(source: Key(key: Char('d')), action: ForceDrop, mode: Momentary),
+        Binding(source: Key(key: Char('n')), action: SkipShot, mode: Momentary),
+        Binding(source: Key(key: Code(ArrowRight)), action: Go, mode: Momentary),
+        Binding(source: Key(key: Code(ArrowLeft)), action: Back, mode: Momentary),
+        // 0 à 9, rangée du haut et pavé numérique (Sillage s'arrêtait à 5 : six niveaux).
+        Binding(source: Key(key: Code(Digit0)), action: GotoCue(0), mode: Momentary),
+        Binding(source: Key(key: Code(Numpad0)), action: GotoCue(0), mode: Momentary),
+        Binding(source: Key(key: Code(Digit1)), action: GotoCue(1), mode: Momentary),
+        Binding(source: Key(key: Code(Numpad1)), action: GotoCue(1), mode: Momentary),
+        Binding(source: Key(key: Code(Digit2)), action: GotoCue(2), mode: Momentary),
+        Binding(source: Key(key: Code(Numpad2)), action: GotoCue(2), mode: Momentary),
+        Binding(source: Key(key: Code(Digit3)), action: GotoCue(3), mode: Momentary),
+        Binding(source: Key(key: Code(Numpad3)), action: GotoCue(3), mode: Momentary),
+        Binding(source: Key(key: Code(Digit4)), action: GotoCue(4), mode: Momentary),
+        Binding(source: Key(key: Code(Numpad4)), action: GotoCue(4), mode: Momentary),
+        Binding(source: Key(key: Code(Digit5)), action: GotoCue(5), mode: Momentary),
+        Binding(source: Key(key: Code(Numpad5)), action: GotoCue(5), mode: Momentary),
+        Binding(source: Key(key: Code(Digit6)), action: GotoCue(6), mode: Momentary),
+        Binding(source: Key(key: Code(Numpad6)), action: GotoCue(6), mode: Momentary),
+        Binding(source: Key(key: Code(Digit7)), action: GotoCue(7), mode: Momentary),
+        Binding(source: Key(key: Code(Numpad7)), action: GotoCue(7), mode: Momentary),
+        Binding(source: Key(key: Code(Digit8)), action: GotoCue(8), mode: Momentary),
+        Binding(source: Key(key: Code(Numpad8)), action: GotoCue(8), mode: Momentary),
+        Binding(source: Key(key: Code(Digit9)), action: GotoCue(9), mode: Momentary),
+        Binding(source: Key(key: Code(Numpad9)), action: GotoCue(9), mode: Momentary),
+        Binding(source: Key(key: Char('g'), shift: Released), action: NextDj, mode: Momentary),
+        Binding(source: Key(key: Char('g'), shift: Held), action: PrevDj, mode: Momentary),
+        Binding(source: Key(key: Char('t')), action: ShowDj, mode: Momentary),
+        Binding(source: Key(key: Char('a')), action: Ascension, mode: Momentary),
+        Binding(source: Key(key: Char('e')), action: RandomEvent, mode: Momentary),
+        Binding(source: Key(key: Char('x')), action: FlashKill, mode: Toggle),
+        Binding(source: Key(key: Char('b')), action: Breathing, mode: Toggle),
+        Binding(source: Key(key: Char('o')), action: OperatorOverlay, mode: Toggle),
+        Binding(source: Key(key: Code(Space), shift: Held), action: Playback, mode: Toggle),
+        // Échap (sortie dans Sillage) n'est pas lié : dans cyber-funk, Échap ne quitte jamais seul.
+    ],
+)

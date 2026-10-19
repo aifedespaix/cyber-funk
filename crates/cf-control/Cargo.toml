@@ -11,3 +11,7 @@ publish.workspace = true
 workspace = true
 
 [dependencies]
+# `rc` : les identifiants de titres et de déclencheurs sont des `Arc<str>`, pour que cloner une `Action` n'alloue pas.
+serde = { workspace = true, features = ["rc"] }
+ron.workspace = true
+thiserror.workspace = true
