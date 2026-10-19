@@ -15,6 +15,7 @@ use common::{RATE, manual_player, temp_dir, write_wav};
 static ALLOCATOR: AllocDisabler = AllocDisabler;
 
 /// Rend `blocks` blocs de 256 trames sans aucune allocation. Le tampon et l'attente du décodeur sont hors zone.
+#[allow(clippy::expect_used)] // aide de test : `allow-expect-in-tests` ne couvre que les fonctions `#[test]`
 fn render_without_alloc(driver: &mut ManualDriver, buf: &mut [f32], blocks: usize) {
     for _ in 0..blocks {
         driver.wait_buffered(256, Duration::from_secs(5));
@@ -30,8 +31,8 @@ fn render_never_allocates() {
     write_wav(&a, RATE, 6_000, |i| (i as f32 * 0.01).sin() * 0.5);
     write_wav(&b, 44_100, 30_000, |i| (i as f32 * 0.02).sin() * 0.5);
     let (mut player, mut driver) = manual_player(&[a, b], PlayMode::Sequence, false);
-    // Voie d'analyse prise mais jamais lue : elle déborde, le chemin « ring plein » est donc couvert.
-    let _tap = player.take_analysis_tap().expect("voie d'analyse");
+    // Flux d'analyse pris mais jamais lu : il déborde, le chemin « ring plein » est donc couvert.
+    let _feed = player.take_analysis_feed().expect("flux d'analyse");
     let mut buf = vec![0.0_f32; 256 * 2];
     assert!(driver.wait_buffered(10_000, Duration::from_secs(5)));
 
@@ -62,8 +63,8 @@ fn render_never_allocates() {
 
     let state = player.state();
     assert!(
-        state.tap_overflows > 0,
-        "le débordement de la voie d'analyse a bien été exercé"
+        state.analysis_dropped > 0,
+        "le débordement du flux d'analyse a bien été exercé"
     );
     assert_eq!(state.underruns, 0);
     std::fs::remove_dir_all(&dir).unwrap();

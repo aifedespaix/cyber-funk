@@ -20,3 +20,6 @@ Thumbs.db
 !.vscode/settings.json
 .env
 .claude/settings.local.json
+
+# Worktrees temporaires des agents Claude Code
+/.claude/worktrees/

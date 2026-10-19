@@ -4,11 +4,14 @@
 //!   Player (contrôle) ──Command──▶ thread décodeur (symphonia + rubato) ──rtrb f32 + rtrb Marker──▶ Renderer
 //!        ▲                                                                                         (callback)
 //!        └────────────── atomiques : piste, position, durée, sous-alimentations ◀───────────────────────┘
-//!                                                                     Renderer ──rtrb f32 mono──▶ AnalysisTap
+//!                                                    Renderer ──FeedWriter (J1-03, source Demo)──▶ InputFeed
 //! ```
 //!
-//! - Le volume et la sourdine ne s'appliquent qu'au signal envoyé à la sortie, jamais à la voie d'analyse (Sillage :
-//!   « l'analyseur lit le signal avant le volume »).
+//! - Le signal joué part vers l'analyse par le flux d'entrée de J1-03 ([`crate::feed`]) : le lecteur crée le flux
+//!   `SourceKind::Demo`, garde l'écrivain dans le callback et rend le côté lecture par
+//!   [`Player::take_analysis_feed`], à brancher sur le thread d'analyse (`AnalysisControl::attach`).
+//! - Le volume et la sourdine ne s'appliquent qu'au signal envoyé à la sortie, jamais à l'analyse (Sillage :
+//!   « l'analyseur lit le signal avant le volume »). En pause, rien n'est poussé vers l'analyse.
 //! - La position est un compteur de trames tenu par le callback : elle correspond à ce qui part vers la carte son,
 //!   pas à ce que le décodeur a lu d'avance.
 //! - La sortie est injectable ([`OutputBackend`]) : tout se teste sans carte son avec [`NullOutput`] ou
@@ -28,6 +31,9 @@ use std::thread::JoinHandle;
 
 use crossbeam_channel::Sender;
 
+use crate::feed::{FeedStats, InputFeed, capacity_for, feed};
+use crate::source::SourceKind;
+
 pub use error::{PlayerError, Result};
 pub use output::{ActiveOutput, CpalOutput, ManualDriver, ManualOutput, NullOutput, OutputBackend};
 pub use render::{DeviceErrorReporter, Renderer};
@@ -40,8 +46,8 @@ use crate::playlist::{PlayMode, Playlist, Track};
 /// seek ne l'attend pas (le rendu jette l'ancien signal).
 pub const RING_SECONDS: f32 = 0.5;
 
-/// Capacité de la voie d'analyse (s) : le thread d'analyse lit par pas de ~10 ms, une seconde laisse de la marge.
-pub const TAP_SECONDS: f32 = 1.0;
+/// Capacité du flux d'analyse (s) : le thread d'analyse lit par pas de ~10 ms, une seconde laisse de la marge.
+pub const ANALYSIS_FEED_SECONDS: f32 = 1.0;
 
 /// Capacité de la file de repères : un par piste ou par saut, 64 suffit même en martelant « suivant ».
 const MARKER_CAPACITY: usize = 64;
@@ -94,21 +100,10 @@ pub struct PlayerState {
     pub rendered_frames: u64,
     /// Sous-alimentations : le callback a manqué de signal alors que le décodeur avait encore à faire.
     pub underruns: u64,
-    /// Échantillons perdus par la voie d'analyse (ring plein).
-    pub tap_overflows: u64,
+    /// Échantillons jetés par le flux d'analyse faute de place (thread d'analyse en retard, ou flux pas branché).
+    pub analysis_dropped: u64,
     /// Erreurs signalées par le pilote de sortie (xrun du périphérique, perte…).
     pub device_errors: u64,
-}
-
-/// Voie d'analyse : le signal joué, en mono, avant volume et sourdine, à la fréquence de la sortie. Un échantillon
-/// par trame rendue, silences de pause compris : l'échantillon `n` correspond à la trame de sortie `n`, tant que le
-/// lecteur suit (sinon [`PlayerState::tap_overflows`] augmente).
-#[derive(Debug)]
-pub struct AnalysisTap {
-    /// Échantillons mono.
-    pub consumer: rtrb::Consumer<f32>,
-    /// Fréquence d'échantillonnage (Hz).
-    pub sample_rate: u32,
 }
 
 /// Lecteur de démos. Toutes les méthodes sont non bloquantes (atomiques ou canal borné) : on peut les appeler depuis
@@ -119,7 +114,8 @@ pub struct Player {
     shared: Arc<Shared>,
     tracks: Arc<[Track]>,
     sample_rate: u32,
-    tap: Option<rtrb::Consumer<f32>>,
+    analysis_feed: Option<InputFeed>,
+    analysis_stats: Arc<FeedStats>,
     engine: Option<JoinHandle<()>>,
     /// Sortie démarrée, gardée pour la durée de vie du lecteur (arrêtée en premier dans `Drop`).
     output: Option<Box<dyn ActiveOutput>>,
@@ -137,7 +133,12 @@ impl Player {
         let ring_frames = (RING_SECONDS * sample_rate as f32) as usize;
         let (audio_tx, audio_rx) = rtrb::RingBuffer::new(ring_frames * 2);
         let (marker_tx, marker_rx) = rtrb::RingBuffer::new(MARKER_CAPACITY);
-        let (tap_tx, tap_rx) = rtrb::RingBuffer::new((TAP_SECONDS * sample_rate as f32) as usize);
+        let (analysis_writer, analysis_feed) = feed(
+            SourceKind::Demo,
+            sample_rate,
+            capacity_for(sample_rate, ANALYSIS_FEED_SECONDS),
+        )?;
+        let analysis_stats = Arc::clone(analysis_writer.stats());
         let (command_tx, command_rx) = crossbeam_channel::bounded(COMMAND_CAPACITY);
 
         let shared = Arc::new(Shared::new());
@@ -147,7 +148,7 @@ impl Player {
         playlist.set_mode(config.mode);
         let tracks = Arc::clone(playlist.tracks());
 
-        let renderer = Renderer::new(audio_rx, marker_rx, tap_tx, Arc::clone(&shared), sample_rate);
+        let renderer = Renderer::new(audio_rx, marker_rx, analysis_writer, Arc::clone(&shared), sample_rate);
         let engine = Engine {
             playlist,
             rate_out: sample_rate,
@@ -162,7 +163,8 @@ impl Player {
             shared,
             tracks,
             sample_rate,
-            tap: Some(tap_rx),
+            analysis_feed: Some(analysis_feed),
+            analysis_stats,
             engine: Some(engine),
             output: None,
         };
@@ -238,14 +240,13 @@ impl Player {
         self.sample_rate
     }
 
-    /// Prend la voie d'analyse (une seule fois). Le rendu n'y pousse qu'à partir de cet appel.
-    pub fn take_analysis_tap(&mut self) -> Option<AnalysisTap> {
-        let consumer = self.tap.take()?;
+    /// Prend le flux d'analyse `SourceKind::Demo` (une seule fois), à confier au thread d'analyse de J1-03. Le rendu
+    /// n'y pousse qu'à partir de cet appel : le signal joué, mono, avant volume et sourdine, à
+    /// [`Player::sample_rate`] ; rien en pause.
+    pub fn take_analysis_feed(&mut self) -> Option<InputFeed> {
+        let input = self.analysis_feed.take()?;
         self.shared.tap_enabled.store(true, Ordering::Relaxed);
-        Some(AnalysisTap {
-            consumer,
-            sample_rate: self.sample_rate,
-        })
+        Some(input)
     }
 
     /// Instantané de l'état du lecteur.
@@ -267,7 +268,7 @@ impl Player {
             mode: s.mode(),
             rendered_frames: s.rendered_frames.load(Ordering::Relaxed),
             underruns: s.underruns.load(Ordering::Relaxed),
-            tap_overflows: s.tap_overflows.load(Ordering::Relaxed),
+            analysis_dropped: self.analysis_stats.dropped(),
             device_errors: s.device_errors.load(Ordering::Relaxed),
         }
     }

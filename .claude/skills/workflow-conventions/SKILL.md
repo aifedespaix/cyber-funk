@@ -1,52 +1,39 @@
 ---
 name: workflow-conventions
-description: Use when choosing which Claude model/effort to run a cyber-funk task with, when starting a task from docs/TASKS.md, or when preparing the commit/PR for a task.
+description: Orchestrator only (not for task agents) - choosing the model and effort for a cyber-funk task, launching agents in parallel, escalating, reviewing and updating task statuses. Use when starting or supervising tasks from docs/TASKS.md.
 ---
 
-# Workflow des agents - cyber-funk
+# Workflow de l'orchestrateur - cyber-funk
 
-## Choisir le modèle
+La source de vérité est `docs/TASKS.md` (modèle et effort de chaque tâche, règles d'économie, vagues). Ce skill n'en garde
+que la mécanique.
 
-| Type de travail | Modèle | Effort |
-| --- | --- | --- |
-| Architecture, contrats entre crates, concurrence (threads audio, lock-free), render graph, machine à états du show | **Opus 5.5** (`claude-opus-5-5`) | `high` à `xhigh` |
-| Portage d'un module Sillage au contrat déjà fixé (plans caméra, événements, cascades, landmarks), UI egui, plugins Bevy « classiques » | **Sonnet 5.5** (`claude-sonnet-5-5`) | `medium` à `high` |
-| Config, assets, doc, petites corrections mécaniques, renommages | **Haiku 5.5** (`claude-haiku-5-5`) | `low` à `medium` |
-| Revue d'une PR critique (audio temps réel, show, rendu) | **Opus 5.5** | `high` (skill `code-review`) |
+## Lancer
 
-Règle simple : si la tâche **définit** un contrat (trait, format de fichier, protocole entre threads) → Opus. Si elle
-**remplit** un contrat existant → Sonnet. Si elle ne demande aucune décision → Haiku.
+1. Prendre une tâche dont toutes les dépendances sont ✅ (une vague, **3 agents au plus**, dont 2 qui compilent Bevy).
+2. Agent avec le modèle et l'effort du tableau, worktree isolé, prompt de trois lignes (voir `docs/TASKS.md`).
+3. Dépôts attachés : `cyber-funk` et, pour le portage, `aifedespaix.com` (lecture seule).
 
-Chaque fiche de `docs/tasks/J*.md` donne déjà le modèle et l'effort recommandés.
+## Modèle : la règle
 
-## Lancer une tâche (prompt type)
+- **Opus** : la tâche *définit* un contrat (trait, format de fichier, protocole entre threads, machine à états).
+- **Sonnet** : elle *remplit* un contrat, avec des tests ou des critères mesurables. C'est le défaut.
+- **Haiku** : port mécanique à patron connu, d'abord en essai.
+- **Escalade** : deux échecs sur le même critère (clippy, test, perf) → relancer au modèle du dessus. Ne pas laisser un
+  agent itérer.
+- **Effort** : `medium` pour un port gardé par des tests, `high` pour rendu / WGSL / perf / concurrence, `xhigh` jamais
+  sans raison écrite.
 
-```
-Tâche J1-04 du dépôt cyber-funk.
-Lis CLAUDE.md, puis la fiche J1-04 dans docs/tasks/J1.md, charge les skills qu'elle cite,
-lis les fichiers Sillage indiqués (dépôt aifedespaix/aifedespaix.com), puis réalise la tâche.
-Branche task/J1-04-beat-detector, PR vers main avec le modèle de PR, critères d'acceptation cochés.
-```
+## Superviser
 
-Le dépôt Sillage (`aifedespaix/aifedespaix.com`) doit être attaché à la session de l'agent pour les tâches de portage.
+- Interruptions (limite de session) : le travail reste dans le worktree ; reprendre avec `SendMessage` vers l'agent.
+  Avant de reprendre, vérifier le disque (`df -h`) et la place du dossier `target`.
+- Revue : CI + critères de la fiche d'abord. Revue Opus (`code-review`, `high`) seulement pour J1-03, J2-05, J2-06,
+  J3-03, J4-02.
+- Après chaque fusion : passer la ligne de `docs/TASKS.md` à ✅ (les agents n'y touchent pas).
+- Conflits `Cargo.lock` : merger `main` dans la branche et laisser cargo le regénérer.
 
-## Avant de pousser
+## Docs à jour avant de lancer
 
-1. `cargo fmt --all`
-2. `cargo clippy --workspace --all-targets --all-features -- -D warnings`
-3. `cargo nextest run --workspace` (ou `cargo test --workspace`)
-4. `cargo deny check` si des dépendances ont changé
-5. Relire son diff comme un relecteur hostile : allocations dans une boucle chaude ? `unwrap` ? constante Sillage
-   modifiée sans raison ? fichier > 400 lignes ?
-6. Mettre à jour le statut dans `docs/TASKS.md`.
-
-## Parallélisme
-
-`docs/TASKS.md` indique les dépendances. Deux tâches sans dépendance entre elles et qui ne touchent pas le même crate
-peuvent tourner en parallèle. Deux tâches sur le même crate : en série, ou bien coordonner les fichiers touchés.
-
-## Skills externes utiles
-
-- Context7 (`upstash/context7`) : docs à jour de Bevy, wgpu, cpal, midir. **Indispensable** : l'API de Bevy change
-  à chaque version et la mémoire des modèles est souvent en retard d'une ou deux versions.
-- `obra/superpowers` : méthode (TDD, débogage systématique) pour les tâches Opus longues.
+Context7 (`upstash/context7`) donne les API à jour de Bevy, wgpu, cpal et midir ; sans lui, lire les sources dans
+`~/.cargo/registry/src/*/bevy*-<version>/` plutôt que de se fier à sa mémoire.

@@ -12,3 +12,11 @@ workspace = true
 
 [dependencies]
 cf-audio.workspace = true
+triple_buffer.workspace = true
+crossbeam-channel.workspace = true
+thiserror.workspace = true
+tracing.workspace = true
+assert_no_alloc.workspace = true
+
+[dev-dependencies]
+tracing-subscriber.workspace = true

@@ -55,7 +55,7 @@ pub(crate) struct Shared {
     volume_bits: AtomicU32,
     pub muted: AtomicBool,
     mode: AtomicU8,
-    /// La voie d'analyse a été prise : le rendu y pousse le signal.
+    /// Le flux d'analyse a été pris : le rendu y pousse le signal.
     pub tap_enabled: AtomicBool,
 
     // Écrits par le décodeur.
@@ -69,7 +69,6 @@ pub(crate) struct Shared {
     /// Trames rendues vers la sortie depuis le démarrage (horloge audio du lecteur).
     pub rendered_frames: AtomicU64,
     pub underruns: AtomicU64,
-    pub tap_overflows: AtomicU64,
     /// Erreurs signalées par le pilote de sortie (xrun du périphérique, périphérique perdu…).
     pub device_errors: AtomicU64,
 }
@@ -88,7 +87,6 @@ impl Shared {
             duration_frames: AtomicU64::new(0),
             rendered_frames: AtomicU64::new(0),
             underruns: AtomicU64::new(0),
-            tap_overflows: AtomicU64::new(0),
             device_errors: AtomicU64::new(0),
         }
     }

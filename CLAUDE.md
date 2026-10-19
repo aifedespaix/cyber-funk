@@ -11,11 +11,12 @@ Application native de VJing 3D temps réel (Rust + Bevy), portée de **Sillage**
 (`aifedespaix/aifedespaix.com` → `apps/main/src/components/sillage/`), qui réagit en direct aux sets de plusieurs DJs
 via le micro, le MIDI et les logiciels de mix. Un seul mode d'affichage : le **mode Cinéma**.
 
-Documents de référence, à lire avant toute tâche :
+Documents de référence :
 
-- `docs/ARCHITECTURE.md` : choix techniques, modèle de données, découpage en crates (validé).
-- `docs/TASKS.md` : liste des tâches, modèle d'agent recommandé, dépendances. Le détail de chaque tâche est dans
-  `docs/tasks/J*.md`.
+- `docs/tasks/J*.md` : la fiche de ta tâche. **À lire en premier.**
+- `docs/ARCHITECTURE.md` : choix techniques et modèle de données (validé). **Seulement les sections que ta fiche cite**,
+  pas le document entier.
+- `docs/TASKS.md` : tenu par l'orchestrateur. Ne le lis pas et ne le modifie pas.
 
 ---
 
@@ -131,14 +132,24 @@ Dépendances système Linux : `libasound2-dev libudev-dev libxkbcommon-dev libwa
   session impose un autre nom. Titre de PR : `[J1-04] Détecteur de kicks`.
 - Lire la fiche de la tâche dans `docs/tasks/J*.md`, charger les skills qu'elle cite, lire les fichiers Sillage
   qu'elle cite **avant** d'écrire du code.
-- Respecter le périmètre de la tâche. Un problème hors périmètre se note dans la PR (section « Écarts »), il ne se
-  corrige pas en douce.
 - Cocher les critères d'acceptation dans la PR, un par un, avec la preuve (test, sortie de commande, capture).
-- Mettre à jour `docs/TASKS.md` (statut de la tâche) dans la même PR.
+- Ne touche pas à `docs/TASKS.md` : les statuts sont passés à ✅ par l'orchestrateur après fusion (évite un conflit par PR).
+- Respecter le périmètre de la tâche. Un problème hors périmètre se note dans la PR (section « Écarts »).
 - **Commentaires et docs en français**, identifiants en anglais (convention Rust). Commenter le *pourquoi*, pas le
   *quoi*, au même niveau de détail que Sillage.
 - Les noms et contrats de Sillage (`ShowState`, `ShotSpec`, `Gates`, `Freshness`…) sont conservés pour garder la
   correspondance lisible.
+
+### Économie de contexte et environnement cloud
+
+- Sorties longues : `cargo ... 2>&1 | tail -40` ; jamais de log entier. Fichiers lus par plages (`offset`/`limit`) ou
+  avec `grep`, jamais relus s'ils l'ont déjà été.
+- Itère sur ton crate (`-p <crate>`) ; `fmt`, `clippy --workspace` et `test --workspace` **une seule fois**, avant de
+  pousser. Commits locaux fréquents (une coupure ne doit rien coûter).
+- Bloqué deux fois sur le même critère (clippy, test, perf) : arrête, note-le dans la PR, ne continue pas à itérer.
+- Cloud : le hook de session fixe `CARGO_TARGET_DIR` (dossier de compilation partagé entre les worktrees) ; n'en crée
+  jamais un autre, le disque est limité. Pas d'écran ni de carte son : tests sans matériel (`Xvfb` + rendu logiciel pour
+  le visuel) et dis dans la PR ce qui n'a pas pu être vérifié.
 
 ---
 
@@ -149,7 +160,7 @@ Charger le skill dès que la tâche touche son domaine :
 | Skill | Quand |
 | --- | --- |
 | `rust-conventions` | Toujours : style, erreurs, lints, tests, organisation des crates |
-| `workflow-conventions` | Choisir un modèle, lancer une tâche, ouvrir une PR |
+| `workflow-conventions` | Orchestrateur seulement (choix du modèle, lancement) : **pas pour les agents de tâche** |
 | `sillage-porting` | Traduire un module TypeScript/GLSL de Sillage en Rust/WGSL |
 | `bevy-patterns` | Plugins, systèmes, ressources, messages, montée de version de Bevy |
 | `render-performance` | Culling, streaming, instancing, budget GPU, shaders WGSL, post-process |

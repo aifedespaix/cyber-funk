@@ -41,10 +41,12 @@ rusty_link = "0.4"
 # Données, erreurs, journaux, utilitaires
 serde = { version = "1.0", features = ["derive"] }
 ron = "0.12"
+serde_path_to_error = "0.1"
 thiserror = "2.0"
 anyhow = "1.0"
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+tracing-appender = "0.2"
 crossbeam-channel = "0.5"
 rand_core = "0.10"
 rand_pcg = "0.10"
@@ -56,6 +58,7 @@ insta = { version = "1.49", features = ["ron"] }
 proptest = "1.12"
 criterion = "0.8"
 assert_no_alloc = "1.1"
+tempfile = "3.27"
 
 [workspace.lints.rust]
 unsafe_code = "deny"
@@ -85,10 +88,13 @@ needless_pass_by_value = "allow"
 
 [profile.dev]
 opt-level = 1
+# Débogage allégé : les infos complètes de Bevy pèsent plusieurs Go (disque limité en session cloud, CI plus rapide).
+debug = "line-tables-only"
 
 # Dépendances optimisées même en debug : Bevy et l'audio restent fluides.
 [profile.dev.package."*"]
 opt-level = 3
+debug = false
 
 [profile.release]
 lto = "thin"

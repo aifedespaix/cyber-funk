@@ -23,6 +23,12 @@ if command -v rustup >/dev/null 2>&1; then
   rustup component add rustfmt clippy >/dev/null 2>&1 || true
 fi
 
+# Dossier de compilation partagé entre les worktrees des agents : un seul exemplaire de Bevy sur le disque.
+# Le disque d'une session cloud est limité ; sans cela, chaque worktree recompile Bevy dans son propre target.
+if [ -n "${CLAUDE_ENV_FILE:-}" ]; then
+  echo "export CARGO_TARGET_DIR=\"${CLAUDE_PROJECT_DIR:-$PWD}/target\"" >> "$CLAUDE_ENV_FILE"
+fi
+
 # Précharge les dépendances pour que la première compilation de l'agent soit plus courte.
 if [ -f "${CLAUDE_PROJECT_DIR:-.}/Cargo.toml" ]; then
   (cd "${CLAUDE_PROJECT_DIR:-.}" && cargo fetch --locked >/dev/null 2>&1 || cargo fetch >/dev/null 2>&1 || true)

@@ -1,8 +1,8 @@
 //! Rendu temps réel : la seule partie du lecteur qui tourne dans le callback de la carte son.
 //!
 //! 🔴 Ici : aucune allocation, aucun verrou, aucun journal, aucune I/O. Tout ce que touche [`Renderer::render`] est
-//! préalloué à la construction : deux `rtrb::Consumer` (signal, repères), un `rtrb::Producer` (voie d'analyse) et des
-//! atomiques. Un test d'intégration (`tests/render_no_alloc.rs`) le vérifie avec un allocateur qui interdit toute
+//! préalloué à la construction : deux `rtrb::Consumer` (signal, repères), le [`FeedWriter`] du flux d'analyse
+//! (J1-03, lui-même sans allocation), un petit tampon de transit et des atomiques. Un test d'intégration (`tests/render_no_alloc.rs`) le vérifie avec un allocateur qui interdit toute
 //! allocation pendant l'appel.
 //!
 //! Machine à états :
@@ -17,9 +17,10 @@
 use std::sync::Arc;
 use std::sync::atomic::Ordering;
 
-use rtrb::{Consumer, Producer};
+use rtrb::Consumer;
 
 use super::shared::{Marker, Shared};
+use crate::feed::FeedWriter;
 
 /// Durée des fondus de pause, de reprise, de saut et de seek (s) : assez court pour paraître immédiat, assez long
 /// pour qu'une coupure au milieu d'une onde ne claque pas.
@@ -35,6 +36,9 @@ const PRIME_S: f32 = 0.085;
 /// Écart de gain sous lequel le lissage se pose sur la cible (-80 dB) : sans cela, l'arrondi `f32` le fige un peu
 /// avant elle.
 const GAIN_SNAP: f32 = 1e-4;
+
+/// Trames regroupées avant chaque envoi vers le flux d'analyse : un envoi par bloc plutôt qu'un par trame.
+const ANALYSIS_CHUNK_FRAMES: usize = 512;
 
 /// Ce que le rendu fait une fois le fondu sortant terminé.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -59,7 +63,7 @@ enum Phase {
 pub struct Renderer {
     audio: Consumer<f32>,
     markers: Consumer<Marker>,
-    tap: TapWriter,
+    analysis: AnalysisWriter,
     shared: Arc<Shared>,
     sample_rate: u32,
     phase: Phase,
@@ -75,24 +79,46 @@ pub struct Renderer {
     prime_frames: usize,
 }
 
-/// Écriture vers la voie d'analyse. Champ à part du [`Renderer`] pour pouvoir l'utiliser pendant qu'un bloc du ring
-/// audio est emprunté.
-#[derive(Debug)]
-struct TapWriter {
-    producer: Producer<f32>,
+/// Envoi vers le flux d'analyse (le [`FeedWriter`] de J1-03, source `Demo`). Champ à part du [`Renderer`] pour
+/// pouvoir l'utiliser pendant qu'un bloc du ring audio est emprunté.
+struct AnalysisWriter {
+    writer: FeedWriter,
     /// Copie, pour la durée d'un appel, de [`Shared::tap_enabled`].
     enabled: bool,
-    /// Échantillons perdus pendant l'appel en cours.
-    dropped: u64,
+    /// Trames stéréo, après fondu et avant volume, en attente d'envoi ; alloué une fois à la construction.
+    pending: Box<[f32]>,
+    len: usize,
 }
 
-impl TapWriter {
-    /// Pousse une trame, en mono et sans volume, si quelqu'un a pris la voie. Ring plein (lecteur trop lent) :
-    /// l'échantillon est perdu et compté.
+impl std::fmt::Debug for AnalysisWriter {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("AnalysisWriter")
+            .field("enabled", &self.enabled)
+            .finish_non_exhaustive()
+    }
+}
+
+impl AnalysisWriter {
+    /// Ajoute une trame stéréo sans volume ; envoie le paquet quand il est plein.
     #[inline]
     fn push(&mut self, left: f32, right: f32) {
-        if self.enabled && self.producer.push(f32::midpoint(left, right)).is_err() {
-            self.dropped += 1;
+        if !self.enabled {
+            return;
+        }
+        self.pending[self.len] = left;
+        self.pending[self.len + 1] = right;
+        self.len += 2;
+        if self.len == self.pending.len() {
+            self.flush();
+        }
+    }
+
+    /// Envoie les trames en attente : conversion mono et copie dans le ring d'analyse, sans allocation ; ring plein =
+    /// échantillons jetés et comptés par le flux ([`crate::feed::FeedStats::dropped`]).
+    fn flush(&mut self) {
+        if self.len > 0 {
+            self.writer.push_interleaved(&self.pending[..self.len], 2);
+            self.len = 0;
         }
     }
 }
@@ -113,7 +139,7 @@ impl Renderer {
     pub(crate) fn new(
         audio: Consumer<f32>,
         markers: Consumer<Marker>,
-        tap: Producer<f32>,
+        analysis: FeedWriter,
         shared: Arc<Shared>,
         sample_rate: u32,
     ) -> Self {
@@ -123,10 +149,11 @@ impl Renderer {
         Self {
             audio,
             markers,
-            tap: TapWriter {
-                producer: tap,
+            analysis: AnalysisWriter {
+                writer: analysis,
                 enabled: false,
-                dropped: 0,
+                pending: vec![0.0; ANALYSIS_CHUNK_FRAMES * 2].into_boxed_slice(),
+                len: 0,
             },
             shared,
             sample_rate,
@@ -161,8 +188,9 @@ impl Renderer {
         DeviceErrorReporter(Arc::clone(&self.shared))
     }
 
-    /// Remplit `out` (échantillons entrelacés, `channels` par trame) et pousse le même signal, avant volume et en mono,
-    /// vers la voie d'analyse. Sortie mono : moyenne des deux voies ; plus de deux voies : gauche et droite sur les
+    /// Remplit `out` (échantillons entrelacés, `channels` par trame) et pousse le même signal, avant volume, vers le
+    /// flux d'analyse (rien en pause ni pendant l'amorçage : c'est l'absence d'échantillons qui dit à l'analyse que
+    /// la source se tait). Sortie mono : moyenne des deux voies ; plus de deux voies : gauche et droite sur les
     /// deux premières, silence ailleurs.
     ///
     /// Temps réel : n'alloue pas, ne verrouille pas, ne bloque pas.
@@ -171,8 +199,7 @@ impl Renderer {
         let frames = out.len() / channels;
         let want_play = self.shared.playing.load(Ordering::Relaxed);
         let target_gain = self.shared.target_gain();
-        self.tap.enabled = self.shared.tap_enabled.load(Ordering::Relaxed);
-        self.tap.dropped = 0;
+        self.analysis.enabled = self.shared.tap_enabled.load(Ordering::Relaxed);
         let mut done = 0;
         // Chaque tour avance d'au moins une trame ou change de phase vers un état qui avance au tour suivant
         // (Paused/Priming écrivent tout le reste en silence) : la boucle termine.
@@ -186,6 +213,7 @@ impl Renderer {
         }
         // Reste éventuel d'une trame incomplète (tampon mal dimensionné par l'hôte) : silence.
         out[frames * channels..].fill(0.0);
+        self.analysis.flush();
         self.publish(frames as u64);
     }
 
@@ -210,12 +238,7 @@ impl Renderer {
             return 0;
         }
         block.fill(0.0);
-        let frames = block.len() / channels;
-        // La voie d'analyse suit la sortie trame pour trame : silence compris (l'analyse voit le temps passer).
-        for _ in 0..frames {
-            self.tap.push(0.0, 0.0);
-        }
-        frames
+        block.len() / channels
     }
 
     /// Lecture : copie le ring vers la sortie jusqu'à la fin du bloc, au prochain repère ou à la fin d'un fondu.
@@ -285,7 +308,7 @@ impl Renderer {
             let right = frame[1] * self.fade;
             write_frame(out, left * self.gain, right * self.gain);
             // L'analyse lit le signal avant le volume : les visuels ne s'éteignent pas quand on baisse le son.
-            self.tap.push(left, right);
+            self.analysis.push(left, right);
             played += 1;
             if stopping.is_some() && self.fade <= 0.0 {
                 faded_out = true;
@@ -397,9 +420,6 @@ impl Renderer {
         shared.position_frames.store(self.position_frames, Ordering::Relaxed);
         shared.duration_frames.store(self.duration_frames, Ordering::Relaxed);
         shared.rendered_frames.fetch_add(frames, Ordering::Relaxed);
-        if self.tap.dropped > 0 {
-            shared.tap_overflows.fetch_add(self.tap.dropped, Ordering::Relaxed);
-        }
     }
 }
 

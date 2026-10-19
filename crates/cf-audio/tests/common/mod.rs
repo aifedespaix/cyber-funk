@@ -1,6 +1,8 @@
 //! Outils communs des tests du lecteur : fichiers WAV synthétiques et pilotage de la sortie manuelle.
 
-#![allow(dead_code)]
+// Aides de test : chaque binaire de test n'en utilise qu'une partie, et `allow-unwrap-in-tests` ne couvre que les
+// fonctions `#[test]`, pas leurs aides.
+#![allow(dead_code, clippy::unwrap_used, clippy::expect_used)]
 
 use std::path::{Path, PathBuf};
 use std::time::Duration;
@@ -73,6 +75,6 @@ pub fn pull_left(driver: &mut ManualDriver, frames: usize, block: usize) -> Vec<
 }
 
 pub fn approx(a: f32, b: f32) -> bool {
-    // Demi-pas de quantification 16 bits : 1,5e-5.
+    // Marge au-dessus du demi-pas de quantification 16 bits (1,5e-5).
     (a - b).abs() < 5e-5
 }

@@ -4,9 +4,11 @@
 mod common;
 
 use std::thread::sleep;
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
+use cf_audio::feed::{FeedReader, HOP, HopStatus};
 use cf_audio::playlist::PlayMode;
+use cf_audio::source::SourceKind;
 use common::{RATE, approx, manual_player, pull_left, temp_dir, write_wav};
 
 /// Durée des fondus du rendu en trames à 48 kHz (5 ms).
@@ -71,23 +73,23 @@ fn loop_mode_replays_the_track_without_gap() {
 }
 
 #[test]
-fn volume_and_mute_never_touch_the_analysis_tap() {
-    let dir = temp_dir("tap");
+fn volume_and_mute_never_touch_the_analysis_feed() {
+    let dir = temp_dir("feed");
     let a = dir.join("a.wav");
     write_wav(&a, RATE, 48_000, |_| 0.25);
     let (mut player, mut driver) = manual_player(&[a], PlayMode::Loop, true);
-    let mut tap = player.take_analysis_tap().unwrap();
-    assert!(player.take_analysis_tap().is_none(), "une seule voie d'analyse");
+    let input = player.take_analysis_feed().unwrap();
+    assert!(player.take_analysis_feed().is_none(), "un seul flux d'analyse");
+    assert_eq!(input.kind(), SourceKind::Demo);
+    assert_eq!(input.sample_rate(), RATE);
+    let mut reader = FeedReader::new(input).unwrap();
     assert!(driver.wait_buffered(10_000, Duration::from_secs(5)));
     player.play();
 
     let left = pull_left(&mut driver, 4_096, 512);
     assert!(left.iter().all(|&s| s == 0.0), "sourdine : silence en sortie");
-    let mut analysed = Vec::new();
-    while let Ok(s) = tap.consumer.pop() {
-        analysed.push(s);
-    }
-    assert_eq!(analysed.len(), 4_096, "un échantillon d'analyse par trame rendue");
+    let analysed = read_hops(&mut reader);
+    assert_eq!(analysed.len(), 4_096, "un échantillon d'analyse par trame jouée");
     assert!(
         analysed[FADE..].iter().all(|&s| approx(s, 0.25)),
         "l'analyse entend la musique"
@@ -98,16 +100,37 @@ fn volume_and_mute_never_touch_the_analysis_tap() {
     player.set_muted(false);
     player.set_volume(0.5);
     let left = pull_left(&mut driver, 48_000 / 2, 512);
+    let last = *left.last().unwrap();
+    assert!(approx(last, 0.25 * 0.25), "gain 0,25 atteint : {last}");
+    let analysed = read_hops(&mut reader);
+    // Pas complets seulement : la fin du dernier pas reste dans le lecteur du flux.
+    assert_eq!(analysed.len(), (4_096 + 24_000) / HOP * HOP - 4_096);
+    assert!(analysed.iter().all(|&s| approx(s, 0.25)));
+    assert_eq!(player.state().analysis_dropped, 0);
+
+    // En pause, rien ne part vers l'analyse (au-delà du fondu sortant) : c'est ce qui lui dit que la source se tait.
+    player.pause();
+    pull_left(&mut driver, 4_096, 512);
+    let written = reader.stats().written();
+    pull_left(&mut driver, 4_096, 512);
+    assert_eq!(reader.stats().written(), written, "rien de poussé en pause");
+    let after_pause = written - (4_096 + 24_000);
+    // Le fondu compte 240 pas, plus la trame où il touche zéro (arrondi f32 compris).
     assert!(
-        approx(*left.last().unwrap(), 0.25 * 0.25),
-        "gain 0,25 atteint : {}",
-        left.last().unwrap()
+        after_pause <= FADE as u64 + 1,
+        "seul le fondu sortant est parti : {after_pause}"
     );
-    while let Ok(s) = tap.consumer.pop() {
-        assert!(approx(s, 0.25));
-    }
-    assert_eq!(player.state().tap_overflows, 0);
     std::fs::remove_dir_all(&dir).unwrap();
+}
+
+/// Lit tous les pas d'analyse complets disponibles.
+fn read_hops(reader: &mut FeedReader) -> Vec<f32> {
+    let mut out = Vec::new();
+    let mut hop = [0.0_f32; HOP];
+    while let Ok(HopStatus::Ready { .. }) = reader.next_hop(&mut hop, Instant::now()) {
+        out.extend_from_slice(&hop);
+    }
+    out
 }
 
 #[test]

@@ -1,0 +1,10 @@
+{
+  "name": "sillage-golden",
+  "private": true,
+  "type": "module",
+  "description": "Données de référence (golden) de l'analyse audio de Sillage pour cf-analysis",
+  "scripts": {
+    "golden": "bun run index.ts",
+    "check": "bun run index.ts --check"
+  }
+}

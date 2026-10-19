@@ -15,8 +15,17 @@ workspace = true
 dev = ["bevy/dynamic_linking", "bevy/file_watcher"]
 
 [dependencies]
+anyhow.workspace = true
 bevy.workspace = true
 cf-cinema.workspace = true
 cf-operator.workspace = true
 cf-render.workspace = true
 cf-world-neon.workspace = true
+clap.workspace = true
+dirs.workspace = true
+tracing.workspace = true
+tracing-appender.workspace = true
+tracing-subscriber.workspace = true
+
+[dev-dependencies]
+tempfile.workspace = true

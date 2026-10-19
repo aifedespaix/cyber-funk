@@ -41,6 +41,9 @@ pub enum PlayerError {
     /// Construction ou fonctionnement du rééchantillonneur.
     #[error("rééchantillonnage : {0}")]
     Resampler(String),
+    /// Création du flux d'analyse (fréquence ou capacité nulle).
+    #[error("flux d'analyse : {0}")]
+    Feed(#[from] crate::feed::FeedError),
     /// Le thread du décodeur n'a pas pu être lancé.
     #[error("lancement du thread de décodage impossible")]
     Spawn(#[source] std::io::Error),
