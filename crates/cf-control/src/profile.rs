@@ -10,8 +10,8 @@ use serde::{Deserialize, Serialize};
 
 use crate::action::MACRO_COUNT;
 use crate::error::{Error, Result};
-use crate::source::{InputSource, MIDI_CHANNEL_MAX, MIDI_DATA_MAX};
-use crate::template::{ActionTemplate, Mode};
+use crate::source::{CC14_MSB_MAX, InputSource, MIDI_CHANNEL_MAX, MIDI_DATA_MAX};
+use crate::template::{ActionKind, ActionTemplate, Mode};
 
 /// Une ligne de la table : tel geste sur telle source produit telle action, lue selon tel mode.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -61,6 +61,10 @@ pub enum ProfileIssue {
     MacroOutOfRange { binding: usize, index: u8 },
     /// Adresse OSC vide ou qui ne commence pas par `/`.
     BadOscAddress { binding: usize },
+    /// CC 14 bits : l'octet de poids fort doit être un CC de 0 à 31 et le mode la position absolue.
+    WideCc { binding: usize },
+    /// Un Program Change n'a pas de relâchement : seuls conviennent une impulsion, une bascule ou un pas.
+    ProgramHasNoRelease { binding: usize, mode: Mode },
     /// Identifiant de titre ou de déclencheur vide.
     EmptyId { binding: usize },
     /// Pas de `NudgePhase` nul ou non fini.
@@ -108,6 +112,20 @@ impl fmt::Display for ProfileIssue {
                     MACRO_COUNT - 1
                 )
             }
+            Self::WideCc { binding } => {
+                write!(
+                    f,
+                    "ligne {} : un CC 14 bits est lu en position absolue, avec un octet de poids fort de 0 à {CC14_MSB_MAX}",
+                    binding + 1
+                )
+            }
+            Self::ProgramHasNoRelease { binding, mode } => {
+                write!(
+                    f,
+                    "ligne {} : un Program Change n'a pas de relâchement, le mode {mode:?} ne convient pas",
+                    binding + 1
+                )
+            }
             Self::BadOscAddress { binding } => {
                 write!(f, "ligne {} : une adresse OSC commence par « / »", binding + 1)
             }
@@ -151,6 +169,22 @@ impl ControlProfile {
     pub fn to_ron(&self) -> Result<String> {
         let config = ron::ser::PrettyConfig::new().struct_names(true);
         Ok(ron::ser::to_string_pretty(self, config)?)
+    }
+
+    /// Pose un binding (MIDI learn, édition à la main) : les bindings du profil qui réagissaient au même geste sont
+    /// retirés et rendus, pour que l'interface dise ce qui a été remplacé. Le binding est ajouté à la fin.
+    pub fn set_binding(&mut self, binding: Binding) -> Vec<Binding> {
+        let mut replaced = Vec::new();
+        let mut i = 0;
+        while i < self.bindings.len() {
+            if self.bindings[i].source.overlaps(&binding.source) {
+                replaced.push(self.bindings.remove(i));
+            } else {
+                i += 1;
+            }
+        }
+        self.bindings.push(binding);
+        replaced
     }
 
     /// Tous les problèmes du profil, dans l'ordre des lignes ; vide si le profil est bon.
@@ -212,12 +246,35 @@ fn check_binding(i: usize, binding: &Binding, issues: &mut Vec<ProfileIssue>) {
             channel, note: data, ..
         }
         | InputSource::MidiCc { channel, cc: data, .. }
-            if *channel > MIDI_CHANNEL_MAX || *data > MIDI_DATA_MAX =>
+        | InputSource::MidiCc14 { channel, cc: data, .. }
+        | InputSource::MidiProgram {
+            channel, program: data, ..
+        } if *channel > MIDI_CHANNEL_MAX || *data > MIDI_DATA_MAX =>
         {
             issues.push(ProfileIssue::MidiOutOfRange { binding: i });
         }
         InputSource::Osc { address } if !address.starts_with('/') => {
             issues.push(ProfileIssue::BadOscAddress { binding: i });
+        }
+        _ => {}
+    }
+    match &binding.source {
+        InputSource::MidiCc14 { cc, .. } if *cc > CC14_MSB_MAX || binding.mode != Mode::Absolute => {
+            issues.push(ProfileIssue::WideCc { binding: i });
+        }
+        // Un mode que l'action n'accepte pas est déjà signalé plus haut : ne pas le répéter.
+        InputSource::MidiProgram { .. }
+            if kind.accepts(binding.mode)
+                && binding.mode != Mode::Relative
+                && !matches!(
+                    (kind, binding.mode),
+                    (ActionKind::Impulse | ActionKind::Amount, Mode::Momentary) | (ActionKind::Switch, Mode::Toggle)
+                ) =>
+        {
+            issues.push(ProfileIssue::ProgramHasNoRelease {
+                binding: i,
+                mode: binding.mode,
+            });
         }
         _ => {}
     }

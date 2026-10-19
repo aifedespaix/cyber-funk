@@ -11,6 +11,9 @@ pub enum Error {
     /// L'écriture RON a échoué.
     #[error("écriture du profil de contrôle impossible : {0}")]
     Serialize(#[from] ron::Error),
+    /// Le sous-système MIDI de la machine est inutilisable, ou un port a refusé de s'ouvrir.
+    #[error("MIDI : {0}")]
+    Midi(String),
     /// Le profil est lisible mais contient des bindings invalides ou en conflit.
     #[error("profil « {profile} » refusé : {}", join(.issues))]
     InvalidProfile { profile: String, issues: Vec<ProfileIssue> },
