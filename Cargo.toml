@@ -88,10 +88,13 @@ needless_pass_by_value = "allow"
 
 [profile.dev]
 opt-level = 1
+# Débogage allégé : les infos complètes de Bevy pèsent plusieurs Go (disque limité en session cloud, CI plus rapide).
+debug = "line-tables-only"
 
 # Dépendances optimisées même en debug : Bevy et l'audio restent fluides.
 [profile.dev.package."*"]
 opt-level = 3
+debug = false
 
 [profile.release]
 lto = "thin"
