@@ -11,3 +11,10 @@ publish.workspace = true
 workspace = true
 
 [dependencies]
+cpal.workspace = true
+rtrb.workspace = true
+rubato.workspace = true
+thiserror.workspace = true
+tracing.workspace = true
+crossbeam-channel.workspace = true
+assert_no_alloc.workspace = true
