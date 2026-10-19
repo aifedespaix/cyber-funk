@@ -17,6 +17,7 @@
 //! - La sortie est injectable ([`OutputBackend`]) : tout se teste sans carte son avec [`NullOutput`] ou
 //!   [`ManualOutput`].
 
+mod analysis;
 mod engine;
 pub mod error;
 pub mod output;
@@ -34,9 +35,10 @@ use crossbeam_channel::Sender;
 use crate::feed::{FeedStats, InputFeed, capacity_for, feed};
 use crate::source::SourceKind;
 
+pub use analysis::DeviceErrorReporter;
 pub use error::{PlayerError, Result};
 pub use output::{ActiveOutput, CpalOutput, ManualDriver, ManualOutput, NullOutput, OutputBackend};
-pub use render::{DeviceErrorReporter, Renderer};
+pub use render::Renderer;
 
 use self::engine::Engine;
 use self::shared::{Command, NO_TRACK, Shared};
