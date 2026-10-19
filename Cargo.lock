@@ -2234,6 +2234,11 @@ dependencies = [
 [[package]]
 name = "cf-control"
 version = "0.1.0"
+dependencies = [
+ "ron",
+ "serde",
+ "thiserror 2.0.21",
+]
 
 [[package]]
 name = "cf-operator"
