@@ -21,7 +21,7 @@ jobs:
     outputs:
       rust: ${{ steps.check.outputs.rust }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - id: check
         run: |
           if [ -f Cargo.toml ]; then echo "rust=true" >> "$GITHUB_OUTPUT"; else echo "rust=false" >> "$GITHUB_OUTPUT"; echo "::notice::Pas encore de Cargo.toml : checks Rust ignorés."; fi
@@ -31,7 +31,7 @@ jobs:
     if: needs.detect.outputs.rust == 'true'
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: dtolnay/rust-toolchain@stable
         with:
           components: rustfmt
@@ -42,7 +42,7 @@ jobs:
     if: needs.detect.outputs.rust == 'true'
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: dtolnay/rust-toolchain@stable
         with:
           components: clippy
@@ -63,7 +63,7 @@ jobs:
     if: needs.detect.outputs.rust == 'true'
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: dtolnay/rust-toolchain@stable
       - name: Dépendances système (audio, udev, fenêtrage)
         run: sudo apt-get update -qq && sudo apt-get install -y -qq libasound2-dev libudev-dev libxkbcommon-dev libwayland-dev
@@ -79,7 +79,7 @@ jobs:
     if: needs.detect.outputs.rust == 'true'
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: EmbarkStudios/cargo-deny-action@v2
 
   build:
@@ -91,7 +91,7 @@ jobs:
         os: [ubuntu-latest, windows-latest, macos-latest]
     runs-on: ${{ matrix.os }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: dtolnay/rust-toolchain@stable
       - name: Dépendances système (Linux)
         if: runner.os == 'Linux'
