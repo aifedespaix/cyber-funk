@@ -1,0 +1,22 @@
+[package]
+name = "cyber-funk"
+description = "Visuels 3D temps réel pour soirées DJ"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+repository.workspace = true
+publish.workspace = true
+
+[lints]
+workspace = true
+
+[features]
+# Développement uniquement : liaison dynamique de Bevy (compilation plus rapide) et rechargement à chaud des assets.
+dev = ["bevy/dynamic_linking", "bevy/file_watcher"]
+
+[dependencies]
+bevy.workspace = true
+cf-cinema.workspace = true
+cf-operator.workspace = true
+cf-render.workspace = true
+cf-world-neon.workspace = true

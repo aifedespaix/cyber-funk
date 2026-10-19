@@ -1,0 +1,95 @@
+[workspace]
+resolver = "3"
+members = ["crates/*"]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.99"
+repository = "https://github.com/aifedespaix/cyber-funk"
+publish = false
+# Licence du projet : à définir par le propriétaire du dépôt (voir README).
+
+[workspace.dependencies]
+# Crates internes
+cf-audio = { path = "crates/cf-audio" }
+cf-analysis = { path = "crates/cf-analysis" }
+cf-control = { path = "crates/cf-control" }
+cf-show = { path = "crates/cf-show" }
+cf-render = { path = "crates/cf-render" }
+cf-cinema = { path = "crates/cf-cinema" }
+cf-world-neon = { path = "crates/cf-world-neon" }
+cf-operator = { path = "crates/cf-operator" }
+
+# Moteur. Pas de feature `audio` : bevy_audio tirerait sa propre version de cpal/alsa, en conflit avec cf-audio.
+bevy = { version = "0.20", default-features = false, features = ["3d", "jpeg"] }
+bevy_egui = { version = "0.43", default-features = false, features = ["render", "default_fonts"] }
+
+# Audio
+cpal = "0.18"
+symphonia = { version = "0.6", default-features = false }
+realfft = "3.5"
+rubato = "5.0"
+rtrb = "0.4"
+triple_buffer = "9.0"
+
+# Contrôle
+midir = "0.11"
+rosc = "0.11"
+rusty_link = "0.4"
+
+# Données, erreurs, journaux, utilitaires
+serde = { version = "1.0", features = ["derive"] }
+ron = "0.12"
+thiserror = "2.0"
+anyhow = "1.0"
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+crossbeam-channel = "0.5"
+rand_core = "0.10"
+rand_pcg = "0.10"
+clap = { version = "4.6", features = ["derive"] }
+dirs = "7.0"
+
+# Tests et mesures
+insta = { version = "1.49", features = ["ron"] }
+proptest = "1.12"
+criterion = "0.8"
+assert_no_alloc = "1.1"
+
+[workspace.lints.rust]
+unsafe_code = "deny"
+missing_debug_implementations = "warn"
+unused_qualifications = "warn"
+
+[workspace.lints.clippy]
+all = { level = "deny", priority = -1 }
+pedantic = { level = "warn", priority = -1 }
+unwrap_used = "deny"
+expect_used = "deny"
+panic = "deny"
+todo = "deny"
+dbg_macro = "deny"
+print_stdout = "deny"
+print_stderr = "deny"
+float_cmp = "deny"
+# pedantic trop bruyant pour du code 3D / audio :
+cast_precision_loss = "allow"
+cast_possible_truncation = "allow"
+cast_sign_loss = "allow"
+module_name_repetitions = "allow"
+similar_names = "allow"
+too_many_lines = "warn"
+# Les systèmes Bevy prennent Res/Query par valeur.
+needless_pass_by_value = "allow"
+
+[profile.dev]
+opt-level = 1
+
+# Dépendances optimisées même en debug : Bevy et l'audio restent fluides.
+[profile.dev.package."*"]
+opt-level = 3
+
+[profile.release]
+lto = "thin"
+codegen-units = 1

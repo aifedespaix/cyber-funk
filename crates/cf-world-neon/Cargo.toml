@@ -1,0 +1,17 @@
+[package]
+name = "cf-world-neon"
+description = "Plugin Bevy : le monde Neon City repris de Sillage"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+repository.workspace = true
+publish.workspace = true
+
+[lints]
+workspace = true
+
+[dependencies]
+bevy.workspace = true
+cf-cinema.workspace = true
+cf-render.workspace = true
+cf-show.workspace = true

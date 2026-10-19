@@ -38,7 +38,7 @@ streaming, réalisateur, MIDI Clock) ; `high` par défaut ; `medium`/`low` pour 
 
 | ID | Tâche | Modèle | Effort | Dépend de | Statut |
 | --- | --- | --- | --- | --- | --- |
-| J0-01 | [Workspace Cargo et squelette des crates](tasks/J0.md) | Opus 5.5 | `high` | — | ⬜ |
+| J0-01 | [Workspace Cargo et squelette des crates](tasks/J0.md) | Opus 5.5 | `high` | — | 🟦 |
 | J0-02 | [Fenêtres projecteur et opérateur, journaux, ligne de commande](tasks/J0.md) | Sonnet 5.5 | `high` | J0-01 | ⬜ |
 | J0-03 | [Assets de base et licences](tasks/J0.md) | Haiku 5.5 | `medium` | — | ⬜ |
 | J0-04 | [Outillage qualité vérifié de bout en bout](tasks/J0.md) | Haiku 5.5 | `medium` | J0-01 | ⬜ |

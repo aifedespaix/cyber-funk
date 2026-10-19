@@ -1,0 +1,13 @@
+[package]
+name = "cf-audio"
+description = "Capture audio, lecture des pistes de démo, transport temps réel vers l'analyse"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+repository.workspace = true
+publish.workspace = true
+
+[lints]
+workspace = true
+
+[dependencies]
