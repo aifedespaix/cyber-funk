@@ -11,3 +11,18 @@ publish.workspace = true
 workspace = true
 
 [dependencies]
+cpal.workspace = true
+crossbeam-channel.workspace = true
+rand_core.workspace = true
+rand_pcg.workspace = true
+rtrb.workspace = true
+rubato.workspace = true
+# Formats lus : MP3 (démos versionnées) et ce qu'un DJ dépose dans `assets/music/local/` (WAV, FLAC, OGG/Vorbis,
+# M4A/AAC).
+symphonia = { workspace = true, features = ["mp3", "flac", "wav", "pcm", "ogg", "vorbis", "aac", "isomp4", "opt-simd"] }
+thiserror.workspace = true
+tracing.workspace = true
+
+[dev-dependencies]
+assert_no_alloc.workspace = true
+tracing-subscriber.workspace = true
