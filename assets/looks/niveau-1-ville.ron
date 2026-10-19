@@ -1,0 +1,34 @@
+// Niveau 1 de Sillage (`ACTS[1]` de engine/show/acts.ts, valeurs identiques) : trafic calme, événements doux.
+// Les nombres sont ceux atteints au début de l'acte ; Sillage les fait glisser vers ceux du niveau suivant, ce que
+// fait `cf_show::gates::GateBlender` entre deux looks. Fichier relu par crates/cf-show/tests/levels.rs.
+// Couches, palette et teinte : Sillage n'en règle pas par niveau, donc tout plein et palette inchangée.
+Look(
+    version: 1,
+    id: "niveau-1-ville",
+    name: "Niveau 1 · La ville",
+    world: "neon",
+    layers: (background: 1.0, world: 1.0, foreground: 1.0, overlay: 1.0),
+    palette: Inherit,
+    hue_shift_deg: 0.0,
+    gates: (
+        max_floor: 0,
+        flight_rate: 0.0,
+        flight_on_drop_only: false,
+        tricks: false,
+        stunt_tiers: [],
+        stunt_kinds: [],
+        stunt_gap_scale: 1.6,
+        shot_tiers: ["common", "uncommon"],
+        shot_block: ["top-down", "god-view", "sky-tilt", "crane", "vertigo", "spiral", "strobe", "flyby", "dutch", "wheel", "takeoff", "touchdown", "dodge-pass", "barrel", "meteor-ride", "meteor-impact-watch", "moon-pass", "ringworld", "stunt-cam"],
+        cut_grid: (calm: 16, groove: 16, peak: 8),
+        salvo: false,
+        events: ["lanterns", "fish", "refuel", "airship"],
+        event_rate: 0.5,
+        meteor_rate: 0.0,
+        meteor_shower: false,
+        cruise: 1.0,
+        ground_traffic: 0.5,
+        fx: (rgb_split: 0.05, flash: 0.0, city_pulse: 0.2),
+        ascension: false,
+    ),
+)
