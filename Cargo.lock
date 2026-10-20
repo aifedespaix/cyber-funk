@@ -2366,6 +2366,7 @@ dependencies = [
 name = "cf-show"
 version = "0.1.0"
 dependencies = [
+ "assert_no_alloc",
  "cf-analysis",
  "cf-control",
  "proptest",

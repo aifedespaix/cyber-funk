@@ -157,7 +157,8 @@ impl<R: Rng> DropConductor<R> {
             drop_now: false,
             age_s: 0.0,
             until_title: 0,
-            key: String::new(),
+            // Un identifiant fait 64 caractères au plus, plus le préfixe : le tampon ne grossit jamais ensuite.
+            key: String::with_capacity(80),
         };
         conductor.until_title = conductor.draw_gap(2);
         conductor
