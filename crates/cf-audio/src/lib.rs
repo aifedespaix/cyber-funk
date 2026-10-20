@@ -9,4 +9,6 @@
 
 pub mod capture;
 pub mod feed;
+pub mod player;
+pub mod playlist;
 pub mod source;

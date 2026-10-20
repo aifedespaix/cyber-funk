@@ -1,5 +1,6 @@
 // Look d'exemple (format v1, voir crates/cf-show/src/model/). Le nom du fichier est l'identifiant du look.
-// Les six niveaux de Sillage (niveau-0-pre-intro … niveau-5-cosmos) arrivent avec la tâche J2-02.
+// Les six niveaux de Sillage sont les looks niveau-0-pre-intro … niveau-5-cosmos (tâche J2-02) ; ce look-ci n'en fait
+// pas partie : il reprend les portes du niveau 3 avec des macros et une liste d'événements plus courte.
 Look(
     version: 1,
     id: "ville-qui-monte",

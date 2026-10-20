@@ -1,0 +1,34 @@
+// Niveau 2 de Sillage (`ACTS[2]` de engine/show/acts.ts, valeurs identiques) : cascades au sol, envols sur les drops seulement.
+// Les nombres sont ceux atteints au début de l'acte ; Sillage les fait glisser vers ceux du niveau suivant, ce que
+// fait `cf_show::gates::GateBlender` entre deux looks. Fichier relu par crates/cf-show/tests/levels.rs.
+// Couches, palette et teinte : Sillage n'en règle pas par niveau, donc tout plein et palette inchangée.
+Look(
+    version: 1,
+    id: "niveau-2-rues",
+    name: "Niveau 2 · Les rues",
+    world: "neon",
+    layers: (background: 1.0, world: 1.0, foreground: 1.0, overlay: 1.0),
+    palette: Inherit,
+    hue_shift_deg: 0.0,
+    gates: (
+        max_floor: 2,
+        flight_rate: 0.5,
+        flight_on_drop_only: true,
+        tricks: false,
+        stunt_tiers: ["common", "uncommon"],
+        stunt_kinds: ["off-road", "slalom", "near-miss", "head-on"],
+        stunt_gap_scale: 1.3,
+        shot_tiers: ["common", "uncommon"],
+        shot_block: ["top-down", "god-view", "sky-tilt", "crane", "vertigo", "spiral", "meteor-ride", "meteor-impact-watch", "moon-pass", "ringworld", "strobe", "dutch"],
+        cut_grid: (calm: 16, groove: 8, peak: 4),
+        salvo: false,
+        events: ["lanterns", "fish", "refuel", "airship", "escort", "chase", "convoy", "bikes", "toll", "adship", "holo-title"],
+        event_rate: 0.8,
+        meteor_rate: 0.0,
+        meteor_shower: false,
+        cruise: 1.03,
+        ground_traffic: 0.8,
+        fx: (rgb_split: 0.15, flash: 0.15, city_pulse: 0.4),
+        ascension: false,
+    ),
+)
