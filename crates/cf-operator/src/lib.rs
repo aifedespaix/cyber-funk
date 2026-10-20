@@ -4,6 +4,7 @@
 //! seconde fenêtre, avec sa propre caméra 2D qui porte le contexte egui : egui ne dessine donc jamais dans le
 //! projecteur.
 
+mod diagnostics;
 mod quit;
 mod ui;
 mod window;
@@ -28,7 +29,9 @@ impl Plugin for OperatorPlugin {
         app.world_mut()
             .resource_mut::<EguiGlobalSettings>()
             .auto_create_primary_context = false;
-        app.add_systems(Startup, window::spawn_operator_window)
-            .add_systems(EguiPrimaryContextPass, (ui::main_panel, ui::quit_dialog).chain());
+        app.add_systems(Startup, window::spawn_operator_window).add_systems(
+            EguiPrimaryContextPass,
+            (ui::main_panel, diagnostics::diagnostics_window, ui::quit_dialog).chain(),
+        );
     }
 }

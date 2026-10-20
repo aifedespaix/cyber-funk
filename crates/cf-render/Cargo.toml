@@ -16,6 +16,9 @@ bevy = { workspace = true, features = ["2d_bevy_render"] }
 cf-show.workspace = true
 thiserror.workspace = true
 
+[dev-dependencies]
+tempfile.workspace = true
+
 [features]
 # Exemples fenêtrés (`box_city`, `layers_demo`, `culling_city`), pour juger à l'œil : hors CI, ils lient un binaire Bevy complet.
 demo = []

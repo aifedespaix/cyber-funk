@@ -21,18 +21,22 @@
 
 pub mod analyser_emulation;
 mod analyzer;
+mod band_gain;
 mod beat;
 mod beat_analyzer;
 mod events;
 mod features;
+mod sections;
 mod thread;
 
 pub use analyser_emulation::AnalyserEmulation;
 pub use analyzer::{Analyzer, NeutralAnalyzer, StepContext};
+pub use band_gain::{BandGain, MicGain};
 pub use beat::{BeatDetector, BeatState};
 pub use beat_analyzer::BeatAnalyzer;
 pub use events::{AudioEvent, AudioEventKind, EventSink};
 pub use features::{AudioFeatures, Section, TempoSource};
+pub use sections::SectionTracker;
 pub use thread::{
     AnalysisConfig, AnalysisControl, AnalysisError, AnalysisOutputs, AnalysisStats, AnalysisStatsSnapshot,
     AnalysisThread, FeaturesReader, LATENCY_TARGET,
