@@ -5,6 +5,7 @@ use std::fmt;
 use serde::{Deserialize, Serialize};
 
 use crate::keyboard::{Key, KeyEvent, ShiftRule};
+use crate::midi::port_names_match;
 use crate::raw::{PortId, RawEvent};
 
 /// Plus haut canal MIDI (canaux 0..=15).
@@ -88,9 +89,30 @@ pub enum InputSource {
         #[serde(default, skip_serializing_if = "RelativeEncoding::is_default")]
         encoding: RelativeEncoding,
     },
+    /// Un CC 14 bits (potard ou fader haute résolution) : `cc` est le numéro de l'octet de poids fort (0 à 31) ;
+    /// l'octet de poids faible arrive sur `cc + 32` (convention MIDI). La valeur lue va de 0 à 16383.
+    MidiCc14 {
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        port: Option<String>,
+        channel: u8,
+        cc: u8,
+    },
+    /// Un Program Change (touches de banque, sélecteurs de certains contrôleurs). Pas de relâchement : un geste
+    /// n'a qu'un instant.
+    MidiProgram {
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        port: Option<String>,
+        channel: u8,
+        program: u8,
+    },
     /// Une adresse OSC exacte (`/cf/go`).
     Osc { address: String },
 }
+
+/// Écart entre l'octet de poids fort d'un CC 14 bits et son octet de poids faible.
+pub const CC14_LSB_OFFSET: u8 = 32;
+/// Plus grand numéro de CC utilisable comme octet de poids fort d'un CC 14 bits.
+pub const CC14_MSB_MAX: u8 = CC14_LSB_OFFSET - 1;
 
 #[allow(clippy::trivially_copy_pass_by_ref)] // signature imposée par `skip_serializing_if`
 fn is_false(b: &bool) -> bool {
@@ -126,7 +148,10 @@ impl InputSource {
     /// continus ([`Mode::Relative`](crate::Mode::Relative)) exigent une commande continue.
     #[must_use]
     pub fn is_button(&self) -> bool {
-        matches!(self, Self::Key { .. } | Self::MidiNote { .. })
+        matches!(
+            self,
+            Self::Key { .. } | Self::MidiNote { .. } | Self::MidiProgram { .. }
+        )
     }
 
     /// Un même geste peut-il déclencher les deux sources ? C'est la définition d'un conflit de binding.
@@ -164,23 +189,40 @@ impl InputSource {
                     channel: ch2,
                     note: n2,
                 },
-            ) => ch1 == ch2 && n1 == n2 && ports_overlap(p1.as_deref(), p2.as_deref()),
-            (
-                Self::MidiCc {
+            )
+            | (
+                Self::MidiProgram {
                     port: p1,
                     channel: ch1,
-                    cc: c1,
-                    ..
+                    program: n1,
                 },
-                Self::MidiCc {
+                Self::MidiProgram {
                     port: p2,
                     channel: ch2,
-                    cc: c2,
-                    ..
+                    program: n2,
                 },
-            ) => ch1 == ch2 && c1 == c2 && ports_overlap(p1.as_deref(), p2.as_deref()),
+            ) => ch1 == ch2 && n1 == n2 && ports_overlap(p1.as_deref(), p2.as_deref()),
             (Self::Osc { address: a1 }, Self::Osc { address: a2 }) => a1 == a2,
-            _ => false,
+            // Un CC 14 bits occupe deux numéros de CC (`cc` et `cc + 32`) : il se dispute le geste avec un CC 7 bits
+            // sur l'un ou l'autre, avec un autre CC 14 bits sur l'un des deux, et deux CC 7 bits sur le même numéro.
+            _ => match (self.cc_numbers(), other.cc_numbers()) {
+                (Some((p1, ch1, n1)), Some((p2, ch2, n2))) => {
+                    ch1 == ch2 && ports_overlap(p1, p2) && n1.iter().any(|n| n2.contains(n))
+                }
+                _ => false,
+            },
+        }
+    }
+
+    /// Port, canal et numéros de CC occupés par une source CC (deux numéros pour un CC 14 bits, le même deux fois
+    /// pour un CC 7 bits).
+    fn cc_numbers(&self) -> Option<(Option<&str>, u8, [u8; 2])> {
+        match self {
+            Self::MidiCc { port, channel, cc, .. } => Some((port.as_deref(), *channel, [*cc, *cc])),
+            Self::MidiCc14 { port, channel, cc } => {
+                Some((port.as_deref(), *channel, [*cc, cc.saturating_add(CC14_LSB_OFFSET)]))
+            }
+            _ => None,
         }
     }
 
@@ -215,6 +257,28 @@ impl InputSource {
                     ..
                 },
             ) => channel == ch && cc == c && port_matches(port.as_deref(), port_name(*id)),
+            (
+                Self::MidiCc14 { port, channel, cc },
+                RawEvent::MidiCc {
+                    port: id,
+                    channel: ch,
+                    cc: c,
+                    ..
+                },
+            ) => {
+                // Octet de poids fort ou de poids faible : les deux concernent le même potard.
+                channel == ch
+                    && (cc == c || cc.saturating_add(CC14_LSB_OFFSET) == *c)
+                    && port_matches(port.as_deref(), port_name(*id))
+            }
+            (
+                Self::MidiProgram { port, channel, program },
+                RawEvent::MidiProgram {
+                    port: id,
+                    channel: ch,
+                    program: p,
+                },
+            ) => channel == ch && program == p && port_matches(port.as_deref(), port_name(*id)),
             (Self::Osc { address }, RawEvent::Osc { address: a, .. }) => address == a,
             _ => false,
         }
@@ -225,17 +289,18 @@ fn key_matches(key: Key, shift: ShiftRule, [ctrl, alt, meta]: [bool; 3], e: &Key
     key.matches(e) && shift.accepts(e.mods.shift) && e.mods.ctrl == ctrl && e.mods.alt == alt && e.mods.meta == meta
 }
 
-/// Deux exigences de port se recouvrent si l'une accepte tous les ports ou si elles nomment le même.
+/// Deux exigences de port se recouvrent si l'une accepte tous les ports ou si elles nomment le même (au sens de la
+/// correspondance souple, voir [`port_names_match`]).
 fn ports_overlap(a: Option<&str>, b: Option<&str>) -> bool {
     match (a, b) {
-        (Some(a), Some(b)) => a == b,
+        (Some(a), Some(b)) => port_names_match(a, b) || port_names_match(b, a),
         _ => true,
     }
 }
 
-/// Un binding sans port accepte tout ; un binding nommé exige un port ouvert de ce nom.
+/// Un binding sans port accepte tout ; un binding nommé exige un port ouvert dont le nom correspond.
 fn port_matches(wanted: Option<&str>, actual: Option<&str>) -> bool {
-    wanted.is_none_or(|w| actual == Some(w))
+    wanted.is_none_or(|w| actual.is_some_and(|a| port_names_match(w, a)))
 }
 
 impl fmt::Display for InputSource {
@@ -271,6 +336,15 @@ impl fmt::Display for InputSource {
             }
             Self::MidiCc { port, channel, cc, .. } => {
                 write!(f, "CC {cc} canal {}", u16::from(*channel) + 1)?;
+                write_port(f, port.as_deref())
+            }
+            Self::MidiCc14 { port, channel, cc } => {
+                let lsb = cc.saturating_add(CC14_LSB_OFFSET);
+                write!(f, "CC 14 bits {cc}/{lsb} canal {}", u16::from(*channel) + 1)?;
+                write_port(f, port.as_deref())
+            }
+            Self::MidiProgram { port, channel, program } => {
+                write!(f, "programme {program} canal {}", u16::from(*channel) + 1)?;
                 write_port(f, port.as_deref())
             }
             Self::Osc { address } => write!(f, "OSC {address}"),

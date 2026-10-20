@@ -68,6 +68,24 @@ fn rich_profile() -> ControlProfile {
                 Mode::Absolute,
             ),
             b(
+                InputSource::MidiCc14 {
+                    port: Some("DDJ-FLX4".into()),
+                    channel: 6,
+                    cc: 10,
+                },
+                ActionTemplate::Master,
+                Mode::Absolute,
+            ),
+            b(
+                InputSource::MidiProgram {
+                    port: None,
+                    channel: 0,
+                    program: 3,
+                },
+                ActionTemplate::Hold,
+                Mode::Toggle,
+            ),
+            b(
                 InputSource::Osc {
                     address: "/cf/go".into(),
                 },

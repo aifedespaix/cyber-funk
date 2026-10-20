@@ -19,6 +19,8 @@ use crate::template::{ActionKind, ActionTemplate, Mode, RELATIVE_LEVEL_STEP};
 /// Seuil d'une commande continue lue comme un bouton (CC 0..=127 : 64 et plus = enfoncé ; OSC : 0,5 et plus).
 const CC_PRESS_THRESHOLD: u8 = 64;
 const OSC_PRESS_THRESHOLD: f32 = 0.5;
+/// Plus grande valeur d'un CC 14 bits (2^14 − 1).
+const WIDE_CC_MAX: f32 = 16383.0;
 /// Seuil d'une position absolue qui commande une bascule.
 const SWITCH_LEVEL_THRESHOLD: f32 = 0.5;
 
@@ -47,6 +49,37 @@ struct Entry {
     /// Dernier état « haut/bas » vu, pour ne réagir qu'aux fronts quand une commande continue sert de bouton
     /// (un bouton en CC peut renvoyer 127 plusieurs fois). `None` tant que rien n'est arrivé.
     high: Option<bool>,
+    /// Les deux moitiés du dernier CC 14 bits reçu (sans effet pour les autres sources).
+    wide: WideCc,
+}
+
+/// Recomposition d'un CC 14 bits : octet de poids fort sur `cc`, de poids faible sur `cc + 32`.
+///
+/// On émet à l'arrivée de chaque moitié (avec l'autre moitié telle qu'on la connaît) plutôt que d'attendre la paire :
+/// certains contrôleurs n'envoient l'octet de poids faible que s'il a changé, et attendre la paire figerait le
+/// potard. Contrepartie : entre l'octet de poids fort et l'octet de poids faible, la valeur peut être fausse de
+/// 127/16383 (0,8 %) au plus, pendant moins d'une milliseconde.
+#[derive(Debug, Clone, Copy, Default)]
+struct WideCc {
+    msb: u8,
+    lsb: u8,
+    last: Option<u16>,
+}
+
+impl WideCc {
+    /// Intègre une moitié ; rend la position 0..1 si elle a changé.
+    fn update(&mut self, is_msb: bool, value: u8) -> Option<f32> {
+        if is_msb {
+            self.msb = value & 0x7F;
+        } else {
+            self.lsb = value & 0x7F;
+        }
+        let v = u16::from(self.msb) << 7 | u16::from(self.lsb);
+        (self.last != Some(v)).then(|| {
+            self.last = Some(v);
+            f32::from(v) / WIDE_CC_MAX
+        })
+    }
 }
 
 /// Traduit les [`RawInput`] en [`TimedAction`] selon une pile de profils.
@@ -115,6 +148,7 @@ impl Mapper {
                     Entry {
                         binding: binding.clone(),
                         high: None,
+                        wide: WideCc::default(),
                     },
                     p,
                 ));
@@ -137,6 +171,12 @@ impl Mapper {
             self.ports.resize(i + 1, None);
         }
         self.ports[i] = name.map(str::to_owned);
+    }
+
+    /// Le nom du port MIDI ouvert `port`, s'il est connu (le MIDI learn s'en sert pour nommer la source).
+    #[must_use]
+    pub fn port_name(&self, port: PortId) -> Option<&str> {
+        self.ports.get(usize::from(port.0)).and_then(|p| p.as_deref())
     }
 
     /// L'action produite par cette entrée, ou `None` si aucun binding ne la reconnaît ou si elle ne change rien
@@ -165,8 +205,12 @@ fn read(entry: &mut Entry, event: &RawEvent) -> Option<Signal> {
     match event {
         RawEvent::Key(key) => (!key.repeat).then(|| button(mode, key.pressed, 1.0)),
         RawEvent::MidiNote { velocity, .. } => Some(button(mode, *velocity > 0, f32::from(*velocity) / 127.0)),
-        RawEvent::MidiCc { value, .. } => match mode {
-            Mode::Absolute => Some(Signal::Level(f32::from(*value) / 127.0)),
+        RawEvent::MidiProgram { .. } => Some(button(mode, true, 1.0)),
+        RawEvent::MidiCc { cc, value, .. } => match mode {
+            Mode::Absolute => match entry.binding.source {
+                InputSource::MidiCc14 { cc: msb, .. } => entry.wide.update(*cc == msb, *value).map(Signal::Level),
+                _ => Some(Signal::Level(f32::from(*value) / 127.0)),
+            },
             Mode::Relative => {
                 let InputSource::MidiCc { encoding, .. } = entry.binding.source else {
                     return None;
