@@ -58,7 +58,8 @@ pub struct AudioFeatures {
     pub loud: f32,
     /// Impulsion décroissante après chaque kick, 1 → 0.
     pub pulse: f32,
-    /// Nombre de kicks depuis le dernier `reset`.
+    /// Nombre de kicks depuis le démarrage de l'analyse. Comme dans Sillage, il ne retombe jamais à zéro, pas même au
+    /// changement de source ou de piste : les consommateurs comptent les kicks par différence entre deux lectures.
     pub count: u32,
     /// Compteur continu : `count` plus une montée douce 0 → 1 pendant la décroissance de `pulse`.
     pub beat: f64,
@@ -66,6 +67,8 @@ pub struct AudioFeatures {
     pub bpm: Option<f32>,
     /// Section courante du morceau.
     pub section: Section,
+    /// Vrai pendant un seul pas, quand `section` vient de changer (message `SectionChanged` côté Bevy).
+    pub section_changed: bool,
     /// Énergie lissée du morceau, 0 (calme) → 1 (sommet).
     pub intensity: f32,
     /// Source du tempo publié.
@@ -96,6 +99,7 @@ impl AudioFeatures {
         beat: 0.0,
         bpm: None,
         section: Section::Groove,
+        section_changed: false,
         intensity: 0.4,
         tempo_source: TempoSource::Audio,
         confidence: 0.0,
@@ -108,6 +112,7 @@ impl AudioFeatures {
     /// des mémoires que l'analyseur décide lui-même d'oublier.
     pub fn rest_energy(&mut self) {
         self.kick = false;
+        self.section_changed = false;
         self.bass = 0.0;
         self.mid = 0.0;
         self.high = 0.0;
@@ -134,6 +139,7 @@ mod tests {
         assert_eq!(f.bpm, None);
         assert_eq!(f.section, Section::Groove);
         assert!((f.intensity - 0.4).abs() < f32::EPSILON);
+        assert!(!f.section_changed);
         assert_eq!(f.tempo_source, TempoSource::Audio);
     }
 
@@ -141,6 +147,7 @@ mod tests {
     fn rest_energy_keeps_tempo_memory() {
         let mut f = AudioFeatures {
             kick: true,
+            section_changed: true,
             bass: 0.8,
             mid: 0.5,
             high: 0.3,
@@ -151,7 +158,7 @@ mod tests {
             ..AudioFeatures::NEUTRAL
         };
         f.rest_energy();
-        assert!(!f.kick);
+        assert!(!f.kick && !f.section_changed);
         assert!(f.bass.abs() < f32::EPSILON && f.pulse.abs() < f32::EPSILON);
         assert_eq!(f.bpm, Some(128.0));
         assert_eq!(f.section, Section::Peak);

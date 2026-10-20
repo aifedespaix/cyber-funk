@@ -5,6 +5,7 @@
 //! fourniront l'analyseur réel (portage de `beat.ts` et `sections.ts`) ; [`NeutralAnalyzer`] tient la place.
 
 use cf_audio::feed::HOP;
+use cf_audio::source::SourceKind;
 
 use crate::events::EventSink;
 use crate::features::AudioFeatures;
@@ -36,6 +37,10 @@ pub trait Analyzer: Send + 'static {
     fn idle(&mut self, out: &mut AudioFeatures) {
         out.rest_energy();
     }
+
+    /// La source analysée change (`None` : aucune), annoncé avant le `reset` qui suit. Le gain automatique du micro
+    /// (`BandGain`) ne s'applique qu'aux sources de capture. Par défaut, sans effet. Hors temps réel.
+    fn set_source(&mut self, _source: Option<SourceKind>) {}
 
     /// Nouvelle source ou nouvelle piste : repartir d'un état neutre, comme Sillage (`beat.reset()`,
     /// `sections.reset()` au changement de source ou de piste). Appelé hors des pas, il peut allouer.
