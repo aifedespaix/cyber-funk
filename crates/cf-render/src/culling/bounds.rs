@@ -60,8 +60,9 @@ pub fn displaced_bounds(mesh: &Mesh, max_displacement_m: f32) -> Option<(Aabb, N
 ///
 /// `reach_m` est la distance maximale d'un sommet à l'origine de l'entité, sur chaque axe, quelle que soit la
 /// déformation du shader (brume : son rayon ; pluie : la boîte d'air autour de l'objectif ; traînée : sa longueur).
-/// L'entité étant recentrée sur la caméra, le volume l'est aussi : il est coupé quand la caméra regarde ailleurs, pas
-/// quand elle tourne. Avec [`NoAutoAabb`], il survit aux changements de mesh.
+/// L'entité suit la caméra (à distance fixe, éventuellement nulle) et son volume avec elle : l'objet est dessiné dès
+/// qu'une part de ce cube est dans le champ, et seulement alors. Avec [`NoAutoAabb`], le volume survit aux
+/// changements de mesh.
 ///
 /// Une valeur non finie ou négative donne un volume nul (le mesh serait alors toujours coupé : mieux vaut le voir
 /// disparaître tout de suite qu'à l'usage).
