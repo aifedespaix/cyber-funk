@@ -107,6 +107,7 @@ impl<A: Analyzer> Runner<A> {
                 }
                 Command::Select(kind) => self.select(kind),
                 Command::ResetAnalysis => self.analyzer.reset(),
+                Command::AutoGain(enabled) => self.analyzer.set_auto_gain(enabled),
             }
         }
     }

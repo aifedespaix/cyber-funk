@@ -28,6 +28,8 @@ pub struct BeatAnalyzer {
     mic_gain: MicGain,
     /// La source analysée est une capture : le gain automatique s'applique.
     capture: bool,
+    /// Le gain automatique est permis (micro) ; coupé, une capture passe telle quelle (entrée ligne).
+    auto_gain: bool,
     /// Spectre après gain, quand `capture` est vrai.
     scaled: [u8; BIN_COUNT],
 }
@@ -50,6 +52,7 @@ impl BeatAnalyzer {
             sections: SectionTracker::new(),
             mic_gain: MicGain::new(ANALYSIS_SAMPLE_RATE),
             capture: false,
+            auto_gain: true,
             scaled: [0; BIN_COUNT],
         }
     }
@@ -76,11 +79,16 @@ impl BeatAnalyzer {
     /// (pour les vumètres et le diagnostic).
     #[must_use]
     pub fn spectrum(&self) -> &[u8; BIN_COUNT] {
-        if self.capture {
+        if self.gain_applies() {
             &self.scaled
         } else {
             self.analyser.bytes()
         }
+    }
+
+    /// Le spectre passe par le gain automatique : capture, et gain permis.
+    fn gain_applies(&self) -> bool {
+        self.capture && self.auto_gain
     }
 
     fn publish(&self, state: &BeatState, out: &mut AudioFeatures) {
@@ -107,8 +115,9 @@ impl Default for BeatAnalyzer {
 impl Analyzer for BeatAnalyzer {
     fn step(&mut self, hop: &[f32; HOP], ctx: &StepContext, out: &mut AudioFeatures, events: &mut EventSink<'_>) {
         self.analyser.push(hop);
+        let gain = self.gain_applies();
         let raw = self.analyser.byte_frequency_data();
-        let spectrum: &[u8; BIN_COUNT] = if self.capture {
+        let spectrum: &[u8; BIN_COUNT] = if gain {
             let frames = f64::from(ctx.dt_s) / REFERENCE_FRAME_S;
             self.mic_gain.apply(raw, &mut self.scaled, frames);
             &self.scaled
@@ -148,6 +157,14 @@ impl Analyzer for BeatAnalyzer {
         self.capture = source == Some(SourceKind::Capture);
     }
 
+    /// Couper le gain remet les gains à 1 : le rallumer repart d'un suivi de pic neuf, sans mémoire d'un autre signal.
+    fn set_auto_gain(&mut self, enabled: bool) {
+        if self.auto_gain != enabled {
+            self.mic_gain.reset();
+        }
+        self.auto_gain = enabled;
+    }
+
     /// Nouvelle source ou nouvelle piste : `beat.reset()` et `sections.reset()` de Sillage (tempo et ambiance oubliés), gains du micro remis à 1 et analyseur neuf, car la
     /// fenêtre et le lissage d'une autre source n'ont plus de sens.
     fn reset(&mut self) {
@@ -163,6 +180,20 @@ mod tests {
     use std::sync::atomic::AtomicU64;
 
     use super::*;
+
+    #[test]
+    fn auto_gain_off_leaves_a_capture_untouched() {
+        let mut analyzer = BeatAnalyzer::new();
+        analyzer.set_source(Some(SourceKind::Capture));
+        assert!(analyzer.gain_applies());
+        analyzer.set_auto_gain(false);
+        assert!(!analyzer.gain_applies());
+        assert_eq!(analyzer.mic_gains(), [1.0, 1.0, 1.0]);
+        analyzer.set_auto_gain(true);
+        assert!(analyzer.gain_applies());
+        analyzer.set_source(Some(SourceKind::Demo));
+        assert!(!analyzer.gain_applies());
+    }
 
     #[test]
     fn silence_publishes_neutral_music_fields() {
