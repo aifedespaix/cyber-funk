@@ -5,6 +5,10 @@
 //! l'origine flottante, le suivi de la fenêtre, et l'absence d'écriture en régime établi. Ce que la carte graphique en
 //! fait (composition, opacité à l'écran, avant-plan devant un mur) est vérifié par `examples/layers_demo.rs`.
 
+// Les assistants de ce fichier ne sont pas des `#[test]` : clippy n'y tolère pas `expect`/`panic`, qui sont ici le
+// moyen le plus lisible d'échouer.
+#![allow(clippy::expect_used, clippy::panic)]
+
 use bevy::camera::visibility::RenderLayers;
 use bevy::camera::{Camera, Projection, RenderTarget};
 use bevy::math::DVec3;
@@ -251,22 +255,19 @@ fn les_textures_suivent_la_fenetre() {
 #[derive(Resource, Default)]
 struct Writes(usize);
 
+/// Une entité du rig dont l'un des composants que le rig écrit vient d'être marqué modifié.
+type RigWrites = Or<(
+    (Changed<Camera>, With<LayerCamera>),
+    (Changed<Transform>, With<LayerCamera>),
+    (Changed<Projection>, With<LayerCamera>),
+    (Changed<Visibility>, With<Mesh3d>),
+)>;
+
 #[test]
 fn en_regime_etabli_le_rig_n_ecrit_rien() {
     // Un système de `Last` voit ce que les systèmes de l'image ont écrit (la détection de changement d'un système
     // compte depuis son propre dernier passage, donc exactement depuis l'image précédente).
-    fn watch(
-        changed: Query<
-            (),
-            Or<(
-                (Changed<Camera>, With<LayerCamera>),
-                (Changed<Transform>, With<LayerCamera>),
-                (Changed<Projection>, With<LayerCamera>),
-                (Changed<Visibility>, With<Mesh3d>),
-            )>,
-        >,
-        mut writes: ResMut<Writes>,
-    ) {
+    fn watch(changed: Query<(), RigWrites>, mut writes: ResMut<Writes>) {
         writes.0 = changed.iter().count();
     }
     let mut app = app();

@@ -104,7 +104,7 @@ mod tests {
         opacity.set(Layer::World, OFF_BELOW * 1.5);
         assert!(opacity.is_on(Layer::World));
         // Sous un demi-niveau d'une sortie 8 bits.
-        assert!(OFF_BELOW < 0.5 / 255.0);
+        const { assert!(OFF_BELOW < 0.5 / 255.0) };
     }
 
     #[test]

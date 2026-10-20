@@ -97,7 +97,7 @@ impl Layer {
     /// `Camera::order` de la caméra de la couche (les couches sont rendues de l'arrière vers l'avant).
     #[must_use]
     pub const fn order(self) -> isize {
-        self.index() as isize
+        self.index().cast_signed()
     }
 
     /// `RenderLayers` que portent la caméra de la couche et son contenu.
@@ -115,7 +115,7 @@ mod tests {
     fn les_couches_ont_un_index_distinct_dans_l_ordre_de_la_pile() {
         for (i, layer) in Layer::ALL.into_iter().enumerate() {
             assert_eq!(layer.index(), i);
-            assert_eq!(layer.order(), i as isize);
+            assert_eq!(layer.order(), i.cast_signed());
         }
         // Le compositeur est rendu après toutes les couches et ne partage aucun index avec elles.
         assert!(COMPOSITOR_ORDER > Layer::Overlay.order());
