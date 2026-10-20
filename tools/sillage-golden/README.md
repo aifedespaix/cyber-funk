@@ -92,6 +92,17 @@ pour garder des fichiers de 35 à 60 ko.
   60 i/s, pas un défaut du script.
 - Le gain automatique du micro (`BandGain` de `audio.ts`) n'est pas exercé : les pistes sont lues comme des fichiers.
 
+## Bruit blanc (J1-04)
+
+`noise.ts` fait passer un bruit blanc stationnaire (`mulberry32(12345)`, 30 s, amplitude crête 0,3) dans la même chaîne
+(émulation de l'analyseur puis `beat.ts` d'origine, pas de 800 échantillons) et affiche les kicks sur la sortie
+standard. `beat.ts` y détecte des kicks et en tire un faux tempo (144) ; la liste est copiée dans
+`crates/cf-analysis/tests/synthetic.rs` (`white_noise_matches_sillage`), qui régénère le même bruit en Rust :
+
+```bash
+bun run tools/sillage-golden/noise.ts
+```
+
 ## Limiteur photosensible (J2-06)
 
 `limiter.ts` rejoue un scénario déterministe (1500 opérations : demandes de flash, pas de temps, changements de

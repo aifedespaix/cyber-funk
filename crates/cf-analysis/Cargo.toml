@@ -17,6 +17,17 @@ crossbeam-channel.workspace = true
 thiserror.workspace = true
 tracing.workspace = true
 assert_no_alloc.workspace = true
+realfft.workspace = true
 
 [dev-dependencies]
 tracing-subscriber.workspace = true
+criterion.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+# Décodage des pistes CC0 pour les tests golden (le décodage de production arrive avec le lecteur de démos).
+symphonia = { workspace = true, features = ["mp3", "id3v1", "id3v2"] }
+rubato.workspace = true
+
+[[bench]]
+name = "analysis_step"
+harness = false

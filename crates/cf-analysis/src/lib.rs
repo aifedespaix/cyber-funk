@@ -19,12 +19,18 @@
 //! # }
 //! ```
 
+pub mod analyser_emulation;
 mod analyzer;
+mod beat;
+mod beat_analyzer;
 mod events;
 mod features;
 mod thread;
 
+pub use analyser_emulation::AnalyserEmulation;
 pub use analyzer::{Analyzer, NeutralAnalyzer, StepContext};
+pub use beat::{BeatDetector, BeatState};
+pub use beat_analyzer::BeatAnalyzer;
 pub use events::{AudioEvent, AudioEventKind, EventSink};
 pub use features::{AudioFeatures, Section, TempoSource};
 pub use thread::{
