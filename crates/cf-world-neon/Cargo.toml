@@ -18,6 +18,7 @@ cf-show.workspace = true
 tracing.workspace = true
 
 [dev-dependencies]
+cf-analysis.workspace = true
 serde_json.workspace = true
 
 [features]
@@ -26,4 +27,5 @@ demo = []
 
 [[example]]
 name = "road_demo"
+path = "examples/road_demo/main.rs"
 required-features = ["demo"]

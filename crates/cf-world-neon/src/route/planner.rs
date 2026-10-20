@@ -20,6 +20,8 @@
 //!
 //! Cette logique est pure (sans Bevy) : le système Bevy qui la nourrit est celui du pilote, en J5-06.
 
+use bevy::prelude::Resource;
+
 use super::floors::{FLOOR_COUNT, FLOORS};
 
 /// Défilement de la route par rapport à la vitesse (voir `SCROLL` dans la scène).
@@ -262,8 +264,9 @@ struct CacheKey {
     can_change: bool,
 }
 
-/// Le planificateur : les tampons du plan, le [`PilotHint`] et le cache de l'image.
-#[derive(Debug, Clone)]
+/// Le planificateur : les tampons du plan, le [`PilotHint`] et le cache de l'image. Ressource du monde : le pilote
+/// (J5-06) l'écrit et le lit, un seul propriétaire.
+#[derive(Resource, Debug, Clone)]
 pub struct RoutePlanner {
     /// État publié par le volant et la verticale.
     pub hint: PilotHint,
