@@ -165,8 +165,14 @@ impl LookMixer {
                 )
             }
             Target::Act(progress) => {
-                self.blender
-                    .update(&self.cur.gates, &self.next.gates, progress, Blend::ACT_PROGRESS, dt, self.snap);
+                self.blender.update(
+                    &self.cur.gates,
+                    &self.next.gates,
+                    progress,
+                    Blend::ACT_PROGRESS,
+                    dt,
+                    self.snap,
+                );
                 (
                     lerp_layers(self.cur.layers, self.next.layers, progress),
                     lerp(self.cur.hue_shift_deg, self.next.hue_shift_deg, progress),
@@ -204,7 +210,11 @@ fn write_numbers(dst: &mut Look, base: &Look) {
 /// L'intensité globale (`Master`, 0..1) dose l'énergie du look : effets plein écran, envols, événements du trafic et
 /// astéroïdes. À 1, le look tel qu'écrit ; à 0, un monde calme qui roule encore (allure, trafic et couches intacts).
 fn scale_intensity(gates: &mut ShowGates, master: f32) {
-    let m = if master.is_finite() { master.clamp(0.0, 1.0) } else { 1.0 };
+    let m = if master.is_finite() {
+        master.clamp(0.0, 1.0)
+    } else {
+        1.0
+    };
     gates.flight_rate *= m;
     gates.event_rate *= m;
     gates.meteor_rate *= m;

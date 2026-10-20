@@ -316,7 +316,7 @@ fn a_rejected_load_keeps_the_current_table() -> Result<()> {
 
 /// Un pad à maintien enfoncé pendant un changement de profil (passation de DJ) : `reload` le relâche proprement, et
 /// le vrai relâchement, lu ensuite par une table où le même pad commande autre chose, ne produit rien (il aurait
-/// sinon coupé le FlashKill du nouveau profil).
+/// sinon coupé le `FlashKill` du nouveau profil).
 #[test]
 fn reload_releases_held_buttons_and_swallows_the_late_release() -> Result<()> {
     let hold = |n, action| Binding {
@@ -332,7 +332,11 @@ fn reload_releases_held_buttons_and_swallows_the_late_release() -> Result<()> {
     let pressed = run(&mut m, &[note(X1, 40, 100), note(X1, 41, 100), note(X1, 42, 100)]);
     assert_eq!(
         pressed,
-        [Action::Blackout(Switch::On), Action::Master(Level::Set(1.0)), Action::Go]
+        [
+            Action::Blackout(Switch::On),
+            Action::Master(Level::Set(1.0)),
+            Action::Go
+        ]
     );
 
     let next = profile("dj-2", vec![hold(40, ActionTemplate::FlashKill)]);
@@ -356,7 +360,7 @@ fn reload_releases_held_buttons_and_swallows_the_late_release() -> Result<()> {
     // Rien n'est plus tenu : un second relâchement général ne produit rien.
     let mut again = Vec::new();
     m.release_held(13.0, &mut again);
-    assert!(again.is_empty());
+    assert_eq!(again, []);
     Ok(())
 }
 
@@ -377,7 +381,7 @@ fn a_rejected_reload_releases_nothing() -> Result<()> {
     );
     let mut released = Vec::new();
     assert!(m.reload(&[&broken], 1.0, &mut released).is_err());
-    assert!(released.is_empty());
+    assert_eq!(released, []);
     assert_eq!(run(&mut m, &[note(X1, 40, 0)]), [Action::Blackout(Switch::Off)]);
     Ok(())
 }

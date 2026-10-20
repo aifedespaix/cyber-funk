@@ -30,7 +30,11 @@ fn steady_state_frames_never_allocate() {
     ]
     .concat();
     let other = cue("b0", "niveau-1-ville", "Cut", "Manual");
-    let show = event(&format!("{}{}", slot("a", "Semi", "", &cues), slot("b", "Semi", "", &other)));
+    let show = event(&format!(
+        "{}{}",
+        slot("a", "Semi", "", &cues),
+        slot("b", "Semi", "", &other)
+    ));
     let mut director: ShowDirector<Pcg32> = ShowDirector::new(&show, titles(), 3).unwrap();
     // Tout ce qui alloue est fait ici : actions construites d'avance (leurs identifiants sont partagés).
     let script = [
@@ -73,13 +77,13 @@ fn steady_state_frames_never_allocate() {
     let mut frame = |i: u64, guarded: bool| {
         now += f64::from(DT);
         // Un kick tous les 28 pas ≈ 128 BPM à 60 i/s.
-        audio.kick = i % 28 == 0;
+        audio.kick = i.is_multiple_of(28);
         if audio.kick {
             audio.count += 1;
         }
         audio.beat = f64::from(audio.count) + (i % 28) as f64 / 28.0;
         actions.clear();
-        if i % 20 == 0 {
+        if i.is_multiple_of(20) {
             actions.push(script[(i / 20) as usize % script.len()].clone());
         }
         let input = ShowInput {

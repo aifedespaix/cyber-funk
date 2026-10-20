@@ -34,6 +34,7 @@
 mod actions;
 mod clock;
 mod conduct;
+mod derive;
 mod event;
 mod fade;
 mod input;
@@ -60,13 +61,13 @@ pub use prepared::{DirectorError, look_level};
 pub use state::{Handover, HandoverPhase, ShowState};
 
 use self::clock::{Beats, CueClock};
-use self::looks::{LookMixer, Target};
+use self::looks::LookMixer;
 use self::prepared::Prepared;
 use crate::drop::{DropConductor, DropInput, DropPlan, DropTitles};
 use crate::freshness::Freshness;
 use crate::gates::Variation;
 use crate::load::LoadedShow;
-use crate::model::{FlashPolicy, LayerMix, SlotMode};
+use crate::model::FlashPolicy;
 use crate::time_scale::TimeScale;
 
 /// Constante de temps (s) de la chaleur (`HEAT_SECONDS` de Sillage).
@@ -333,67 +334,6 @@ impl<R: Rng> ShowDirector<R> {
         let input = drop_input(&self.state, &self.frame, &self.prepared, forced);
         self.conductor.update(&mut self.freshness, &input);
         self.state.drop_now = self.conductor.drop_now();
-    }
-
-    /// Avancement, chaleur, portes, couches et teinte de l'image.
-    fn derive(&mut self, dt: f32) {
-        let s = &mut self.state;
-        let audio = &self.frame.audio;
-        let slot = &self.prepared.slots[s.slot];
-        let cue = &slot.cues[s.cue];
-        let next = slot.cues.get(s.cue + 1);
-        let manual = s.mode == SlotMode::Manual;
-        let waiting = s.pending.is_some();
-        s.cue_elapsed = self.clock.elapsed;
-        s.cue_progress = self.clock.progress(audio);
-        s.next_cue_in = if waiting || manual || next.is_none() {
-            None
-        } else {
-            self.clock.remaining(audio)
-        };
-        // Glissement d'acte de Sillage : vers le look du cue suivant au fil de l'échéance (règles à échéance seules).
-        let act = s.cue_progress.filter(|_| !manual && !s.safe_look && next.is_some());
-        s.level = if s.safe_look { self.prepared.safe_level } else { cue.level };
-        let target_heat = if s.level == 0 {
-            0.0
-        } else {
-            (f32::from(s.level) - 1.0 + act.unwrap_or(0.0)) / 5.0
-        };
-        let k = if self.heat_snap {
-            1.0
-        } else {
-            1.0 - (-dt / HEAT_SECONDS).exp()
-        };
-        s.heat += (target_heat - s.heat) * k;
-        self.heat_snap = false;
-
-        let after_set = !manual
-            && !s.safe_look
-            && !waiting
-            && next.is_none()
-            && s.cue > 0
-            && self.clock.elapsed >= VARIATION_AFTER_S;
-        let varied = self.variation.update(f64::from(dt), after_set) && self.variation.uses_lower();
-        s.mixer.refresh(&cue.look, &s.macros, s.master, next.map(|c| &c.look));
-        let target = if s.safe_look {
-            Target::Safe(&self.prepared.safe)
-        } else if let Some(progress) = act {
-            Target::Act(progress)
-        } else if varied {
-            Target::Variation(&slot.cues[s.cue - 1].look.gates, self.variation.mix())
-        } else {
-            Target::Still
-        };
-        s.mixer.frame(target, dt);
-        let l = s.mixer.layers();
-        let [bg, world, fg, overlay] = &self.layer_fades;
-        s.layers = LayerMix {
-            background: l.background * bg.value(),
-            world: l.world * world.value(),
-            foreground: l.foreground * fg.value(),
-            overlay: l.overlay * overlay.value(),
-        };
-        s.hue_shift_deg = s.mixer.hue();
     }
 }
 

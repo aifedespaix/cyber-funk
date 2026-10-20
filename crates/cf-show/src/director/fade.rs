@@ -31,7 +31,11 @@ impl Fade {
         Self {
             value,
             target: value,
-            full_s: if full_s.is_finite() { full_s.max(MIN_FADE) } else { MIN_FADE },
+            full_s: if full_s.is_finite() {
+                full_s.max(MIN_FADE)
+            } else {
+                MIN_FADE
+            },
         }
     }
 

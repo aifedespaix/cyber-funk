@@ -90,7 +90,11 @@ fn auto_behaves_like_semi_and_manual_never_advances_alone() {
     let mut manual = Rig::new(&event(&three_cues("Manual")), Music::Silent);
     manual.run(120.0);
     assert_eq!(manual.state().cue, 0);
-    assert_eq!(manual.state().next_cue_in, None, "en Manuel, aucune échéance n'est annoncée");
+    assert_eq!(
+        manual.state().next_cue_in,
+        None,
+        "en Manuel, aucune échéance n'est annoncée"
+    );
     manual.act(Action::Go);
     manual.frame();
     assert_eq!(manual.state().cue, 1);
@@ -246,7 +250,11 @@ fn a_second_go_enters_at_once_and_back_cancels_a_call() {
     rig.act(Action::GotoCue(CueIndex(1)));
     rig.act(Action::GotoCue(CueIndex(9)));
     rig.frame();
-    assert_eq!(rig.state().cue, 1, "GotoCue entre tout de suite, un rang hors liste est ignoré");
+    assert_eq!(
+        rig.state().cue,
+        1,
+        "GotoCue entre tout de suite, un rang hors liste est ignoré"
+    );
 }
 
 #[test]
@@ -277,11 +285,15 @@ fn handover_loads_the_next_slot_first_cue_and_profile() {
         e,
         ShowEvent::Handover { from: 0, to: 1, fade_s } if (fade_s - bar).abs() < 1e-4
     )));
-    assert_eq!(*rig.state().theme, Theme::Preset(PresetTheme::Synthwave), "la palette glisse vers le thème du DJ");
+    assert_eq!(
+        *rig.state().theme,
+        Theme::Preset(PresetTheme::Synthwave),
+        "la palette glisse vers le thème du DJ"
+    );
     assert!((rig.state().theme_fade_s - bar).abs() < 1e-4, "sur une mesure");
 
     // Fin du fondu, puis le premier cue attend sa phrase ; à son entrée, le créneau est chargé.
-    let loaded = rig.run_until(bar as f64 + 9.0, |s| s.slot == 1).unwrap();
+    let loaded = rig.run_until(f64::from(bar) + 9.0, |s| s.slot == 1).unwrap();
     assert!(loaded > f64::from(bar) - 0.05);
     let s = rig.state();
     assert_eq!((s.slot, s.cue, s.mode, s.armed_slot), (1, 0, SlotMode::Auto, None));
@@ -314,7 +326,14 @@ const DOWNBEAT_WAIT: f64 = 4.1;
 
 #[test]
 fn next_dj_without_arming_goes_to_the_next_slot_and_stops_at_the_last() {
-    let mut rig = Rig::new(&event(&format!("{}{}", three_cues("Semi"), three_cues("Auto").replace("\"a\"", "\"b\""))), Music::Silent);
+    let mut rig = Rig::new(
+        &event(&format!(
+            "{}{}",
+            three_cues("Semi"),
+            three_cues("Auto").replace("\"a\"", "\"b\"")
+        )),
+        Music::Silent,
+    );
     rig.act(Action::NextDj);
     assert!(rig.run_until(5.0, |s| s.slot == 1).is_some());
     rig.act(Action::NextDj);
@@ -346,7 +365,10 @@ fn blackout_fades_out_and_back_in() {
     }));
     rig.act(Action::Blackout(Switch::Toggle));
     rig.frame();
-    assert!(rig.state().blackout < 1.0 && rig.state().blackout > 0.9, "la sortie glisse aussi");
+    assert!(
+        rig.state().blackout < 1.0 && rig.state().blackout > 0.9,
+        "la sortie glisse aussi"
+    );
     rig.run(1.0);
     assert!(rig.state().blackout.abs() < f32::EPSILON);
 }
@@ -411,7 +433,10 @@ fn macros_and_master_drive_the_current_look() {
     rig.run(30.0);
     assert!(rig.state().master.abs() < f32::EPSILON);
     assert!(rig.state().gates().fx.flash < 1e-3);
-    assert!((rig.state().gates().cruise - 1.2).abs() < 1e-3, "l'allure n'est pas une intensité");
+    assert!(
+        (rig.state().gates().cruise - 1.2).abs() < 1e-3,
+        "l'allure n'est pas une intensité"
+    );
 }
 
 #[test]
@@ -428,7 +453,10 @@ fn one_shot_orders_are_taken_once_and_expire() {
     assert!(!rig.director.take(Order::ShowDj), "personne ne l'a pris : expiré");
     rig.act(Action::Trigger(cf_control::TriggerId::new("storm")));
     rig.frame();
-    assert_eq!(rig.director.take_trigger().map(|id| id.0.to_string()), Some("storm".to_owned()));
+    assert_eq!(
+        rig.director.take_trigger().map(|id| id.0.to_string()),
+        Some("storm".to_owned())
+    );
 }
 
 #[test]
@@ -441,7 +469,11 @@ fn flash_kill_and_breathing_toggle_and_reach_the_drop() {
     rig.frame();
     assert!(!rig.state().flashes && rig.state().breathing);
     assert!(rig.state().drop_now, "drop forcé, sur l'image même");
-    assert!(rig.director.drop_plan().is_some_and(|p| p.fx.flash.abs() < f32::EPSILON && p.forced));
+    assert!(
+        rig.director
+            .drop_plan()
+            .is_some_and(|p| p.fx.flash.abs() < f32::EPSILON && p.forced)
+    );
 }
 
 /// Même graine, mêmes entrées : même spectacle (drops, cues, chaleur), image par image.
@@ -462,7 +494,10 @@ fn same_seed_same_show() {
             }
             rig.frame();
             let s = rig.state();
-            let plan = rig.director.drop_plan().map(|p| (p.shot.clone(), p.stunt.clone(), p.fx.burst));
+            let plan = rig
+                .director
+                .drop_plan()
+                .map(|p| (p.shot.clone(), p.stunt.clone(), p.fx.burst));
             out.push((s.cue, s.cue_seq, s.heat.to_bits(), s.drop_now, plan));
         }
         out
@@ -494,10 +529,18 @@ fn levels_of_the_six_sillage_looks() {
 /// le niveau 1 entre en coupe.
 #[test]
 fn the_auto_climb_leaves_the_pre_intro_when_the_music_is_there() {
-    let show = LoadedShow::load(&director_rig::assets().join("shows/montee-auto.ron"), &director_rig::library()).unwrap();
+    let show = LoadedShow::load(
+        &director_rig::assets().join("shows/montee-auto.ron"),
+        &director_rig::library(),
+    )
+    .unwrap();
     let mut rig = Rig::new(&show, Music::Silent);
     rig.run(120.0);
-    assert_eq!((rig.state().cue, rig.state().level), (0, 0), "sans musique, la pré-intro attend");
+    assert_eq!(
+        (rig.state().cue, rig.state().level),
+        (0, 0),
+        "sans musique, la pré-intro attend"
+    );
     rig.music = Music::Kicks(124.0);
     rig.audio.intensity = 0.7;
     let waited = rig.run_until(60.0, |s| s.cue == 1).unwrap();

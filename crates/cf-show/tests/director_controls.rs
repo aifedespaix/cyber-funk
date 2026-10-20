@@ -92,7 +92,10 @@ fn a_blackout_held_through_a_handover_is_released_cleanly() {
     assert!(reloaded, "le créneau B est chargé");
     assert_eq!(rig.state().slot, 1);
     rig.frame();
-    assert!(!rig.state().blackout_on, "aucun noir « allumé » ne survit au changement de profil");
+    assert!(
+        !rig.state().blackout_on,
+        "aucun noir « allumé » ne survit au changement de profil"
+    );
     assert!(rig.state().blackout > 0.9, "il s'éteint en fondu, pas d'un coup");
     rig.run(1.0);
     assert!(rig.state().blackout.abs() < f32::EPSILON);
@@ -111,7 +114,12 @@ enum Order {
 }
 
 fn order() -> impl Strategy<Value = Order> {
-    prop_oneof![Just(Order::On), Just(Order::Off), Just(Order::Toggle), Just(Order::Nothing)]
+    prop_oneof![
+        Just(Order::On),
+        Just(Order::Off),
+        Just(Order::Toggle),
+        Just(Order::Nothing)
+    ]
 }
 
 proptest! {

@@ -28,7 +28,12 @@ impl<R: Rng> ShowDirector<R> {
             cause,
             waited: 0.0,
         });
-        self.events.push(ShowEvent::CueCalled { slot, cue, entry, cause });
+        self.events.push(ShowEvent::CueCalled {
+            slot,
+            cue,
+            entry,
+            cause,
+        });
     }
 
     /// Appelle un cue et le fait entrer tout de suite (`Back`, `GotoCue`, ouverture).

@@ -38,7 +38,10 @@ pub fn bar_seconds(bpm: Option<f32>) -> f32 {
 
 /// Ce qui se passe musicalement sur l'image : de quoi décider qu'une entrée est prête.
 #[derive(Debug, Clone, Copy, Default)]
-#[allow(clippy::struct_excessive_bools, reason = "quatre faits musicaux indépendants de la même image")]
+#[allow(
+    clippy::struct_excessive_bools,
+    reason = "quatre faits musicaux indépendants de la même image"
+)]
 pub(crate) struct Beats {
     /// Kick sur le premier temps d'une mesure.
     pub downbeat: bool,
@@ -207,7 +210,11 @@ mod tests {
         assert_eq!(clock.progress(&a), Some(0.5));
         assert!(clock.remaining(&a).is_some_and(|s| (s - 2.0).abs() < 1e-6));
         assert!(clock.due(&audio(18.0, None), false));
-        assert_eq!(clock.remaining(&audio(18.0, None)), None, "sans tempo, pas d'estimation");
+        assert_eq!(
+            clock.remaining(&audio(18.0, None)),
+            None,
+            "sans tempo, pas d'estimation"
+        );
     }
 
     #[test]
@@ -228,14 +235,26 @@ mod tests {
             ..quiet
         };
         assert!(!p.ready(phrase), "avant MAX_LATE, seule la frappe du drop compte");
-        assert!(p.ready(Beats { drop_now: true, ..quiet }));
+        assert!(p.ready(Beats {
+            drop_now: true,
+            ..quiet
+        }));
         p.waited = MAX_LATE + 1.0;
-        assert!(!p.ready(quiet) && p.ready(phrase), "après MAX_LATE : la phrase suivante");
+        assert!(
+            !p.ready(quiet) && p.ready(phrase),
+            "après MAX_LATE : la phrase suivante"
+        );
         p.waited = MAX_LATE + NO_BEAT_FALLBACK + 0.1;
         assert!(p.ready(quiet), "puis tout de suite");
         p.entry = CueEntry::Cut;
         p.waited = 0.0;
-        assert!(!p.ready(quiet) && p.ready(Beats { downbeat: true, ..quiet }));
+        assert!(
+            !p.ready(quiet)
+                && p.ready(Beats {
+                    downbeat: true,
+                    ..quiet
+                })
+        );
         assert!(p.ready(Beats::default()), "sans musique, la coupe n'attend pas");
     }
 }
