@@ -12,6 +12,7 @@ pub mod gates;
 pub mod limiter;
 pub mod load;
 pub mod model;
+pub mod persist;
 pub mod time_scale;
 pub mod validate;
 pub mod wait;

@@ -312,6 +312,17 @@ impl<R: Rng> ShowDirector<R> {
         self.scale.request(scale, seconds);
     }
 
+    /// Nombre de créneaux DJ de l'événement.
+    #[must_use]
+    pub fn slot_count(&self) -> usize {
+        self.prepared.slots.len()
+    }
+
+    /// État en écriture, pour la reprise (`persist`) : le reste du temps, seul `update` y touche.
+    pub(crate) fn state_mut(&mut self) -> &mut ShowState {
+        &mut self.state
+    }
+
     /// Graine de tout l'aléatoire du spectacle (à garder dans la sauvegarde).
     #[must_use]
     pub fn seed(&self) -> u64 {
