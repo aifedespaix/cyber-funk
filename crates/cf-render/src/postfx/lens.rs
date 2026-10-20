@@ -24,7 +24,11 @@ impl Lens {
         let rate = if target > self.amount { LENS_RISE } else { LENS_FALL };
         let gap = target - self.amount;
         self.amount += gap.signum() * gap.abs().min(rate * dt_s.max(0.0));
-        let speed = if speed_ratio.is_finite() { speed_ratio.clamp(0.0, 1.0) } else { 0.0 };
+        let speed = if speed_ratio.is_finite() {
+            speed_ratio.clamp(0.0, 1.0)
+        } else {
+            0.0
+        };
         self.rain_time += f64::from(dt_s.max(0.0) * (0.4 + 1.2 * speed));
     }
 }

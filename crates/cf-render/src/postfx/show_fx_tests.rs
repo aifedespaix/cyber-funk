@@ -68,7 +68,10 @@ fn le_flash_du_drop_passe_par_le_limiteur_plafond_et_montee() {
     // Montée bornée : pas plus de `cap × dt / MIN_FADE` en une image.
     let first = fx.flash();
     assert!(first > 0.0, "le flash du drop est accordé");
-    assert!(first <= MAX_FLASH_PEAK * (DT as f32) / MIN_FADE + 1e-6, "montée trop rapide : {first}");
+    assert!(
+        first <= MAX_FLASH_PEAK * (DT as f32) / MIN_FADE + 1e-6,
+        "montée trop rapide : {first}"
+    );
     let mut top = first;
     for _ in 0..120 {
         fx.update(Some(&show()), 0.0, false, t, 0);

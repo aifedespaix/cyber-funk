@@ -54,10 +54,10 @@ mod rig;
 
 use bevy::camera::visibility::RenderLayers;
 
+pub use compositor::{COMPOSITOR_ORDER, Compositor, OVERLAY_COMPOSITOR_ORDER, OverlayCompositor};
 pub use markers::{BackgroundLayer, ForegroundLayer, OverlayLayer, WorldLayer};
 pub use opacity::{LayerOpacity, OFF_BELOW};
 pub use pose::{CameraPose, DEFAULT_FOV_DEG, LayerView};
-pub use compositor::{COMPOSITOR_ORDER, Compositor, OVERLAY_COMPOSITOR_ORDER, OverlayCompositor};
 pub use rig::{LayerCamera, LayerTargets, LayersPlugin};
 
 /// Index de `RenderLayers` de l'arrière-plan.

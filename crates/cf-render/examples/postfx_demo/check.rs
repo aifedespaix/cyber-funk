@@ -6,7 +6,6 @@
 //! écoulée, flash au sommet, vague au milieu de l'écran) ; seul le préchauffage se compte en temps réel.
 
 use std::collections::HashMap;
-use std::fmt::Write as _;
 use std::time::Instant;
 
 use bevy::post_process::bloom::Bloom;
@@ -168,30 +167,29 @@ pub(crate) fn run_check(
         exit.write(evaluate(&check));
         return;
     };
-    let entered = match check.entered {
-        Some(t) => t,
-        None => {
-            // Entrée dans l'étape : on règle le spectacle, l'audio et la qualité.
-            check.entered = Some(now);
-            if phase.next_cue {
-                check.cue_seq += 1;
-            }
-            match phase.show {
-                Some(show) => commands.insert_resource(CurrentShowFx(ShowFxInput {
-                    cue_seq: check.cue_seq,
-                    drop: phase.drop.then_some(DROP),
-                    ..show
-                })),
-                None => commands.remove_resource::<CurrentShowFx>(),
-            }
-            audio.0.pulse = phase.pulse;
-            audio.0.section = cf_analysis::Section::Peak;
-            settings.bloom = phase.bloom;
-            return;
+    let Some(entered) = check.entered else {
+        // Entrée dans l'étape : on règle le spectacle, l'audio et la qualité.
+        check.entered = Some(now);
+        if phase.next_cue {
+            check.cue_seq += 1;
         }
+        match phase.show {
+            Some(show) => commands.insert_resource(CurrentShowFx(ShowFxInput {
+                cue_seq: check.cue_seq,
+                drop: phase.drop.then_some(DROP),
+                ..show
+            })),
+            None => commands.remove_resource::<CurrentShowFx>(),
+        }
+        audio.0.pulse = phase.pulse;
+        audio.0.section = cf_analysis::Section::Peak;
+        settings.bloom = phase.bloom;
+        return;
     };
     // Le drop ne frappe que pendant une image (`drop_now`).
-    if phase.drop && let Some(show) = phase.show {
+    if phase.drop
+        && let Some(show) = phase.show
+    {
         commands.insert_resource(CurrentShowFx(ShowFxInput {
             cue_seq: check.cue_seq,
             ..show
@@ -222,7 +220,11 @@ pub(crate) fn run_check(
     check.captured = Some(now);
     let (grade, bloom) = *compositor;
     // Pour la référence : la force de l'`UnrealBloomPass` de Sillage (0 sans bloom), pas l'intensité de Bevy.
-    let strength = if bloom.is_some() { bloom_strength(audio.0.pulse) } else { 0.0 };
+    let strength = if bloom.is_some() {
+        bloom_strength(audio.0.pulse)
+    } else {
+        0.0
+    };
     check.uniforms.push((phase.name, *grade, strength));
     let name = phase.name;
     let mut shot = commands.spawn(Screenshot::primary_window());
@@ -243,44 +245,8 @@ pub(crate) fn run_check(
         let dir = std::path::PathBuf::from(dir);
         let _ = std::fs::create_dir_all(&dir);
         shot.observe(save_to_disk(dir.join(format!("{name}.png"))));
-        let _ = std::fs::write(dir.join("phases.json"), phases_json(&check.uniforms));
+        let _ = std::fs::write(dir.join("phases.json"), crate::json::phases_json(&check.uniforms));
     }
-}
-
-/// Les uniformes de chaque étape, pour rendre la référence Sillage avec exactement les mêmes valeurs.
-fn phases_json(rows: &[(&'static str, GradeUniforms, f32)]) -> String {
-    let mut out = String::from("[\n");
-    for (i, (name, g, bloom)) in rows.iter().enumerate() {
-        let _ = write!(
-            out,
-            "  {{\"name\": \"{name}\", \"bloom\": {bloom}, \"aberration\": {}, \"time\": {}, \"grain\": {}, \
-             \"lens\": {}, \"rainTime\": {}, \"aspect\": {}, \"flash\": {}, \"sweep\": {}, \"sweepPos\": {}, \
-             \"contrast\": {}, \"saturation\": {}, \"slow\": {}, \"blur\": {}, \"flashColor\": [{}, {}, {}], \
-             \"sweepColor\": [{}, {}, {}]}}{}\n",
-            g.aberration,
-            g.time,
-            g.grain,
-            g.lens,
-            g.rain_time,
-            g.aspect,
-            g.flash,
-            g.sweep,
-            g.sweep_pos,
-            g.contrast,
-            g.saturation,
-            g.slow,
-            g.blur,
-            g.flash_color.x,
-            g.flash_color.y,
-            g.flash_color.z,
-            g.sweep_color.x,
-            g.sweep_color.y,
-            g.sweep_color.z,
-            if i + 1 < rows.len() { "," } else { "" },
-        );
-    }
-    out.push(']');
-    out
 }
 
 /// Zones du titre et du nom du DJ (px) : seuls endroits où la surcouche dessine.
@@ -325,7 +291,10 @@ fn evaluate(check: &Check) -> AppExit {
             }
         }
     }
-    verdict(mask.len() > 300, format!("le titre 2D est dessiné ({} pixels à sa couleur)", mask.len()));
+    verdict(
+        mask.len() > 300,
+        format!("le titre 2D est dessiné ({} pixels à sa couleur)", mask.len()),
+    );
     for phase in &PHASES[1..] {
         let Some(image) = shot(phase.name) else {
             verdict(false, format!("{} : capture absente", phase.name));
@@ -354,25 +323,40 @@ fn evaluate(check: &Check) -> AppExit {
     }
     if let Some(image) = shot("3-chaleur") {
         let r = saturation(image.mean(RED_PATCH.0, RED_PATCH.1));
-        verdict(r > red + 2.0, format!("chaleur : la charte sature davantage ({red:.1} → {r:.1})"));
+        verdict(
+            r > red + 2.0,
+            format!("chaleur : la charte sature davantage ({red:.1} → {r:.1})"),
+        );
     }
     if let Some(image) = shot("4-flash-de-drop") {
         let s = luma(image.mean(SKY.0, SKY.1));
-        verdict(s > sky + 20.0, format!("flash de drop : le ciel s'éclaire ({sky:.1} → {s:.1})"));
+        verdict(
+            s > sky + 20.0,
+            format!("flash de drop : le ciel s'éclaire ({sky:.1} → {s:.1})"),
+        );
     }
     if let Some((image, row)) = shot("5-vague").zip(check.uniforms.iter().find(|r| r.0 == "5-vague")) {
         let x = ((row.1.sweep_pos * width as f32) as u32).clamp(10, width - 10);
         let s = luma(image.mean((x - 8, 210), (x + 8, 232)));
         let n = luma(neutral.mean((x - 8, 210), (x + 8, 232)));
-        verdict(s > n + 5.0, format!("vague : la bande passe à x = {x} px ({n:.1} → {s:.1})"));
+        verdict(
+            s > n + 5.0,
+            format!("vague : la bande passe à x = {x} px ({n:.1} → {s:.1})"),
+        );
     }
     if let Some(image) = shot("6-bullet-time") {
         let r = saturation(image.mean(RED_PATCH.0, RED_PATCH.1));
-        verdict(r < red - 5.0, format!("bullet-time : l'image se désature ({red:.1} → {r:.1})"));
+        verdict(
+            r < red - 5.0,
+            format!("bullet-time : l'image se désature ({red:.1} → {r:.1})"),
+        );
     }
     if let Some(image) = shot("7-sans-bloom") {
         let h = luma(image.mean(NEAR_NEON.0, NEAR_NEON.1));
-        verdict(h < halo - 1.0, format!("sans bloom : plus de halo près du néon ({halo:.1} → {h:.1})"));
+        verdict(
+            h < halo - 1.0,
+            format!("sans bloom : plus de halo près du néon ({halo:.1} → {h:.1})"),
+        );
     }
     if ok {
         info!("vérification : tout est bon");

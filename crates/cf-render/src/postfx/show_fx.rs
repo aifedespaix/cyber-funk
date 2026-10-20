@@ -163,7 +163,9 @@ impl ShowFx {
     /// `peak` : vrai au sommet du morceau ; `time` : horloge (s) ; `quality` : niveau de qualité adaptative
     /// (0 = plein).
     pub fn update(&mut self, show: Option<&ShowFxInput>, pulse: f32, peak: bool, time: f64, quality: u8) {
-        let dt = self.last_time.map_or(0.0, |last| ((time - last) as f32).clamp(0.0, MAX_DT));
+        let dt = self
+            .last_time
+            .map_or(0.0, |last| ((time - last) as f32).clamp(0.0, MAX_DT));
         self.last_time = Some(time);
         // Sans spectacle, aucun flash : le limiteur est en mode « respiration ».
         self.limiter

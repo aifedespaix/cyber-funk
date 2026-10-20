@@ -28,8 +28,8 @@ use bevy::render::render_resource::{
     AddressMode, BindGroupEntries, BindGroupLayoutDescriptor, BindGroupLayoutEntries, CachedRenderPipelineId,
     Canonical, ColorTargetState, ColorWrites, FilterMode, FragmentState, Operations, PipelineCache,
     RenderPassColorAttachment, RenderPassDescriptor, RenderPipeline, RenderPipelineDescriptor, Sampler,
-    SamplerBindingType, SamplerDescriptor, ShaderStages, Specializer, SpecializerKey, TextureFormat,
-    TextureSampleType, TextureView, Variants,
+    SamplerBindingType, SamplerDescriptor, ShaderStages, Specializer, SpecializerKey, TextureFormat, TextureSampleType,
+    TextureView, Variants,
 };
 use bevy::render::renderer::{RenderContext, RenderDevice, ViewQuery};
 use bevy::render::view::{ExtractedView, PostProcessBindGroupCache, PostProcessBindGroupCacheBuilder, ViewTarget};

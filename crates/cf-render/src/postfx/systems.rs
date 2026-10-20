@@ -41,7 +41,10 @@ fn to_vec3(rgb: Rgb) -> Vec3 {
 
 /// Fait avancer les effets du spectacle (et leur limiteur) et les gouttes, puis écrit les uniformes et le bloom du
 /// compositeur. Aucune allocation : tout est mis à jour en place.
-#[allow(clippy::too_many_arguments, reason = "un système Bevy lit chaque source dans son propre paramètre")]
+#[allow(
+    clippy::too_many_arguments,
+    reason = "un système Bevy lit chaque source dans son propre paramètre"
+)]
 pub(super) fn update_postfx(
     mut commands: Commands,
     mut state: ResMut<PostFxState>,

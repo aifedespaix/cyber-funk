@@ -12,7 +12,9 @@
 //! valeur déjà appliquée) pour ne pas déclencher de ré-extraction de composants inchangés.
 
 use bevy::asset::RenderAssetUsages;
-use bevy::camera::{Camera, Camera2d, Camera3d, ClearColorConfig, Hdr, PerspectiveProjection, Projection, RenderTarget};
+use bevy::camera::{
+    Camera, Camera2d, Camera3d, ClearColorConfig, Hdr, PerspectiveProjection, Projection, RenderTarget,
+};
 use bevy::core_pipeline::tonemapping::{DebandDither, Tonemapping};
 use bevy::math::DVec3;
 use bevy::prelude::*;

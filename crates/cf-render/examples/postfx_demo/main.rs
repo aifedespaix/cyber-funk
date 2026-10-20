@@ -21,6 +21,7 @@
 //! Sans écran : `xvfb-run -a` et le rendu logiciel de Mesa (`VK_ICD_FILENAMES=/usr/share/vulkan/icd.d/lvp_icd.json`).
 
 mod check;
+mod json;
 
 use std::time::Duration;
 
@@ -263,4 +264,3 @@ fn play(
     };
     show.0 = play.show;
 }
-

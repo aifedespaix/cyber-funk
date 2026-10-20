@@ -59,7 +59,9 @@ fn overlay_compositor(app: &mut App) -> Entity {
 
 fn grade(app: &mut App) -> GradeUniforms {
     let entity = compositor(app);
-    *app.world().get::<GradeUniforms>(entity).expect("uniformes d'étalonnage")
+    *app.world()
+        .get::<GradeUniforms>(entity)
+        .expect("uniformes d'étalonnage")
 }
 
 fn show() -> ShowFxInput {
