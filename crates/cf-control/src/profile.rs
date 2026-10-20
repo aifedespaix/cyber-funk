@@ -249,8 +249,7 @@ fn check_binding(i: usize, binding: &Binding, issues: &mut Vec<ProfileIssue>) {
         | InputSource::MidiCc14 { channel, cc: data, .. }
         | InputSource::MidiProgram {
             channel, program: data, ..
-        } if *channel > MIDI_CHANNEL_MAX || *data > MIDI_DATA_MAX =>
-        {
+        } if *channel > MIDI_CHANNEL_MAX || *data > MIDI_DATA_MAX => {
             issues.push(ProfileIssue::MidiOutOfRange { binding: i });
         }
         InputSource::Osc { address } if !address.starts_with('/') => {

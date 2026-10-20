@@ -110,7 +110,13 @@ impl<B: MidiBackend> Supervisor<B> {
                 return;
             }
         };
-        let wanted: Vec<String> = self.config.selection.pick(&listed).into_iter().map(str::to_owned).collect();
+        let wanted: Vec<String> = self
+            .config
+            .selection
+            .pick(&listed)
+            .into_iter()
+            .map(str::to_owned)
+            .collect();
 
         // Ports disparus ou plus voulus.
         let (keep, gone): (Vec<_>, Vec<_>) = std::mem::take(&mut self.connections)
@@ -167,21 +173,13 @@ impl<B: MidiBackend> Supervisor<B> {
         gate.store(true, std::sync::atomic::Ordering::Release);
         self.failed.remove(&name);
         tracing::info!(port = %name, id = port.0, "MIDI : port ouvert");
-        self.connections.push(Connected {
-            connection,
-            port,
-            name,
-        });
+        self.connections.push(Connected { connection, port, name });
     }
 
     /// Ferme la connexion (plus aucun callback après) puis l'annonce : tous les messages du port précèdent l'annonce
     /// dans le canal.
     fn announce_closed(&self, connection: Connected<B::Connection>) {
-        let Connected {
-            connection,
-            port,
-            name,
-        } = connection;
+        let Connected { connection, port, name } = connection;
         drop(connection);
         self.announce(PortEvent::Disconnected { port, name });
     }

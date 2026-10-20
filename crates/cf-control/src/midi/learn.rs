@@ -256,7 +256,10 @@ mod tests {
         learner.start_learn(ActionTemplate::Go);
         assert!(learner.is_learning());
         assert_eq!(learner.target(), Some(&ActionTemplate::Go));
-        assert!(learner.offer(&note(0, 36, 0), Some(PORT)).is_none(), "relâchement ignoré");
+        assert!(
+            learner.offer(&note(0, 36, 0), Some(PORT)).is_none(),
+            "relâchement ignoré"
+        );
         let learned = learner.offer(&note(9, 37, 90), Some(PORT)).unwrap();
         assert_eq!(
             learned,
@@ -293,7 +296,10 @@ mod tests {
     fn lone_cc_on_a_level_is_absolute_seven_bit_after_the_window() {
         let mut learner = Learner::new();
         learner.start_learn(ActionTemplate::Macro(MacroIndex(2)));
-        assert!(learner.offer(&cc(1.00, 0, 20, 20), Some(PORT)).is_none(), "attend un compagnon éventuel");
+        assert!(
+            learner.offer(&cc(1.00, 0, 20, 20), Some(PORT)).is_none(),
+            "attend un compagnon éventuel"
+        );
         assert!(learner.poll(1.01).is_none(), "fenêtre pas finie");
         let learned = learner.poll(1.06).unwrap();
         assert!(matches!(
@@ -314,7 +320,10 @@ mod tests {
         learner.start_learn(ActionTemplate::LayerFade(Layer::World));
         assert!(learner.offer(&cc(2.000, 1, 5, 64), Some(PORT)).is_none());
         let learned = learner.offer(&cc(2.001, 1, 37, 3), Some(PORT)).unwrap();
-        assert!(matches!(learned.source, InputSource::MidiCc14 { channel: 1, cc: 5, .. }));
+        assert!(matches!(
+            learned.source,
+            InputSource::MidiCc14 { channel: 1, cc: 5, .. }
+        ));
         assert_eq!(learned.mode, Mode::Absolute);
     }
 

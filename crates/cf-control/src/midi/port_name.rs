@@ -104,7 +104,10 @@ mod tests {
 
     #[test]
     fn canonical_strips_host_decorations() {
-        assert_eq!(canonical_port_name("DDJ-FLX4:DDJ-FLX4 MIDI 1 28:0"), "DDJ-FLX4:DDJ-FLX4 MIDI 1");
+        assert_eq!(
+            canonical_port_name("DDJ-FLX4:DDJ-FLX4 MIDI 1 28:0"),
+            "DDJ-FLX4:DDJ-FLX4 MIDI 1"
+        );
         assert_eq!(canonical_port_name("2- Launchpad"), "Launchpad");
         assert_eq!(canonical_port_name("MIDIIN2 (Launchpad)"), "Launchpad");
         assert_eq!(canonical_port_name("  MPK mini 3  "), "MPK mini 3");
@@ -119,13 +122,19 @@ mod tests {
         let learned = canonical_port_name(alsa_before);
         assert_eq!(match_port_name(learned, alsa_after), Some(PortMatch::Exact));
         assert_eq!(match_port_name("2- Launchpad", "Launchpad"), Some(PortMatch::Exact));
-        assert_eq!(match_port_name("launchpad", "MIDIIN3 (Launchpad)"), Some(PortMatch::Exact));
+        assert_eq!(
+            match_port_name("launchpad", "MIDIIN3 (Launchpad)"),
+            Some(PortMatch::Exact)
+        );
     }
 
     #[test]
     fn short_profile_name_matches_longer_host_name_by_whole_words() {
         assert_eq!(match_port_name("DDJ-FLX4", alsa()), Some(PortMatch::Contained));
-        assert_eq!(match_port_name("X1", "Traktor Kontrol X1 MK2"), Some(PortMatch::Contained));
+        assert_eq!(
+            match_port_name("X1", "Traktor Kontrol X1 MK2"),
+            Some(PortMatch::Contained)
+        );
         // Un morceau de mot ne suffit pas.
         assert_eq!(match_port_name("X1", "Traktor Kontrol X10"), None);
         assert_eq!(match_port_name("LAUNCH", "Launchpad"), None);

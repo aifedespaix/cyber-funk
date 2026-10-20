@@ -159,7 +159,15 @@ impl MidiInput {
         let thread = std::thread::Builder::new()
             .name("cf-midi".into())
             .spawn(move || {
-                Supervisor::new(backend, config, items_tx, commands_rx, supervisor_ports, supervisor_stats).run();
+                Supervisor::new(
+                    backend,
+                    config,
+                    items_tx,
+                    commands_rx,
+                    supervisor_ports,
+                    supervisor_stats,
+                )
+                .run();
             })
             .map_err(|e| Error::Midi(format!("thread MIDI impossible à démarrer : {e}")))?;
         Ok(Self {

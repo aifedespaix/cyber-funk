@@ -148,7 +148,10 @@ impl InputSource {
     /// continus ([`Mode::Relative`](crate::Mode::Relative)) exigent une commande continue.
     #[must_use]
     pub fn is_button(&self) -> bool {
-        matches!(self, Self::Key { .. } | Self::MidiNote { .. } | Self::MidiProgram { .. })
+        matches!(
+            self,
+            Self::Key { .. } | Self::MidiNote { .. } | Self::MidiProgram { .. }
+        )
     }
 
     /// Un même geste peut-il déclencher les deux sources ? C'est la définition d'un conflit de binding.

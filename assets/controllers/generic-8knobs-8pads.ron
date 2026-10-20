@@ -1,0 +1,38 @@
+// Contrôleur générique : 8 potards et 8 pads (type clavier-pads de poche).
+//
+// Gabarit de départ, pas la table d'un modèle précis : les numéros sont les réglages d'usine les plus courants de ce
+// genre d'appareil (potards en CC 70 à 77, pads en notes 36 à 43, canal 1), et rien n'a été vérifié sur un contrôleur
+// réel. Si le vôtre envoie autre chose, lancez `cargo run -p cf-control --example midi_monitor` pour voir ce qu'il
+// envoie, ou refaites les assignations avec le MIDI learn dans la fenêtre opérateur.
+//
+// Pas de `port` : le profil accepte n'importe quel port. Pour le réserver à un appareil, ajouter par exemple
+// `port: Some("MPK mini 3")` (nom court, sans les numéros que l'hôte ajoute : voir `canonical_port_name`).
+//
+// Canaux écrits de 0 à 15 (le « canal 1 » des fiches techniques est 0 ici).
+ControlProfile(
+    name: "Générique 8 potards / 8 pads",
+    bindings: [
+        // Potards 1 à 6 : macros du look en cours.
+        Binding(source: MidiCc(channel: 0, cc: 70), action: Macro(0), mode: Absolute),
+        Binding(source: MidiCc(channel: 0, cc: 71), action: Macro(1), mode: Absolute),
+        Binding(source: MidiCc(channel: 0, cc: 72), action: Macro(2), mode: Absolute),
+        Binding(source: MidiCc(channel: 0, cc: 73), action: Macro(3), mode: Absolute),
+        Binding(source: MidiCc(channel: 0, cc: 74), action: Macro(4), mode: Absolute),
+        Binding(source: MidiCc(channel: 0, cc: 75), action: Macro(5), mode: Absolute),
+        // Potard 7 : opacité de la surcouche (cartons-titres, nom du DJ). Potard 8 : intensité globale.
+        Binding(source: MidiCc(channel: 0, cc: 76), action: LayerFade(Overlay), mode: Absolute),
+        Binding(source: MidiCc(channel: 0, cc: 77), action: Master, mode: Absolute),
+
+        // Pads 1 et 2 : conduite du show. Pad 3 : DJ suivant. Pad 4 : drop immédiat.
+        Binding(source: MidiNote(channel: 0, note: 36), action: Go, mode: Momentary),
+        Binding(source: MidiNote(channel: 0, note: 37), action: Back, mode: Momentary),
+        Binding(source: MidiNote(channel: 0, note: 38), action: NextDj, mode: Momentary),
+        Binding(source: MidiNote(channel: 0, note: 39), action: ForceDrop, mode: Momentary),
+        // Pad 5 : noir complet, tant que le pad est tenu. Pad 6 : plan suivant.
+        Binding(source: MidiNote(channel: 0, note: 40), action: Blackout, mode: Momentary),
+        Binding(source: MidiNote(channel: 0, note: 41), action: SkipShot, mode: Momentary),
+        // Pad 7 : fige l'avancée automatique (bascule). Pad 8 : look de repli.
+        Binding(source: MidiNote(channel: 0, note: 42), action: Hold, mode: Toggle),
+        Binding(source: MidiNote(channel: 0, note: 43), action: SafeLook, mode: Momentary),
+    ],
+)
