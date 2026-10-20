@@ -6,6 +6,7 @@
 mod cli;
 mod logging;
 mod projector;
+mod show_setup;
 mod test_scene;
 
 use std::path::PathBuf;
@@ -17,7 +18,9 @@ use bevy::prelude::*;
 use bevy::winit::WinitSettings;
 use cf_cinema::CinemaPlugin;
 use cf_operator::{OperatorPlugin, QuitGuardPlugin};
-use cf_render::{AudioConfig, CfAudioPlugin, CorePlugin, DiagnosticsPlugin, OutputChoice};
+use cf_render::{
+    AudioConfig, CfAudioPlugin, ControlsPlugin, CorePlugin, DiagnosticsPlugin, OutputChoice, ShowPlugin,
+};
 use cf_world_neon::NeonWorldPlugin;
 use clap::Parser as _;
 
@@ -47,16 +50,17 @@ fn main() -> anyhow::Result<ExitCode> {
 
     if let Some(show) = &cli.show {
         ensure!(show.is_file(), "le fichier de show {} n'existe pas", show.display());
-        tracing::info!(show = %show.display(), "show demandé (chargement prévu en J2)");
     }
+    let show = show_setup::show_plugin(&cli)?;
+    let controls = show_setup::controls_plugin(&cli)?;
 
-    let exit = build_app(&cli).run();
+    let exit = build_app(&cli, controls, show).run();
     tracing::info!(?exit, "cyber-funk s'arrête");
     Ok(exit_code(&exit))
 }
 
 /// Assemble l'application : les plugins de cyber-funk, les fenêtres et la scène de test.
-fn build_app(cli: &Cli) -> App {
+fn build_app(cli: &Cli, controls: ControlsPlugin, show: ShowPlugin) -> App {
     let projector = ProjectorConfig {
         monitor: cli.projector_monitor.clone().unwrap_or_default(),
         windowed: cli.windowed,
@@ -78,6 +82,9 @@ fn build_app(cli: &Cli) -> App {
         CorePlugin,
         DiagnosticsPlugin::default(),
         CfAudioPlugin::new(audio_config(cli)),
+        // Après l'audio (`AudioPump`), avant le spectacle : les actions de l'image sont prêtes quand le chef les lit.
+        controls,
+        show,
         ProjectorPlugin(projector),
         CinemaPlugin,
         NeonWorldPlugin,

@@ -120,6 +120,14 @@ pub struct Cli {
     /// Joue les démos vers une sortie nulle au lieu de la carte son (machines sans audio, démonstrations muettes).
     #[arg(long)]
     pub null_audio_output: bool,
+
+    /// Dossier des ressources du show : profils de contrôle (`controllers/`), looks (`looks/`), titres (`titles/`).
+    #[arg(long, value_name = "DOSSIER", default_value = "assets")]
+    pub assets_dir: PathBuf,
+
+    /// N'ouvre aucun port MIDI (le clavier reste actif).
+    #[arg(long)]
+    pub no_midi: bool,
 }
 
 #[cfg(test)]
@@ -140,6 +148,8 @@ mod tests {
         assert_eq!(cli.audio_source, AudioSourceArg::Demo);
         assert_eq!(cli.music_dir, PathBuf::from("assets/music"));
         assert!(!cli.null_audio_output);
+        assert_eq!(cli.assets_dir, PathBuf::from("assets"));
+        assert!(!cli.no_midi);
     }
 
     #[test]

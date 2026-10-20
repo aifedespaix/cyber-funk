@@ -5,6 +5,7 @@
 //! projecteur.
 
 mod audio_panel;
+mod controls_panel;
 mod diagnostics;
 mod quit;
 mod ui;
@@ -15,6 +16,8 @@ pub use window::OperatorWindow;
 
 use bevy::prelude::*;
 use bevy_egui::{EguiGlobalSettings, EguiPlugin, EguiPrimaryContextPass};
+use bevy_egui::input::EguiWantsInput;
+use cf_render::{CfSet, TextInputFocus};
 
 /// Plugin de la fenêtre opérateur : fenêtre, contexte egui, panneau principal et dialogue de sortie.
 ///
@@ -32,9 +35,19 @@ impl Plugin for OperatorPlugin {
             .auto_create_primary_context = false;
         // Le panneau audio écrit des commandes ; le plugin audio enregistre le même message (idempotent).
         app.add_message::<cf_render::audio::AudioCommand>();
+        // Quand un champ texte d'egui a le focus, le clavier n'est plus une commande (voir `cf_render::controls`).
+        app.init_resource::<TextInputFocus>()
+            .add_systems(Update, sync_text_focus.before(CfSet::Input));
         app.add_systems(Startup, window::spawn_operator_window).add_systems(
             EguiPrimaryContextPass,
             (ui::main_panel, diagnostics::diagnostics_window, ui::quit_dialog).chain(),
         );
     }
+}
+
+/// Recopie « egui veut le clavier » (champ texte en cours d'édition, menu ouvert) dans `TextInputFocus`, que le pont
+/// clavier lit en `CfSet::Input`. La valeur est celle de la passe egui de l'image précédente : un champ qui prend le
+/// focus par un clic l'a donc avant la première touche tapée.
+fn sync_text_focus(wants: Res<EguiWantsInput>, mut focus: ResMut<TextInputFocus>) {
+    focus.set_if_neq(TextInputFocus(wants.wants_any_keyboard_input()));
 }
