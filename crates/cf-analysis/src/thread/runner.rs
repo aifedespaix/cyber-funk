@@ -58,6 +58,8 @@ impl<A: Analyzer> Runner<A> {
         stats: Arc<AnalysisStats>,
         stop: Arc<AtomicBool>,
     ) -> Self {
+        let mut analyzer = analyzer;
+        analyzer.set_source(config.initial_source);
         Self {
             analyzer,
             selected: config.initial_source,
@@ -140,6 +142,7 @@ impl<A: Analyzer> Runner<A> {
         if let Some(reader) = kind.and_then(|k| self.slots[k.index()].as_mut()) {
             reader.reset();
         }
+        self.analyzer.set_source(kind);
         self.analyzer.reset();
         let mut sink = self.sink();
         sink.emit(AudioEventKind::SourceChanged { source: kind });
