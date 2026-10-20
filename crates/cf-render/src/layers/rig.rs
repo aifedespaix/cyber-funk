@@ -115,14 +115,17 @@ impl Plugin for LayersPlugin {
         let fallback = self.fallback_size.max(UVec2::ONE);
         app.init_resource::<CameraPose>()
             .init_resource::<LayerOpacity>()
-            .add_systems(Startup, move |commands: Commands,
-                                         images: ResMut<Assets<Image>>,
-                                         meshes: ResMut<Assets<Mesh>>,
-                                         materials: ResMut<Assets<StandardMaterial>>,
-                                         window: Query<&Window, With<PrimaryWindow>>| {
-                let size = window.single().map_or(fallback, |w| w.physical_size().max(UVec2::ONE));
-                spawn_rig(commands, images, meshes, materials, size);
-            })
+            .add_systems(
+                Startup,
+                move |commands: Commands,
+                      images: ResMut<Assets<Image>>,
+                      meshes: ResMut<Assets<Mesh>>,
+                      materials: ResMut<Assets<StandardMaterial>>,
+                      window: Query<&Window, With<PrimaryWindow>>| {
+                    let size = window.single().map_or(fallback, |w| w.physical_size().max(UVec2::ONE));
+                    spawn_rig(commands, images, meshes, materials, size);
+                },
+            )
             .add_systems(
                 Update,
                 (resize_targets, apply_pose, apply_opacity)
@@ -136,6 +139,8 @@ fn target_image(size: UVec2) -> Image {
     let mut image = Image::new_target_texture(size.x, size.y, LAYER_FORMAT, None);
     // Effacée à chaque image par sa caméra : inutile d'en garder une copie de zéros côté processeur.
     image.data = None;
+    // Rien à recopier : sans cela, Bevy cherche une ancienne texture et avertit à la création.
+    image.copy_on_resize = false;
     image.asset_usage = RenderAssetUsages::default();
     image
 }
@@ -174,29 +179,28 @@ fn spawn_rig(
             ..default()
         };
         let (near, far) = clip_planes(layer);
-        let mut entity = commands.spawn((
+        let base = (
             LayerCamera(layer),
             camera,
             target,
             layer.render_layers(),
             Hdr,
             Transform::default(),
-        ));
+        );
+        // `Camera3d` / `Camera2d` dans le lot de création : un `Camera` sans graphe de rendu à sa naissance fait
+        // avertir Bevy.
         if layer == Layer::Overlay {
-            entity.insert((Camera2d, Msaa::Off));
+            commands.spawn((Camera2d, Msaa::Off, base));
         } else {
-            entity.insert((
+            commands.spawn((
                 Camera3d::default(),
-                Projection::Perspective(PerspectiveProjection {
-                    near,
-                    far,
-                    ..default()
-                }),
-                // Ni tonemapping ni dither : la couche est un intermédiaire HDR, l'image finale est mise en forme par le
-                // compositeur (J4-02).
+                Projection::Perspective(PerspectiveProjection { near, far, ..default() }),
+                // Ni tonemapping ni dither : la couche est un intermédiaire HDR, l'image finale est mise en forme par
+                // le compositeur (J4-02).
                 Tonemapping::None,
                 DebandDither::Disabled,
                 Msaa::Sample4,
+                base,
             ));
         }
     }
@@ -288,9 +292,9 @@ fn apply_pose(
             rotation: view.rotation,
             scale: Vec3::ONE,
         });
-        if let Projection::Perspective(perspective) = &mut *projection
-            && (perspective.fov - fov).abs() > f32::EPSILON
-        {
+        // Lecture d'abord : `&mut *projection` marquerait la projection modifiée même sans écriture.
+        let stale = matches!(&*projection, Projection::Perspective(p) if (p.fov - fov).abs() > f32::EPSILON);
+        if stale && let Projection::Perspective(perspective) = &mut *projection {
             perspective.fov = fov;
         }
     }
@@ -313,7 +317,11 @@ fn apply_opacity(
         }
     }
     for (LayerQuad(layer), mut visibility) in &mut quads {
-        let wanted = if opacity.is_on(*layer) { Visibility::Inherited } else { Visibility::Hidden };
+        let wanted = if opacity.is_on(*layer) {
+            Visibility::Inherited
+        } else {
+            Visibility::Hidden
+        };
         visibility.set_if_neq(wanted);
     }
     for layer in Layer::ALL {

@@ -126,7 +126,11 @@ mod tests {
     fn deux_couches_ne_se_voient_jamais() {
         for a in Layer::ALL {
             for b in Layer::ALL {
-                assert_eq!(a.render_layers().intersects(&b.render_layers()), a == b, "{a:?} / {b:?}");
+                assert_eq!(
+                    a.render_layers().intersects(&b.render_layers()),
+                    a == b,
+                    "{a:?} / {b:?}"
+                );
             }
         }
     }

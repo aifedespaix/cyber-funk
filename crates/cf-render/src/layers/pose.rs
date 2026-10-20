@@ -56,7 +56,11 @@ impl CameraPose {
     /// FOV vertical à appliquer, en radians : borné, et le FOV par défaut si la valeur n'est pas un nombre.
     #[must_use]
     pub fn fov_rad(&self) -> f32 {
-        let deg = if self.fov_deg.is_finite() { self.fov_deg } else { DEFAULT_FOV_DEG };
+        let deg = if self.fov_deg.is_finite() {
+            self.fov_deg
+        } else {
+            DEFAULT_FOV_DEG
+        };
         deg.clamp(FOV_RANGE_DEG.0, FOV_RANGE_DEG.1).to_radians()
     }
 
@@ -83,13 +87,21 @@ impl CameraPose {
     pub fn view_for(&self, layer: Layer, origin: DVec3) -> Option<LayerView> {
         match layer {
             Layer::Background => Some(LayerView {
-                translation: if self.sky_drift.is_finite() { self.sky_drift } else { Vec3::ZERO },
+                translation: if self.sky_drift.is_finite() {
+                    self.sky_drift
+                } else {
+                    Vec3::ZERO
+                },
                 rotation: self.safe_rotation(),
             }),
             Layer::World => {
                 let relative = self.position - origin;
                 Some(LayerView {
-                    translation: if relative.is_finite() { relative.as_vec3() } else { Vec3::ZERO },
+                    translation: if relative.is_finite() {
+                        relative.as_vec3()
+                    } else {
+                        Vec3::ZERO
+                    },
                     rotation: self.safe_rotation(),
                 })
             }
