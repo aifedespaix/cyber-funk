@@ -2369,6 +2369,8 @@ dependencies = [
  "cf-analysis",
  "cf-control",
  "proptest",
+ "rand_core",
+ "rand_pcg",
  "ron",
  "serde",
  "serde_json",
