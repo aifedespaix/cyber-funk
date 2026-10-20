@@ -85,7 +85,7 @@ fn build_app(cli: &Cli, controls: ControlsPlugin, show: ShowPlugin) -> App {
         show,
         ProjectorPlugin(projector),
         CinemaPlugin,
-        NeonWorldPlugin,
+        NeonWorldPlugin::default(),
         TestScenePlugin,
     ));
 

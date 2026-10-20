@@ -2438,9 +2438,12 @@ name = "cf-world-neon"
 version = "0.1.0"
 dependencies = [
  "bevy",
+ "cf-analysis",
  "cf-cinema",
  "cf-render",
  "cf-show",
+ "serde_json",
+ "tracing",
 ]
 
 [[package]]

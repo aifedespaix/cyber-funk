@@ -130,3 +130,19 @@ bun run tools/sillage-golden/gates.ts > crates/cf-show/tests/golden/gates.json
 ```
 
 Le script vérifie l'empreinte git des deux copies (`acts.ts` `18629ce241a7`, `gates.ts` `b7a840f8449f`, commit fd34481).
+
+## Route et plan de route (J5-01)
+
+`road/index.ts` fait tourner les copies conformes `road/sillage/engine/route-plan.ts`, `flight/floors.ts`, `bridges.ts`
+et `random.ts` (commit fd34481 ; empreintes `c3ac51c46218`, `20894b6d8a7b`, `7991adee6546`, `0a576ed902d7`) : 240
+scénarios du planificateur du pilote (graine fixe, 98 plans non vides dont 27 avec esquive), positions et tirages des 260
+premières arches, emprises. Le JSON est relu par `crates/cf-world-neon` (`route::planner`, `route::bridges`). `bridges.ts`
+a besoin de `three`, `building-material` et `palette` : ce sont des bouchons (`road/stubs/`, `road/sillage/engine/`), jamais
+appelés, seules les fonctions pures de `bridges.ts` tournent.
+
+```bash
+bun run tools/sillage-golden/road/index.ts           # régénère crates/cf-world-neon/tests/golden/route.json
+bun run tools/sillage-golden/road/index.ts --check   # recalcule et compare
+```
+
+Le rendu côte à côte de la route (`road-render/`) est décrit dans son `README.md`.
