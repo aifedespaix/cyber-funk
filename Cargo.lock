@@ -2393,9 +2393,12 @@ dependencies = [
 name = "cf-show"
 version = "0.1.0"
 dependencies = [
+ "assert_no_alloc",
  "cf-analysis",
  "cf-control",
  "proptest",
+ "rand_core",
+ "rand_pcg",
  "ron",
  "serde",
  "serde_json",

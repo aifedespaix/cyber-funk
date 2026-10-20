@@ -6,6 +6,7 @@ Inventaire des fichiers repris de Sillage (dépôt `aifedespaix/aifedespaix.com`
 | Fichier | Origine dans Sillage | Licence | Taille |
 | --- | --- | --- | --- |
 | `controllers/keyboard-sillage.ron` | Transcription de la table `OPERATOR_BINDINGS` de `src/components/sillage/engine/show/operator.ts` (pas un fichier copié) | Celle du projet | 3 Ko |
+| `titles/drop-titles.ron` | Transcription de la table `DROP_TITLES` de `src/components/sillage/engine/show/drop-titles.ts` (22 paires FR/EN, pas un fichier copié) | Celle du projet | 3 Ko |
 | `music/Snabisch - Night Prowler.mp3` | `public/music/Snabisch - Night Prowler.mp3` | CC0 (voir `music/LICENCES.md`) | 2984 Ko |
 | `music/Tozan - Winning the Race.mp3` | `public/music/Tozan - Winning the Race.mp3` | CC0 (voir `music/LICENCES.md`) | 2717 Ko |
 | `music/Yongki - Chase.mp3` | `public/music/Yongki - Chase.mp3` | CC0 (voir `music/LICENCES.md`) | 5117 Ko |

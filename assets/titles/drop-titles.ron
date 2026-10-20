@@ -1,0 +1,30 @@
+// Cartons-titres des drops : très courts, à lire d'un coup d'œil sur l'écran du public. Une paire FR/EN par entrée ;
+// `min` est le niveau (0 à 5) à partir duquel elle sert, les plus emphatiques attendent les niveaux hauts.
+// Repris à l'identique de `engine/show/drop-titles.ts` de Sillage. Les textes s'affichent en capitales.
+DropTitles(
+    version: 1,
+    titles: [
+        DropTitle(id: "drop", fr: "Drop", en: "Drop", min: 2),
+        DropTitle(id: "go", fr: "On y va", en: "Here we go", min: 2),
+        DropTitle(id: "now", fr: "Maintenant", en: "Now", min: 2),
+        DropTitle(id: "higher", fr: "Plus haut", en: "Higher", min: 3),
+        DropTitle(id: "brakes", fr: "Sans frein", en: "No brakes", min: 2),
+        DropTitle(id: "letgo", fr: "Lâchez tout", en: "Let go", min: 2),
+        DropTitle(id: "shake", fr: "Secouez la ville", en: "Shake the city", min: 3),
+        DropTitle(id: "gas", fr: "Plein gaz", en: "Full send", min: 2),
+        DropTitle(id: "net", fr: "Sans filet", en: "No net", min: 3),
+        DropTitle(id: "again", fr: "Encore", en: "Again", min: 2),
+        DropTitle(id: "hold", fr: "Accrochez-vous", en: "Hold on", min: 3),
+        DropTitle(id: "road", fr: "La route tremble", en: "The road shakes", min: 3),
+        DropTitle(id: "burn", fr: "Faites brûler", en: "Burn it down", min: 4),
+        DropTitle(id: "sky", fr: "Allumez le ciel", en: "Light the sky", min: 4),
+        DropTitle(id: "allin", fr: "Tout pour la piste", en: "All in", min: 3),
+        DropTitle(id: "loud", fr: "Plus fort", en: "Louder", min: 2),
+        DropTitle(id: "melt", fr: "Fondez", en: "Melt", min: 3),
+        DropTitle(id: "weightless", fr: "Plus de poids", en: "Weightless", min: 4),
+        DropTitle(id: "noreturn", fr: "Pas de retour", en: "No way back", min: 5),
+        DropTitle(id: "beyond", fr: "Au-delà", en: "Beyond", min: 5),
+        DropTitle(id: "stars", fr: "Jusqu'aux étoiles", en: "To the stars", min: 5),
+        DropTitle(id: "break", fr: "Tout casser", en: "Break it", min: 4),
+    ],
+)

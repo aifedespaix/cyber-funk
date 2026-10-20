@@ -14,6 +14,8 @@ pub use error::LoadError;
 pub use library::{LibraryLook, LookLibrary};
 pub use version::{parse_event, parse_look};
 
+pub(crate) use version::{check_version, deserialize};
+
 use crate::model::{Cue, Event, Look, LookId};
 use crate::validate::validate_event;
 
