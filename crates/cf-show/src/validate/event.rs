@@ -110,6 +110,6 @@ fn check_cue(r: &mut Report, p: &str, cue: &Cue, look_exists: &dyn Fn(&LookId) -
                 );
             }
         }
-        CueAdvance::Manual | CueAdvance::OnDrop | CueAdvance::At { .. } => {}
+        CueAdvance::Manual | CueAdvance::OnDrop | CueAdvance::At { .. } | CueAdvance::OnMusic => {}
     }
 }

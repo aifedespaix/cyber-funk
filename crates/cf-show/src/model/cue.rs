@@ -57,7 +57,9 @@ pub enum CueEntry {
     OnPhrase,
 }
 
-/// Quand le cue suivant devient dû. Le chronomètre part à l'entrée du cue.
+/// Quand le cue suivant devient dû. Le chronomètre part quand le cue est appelé (GO ou échéance du cue précédent),
+/// pas quand son entrée se réalise : l'attente d'un drop ou d'une phrase ne décale pas la suite de la conduite (comme
+/// les échéances absolues de Sillage).
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
 pub enum CueAdvance {
     /// Seulement sur GO de l'opérateur (ou une note MIDI du DJ).
@@ -79,6 +81,9 @@ pub enum CueAdvance {
         /// Durée, en secondes : plus de 0 et au plus [`MAX_ADVANCE_SECONDS`].
         seconds: f64,
     },
+    /// Quand la musique est franchement là : au moins 45 s, puis environ 8 s d'énergie soutenue (attente de la
+    /// pré-intro de Sillage, `wait.ts` ; voir [`crate::wait::MusicWait`]).
+    OnMusic,
 }
 
 /// Ordre ponctuel lancé à l'entrée d'un cue (mêmes ordres que les pads de la fenêtre opérateur).

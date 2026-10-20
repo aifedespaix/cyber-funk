@@ -42,6 +42,10 @@ pub trait Analyzer: Send + 'static {
     /// (`BandGain`) ne s'applique qu'aux sources de capture. Par défaut, sans effet. Hors temps réel.
     fn set_source(&mut self, _source: Option<SourceKind>) {}
 
+    /// Active ou coupe le gain automatique des sources de capture (J1-06). Vrai pour un micro, faux pour une entrée
+    /// ligne dont le niveau est déjà celui d'un fichier. Par défaut, sans effet. Hors temps réel.
+    fn set_auto_gain(&mut self, _enabled: bool) {}
+
     /// Nouvelle source ou nouvelle piste : repartir d'un état neutre, comme Sillage (`beat.reset()`,
     /// `sections.reset()` au changement de source ou de piste). Appelé hors des pas, il peut allouer.
     fn reset(&mut self);

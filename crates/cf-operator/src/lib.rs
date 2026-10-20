@@ -4,6 +4,7 @@
 //! seconde fenêtre, avec sa propre caméra 2D qui porte le contexte egui : egui ne dessine donc jamais dans le
 //! projecteur.
 
+mod audio_panel;
 mod diagnostics;
 mod quit;
 mod ui;
@@ -29,6 +30,8 @@ impl Plugin for OperatorPlugin {
         app.world_mut()
             .resource_mut::<EguiGlobalSettings>()
             .auto_create_primary_context = false;
+        // Le panneau audio écrit des commandes ; le plugin audio enregistre le même message (idempotent).
+        app.add_message::<cf_render::audio::AudioCommand>();
         app.add_systems(Startup, window::spawn_operator_window).add_systems(
             EguiPrimaryContextPass,
             (ui::main_panel, diagnostics::diagnostics_window, ui::quit_dialog).chain(),

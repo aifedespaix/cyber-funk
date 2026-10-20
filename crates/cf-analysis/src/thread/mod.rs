@@ -78,6 +78,7 @@ enum Command {
     Detach(SourceKind),
     Select(Option<SourceKind>),
     ResetAnalysis,
+    AutoGain(bool),
 }
 
 /// Télécommande du thread d'analyse, clonable et utilisable depuis n'importe quel thread (sauf un callback temps
@@ -107,6 +108,12 @@ impl AnalysisControl {
     /// Remet l'analyseur à zéro sans changer de source (changement de piste du lecteur de démo).
     pub fn reset_analysis(&self) {
         self.send(Command::ResetAnalysis);
+    }
+
+    /// Active ou coupe le gain automatique des sources de capture : à garder pour un micro (qui capte la musique à
+    /// -30 dB ou moins), à couper pour une entrée ligne, déjà au niveau d'un fichier. Sans effet sur la démo.
+    pub fn set_auto_gain(&self, enabled: bool) {
+        self.send(Command::AutoGain(enabled));
     }
 
     fn send(&self, command: Command) {

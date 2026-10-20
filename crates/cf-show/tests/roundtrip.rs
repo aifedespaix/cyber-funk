@@ -9,6 +9,7 @@
     reason = "fichier de test : les aides hors #[test] peuvent échouer bruyamment"
 )]
 
+use cf_show::drop::TitleLanguage;
 use cf_show::load::{event_to_ron, look_to_ron, parse_event, parse_look};
 use cf_show::model::*;
 use proptest::collection::vec;
@@ -277,6 +278,7 @@ fn cue() -> impl Strategy<Value = Cue> {
         any::<f64>()
             .prop_filter("fini", |s| s.is_finite())
             .prop_map(|seconds| CueAdvance::After { seconds }),
+        Just(CueAdvance::OnMusic),
     ];
     let trigger = prop_oneof![
         text().prop_map(Trigger::Title),
@@ -306,13 +308,13 @@ fn cue() -> impl Strategy<Value = Cue> {
         })
 }
 
-fn tempo() -> impl Strategy<Value = TempoSource> {
+fn tempo() -> impl Strategy<Value = TempoPreference> {
     prop_oneof![
-        Just(TempoSource::Auto),
-        Just(TempoSource::Audio),
-        Just(TempoSource::MidiClock),
-        Just(TempoSource::Link),
-        Just(TempoSource::Tap),
+        Just(TempoPreference::Auto),
+        Just(TempoPreference::Prefer(TempoSource::Audio)),
+        Just(TempoPreference::Prefer(TempoSource::Clock)),
+        Just(TempoPreference::Prefer(TempoSource::Link)),
+        Just(TempoPreference::Prefer(TempoSource::Tap)),
     ]
 }
 
@@ -360,6 +362,7 @@ fn settings() -> impl Strategy<Value = EventSettings> {
         text().prop_map(MonitorSelect::Name)
     ];
     let flags = (any::<bool>(), any::<bool>());
+    let language = prop_oneof![Just(TitleLanguage::Fr), Just(TitleLanguage::En)];
     (
         text(),
         theme(),
@@ -369,9 +372,20 @@ fn settings() -> impl Strategy<Value = EventSettings> {
         id(LookId::try_from),
         flags,
         vec(id(ControlProfileId::try_from), 0..2),
+        language,
     )
         .prop_map(
-            |(name, theme, flashes, latency_offset_ms, projector, safe_look, (dj_sign, dj_on_ads), controls)| {
+            |(
+                name,
+                theme,
+                flashes,
+                latency_offset_ms,
+                projector,
+                safe_look,
+                (dj_sign, dj_on_ads),
+                controls,
+                title_language,
+            )| {
                 EventSettings {
                     name,
                     theme,
@@ -382,6 +396,7 @@ fn settings() -> impl Strategy<Value = EventSettings> {
                     dj_sign,
                     dj_on_ads,
                     controls,
+                    title_language,
                 }
             },
         )
