@@ -32,6 +32,9 @@ mod tests {
         assert!(floor_altitude(-3).abs() < f64::EPSILON);
         assert!((floor_altitude(1) - 3.5).abs() < f64::EPSILON);
         assert!((floor_altitude(6) - 38.5).abs() < f64::EPSILON);
-        assert!((floor_altitude(99) - 38.5).abs() < f64::EPSILON, "borné au dernier étage");
+        assert!(
+            (floor_altitude(99) - 38.5).abs() < f64::EPSILON,
+            "borné au dernier étage"
+        );
     }
 }

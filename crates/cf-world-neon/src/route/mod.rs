@@ -10,16 +10,18 @@
 
 pub mod bridges;
 pub mod floors;
+pub mod pilot;
 pub mod planner;
 
 use bevy::prelude::*;
 
 pub use bridges::{Bridge, BridgeSpan, BridgeWindow, bridge_span, bridge_z, is_near_bridge};
 pub use floors::{FLOOR_COUNT, FLOORS, floor_altitude};
-pub use planner::{
-    FULL_RATE, LIMIT, LOOKAHEAD_PLAN, PickupKind, PickupView, PilotHint, Route, RouteInput, RoutePlanner, SAFE,
-    floor_at, floor_of, floor_time, route_floor,
+pub use pilot::{
+    FULL_RATE, LIMIT, LOOKAHEAD_PLAN, PickupKind, PickupView, PilotHint, Route, RouteInput, SAFE, floor_at, floor_of,
+    floor_time, route_floor,
 };
+pub use planner::RoutePlanner;
 
 /// Largeur de la chaussée, en m (`WIDTH` de `road.ts`).
 pub const ROAD_WIDTH_M: f32 = 18.0;

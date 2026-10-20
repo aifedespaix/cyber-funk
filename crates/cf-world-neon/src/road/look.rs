@@ -122,6 +122,6 @@ mod tests {
         assert_eq!(p.mood(-3.0), p.azure, "bornée");
         // À mi-chemin du calme et du groove : le mélange à parts égales.
         let mid = p.mood(0.25);
-        assert!((mid.red - (p.azure.red + p.violet.red) / 2.0).abs() < 1e-6);
+        assert!((mid.red - p.azure.red.midpoint(p.violet.red)).abs() < 1e-6);
     }
 }

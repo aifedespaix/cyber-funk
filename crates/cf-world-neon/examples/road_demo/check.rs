@@ -15,6 +15,7 @@ use cf_world_neon::{RoadLook, Runner};
 
 use crate::SIZE;
 use crate::json::{Row, scenes_json};
+use crate::shots::{Shot, differing_share, luma, worst_diff};
 
 /// Temps réel (s) laissé au démarrage (compilation des pipelines par le rendu logiciel).
 const WARMUP_S: f64 = 8.0;
@@ -142,51 +143,6 @@ const SCENES: [Scene; 10] = [
     },
 ];
 
-/// Une capture : RGBA sRGB 8 bits, ligne par ligne depuis le coin haut gauche.
-pub(crate) struct Shot {
-    width: u32,
-    rgba: Vec<u8>,
-}
-
-impl Shot {
-    fn pixel(&self, x: u32, y: u32) -> [f32; 3] {
-        let i = 4 * (y as usize * self.width as usize + x as usize);
-        [self.rgba[i], self.rgba[i + 1], self.rgba[i + 2]].map(f32::from)
-    }
-
-    fn height(&self) -> u32 {
-        (self.rgba.len() / 4 / self.width as usize) as u32
-    }
-
-    /// Luminance moyenne d'un rectangle `[x0, x1) × [y0, y1)`.
-    fn mean_luma(&self, (x0, y0): (u32, u32), (x1, y1): (u32, u32)) -> f32 {
-        let mut sum = 0.0;
-        for y in y0..y1 {
-            for x in x0..x1 {
-                sum += luma(self.pixel(x, y));
-            }
-        }
-        sum / ((x1 - x0) * (y1 - y0)) as f32
-    }
-
-    /// Nombre de pixels qui vérifient `test`.
-    fn count(&self, test: impl Fn([f32; 3]) -> bool) -> usize {
-        self.count_in(((0, 0), (self.width, self.height())), test)
-    }
-
-    /// Nombre de pixels du rectangle `[x0, x1) × [y0, y1)` qui vérifient `test`.
-    fn count_in(&self, ((x0, y0), (x1, y1)): ((u32, u32), (u32, u32)), test: impl Fn([f32; 3]) -> bool) -> usize {
-        (y0..y1)
-            .flat_map(|y| (x0..x1).map(move |x| (x, y)))
-            .filter(|&(x, y)| test(self.pixel(x, y)))
-            .count()
-    }
-}
-
-fn luma(p: [f32; 3]) -> f32 {
-    0.2126 * p[0] + 0.7152 * p[1] + 0.0722 * p[2]
-}
-
 #[derive(Clone, Copy, PartialEq, Eq, Default)]
 enum Stage {
     #[default]
@@ -238,7 +194,11 @@ pub(crate) fn run_check(
                 _ => scene.car_z,
             };
             car.0 = DVec3::new(0.0, 0.65, z);
-            *visibility = if scene.car { Visibility::Visible } else { Visibility::Hidden };
+            *visibility = if scene.car {
+                Visibility::Visible
+            } else {
+                Visibility::Hidden
+            };
             audio.0.pulse = scene.pulse;
             audio.0.bass = scene.bass;
             audio.0.intensity = scene.intensity;
@@ -304,39 +264,6 @@ pub(crate) fn run_check(
     }
 }
 
-/// Écart maximal, par canal, entre deux captures.
-fn worst_diff(a: &Shot, b: &Shot) -> f32 {
-    let mut worst = 0.0_f32;
-    for y in 0..a.height().min(b.height()) {
-        for x in 0..a.width.min(b.width) {
-            let (p, q) = (a.pixel(x, y), b.pixel(x, y));
-            worst = worst.max((0..3).map(|c| (p[c] - q[c]).abs()).fold(0.0, f32::max));
-        }
-    }
-    worst
-}
-
-/// Part des pixels qui diffèrent de plus de `level` (sur 255) sur un canal.
-fn differing_share(a: &Shot, b: &Shot, level: f32) -> f32 {
-    let total = (a.width * a.height()) as f32;
-    let n = a.count_pairs(b, |p, q| (0..3).any(|c| (p[c] - q[c]).abs() > level));
-    n as f32 / total
-}
-
-impl Shot {
-    fn count_pairs(&self, other: &Shot, test: impl Fn([f32; 3], [f32; 3]) -> bool) -> usize {
-        let mut n = 0;
-        for y in 0..self.height().min(other.height()) {
-            for x in 0..self.width.min(other.width) {
-                if test(self.pixel(x, y), other.pixel(x, y)) {
-                    n += 1;
-                }
-            }
-        }
-        n
-    }
-}
-
 /// Route proche de la caméra : le bas de l'écran, au centre.
 const NEAR_ROAD: ((u32, u32), (u32, u32)) = ((300, 400), (660, 530));
 /// L'horizon de la route : là où la pré-intro dessine son front lumineux (à ~110 m avec `draw = 0,1`).
@@ -363,7 +290,10 @@ fn evaluate(check: &Check) -> AppExit {
     );
     let lit = depart.count(|p| luma(p) > 80.0);
     verdict(lit > 400, format!("la route est dessinée ({lit} pixels lumineux)"));
-    let (calm, pulse) = (depart.mean_luma(NEAR_ROAD.0, NEAR_ROAD.1), kick.mean_luma(NEAR_ROAD.0, NEAR_ROAD.1));
+    let (calm, pulse) = (
+        depart.mean_luma(NEAR_ROAD.0, NEAR_ROAD.1),
+        kick.mean_luma(NEAR_ROAD.0, NEAR_ROAD.1),
+    );
     verdict(
         pulse > calm + 1.0,
         format!("le kick fait pulser la route ({calm:.1} → {pulse:.1})"),
@@ -378,12 +308,18 @@ fn evaluate(check: &Check) -> AppExit {
     }
     if let Some(rain) = shot("3-pluie") {
         let share = differing_share(depart, rain, 8.0);
-        verdict(share > 0.05, format!("pluie : la chaussée change ({:.0} % des pixels)", share * 100.0));
+        verdict(
+            share > 0.05,
+            format!("pluie : la chaussée change ({:.0} % des pixels)", share * 100.0),
+        );
     }
     if let Some(drive) = shot("6-poursuite") {
         // Le pavé du point suivi : émissif (0,4 ; 0,15 ; 1,2) linéaire, soit environ (171, 110, 255) en sRGB.
         let n = drive.count(|p| (p[0] - 171.0).abs() < 12.0 && (p[1] - 110.0).abs() < 12.0 && p[2] > 235.0);
-        verdict(n > 300, format!("poursuite : la caméra voit le point suivi ({n} pixels)"));
+        verdict(
+            n > 300,
+            format!("poursuite : la caméra voit le point suivi ({n} pixels)"),
+        );
     }
     let origins = |a: &str, b: &str| {
         let z = |name: &str| check.rows.iter().find(|r| r.name == name).map(|r| r.origin_z);
@@ -410,7 +346,10 @@ fn evaluate(check: &Check) -> AppExit {
             ),
         );
         if let Some((oa, ob)) = origins(a, b) {
-            verdict(oa.to_bits() != ob.to_bits(), format!("{a} et {b} : origines différentes ({oa} m, {ob} m)"));
+            verdict(
+                oa.to_bits() != ob.to_bits(),
+                format!("{a} et {b} : origines différentes ({oa} m, {ob} m)"),
+            );
         }
     }
     if ok {

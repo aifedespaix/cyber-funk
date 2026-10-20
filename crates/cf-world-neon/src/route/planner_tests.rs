@@ -3,6 +3,7 @@
 use serde_json::Value;
 
 use super::*;
+use crate::route::pilot::{LOOKAHEAD_PLAN, floor_at, floor_of, route_floor};
 
 fn input() -> RouteInput {
     RouteInput {
@@ -150,10 +151,18 @@ fn close(a: f64, b: f64, what: &str, case: usize) {
 fn les_etages_comme_sillage() {
     let g = golden();
     for pair in g["floors"]["floorOf"].as_array().expect("liste") {
-        assert_eq!(i64::from(floor_of(num(&pair[0]))), pair[1].as_i64().expect("entier"), "floorOf({pair})");
+        assert_eq!(
+            i64::from(floor_of(num(&pair[0]))),
+            pair[1].as_i64().expect("entier"),
+            "floorOf({pair})"
+        );
     }
     for pair in g["floors"]["floorAt"].as_array().expect("liste") {
-        assert_eq!(i64::from(floor_at(num(&pair[0]))), pair[1].as_i64().expect("entier"), "floorAt({pair})");
+        assert_eq!(
+            i64::from(floor_at(num(&pair[0]))),
+            pair[1].as_i64().expect("entier"),
+            "floorAt({pair})"
+        );
     }
     for triple in g["floors"]["floorTime"].as_array().expect("liste") {
         let (from, to) = (triple[0].as_i64().expect("entier"), triple[1].as_i64().expect("entier"));
@@ -199,8 +208,16 @@ fn les_plans_de_route_comme_sillage() {
         planner.invalidate();
         let route = *planner.plan(&pickups, &input);
         let expected = &case["route"];
-        assert_eq!(route.count, expected["count"].as_u64().expect("entier") as usize, "cas {n} : count");
-        assert_eq!(route.dodge_count, expected["dodgeCount"].as_u64().expect("entier") as usize, "cas {n} : dodge");
+        assert_eq!(
+            route.count,
+            expected["count"].as_u64().expect("entier") as usize,
+            "cas {n} : count"
+        );
+        assert_eq!(
+            route.dodge_count,
+            expected["dodgeCount"].as_u64().expect("entier") as usize,
+            "cas {n} : dodge"
+        );
         for (k, aim) in nums(&expected["aim"]).into_iter().enumerate() {
             close(route.aim[k], aim, "aim", n);
         }
@@ -222,5 +239,8 @@ fn les_plans_de_route_comme_sillage() {
         with_dodge += i32::from(route.dodge_count > 0);
     }
     // Le jeu de scénarios doit réellement exercer le plan, pas seulement des routes vides.
-    assert!(with_route >= 60 && with_dodge >= 15, "{with_route} plans, {with_dodge} esquives");
+    assert!(
+        with_route >= 60 && with_dodge >= 15,
+        "{with_route} plans, {with_dodge} esquives"
+    );
 }

@@ -71,10 +71,7 @@ impl Plugin for ChasePlugin {
         app.insert_resource(self.config)
             .init_resource::<CameraPose>()
             .add_systems(Startup, spawn_runner)
-            .add_systems(
-                Update,
-                advance_runner.in_set(CfSet::Simulate).before(WorldSet::Gates),
-            )
+            .add_systems(Update, advance_runner.in_set(CfSet::Simulate).before(WorldSet::Gates))
             .add_systems(Update, chase_camera.in_set(CfSet::Direct));
     }
 }

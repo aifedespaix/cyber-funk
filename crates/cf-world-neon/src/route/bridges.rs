@@ -216,13 +216,25 @@ mod tests {
             let z = entry["z"].as_f64().expect("nombre");
             // `sin` en `f64` : l'écart à Sillage reste très en deçà du millimètre.
             assert!((bridge.z - z).abs() < 1e-6, "cellule {cell} : {} contre {z}", bridge.z);
-            assert_eq!(bridge.tint as i64, entry["tint"].as_i64().expect("entier"), "teinte {cell}");
-            assert_eq!(i64::from(bridge.seed), entry["seed"].as_i64().expect("entier"), "graine {cell}");
+            assert_eq!(
+                i64::try_from(bridge.tint).expect("petit"),
+                entry["tint"].as_i64().expect("entier"),
+                "teinte {cell}"
+            );
+            assert_eq!(
+                i64::from(bridge.seed),
+                entry["seed"].as_i64().expect("entier"),
+                "graine {cell}"
+            );
         }
         for entry in bridges["near"].as_array().expect("liste") {
             let z = entry[0].as_f64().expect("nombre");
             let margin = entry[1].as_f64().expect("nombre");
-            assert_eq!(is_near_bridge(z, margin), entry[2].as_bool().expect("booléen"), "z = {z}, marge {margin}");
+            assert_eq!(
+                is_near_bridge(z, margin),
+                entry[2].as_bool().expect("booléen"),
+                "z = {z}, marge {margin}"
+            );
         }
         let span = bridge_span();
         let expected = &bridges["span"];

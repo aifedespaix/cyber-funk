@@ -18,6 +18,7 @@
 
 mod check;
 mod json;
+mod shots;
 
 use std::time::Duration;
 
@@ -62,7 +63,11 @@ fn main() {
             config: RunnerConfig {
                 start_z_m: -start_km * 1000.0,
                 // Scènes de capture : le point suivi reste où le script le met.
-                speed_mps: if check { 0.0 } else { cf_world_neon::chase::CRUISE_SPEED_MPS },
+                speed_mps: if check {
+                    0.0
+                } else {
+                    cf_world_neon::chase::CRUISE_SPEED_MPS
+                },
             },
         },
     ))
@@ -78,7 +83,12 @@ fn main() {
 }
 
 /// Touches : `W` chaussée mouillée, `R` pluie, `I` pré-intro (la route se redessine depuis la voiture).
-fn keys(keyboard: Res<ButtonInput<KeyCode>>, mut look: ResMut<RoadLook>, time: Res<Time>, mut intro: Local<Option<f32>>) {
+fn keys(
+    keyboard: Res<ButtonInput<KeyCode>>,
+    mut look: ResMut<RoadLook>,
+    time: Res<Time>,
+    mut intro: Local<Option<f32>>,
+) {
     if keyboard.just_pressed(KeyCode::KeyW) {
         look.wet = 1.0 - look.wet;
     }

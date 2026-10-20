@@ -78,7 +78,12 @@ pub fn build_params(look: &RoadLook, frame: &FrameInputs) -> RoadParams {
             frame.bass,
             look.brake.clamp(0.0, 1.0),
         ),
-        look: Vec4::new(look.draw.clamp(0.0, 1.0), look.wet.clamp(0.0, 1.0), look.rain.clamp(0.0, 1.0), 0.0),
+        look: Vec4::new(
+            look.draw.clamp(0.0, 1.0),
+            look.wet.clamp(0.0, 1.0),
+            look.rain.clamp(0.0, 1.0),
+            0.0,
+        ),
         phase: Vec4::new(
             origin_phase_m(frame.origin_z, EDGE_HUE_PER_M),
             origin_phase_m(frame.origin_z, SEAM_HUE_PER_M),
@@ -112,9 +117,9 @@ pub(super) fn update_material(
     road: Query<&MeshMaterial3d<RoadMaterial>, With<Road>>,
     mut materials: ResMut<Assets<RoadMaterial>>,
 ) {
-    let (pulse, bass, intensity) = features.as_deref().map_or((0.0, 0.0, DEFAULT_INTENSITY), |f| {
-        (f.0.pulse, f.0.bass, f.0.intensity)
-    });
+    let (pulse, bass, intensity) = features
+        .as_deref()
+        .map_or((0.0, 0.0, DEFAULT_INTENSITY), |f| (f.0.pulse, f.0.bass, f.0.intensity));
     let car_render = focus.single().map_or(Vec3::ZERO, |car| origin.to_render(car.0));
     let params = build_params(
         &look,
@@ -187,11 +192,17 @@ mod tests {
                 // Liserés : `prism((p.y + phase) * 0.035 + time * 0.35)`.
                 let seen = prism_terms((render + f64::from(params.phase.x)) * 0.035 + time * 0.35);
                 let expected = prism_terms(absolute * 0.035 + time * 0.35);
-                assert!((seen.0 - expected.0).abs() < 2e-3 && (seen.1 - expected.1).abs() < 2e-3, "liseré, origine {origin_z}, z {absolute}");
+                assert!(
+                    (seen.0 - expected.0).abs() < 2e-3 && (seen.1 - expected.1).abs() < 2e-3,
+                    "liseré, origine {origin_z}, z {absolute}"
+                );
                 // Joints : `prism((p.y + phase) * 0.05 - time)`.
                 let seen = prism_terms((render + f64::from(params.phase.y)) * 0.05 - time);
                 let expected = prism_terms(absolute * 0.05 - time);
-                assert!((seen.0 - expected.0).abs() < 2e-3 && (seen.1 - expected.1).abs() < 2e-3, "joint, origine {origin_z}, z {absolute}");
+                assert!(
+                    (seen.0 - expected.0).abs() < 2e-3 && (seen.1 - expected.1).abs() < 2e-3,
+                    "joint, origine {origin_z}, z {absolute}"
+                );
             }
         }
         // Origine nulle : la phase est nulle, le rendu est celui de Sillage.

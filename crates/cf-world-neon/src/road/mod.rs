@@ -58,24 +58,15 @@ impl Plugin for RoadPlugin {
             .add_systems(Startup, spawn_road)
             .add_systems(
                 Update,
-                systems::follow_focus
-                    .in_set(CfSet::Simulate)
-                    .after(WorldSet::Chunks),
+                systems::follow_focus.in_set(CfSet::Simulate).after(WorldSet::Chunks),
             )
             .add_systems(Update, systems::update_material.in_set(CfSet::Present));
     }
 }
 
 /// Crée le plan de la route, une fois, au démarrage.
-fn spawn_road(
-    mut commands: Commands,
-    mut meshes: ResMut<Assets<Mesh>>,
-    mut materials: ResMut<Assets<RoadMaterial>>,
-) {
-    let plane = Plane3d::new(
-        Vec3::Y,
-        Vec2::new(crate::route::ROAD_HALF_WIDTH_M, LENGTH_M / 2.0),
-    );
+fn spawn_road(mut commands: Commands, mut meshes: ResMut<Assets<Mesh>>, mut materials: ResMut<Assets<RoadMaterial>>) {
+    let plane = Plane3d::new(Vec3::Y, Vec2::new(crate::route::ROAD_HALF_WIDTH_M, LENGTH_M / 2.0));
     commands.spawn((
         Name::new("route"),
         Road,
