@@ -18,6 +18,8 @@ cf-audio.workspace = true
 cf-control.workspace = true
 cf-show.workspace = true
 rand_pcg.workspace = true
+ron.workspace = true
+serde.workspace = true
 thiserror.workspace = true
 tracing.workspace = true
 

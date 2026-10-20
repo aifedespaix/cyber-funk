@@ -2407,6 +2407,8 @@ dependencies = [
  "cf-control",
  "cf-show",
  "rand_pcg",
+ "ron",
+ "serde",
  "tempfile",
  "thiserror 2.0.21",
  "tracing",

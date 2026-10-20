@@ -1,0 +1,30 @@
+// Les six thèmes livrés de Sillage, couleurs résolues (`docs/sillage/scene.css`, `packages/tokens/src/scene.css`).
+// Chaque thème donne les onze rôles ; ceux que `scene.css` ne redéclare pas (alarm, lime, sun) reprennent Void Velvet.
+// `mint` et `rose` sont les alias de `cyan` et `ember` du CSS. Le test `tests/palette_scene_css.rs` compare ce fichier
+// à `scene.css` : on ne change une valeur ici qu'en changeant le CSS d'abord.
+{
+    "velvet": (
+        ink: "#050508", velvet: "#1c132b", mint: "#00e5ff", azure: "#12a8d4", violet: "#6a4cc2", rose: "#ff5733",
+        amber: "#ff9a5c", ice: "#e6f7ff", alarm: "#ff2e1f", lime: "#39ff6a", sun: "#ffd23f",
+    ),
+    "synthwave": (
+        ink: "#0b0214", velvet: "#2b0f57", mint: "#ff3df0", azure: "#b026ff", violet: "#7a3cff", rose: "#ffb000",
+        amber: "#ffcc66", ice: "#ffe9fb", alarm: "#ff2e5a", lime: "#39ff6a", sun: "#ffd23f",
+    ),
+    "terminal": (
+        ink: "#020804", velvet: "#0c2a16", mint: "#39ff6a", azure: "#1fb85a", violet: "#2f8f6b", rose: "#ff5a36",
+        amber: "#ffb347", ice: "#e8ffe9", alarm: "#ff2e1f", lime: "#39ff6a", sun: "#ffd23f",
+    ),
+    "aurora": (
+        ink: "#040a12", velvet: "#0f2a3d", mint: "#5cffd0", azure: "#2ea8b8", violet: "#7a5cff", rose: "#ff6b9a",
+        amber: "#ffb48a", ice: "#eafff8", alarm: "#ff2e1f", lime: "#39ff6a", sun: "#ffd23f",
+    ),
+    "gold": (
+        ink: "#0a0604", velvet: "#2a1708", mint: "#ffcf3f", azure: "#e09a1f", violet: "#a8501e", rose: "#ff3b2e",
+        amber: "#ff9a5c", ice: "#fff4e0", alarm: "#ff2e1f", lime: "#39ff6a", sun: "#ffd23f",
+    ),
+    "frost": (
+        ink: "#04080f", velvet: "#12203a", mint: "#9ad7ff", azure: "#4a8fe0", violet: "#6a7de0", rose: "#ff5c7a",
+        amber: "#ffa07a", ice: "#f2f8ff", alarm: "#ff2e1f", lime: "#39ff6a", sun: "#ffd23f",
+    ),
+}
