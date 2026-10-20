@@ -3,11 +3,13 @@
 //! Remplace les réglages du mode spectacle de Sillage (`ShowSettings` de `engine/show/defaults.ts`, `ShowDj`) :
 //! une soirée préparée à l'avance, rejouable à l'identique, avec un créneau par DJ.
 
+use cf_analysis::TempoSource;
 use serde::{Deserialize, Serialize};
 
 use super::cue::Cue;
 use super::ids::{AssetPath, ClockTime, ControlProfileId, LookId, SlotId};
 use super::look::{Look, Theme};
+use crate::drop::TitleLanguage;
 
 /// Nombre maximal de créneaux dans un événement (`MAX_DJS` de Sillage).
 pub const MAX_SLOTS: usize = 24;
@@ -66,6 +68,9 @@ pub struct EventSettings {
     /// Absent : aucun (le clavier par défaut reste actif).
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub controls: Vec<ControlProfileId>,
+    /// Langue des cartons-titres des drops (Sillage suivait la langue de la page). Absent : français.
+    #[serde(default)]
+    pub title_language: TitleLanguage,
 }
 
 /// Politique de flashs. Dans tous les cas, le limiteur photosensible (WCAG 2.3.1) s'applique en dernier.
@@ -147,21 +152,30 @@ pub struct AudioProfile {
     /// plus facilement).
     pub sensitivity: f32,
     /// Source de tempo préférée pour ce créneau.
-    pub tempo_source: TempoSource,
+    pub tempo_source: TempoPreference,
 }
 
-/// Source de tempo préférée. Si elle disparaît, le système se replie sur la détection audio sans coupure.
+/// Source de tempo préférée d'un créneau. Si elle disparaît, l'arbitrage se replie sur la détection audio sans
+/// coupure.
+///
+/// Les sources sont celles que l'analyse publie ([`TempoSource`] de `cf-analysis`, champ
+/// `AudioFeatures::tempo_source`) : un seul vocabulaire pour la préférence écrite dans le fichier et la source
+/// réellement en service. Fichier : `tempo_source: Auto` ou `tempo_source: Prefer(Clock)`.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-pub enum TempoSource {
+pub enum TempoPreference {
     /// Arbitrage automatique : la meilleure source disponible (MIDI Clock, puis Link, puis audio).
     Auto,
-    /// Détection sur le signal audio (micro ou entrée ligne).
-    Audio,
-    /// MIDI Clock envoyée par le logiciel de mix ou la table.
-    MidiClock,
-    /// Ableton Link sur le réseau local.
+    /// Cette source tant qu'elle est disponible : `Clock` (MIDI Clock), `Link`, `Audio` ou `Tap`.
+    Prefer(#[serde(with = "TempoSourceDef")] TempoSource),
+}
+
+/// Forme sérialisée de [`TempoSource`] (`cf-analysis` ne dépend pas de `serde`) : mêmes variantes, mêmes noms.
+#[derive(Serialize, Deserialize)]
+#[serde(remote = "TempoSource")]
+enum TempoSourceDef {
+    Clock,
     Link,
-    /// Tempo tapé par l'opérateur.
+    Audio,
     Tap,
 }
 

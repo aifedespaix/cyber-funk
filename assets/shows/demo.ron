@@ -82,7 +82,7 @@ Event(
                 theme: Custom((ink: "#0b0614", velvet: "#7a1fa2", cyan: "#21d4fd", ember: "#ff5e3a", ice: "#e8f6ff")),
                 schedule: (start: "23:30", end: "01:00"),
             ),
-            audio: (bpm_min: 126.0, bpm_max: 140.0, sensitivity: 0.6, tempo_source: MidiClock),
+            audio: (bpm_min: 126.0, bpm_max: 140.0, sensitivity: 0.6, tempo_source: Prefer(Clock)),
             mode: Auto,
             cues: [
                 Cue(

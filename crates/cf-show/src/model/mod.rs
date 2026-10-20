@@ -27,9 +27,11 @@ pub mod look;
 pub mod overrides;
 pub mod params;
 
+pub use cf_analysis::TempoSource;
 pub use cue::{Cue, CueAdvance, CueEntry, Trigger};
 pub use event::{
-    AudioProfile, DjIdentity, DjSlot, Event, EventSettings, FlashPolicy, MonitorSelect, Schedule, SlotMode, TempoSource,
+    AudioProfile, DjIdentity, DjSlot, Event, EventSettings, FlashPolicy, MonitorSelect, Schedule, SlotMode,
+    TempoPreference,
 };
 pub use ids::{
     AssetPath, ClockTime, ControlProfileId, CueId, EventName, HexColor, InvalidValue, LookId, ShotId, ShotTier, SlotId,
