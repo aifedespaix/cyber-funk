@@ -51,7 +51,7 @@ vient de la taille de la tâche et du nombre d'itérations, bien plus que du dé
 ## Statuts
 
 ⬜ à faire · 🟨 en cours · 🟦 PR ouverte · ✅ fusionnée.
-En cours au dernier point : J4-02.
+En cours au dernier point : aucune.
 
 | ID | Tâche | Modèle | Effort | Dépend de | Statut |
 | --- | --- | --- | --- | --- | --- |
@@ -81,7 +81,7 @@ En cours au dernier point : J4-02.
 | J3-05 | [Entrée OSC (option)](tasks/J3.md) | Haiku 5.5 | `medium` | J3-01 | ⬜ |
 | J3-06 | [Pont Bevy des contrôles](tasks/J3.md) | Sonnet 5.5 | `medium` | J3-01, J2-05, J0-02 | ⬜ |
 | J4-01 | [Couches de rendu (arrière-plan, monde, avant-plan, 2D)](tasks/J4.md) | Sonnet 5.5 | `high` | J0-02 | ✅ |
-| J4-02 | [Post-process : HDR, bloom, grade, effets du show](tasks/J4.md) | Opus 5.5 | `high` | J4-01, J2-06 | ⬜ |
+| J4-02 | [Post-process : HDR, bloom, grade, effets du show](tasks/J4.md) | Opus 5.5 | `high` | J4-01, J2-06 | ✅ |
 | J4-03 | [Streaming du monde, pools, origine flottante, trait `World`](tasks/J4.md) | Opus 5.5 | `xhigh` | J0-01 | ✅ |
 | J4-04 | [Culling : frustum, occlusion, simulation, LOD](tasks/J4.md) | Sonnet 5.5 | `high` | J4-03, J4-05 | ✅ |
 | J4-05 | [Surcouche de diagnostic](tasks/J4.md) | Sonnet 5.5 | `medium` | J0-02 | ✅ |
