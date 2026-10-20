@@ -27,6 +27,7 @@ mod beat_analyzer;
 mod events;
 mod features;
 mod sections;
+mod tempo;
 mod thread;
 
 pub use analyser_emulation::AnalyserEmulation;
@@ -37,6 +38,9 @@ pub use beat_analyzer::BeatAnalyzer;
 pub use events::{AudioEvent, AudioEventKind, EventSink};
 pub use features::{AudioFeatures, Section, TempoSource};
 pub use sections::SectionTracker;
+pub use tempo::{
+    AudioBeatGrid, BEATS_PER_BAR, BEATS_PER_PHRASE, CATCH_UP_BEATS, EXTERNAL_LOSS_S, TempoArbiter, TempoReading,
+};
 pub use thread::{
     AnalysisConfig, AnalysisControl, AnalysisError, AnalysisOutputs, AnalysisStats, AnalysisStatsSnapshot,
     AnalysisThread, FeaturesReader, LATENCY_TARGET,

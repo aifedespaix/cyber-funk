@@ -33,6 +33,7 @@ mod profile;
 mod raw;
 mod source;
 mod template;
+mod tempo;
 
 pub use action::{
     Action, ActionFamily, CueIndex, DjIndex, Layer, Level, MACRO_COUNT, MacroIndex, Switch, TitleId, TriggerId,
@@ -51,3 +52,4 @@ pub use profile::{Binding, ControlProfile, ProfileIssue};
 pub use raw::{PortId, RawEvent, RawInput};
 pub use source::{CC14_LSB_OFFSET, CC14_MSB_MAX, InputSource, MIDI_CHANNEL_MAX, MIDI_DATA_MAX, RelativeEncoding};
 pub use template::{ActionKind, ActionTemplate, Mode, RELATIVE_LEVEL_STEP};
+pub use tempo::{MidiClock, PORT_TAKEOVER_S, PPQN, TAP_RESET_S, TapTempo, TempoEstimate, Transport};
