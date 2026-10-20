@@ -15,7 +15,9 @@ workspace = true
 bevy = { workspace = true, features = ["2d_bevy_render"] }
 cf-analysis.workspace = true
 cf-audio.workspace = true
+cf-control.workspace = true
 cf-show.workspace = true
+rand_pcg.workspace = true
 thiserror.workspace = true
 tracing.workspace = true
 
