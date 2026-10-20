@@ -51,7 +51,7 @@ vient de la taille de la tâche et du nombre d'itérations, bien plus que du dé
 ## Statuts
 
 ⬜ à faire · 🟨 en cours · 🟦 PR ouverte · ✅ fusionnée.
-En cours au dernier point : J5-01.
+En cours au dernier point : aucune.
 
 | ID | Tâche | Modèle | Effort | Dépend de | Statut |
 | --- | --- | --- | --- | --- | --- |
@@ -87,8 +87,8 @@ En cours au dernier point : J5-01.
 | J4-05 | [Surcouche de diagnostic](tasks/J4.md) | Sonnet 5.5 | `medium` | J0-02 | ✅ |
 | J4-06 | [Qualité adaptative](tasks/J4.md) | Sonnet 5.5 | `medium` | J4-02, J4-05 | ⬜ |
 | J4-07 | [Préchauffage des pipelines et préchargement](tasks/J4.md) | Sonnet 5.5 | `high` | J4-02, J2-05 | ⬜ |
-| J4-08 | [Palettes et fondu de thème](tasks/J4.md) | Sonnet 5.5 | `medium` | J4-01, J0-03 | ⬜ |
-| J5-01 | [Route et plan de route](tasks/J5.md) | Sonnet 5.5 | `high` | J4-03, J1-06 | ⬜ |
+| J4-08 | [Palettes et fondu de thème](tasks/J4.md) | Sonnet 5.5 | `medium` | J4-01, J0-03 | ✅ |
+| J5-01 | [Route et plan de route](tasks/J5.md) | Sonnet 5.5 | `high` | J4-03, J1-06 | ✅ |
 | J5-02 | [Immeubles, matériau de façade, décor](tasks/J5.md) | Sonnet 5.5 | `high` | J5-01, J4-04 | ⬜ |
 | J5-03 | [Ciel, étoiles, planètes](tasks/J5.md) | Sonnet 5.5 | `medium` | J4-01, J0-03 | ⬜ |
 | J5-04 | [Atmosphère : brume, pluie, météo](tasks/J5.md) | Sonnet 5.5 | `medium` | J5-01 | ⬜ |
