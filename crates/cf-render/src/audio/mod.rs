@@ -64,12 +64,17 @@ impl Plugin for CfAudioPlugin {
             }
             Err(error) => {
                 tracing::error!(%error, "audio : pont désactivé");
-                app.world_mut().resource_mut::<AudioStatus>().notes.push(error.to_string());
+                app.world_mut()
+                    .resource_mut::<AudioStatus>()
+                    .notes
+                    .push(error.to_string());
             }
         }
         app.add_systems(
             Update,
-            (apply_commands, pump_audio, refresh_status).chain().in_set(CfSet::Input),
+            (apply_commands, pump_audio, refresh_status)
+                .chain()
+                .in_set(CfSet::Input),
         );
     }
 }

@@ -110,7 +110,9 @@ impl AudioRuntime {
             analysis,
         };
         if runtime.source == AudioSource::Demo && runtime.player.is_none() {
-            runtime.notes.push("source Démo indisponible : repli sur le micro".to_owned());
+            runtime
+                .notes
+                .push("source Démo indisponible : repli sur le micro".to_owned());
             runtime.source = AudioSource::Microphone;
         }
         runtime.reconcile();
@@ -226,7 +228,8 @@ impl AudioRuntime {
             InputBackendChoice::Cpal => Capture::start(CpalBackend::new(), config, sink),
             InputBackendChoice::Synthetic(bus) => Capture::start(bus.backend(), config, sink),
             InputBackendChoice::Disabled => {
-                self.notes.push("aucune entrée audio : micro et ligne ne produisent rien".to_owned());
+                self.notes
+                    .push("aucune entrée audio : micro et ligne ne produisent rien".to_owned());
                 return None;
             }
         };
@@ -276,7 +279,11 @@ impl AudioRuntime {
 }
 
 /// Démarre le lecteur de démo sur les pistes de `config.music_dir` et branche son flux sur l'analyse.
-fn start_player(config: &AudioConfig, control: &AnalysisControl, notes: &mut Vec<String>) -> (Option<Player>, Arc<[Track]>) {
+fn start_player(
+    config: &AudioConfig,
+    control: &AnalysisControl,
+    notes: &mut Vec<String>,
+) -> (Option<Player>, Arc<[Track]>) {
     let tracks = match scan_music_dir(&config.music_dir) {
         Ok(tracks) => tracks,
         Err(error) => {

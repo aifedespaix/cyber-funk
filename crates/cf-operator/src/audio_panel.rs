@@ -30,7 +30,7 @@ pub(crate) fn draw(
     analysis_group(ui, status, features);
     latency_group(ui, latency);
     if !status.notes.is_empty() {
-        ui.group(|ui| {
+        card(ui, |ui| {
             for note in &status.notes {
                 ui.colored_label(ui.visuals().warn_fg_color, note);
             }
@@ -38,8 +38,16 @@ pub(crate) fn draw(
     }
 }
 
-fn source_group(ui: &mut egui::Ui, status: &AudioStatus, commands: &mut Vec<AudioCommand>) {
+/// Cadre pleine largeur : les groupes du panneau s'alignent au lieu de prendre chacun la largeur de leur contenu.
+fn card(ui: &mut egui::Ui, add_contents: impl FnOnce(&mut egui::Ui)) {
     ui.group(|ui| {
+        ui.set_min_width(ui.available_width());
+        add_contents(ui);
+    });
+}
+
+fn source_group(ui: &mut egui::Ui, status: &AudioStatus, commands: &mut Vec<AudioCommand>) {
+    card(ui, |ui| {
         ui.strong("Source");
         ui.horizontal(|ui| {
             for source in AudioSource::ALL {
@@ -81,7 +89,10 @@ fn device_combo(ui: &mut egui::Ui, id: &str, current: &DeviceSelector, devices: 
         .width(260.0)
         .show_ui(ui, |ui| {
             if ui
-                .selectable_label(*current == DeviceSelector::Default, selector_text(&DeviceSelector::Default))
+                .selectable_label(
+                    *current == DeviceSelector::Default,
+                    selector_text(&DeviceSelector::Default),
+                )
                 .clicked()
             {
                 chosen = Some(DeviceSelector::Default);
@@ -121,7 +132,7 @@ fn demo_group(ui: &mut egui::Ui, status: &AudioStatus, commands: &mut Vec<AudioC
     let Some(demo) = &status.demo else {
         return;
     };
-    ui.group(|ui| {
+    card(ui, |ui| {
         ui.strong("Lecteur de démo");
         let current = demo.track.and_then(|i| status.tracks.get(i));
         ui.label(current.map_or_else(
@@ -194,18 +205,25 @@ fn position_text(demo: &PlayerState) -> String {
 }
 
 fn analysis_group(ui: &mut egui::Ui, status: &AudioStatus, features: &AudioFeatures) {
-    ui.group(|ui| {
+    card(ui, |ui| {
         ui.strong("Analyse");
         ui.horizontal(|ui| {
             kick_light(ui, features.pulse);
-            ui.label(if features.live { "signal présent" } else { "pas de signal" });
+            ui.label(if features.live {
+                "signal présent"
+            } else {
+                "pas de signal"
+            });
         });
-        egui::Grid::new("audio_meters").num_columns(2).spacing([12.0, 3.0]).show(ui, |ui| {
-            meter(ui, "Basses", features.bass);
-            meter(ui, "Médiums", features.mid);
-            meter(ui, "Aigus", features.high);
-            meter(ui, "Intensité", features.intensity);
-        });
+        egui::Grid::new("audio_meters")
+            .num_columns(2)
+            .spacing([12.0, 3.0])
+            .show(ui, |ui| {
+                meter(ui, "Basses", features.bass);
+                meter(ui, "Médiums", features.mid);
+                meter(ui, "Aigus", features.high);
+                meter(ui, "Intensité", features.intensity);
+            });
         ui.label(format!(
             "BPM : {} ({})   Section : {}",
             bpm_text(features),
@@ -219,8 +237,11 @@ fn analysis_group(ui: &mut egui::Ui, status: &AudioStatus, features: &AudioFeatu
 /// Pastille qui s'allume à chaque kick et s'éteint avec l'impulsion (`pulse`, 1 → 0).
 fn kick_light(ui: &mut egui::Ui, pulse: f32) {
     let (rect, _) = ui.allocate_exact_size(egui::vec2(18.0, 18.0), egui::Sense::hover());
-    ui.painter()
-        .circle_filled(rect.center(), 8.0, KICK_OFF.lerp_to_gamma(KICK_ON, pulse.clamp(0.0, 1.0)));
+    ui.painter().circle_filled(
+        rect.center(),
+        8.0,
+        KICK_OFF.lerp_to_gamma(KICK_ON, pulse.clamp(0.0, 1.0)),
+    );
     ui.label("Kick");
 }
 
@@ -235,9 +256,7 @@ fn meter(ui: &mut egui::Ui, label: &str, value: f32) {
 }
 
 fn bpm_text(features: &AudioFeatures) -> String {
-    features
-        .bpm
-        .map_or_else(|| "—".to_owned(), |bpm| format!("{bpm:.1}"))
+    features.bpm.map_or_else(|| "—".to_owned(), |bpm| format!("{bpm:.1}"))
 }
 
 fn tempo_source_text(source: TempoSource) -> &'static str {
@@ -271,7 +290,7 @@ fn counters_text(status: &AudioStatus) -> String {
 }
 
 fn latency_group(ui: &mut egui::Ui, latency: &mut VisualLatency) {
-    ui.group(|ui| {
+    card(ui, |ui| {
         ui.strong("Décalage visuel");
         let mut ms = latency.ms();
         if ui
@@ -333,7 +352,7 @@ mod tests {
     fn le_panneau_se_dessine_sans_pont_et_sans_ordre() {
         let mut latency = VisualLatency::default();
         let commands = run(&AudioStatus::default(), &AudioFeatures::default(), &mut latency);
-        assert!(commands.is_empty());
+        assert_eq!(commands, Vec::new());
     }
 
     #[test]
@@ -352,7 +371,7 @@ mod tests {
         };
         let mut latency = VisualLatency::new(120.0);
         let commands = run(&status, &AudioFeatures::default(), &mut latency);
-        assert!(commands.is_empty(), "rien n'est cliqué : {commands:?}");
+        assert_eq!(commands, Vec::new(), "rien n'est cliqué");
         assert!((latency.ms() - 120.0).abs() < f32::EPSILON);
     }
 

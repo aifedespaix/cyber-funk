@@ -88,7 +88,11 @@ impl Default for VisualLatency {
 }
 
 fn sanitize_ms(ms: f32) -> f32 {
-    if ms.is_finite() { ms.clamp(0.0, MAX_LATENCY_MS) } else { 0.0 }
+    if ms.is_finite() {
+        ms.clamp(0.0, MAX_LATENCY_MS)
+    } else {
+        0.0
+    }
 }
 
 /// Source audio choisie par l'opérateur.

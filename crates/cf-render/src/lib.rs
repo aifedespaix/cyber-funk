@@ -10,8 +10,8 @@ pub mod streaming;
 pub mod world;
 
 pub use audio::{
-    AudioCommand, AudioConfig, AudioFeatures, AudioSource, AudioStatus, CfAudioPlugin, InputBackendChoice, Kick, OutputChoice,
-    SectionChanged, VisualLatency,
+    AudioCommand, AudioConfig, AudioFeatures, AudioSource, AudioStatus, CfAudioPlugin, InputBackendChoice, Kick,
+    OutputChoice, SectionChanged, VisualLatency,
 };
 pub use diagnostics::{
     DiagnosticsPlugin, DiagnosticsSnapshot, ExportError, MeasurementSession, PassTiming, RenderScale, SessionRow,

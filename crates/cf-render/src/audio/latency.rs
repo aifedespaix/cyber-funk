@@ -151,10 +151,7 @@ mod tests {
     #[test]
     fn un_signal_perdu_finit_par_se_voir_meme_quand_le_temps_audio_est_fige() {
         let mut line = LatencyLine::new();
-        let live = AudioFeatures {
-            live: true,
-            ..at(1)
-        };
+        let live = AudioFeatures { live: true, ..at(1) };
         line.push_features(0.0, live);
         // Le temps audio ne bouge plus (`step` constant) mais les images continuent de noter l'état.
         for i in 1..=30_u32 {

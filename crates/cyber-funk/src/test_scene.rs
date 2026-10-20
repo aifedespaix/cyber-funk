@@ -6,8 +6,8 @@
 //! le monde de Sillage s'affiche (J5).
 
 use bevy::prelude::*;
-use cf_render::{AudioFeatures, CfSet, Kick};
 use cf_render::audio::Section;
+use cf_render::{AudioFeatures, CfSet, Kick};
 
 /// Vitesse de rotation du cube, en rad/s (un tour en ~12 s : lent, lisible sur un projecteur).
 const SPIN_SPEED_RAD_S: f32 = 0.5;

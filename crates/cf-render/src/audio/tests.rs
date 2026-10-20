@@ -95,7 +95,11 @@ fn le_micro_publie_des_kicks_et_des_features_vivantes() {
     let features = app.world().resource::<AudioFeatures>();
     assert!(features.live, "{features:?}");
     assert!(features.count >= 4);
-    assert!(features.bpm.is_some_and(|bpm| (bpm - 128.0).abs() < 4.0), "{:?}", features.bpm);
+    assert!(
+        features.bpm.is_some_and(|bpm| (bpm - 128.0).abs() < 4.0),
+        "{:?}",
+        features.bpm
+    );
     let status = app.world().resource::<AudioStatus>();
     assert_eq!(status.source, AudioSource::Microphone);
     assert!(status.devices.iter().any(|d| d == MIC), "{:?}", status.devices);
@@ -115,7 +119,9 @@ fn la_demo_publie_des_kicks_et_avance_dans_la_piste() {
 #[test]
 fn changer_de_source_a_chaud_ne_fige_pas_l_image() {
     let mut app = app(synthetic_config(AudioSource::Demo));
-    run_until(&mut app, Duration::from_secs(25), |a| a.world().resource::<AudioFeatures>().live);
+    run_until(&mut app, Duration::from_secs(25), |a| {
+        a.world().resource::<AudioFeatures>().live
+    });
     assert!(app.world().resource::<AudioFeatures>().live, "la démo ne démarre pas");
 
     // 60 bascules en rafale, plusieurs par image : micro, ligne, démo, et changements de carte pendant l'écoute.
@@ -172,7 +178,11 @@ fn sans_lecteur_la_source_demo_se_replie_sur_le_micro() {
     let status = app.world().resource::<AudioStatus>();
     assert_eq!(status.source, AudioSource::Microphone);
     assert!(status.demo.is_none());
-    assert!(status.notes.iter().any(|n| n.contains("Démo indisponible")), "{:?}", status.notes);
+    assert!(
+        status.notes.iter().any(|n| n.contains("Démo indisponible")),
+        "{:?}",
+        status.notes
+    );
 }
 
 #[test]
@@ -187,6 +197,8 @@ fn le_decalage_visuel_retarde_la_publication() {
         assert_eq!(app.world().resource::<AudioFeatures>().step, 0, "montré avant le délai");
         std::thread::sleep(Duration::from_millis(5));
     }
-    run_until(&mut app, Duration::from_secs(5), |a| a.world().resource::<AudioFeatures>().step > 0);
+    run_until(&mut app, Duration::from_secs(5), |a| {
+        a.world().resource::<AudioFeatures>().step > 0
+    });
     assert!(app.world().resource::<AudioFeatures>().step > 0);
 }
