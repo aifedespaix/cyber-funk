@@ -2391,6 +2391,7 @@ dependencies = [
  "bevy_egui",
  "cf-render",
  "cf-show",
+ "tempfile",
  "tracing",
 ]
 
@@ -2400,6 +2401,7 @@ version = "0.1.0"
 dependencies = [
  "bevy",
  "cf-show",
+ "tempfile",
  "thiserror 2.0.21",
 ]
 
