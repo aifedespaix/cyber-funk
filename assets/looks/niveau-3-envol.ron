@@ -1,0 +1,34 @@
+// Niveau 3 de Sillage (`ACTS[3]` de engine/show/acts.ts, valeurs identiques) : vol libre et figures, premiers astéroïdes.
+// Les nombres sont ceux atteints au début de l'acte ; Sillage les fait glisser vers ceux du niveau suivant, ce que
+// fait `cf_show::gates::GateBlender` entre deux looks. Fichier relu par crates/cf-show/tests/levels.rs.
+// Couches, palette et teinte : Sillage n'en règle pas par niveau, donc tout plein et palette inchangée.
+Look(
+    version: 1,
+    id: "niveau-3-envol",
+    name: "Niveau 3 · L'envol",
+    world: "neon",
+    layers: (background: 1.0, world: 1.0, foreground: 1.0, overlay: 1.0),
+    palette: Inherit,
+    hue_shift_deg: 0.0,
+    gates: (
+        max_floor: 4,
+        flight_rate: 1.0,
+        flight_on_drop_only: false,
+        tricks: true,
+        stunt_tiers: ["common", "uncommon"],
+        stunt_kinds: ["off-road", "slalom", "near-miss", "head-on", "threading", "wall-ride", "sign-hop"],
+        stunt_gap_scale: 1.0,
+        shot_tiers: ["common", "uncommon", "rare"],
+        shot_block: ["meteor-ride", "moon-pass", "ringworld"],
+        cut_grid: (calm: 8, groove: 4, peak: 4),
+        salvo: false,
+        events: ["lanterns", "fish", "refuel", "airship", "escort", "chase", "convoy", "bikes", "toll", "adship", "holo-title", "landmark", "aurora", "swarm", "crossroad", "tower", "race", "dancer", "tunnel"],
+        event_rate: 1.0,
+        meteor_rate: 1.5,
+        meteor_shower: false,
+        cruise: 1.07,
+        ground_traffic: 1.0,
+        fx: (rgb_split: 0.3, flash: 0.3, city_pulse: 0.6),
+        ascension: false,
+    ),
+)
