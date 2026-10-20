@@ -107,11 +107,6 @@ impl<R: Rng> ShowDirector<R> {
             // Une palette ne coupe jamais : au moins une mesure de fondu (un saut de palette est un saut de luminance).
             set_theme(s, theme, fade_s.max(bar_s));
         }
-        // Retour en arrière : on annule, on ne rejoue pas les cartons ni les ordres du cue.
-        if cause != CueCause::Back {
-            fire(&prepared.triggers, slot, s, &mut self.events, &mut self.force_drop);
-        }
-        self.variation.reset();
         self.events.push(ShowEvent::CueEntered {
             slot,
             cue,
@@ -119,6 +114,11 @@ impl<R: Rng> ShowDirector<R> {
             previous_cue,
             cause,
         });
+        // Retour en arrière : on annule, on ne rejoue pas les cartons ni les ordres du cue.
+        if cause != CueCause::Back {
+            fire(&prepared.triggers, slot, s, &mut self.events, &mut self.force_drop);
+        }
+        self.variation.reset();
         if s.drop_now {
             // Entrée sur l'image du drop : le plan est refait avec les portes et le niveau du nouveau cue (sans
             // titre, l'entrée a les siens), comme `replan` dans Sillage.

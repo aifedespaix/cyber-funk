@@ -134,7 +134,7 @@ impl Rig {
     }
 
     /// Avance la musique d'une image.
-    pub fn step_music(&mut self) {
+    pub fn step_music(&mut self, dt: f32) {
         let a = &mut self.audio;
         a.kick = false;
         match self.music {
@@ -149,7 +149,7 @@ impl Rig {
                 a.live = true;
                 a.bpm = Some(bpm);
                 let period = 60.0 / f64::from(bpm);
-                self.since_kick += f64::from(DT);
+                self.since_kick += f64::from(dt);
                 if self.since_kick >= period {
                     self.since_kick -= period;
                     a.count += 1;
@@ -162,11 +162,16 @@ impl Rig {
 
     /// Une image : musique, puis chef du spectacle ; les événements sont gardés dans `events`.
     pub fn frame(&mut self) {
-        self.step_music();
-        self.now += f64::from(DT);
-        self.local += f64::from(DT);
+        self.frame_with(DT);
+    }
+
+    /// Une image de durée `dt`.
+    pub fn frame_with(&mut self, dt: f32) {
+        self.step_music(dt);
+        self.now += f64::from(dt);
+        self.local += f64::from(dt);
         let input = ShowInput {
-            dt: DT,
+            dt,
             now: self.now,
             local_time_s: self.local.rem_euclid(86_400.0),
             audio: &self.audio,
