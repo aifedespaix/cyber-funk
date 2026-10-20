@@ -15,6 +15,9 @@ bevy.workspace = true
 cf-show.workspace = true
 thiserror.workspace = true
 
+[dev-dependencies]
+tempfile.workspace = true
+
 [features]
 # Exemple fenêtré `box_city` (jugement à l'œil du tremblement à 400 km) : hors CI, il lie un binaire Bevy complet.
 demo = []
