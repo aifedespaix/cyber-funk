@@ -3,10 +3,21 @@
 use bevy::prelude::*;
 use bevy_egui::{EguiContext, PrimaryEguiContext, egui};
 
+use cf_render::audio::{AudioCommand, AudioFeatures, AudioStatus, VisualLatency};
+
+use crate::audio_panel;
 use crate::quit::{QuitDecision, QuitPrompt, QuitSource};
 
-/// Panneau central. Vide pour l'instant : les panneaux arrivent avec les tâches J1-06 et suivantes.
-pub(crate) fn main_panel(mut context: Single<&mut EguiContext, With<PrimaryEguiContext>>) {
+/// Panneau central : l'audio pour l'instant (J1-06) ; les autres panneaux arrivent avec les tâches suivantes.
+///
+/// Sans `CfAudioPlugin`, les ressources audio manquent : le panneau le dit au lieu de s'afficher à vide.
+pub(crate) fn main_panel(
+    mut context: Single<&mut EguiContext, With<PrimaryEguiContext>>,
+    status: Option<Res<AudioStatus>>,
+    features: Option<Res<AudioFeatures>>,
+    latency: Option<ResMut<VisualLatency>>,
+    mut commands: MessageWriter<AudioCommand>,
+) {
     // Depuis egui 0.36 les panneaux se posent dans un `Ui` racine, pas directement sur le contexte.
     let ctx = context.get_mut();
     let mut root = egui::Ui::new(
@@ -18,6 +29,16 @@ pub(crate) fn main_panel(mut context: Single<&mut EguiContext, With<PrimaryEguiC
     );
     egui::CentralPanel::default().show(&mut root, |ui| {
         ui.heading("cyber-funk");
+        egui::ScrollArea::vertical().show(ui, |ui| match (status, features, latency) {
+            (Some(status), Some(features), Some(mut latency)) => {
+                let mut orders = Vec::new();
+                audio_panel::draw(ui, &status, &features, &mut latency, &mut orders);
+                commands.write_batch(orders);
+            }
+            _ => {
+                ui.weak("Audio non branché (CfAudioPlugin absent).");
+            }
+        });
     });
 }
 
