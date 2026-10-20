@@ -32,6 +32,11 @@ use cf_analysis::AudioEventKind;
 use crate::CfSet;
 use runtime::STATUS_PERIOD_S;
 
+/// Le système qui publie `Res<AudioFeatures>` en `CfSet::Input`. Les systèmes qui complètent ou lisent l'état de
+/// l'image (arbitre de tempo des contrôles) se placent `.after(AudioPump)`.
+#[derive(SystemSet, Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub struct AudioPump;
+
 /// Branche l'audio : threads, `Res<AudioFeatures>`, messages [`Kick`] et [`SectionChanged`], commandes opérateur.
 ///
 /// À ajouter après `CorePlugin` (qui déclare `CfSet::Input`).
@@ -72,7 +77,7 @@ impl Plugin for CfAudioPlugin {
         }
         app.add_systems(
             Update,
-            (apply_commands, pump_audio, refresh_status)
+            (apply_commands, pump_audio.in_set(AudioPump), refresh_status)
                 .chain()
                 .in_set(CfSet::Input),
         );

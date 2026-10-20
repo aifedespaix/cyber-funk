@@ -2,18 +2,24 @@
 //! post-process, streaming du monde, culling, qualité adaptative et palettes.
 
 pub mod audio;
+pub mod controls;
 pub mod culling;
 pub mod diagnostics;
 pub mod layers;
 pub mod origin;
 pub mod postfx;
 mod schedule;
+pub mod show;
 pub mod streaming;
 pub mod world;
 
 pub use audio::{
     AudioCommand, AudioConfig, AudioFeatures, AudioSource, AudioStatus, CfAudioPlugin, InputBackendChoice, Kick,
     OutputChoice, SectionChanged, VisualLatency,
+};
+pub use controls::{
+    ControlAction, ControlBridge, ControllerLibrary, ControlsConfig, ControlsPlugin, ControlsStatus, LastInput,
+    LibraryError, MidiChoice, TextInputFocus,
 };
 pub use culling::{
     Cadence, CullingPlugin, CullingSet, CullingSettings, CullingView, FOG_FULL_M, LodBands, LodClock, SimulationLod,
@@ -29,6 +35,7 @@ pub use layers::{
 pub use origin::{AbsolutePosition, FloatingOrigin, ORIGIN_STEP, OriginPlugin, OriginTracker, StreamFocus};
 pub use postfx::{CurrentShowFx, LensWeather, PostFxPlugin, PostFxSettings, PostFxState, ShowFxInput};
 pub use schedule::{CfSet, CorePlugin};
+pub use show::{CurrentShow, ShowControls, ShowEventMessage, ShowPlugin, ShowRuntime};
 pub use streaming::{ChunkInfo, ChunkPlan, ChunkStream, EntityPool, PieceRegistry, StreamLayout, StreamStats};
 pub use world::{
     BoxWorld, CurrentGates, Replan, Subject, SubjectKind, Subjects, World, WorldCorePlugin, WorldError, WorldPlugin,

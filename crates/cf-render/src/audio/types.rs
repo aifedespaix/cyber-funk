@@ -15,7 +15,9 @@ use super::latency::MAX_LATENCY_MS;
 /// `AudioFeatures` de `cf-analysis`, publié comme ressource Bevy (le type de `cf-analysis` ne peut pas l'être : la
 /// crate ne dépend pas de Bevy). Se déréférence vers lui : `features.bass`, `features.section`…
 ///
-/// Écrite par **un seul** système (le pont, en `CfSet::Input`). C'est l'état **déjà décalé** du retard visuel, de
+/// Écrite en `CfSet::Input` par deux systèmes qui se suivent : le pont audio (tout l'état), puis l'arbitre de tempo des
+/// contrôles (`controls::ControlsPlugin`, qui ne complète que `bpm`, `tempo_source`, `confidence`, `phase`, `bar` et
+/// `phrase`). C'est l'état **déjà décalé** du retard visuel, de
 /// sorte que tout ce que l'image montre reste d'accord avec les messages [`Kick`] et [`SectionChanged`].
 ///
 /// `kick` et `section_changed` valent vrai pour l'image où le message correspondant est émis, pas pour un « pas

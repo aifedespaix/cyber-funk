@@ -4,9 +4,10 @@ use bevy::prelude::*;
 use bevy_egui::{EguiContext, PrimaryEguiContext, egui};
 
 use cf_render::audio::{AudioCommand, AudioFeatures, AudioStatus, VisualLatency};
+use cf_render::{ControlsStatus, CurrentShow};
 
-use crate::audio_panel;
 use crate::quit::{QuitDecision, QuitPrompt, QuitSource};
+use crate::{audio_panel, controls_panel};
 
 /// Largeur initiale du panneau audio (points egui) : assez pour les vumètres et la ligne des compteurs.
 const AUDIO_PANEL_WIDTH: f32 = 560.0;
@@ -20,6 +21,8 @@ pub(crate) fn main_panel(
     features: Option<Res<AudioFeatures>>,
     latency: Option<ResMut<VisualLatency>>,
     mut commands: MessageWriter<AudioCommand>,
+    show: Option<Res<CurrentShow>>,
+    controls: Option<Res<ControlsStatus>>,
 ) {
     // Depuis egui 0.36 les panneaux se posent dans un `Ui` racine, pas directement sur le contexte.
     let ctx = context.get_mut();
@@ -30,6 +33,7 @@ pub(crate) fn main_panel(
             .layer_id(egui::LayerId::background())
             .max_rect(ctx.viewport_rect()),
     );
+    let features_copy = features.as_deref().copied();
     // À droite : la fenêtre flottante de diagnostic s'ouvre à gauche et ne doit pas recouvrir l'audio.
     egui::Panel::right("audio_panel")
         .default_size(AUDIO_PANEL_WIDTH)
@@ -47,6 +51,14 @@ pub(crate) fn main_panel(
         });
     egui::CentralPanel::default().show(&mut root, |ui| {
         ui.heading("cyber-funk");
+        egui::ScrollArea::vertical().show(ui, |ui| match (controls, features_copy) {
+            (Some(controls), Some(features)) => {
+                controls_panel::draw(ui, show.as_deref().map(|s| &s.0), &controls, &features);
+            }
+            _ => {
+                ui.weak("Contrôles non branchés (ControlsPlugin absent).");
+            }
+        });
     });
 }
 
