@@ -1,0 +1,64 @@
+---
+source: crates/cf-show/tests/sim_scenarios.rs
+expression: semi_run().trace.render()
+---
+0:00:00.0  créneau chargé semi (après semi)
+0:00:00.0  cue semi/c0 (Open)
+0:00:00.0  portes : étage max 6 · vol au drop seul non · figures oui · salve oui · pluie de météores oui · ascension oui · paliers de cascades 3 · paliers de plans 4 · événements 23
+0:00:00.0  portes : étage max 0 · vol au drop seul non · figures non · salve non · pluie de météores non · ascension non · paliers de cascades 0 · paliers de plans 2 · événements 4
+0:00:45.0  DROP n°1 · cascade - · plan side-track · flash 0.01
+0:01:40.0  appel semi/c1 (Go, entrée OnDrop)
+0:02:30.0  cue semi/c1 (Go)
+0:02:30.0  DROP n°2 · cascade - · plan flyby · flash 0.05
+0:02:30.0  portes : étage max 2 · vol au drop seul oui · figures non · salve non · pluie de météores non · ascension non · paliers de cascades 2 · paliers de plans 2 · événements 11
+0:04:30.0  DROP n°3 · cascade head-on · plan stunt-cam · flash 0.13
+0:06:15.0  DROP n°4 · cascade - · plan flyby · flash 0.15
+0:08:15.0  DROP n°5 · cascade - · plan wheel · flash 0.18
+0:08:20.0  bascule Hold : oui
+0:10:00.0  titre « ON Y VA »
+0:10:00.0  DROP n°6 · cascade - · plan chase · flash 0.20
+0:12:00.0  DROP n°7 · cascade head-on · plan stunt-cam · flash 0.23
+0:13:45.0  DROP n°8 · cascade - · plan bumper · flash 0.23
+0:15:45.0  DROP n°9 · cascade - · plan side-track · flash 0.23
+0:16:40.0  bascule Hold : non
+0:16:40.0  appel semi/c2 (Auto, entrée OnDrop)
+0:17:30.0  cue semi/c2 (Auto)
+0:17:30.0  DROP n°10 · cascade sign-hop · plan stunt-cam · flash 0.23
+0:17:30.0  portes : étage max 4 · vol au drop seul non · figures oui · salve non · pluie de météores non · ascension non · paliers de cascades 2 · paliers de plans 3 · événements 19
+0:19:30.0  DROP n°11 · cascade - · plan strobe · flash 0.30
+0:21:15.0  DROP n°12 · cascade - · plan wheel · flash 0.34
+0:23:15.0  DROP n°13 · cascade off-road · plan stunt-cam · flash 0.40
+0:25:00.0  DROP n°14 · cascade - · plan strobe · flash 0.45 · forcé
+0:26:40.0  appel semi/c3 (Auto, entrée OnPhrase)
+0:26:45.0  cue semi/c3 (Auto)
+0:26:45.0  portes : étage max 6 · vol au drop seul non · figures oui · salve oui · pluie de météores oui · ascension non · paliers de cascades 3 · paliers de plans 3 · événements 23
+0:27:00.0  DROP n°15 · cascade sign-hop · plan stunt-cam · flash 0.50
+0:28:45.0  titre « TOUT CASSER »
+0:28:45.0  DROP n°16 · cascade - · plan wheel · flash 0.50
+0:30:00.0  bascule Blackout : oui
+0:30:05.0  bascule Blackout : non
+0:30:45.0  DROP n°17 · cascade rooftop · plan stunt-cam · flash 0.50
+0:32:30.0  DROP n°18 · cascade threading · plan stunt-cam · flash 0.50
+0:33:20.0  bascule SafeLook : oui
+0:33:20.0  portes : étage max 0 · vol au drop seul non · figures non · salve non · pluie de météores non · ascension non · paliers de cascades 0 · paliers de plans 1 · événements 0
+0:34:30.0  DROP n°19 · cascade - · plan side-track · flash 0.00
+0:35:00.0  bascule SafeLook : non
+0:35:00.0  portes : étage max 6 · vol au drop seul non · figures oui · salve oui · pluie de météores oui · ascension non · paliers de cascades 3 · paliers de plans 3 · événements 23
+0:36:15.0  DROP n°20 · cascade sign-hop · plan stunt-cam · flash 0.50
+0:38:15.0  DROP n°21 · cascade - · plan orbit · flash 0.50
+0:40:00.0  titre « ALLUMEZ LE CIEL »
+0:40:00.0  DROP n°22 · cascade - · plan chase · flash 0.50
+0:42:00.0  DROP n°23 · cascade threading · plan stunt-cam · flash 0.50
+0:43:45.0  DROP n°24 · cascade wall-ride · plan stunt-cam · flash 0.50
+0:45:45.0  DROP n°25 · cascade off-road · plan stunt-cam · flash 0.50
+0:47:30.0  DROP n°26 · cascade rooftop · plan stunt-cam · flash 0.50
+0:49:30.0  titre « ENCORE »
+0:49:30.0  DROP n°27 · cascade - · plan strobe · flash 0.50
+0:51:15.0  DROP n°28 · cascade big-jump · plan stunt-cam · flash 0.50
+0:53:15.0  DROP n°29 · cascade near-miss · plan stunt-cam · flash 0.50
+0:55:00.0  DROP n°30 · cascade sign-hop · plan stunt-cam · flash 0.50
+0:57:00.0  titre « LA ROUTE TREMBLE »
+0:57:00.0  DROP n°31 · cascade - · plan flyby · flash 0.50
+0:58:45.0  DROP n°32 · cascade - · plan orbit · flash 0.50
+---
+4 cues, 32 drops, 5 titres, 0 passations ; pic de 2 événements par image

@@ -51,7 +51,7 @@ vient de la taille de la tâche et du nombre d'itérations, bien plus que du dé
 ## Statuts
 
 ⬜ à faire · 🟨 en cours · 🟦 PR ouverte · ✅ fusionnée.
-En cours au dernier point : aucune.
+En cours au dernier point : J5-01.
 
 | ID | Tâche | Modèle | Effort | Dépend de | Statut |
 | --- | --- | --- | --- | --- | --- |
@@ -72,14 +72,14 @@ En cours au dernier point : aucune.
 | J2-04 | [Chef d'orchestre du drop](tasks/J2.md) | Sonnet 5.5 | `high` | J2-02, J2-03 | ✅ |
 | J2-05 | [Chef du spectacle : créneaux, cues, modes, passation](tasks/J2.md) | Opus 5.5 | `high` | J2-01, J2-02, J2-03, J2-04, J3-01 | ✅ |
 | J2-06 | [Limiteur photosensible](tasks/J2.md) | Sonnet 5.5 | `high` | J0-01 | ✅ |
-| J2-07 | [Sauvegarde continue et reprise](tasks/J2.md) | Sonnet 5.5 | `medium` | J2-05 | ⬜ |
-| J2-08 | [Simulateur de set sans rendu](tasks/J2.md) | Sonnet 5.5 | `medium` | J2-05 | ⬜ |
+| J2-07 | [Sauvegarde continue et reprise](tasks/J2.md) | Sonnet 5.5 | `medium` | J2-05 | ✅ |
+| J2-08 | [Simulateur de set sans rendu](tasks/J2.md) | Sonnet 5.5 | `medium` | J2-05 | ✅ |
 | J3-01 | [Vocabulaire `Action` et couche de correspondance](tasks/J3.md) | Opus 5.5 | `high` | J0-01 | ✅ |
 | J3-02 | [Entrée MIDI, profils et MIDI learn](tasks/J3.md) | Sonnet 5.5 | `high` | J3-01 | ✅ |
 | J3-03 | [MIDI Clock et arbitrage des sources de tempo](tasks/J3.md) | Opus 5.5 | `high` | J3-02, J1-05 | ✅ |
 | J3-04 | [Ableton Link (option)](tasks/J3.md) | Sonnet 5.5 | `medium` | J3-03 | ⬜ |
 | J3-05 | [Entrée OSC (option)](tasks/J3.md) | Haiku 5.5 | `medium` | J3-01 | ⬜ |
-| J3-06 | [Pont Bevy des contrôles](tasks/J3.md) | Sonnet 5.5 | `medium` | J3-01, J2-05, J0-02 | ⬜ |
+| J3-06 | [Pont Bevy des contrôles](tasks/J3.md) | Sonnet 5.5 | `medium` | J3-01, J2-05, J0-02 | ✅ |
 | J4-01 | [Couches de rendu (arrière-plan, monde, avant-plan, 2D)](tasks/J4.md) | Sonnet 5.5 | `high` | J0-02 | ✅ |
 | J4-02 | [Post-process : HDR, bloom, grade, effets du show](tasks/J4.md) | Opus 5.5 | `high` | J4-01, J2-06 | ✅ |
 | J4-03 | [Streaming du monde, pools, origine flottante, trait `World`](tasks/J4.md) | Opus 5.5 | `xhigh` | J0-01 | ✅ |

@@ -20,6 +20,7 @@ bevy.workspace = true
 cf-cinema.workspace = true
 cf-operator.workspace = true
 cf-render.workspace = true
+cf-show.workspace = true
 cf-world-neon.workspace = true
 clap.workspace = true
 dirs.workspace = true

@@ -1,0 +1,99 @@
+---
+source: crates/cf-show/tests/sim_scenarios.rs
+expression: three_djs_run().trace.render()
+---
+0:00:00.0  créneau chargé aya (après aya)
+0:00:00.0  cue aya/a0 (Open)
+0:00:00.0  portes : étage max 6 · vol au drop seul non · figures oui · salve oui · pluie de météores oui · ascension oui · paliers de cascades 3 · paliers de plans 4 · événements 23
+0:00:00.0  portes : étage max 0 · vol au drop seul non · figures non · salve non · pluie de météores non · ascension non · paliers de cascades 0 · paliers de plans 2 · événements 4
+0:00:46.5  DROP n°1 · cascade - · plan side-track · flash 0.01
+0:02:34.9  DROP n°2 · cascade - · plan orbit · flash 0.03
+0:04:38.7  DROP n°3 · cascade - · plan bumper · flash 0.07
+0:06:27.1  DROP n°4 · cascade - · plan bumper · flash 0.10
+0:06:40.0  appel aya/a1 (Auto, entrée OnDrop)
+0:08:15.5  cue aya/a1 (Auto)
+0:08:15.5  portes : étage max 2 · vol au drop seul oui · figures non · salve non · pluie de météores non · ascension non · paliers de cascades 2 · paliers de plans 2 · événements 11
+0:08:31.0  DROP n°5 · cascade head-on · plan stunt-cam · flash 0.13
+0:10:00.0  préparation du créneau coda
+0:10:19.4  DROP n°6 · cascade - · plan flyby · flash 0.16
+0:12:23.2  DROP n°7 · cascade - · plan wheel · flash 0.20
+0:13:20.0  appel aya/a2 (Auto, entrée OnDrop)
+0:14:11.6  cue aya/a2 (Auto)
+0:14:11.6  DROP n°8 · cascade sign-hop · plan stunt-cam · flash 0.23
+0:14:11.6  portes : étage max 4 · vol au drop seul non · figures oui · salve non · pluie de météores non · ascension non · paliers de cascades 2 · paliers de plans 3 · événements 19
+0:15:00.0  préparation du créneau coda
+0:15:00.0  passation aya -> coda (fondu 1.8 s)
+0:15:01.8  appel coda/c0 (Handover, entrée Cut)
+0:15:03.6  créneau chargé coda (après aya)
+0:15:03.6  cue coda/c0 (Handover)
+0:15:42.5  DROP n°9 · cascade - · plan wheel · flash 0.23
+0:17:22.8  DROP n°10 · cascade - · plan bumper · flash 0.23
+0:19:17.4  DROP n°11 · cascade - · plan orbit · flash 0.23
+0:20:00.0  appel coda/c1 (Go, entrée OnDrop)
+0:20:57.7  cue coda/c1 (Go)
+0:20:57.7  DROP n°12 · cascade - · plan flyby · flash 0.23
+0:20:57.7  portes : étage max 6 · vol au drop seul non · figures oui · salve oui · pluie de météores oui · ascension oui · paliers de cascades 3 · paliers de plans 4 · événements 23
+0:22:52.4  DROP n°13 · cascade slalom · plan stunt-cam · flash 0.78
+0:24:32.7  DROP n°14 · cascade - · plan side-track · flash 0.78
+0:25:00.0  préparation du créneau brume
+0:25:01.9  passation coda -> brume (fondu 1.9 s)
+0:25:03.9  appel brume/b0 (Handover, entrée OnPhrase)
+0:25:07.7  créneau chargé brume (après coda)
+0:25:07.7  cue brume/b0 (Handover)
+0:25:07.7  portes : étage max 2 · vol au drop seul oui · figures non · salve non · pluie de météores non · ascension non · paliers de cascades 2 · paliers de plans 2 · événements 11
+0:26:34.3  DROP n°15 · cascade - · plan flyby · flash 0.19
+0:28:22.7  titre « DROP »
+0:28:22.7  DROP n°16 · cascade - · plan orbit · flash 0.31
+0:30:03.9  appel brume/b1 (Auto, entrée OnDrop)
+0:31:06.6  cue brume/b1 (Auto)
+0:31:06.6  DROP n°17 · cascade threading · plan stunt-cam · flash 0.46
+0:31:06.6  portes : étage max 6 · vol au drop seul non · figures oui · salve oui · pluie de météores oui · ascension non · paliers de cascades 3 · paliers de plans 3 · événements 23
+0:32:55.0  DROP n°18 · cascade sign-hop · plan stunt-cam · flash 0.50
+0:34:58.9  DROP n°19 · cascade - · plan flyby · flash 0.50
+0:36:47.2  DROP n°20 · cascade - · plan chase · flash 0.50
+0:38:51.1  DROP n°21 · cascade - · plan strobe · flash 0.50
+0:40:00.0  préparation du créneau coda
+0:40:01.3  passation brume -> coda (fondu 1.9 s)
+0:40:03.2  appel coda/c0 (Handover, entrée Cut)
+0:40:05.1  créneau chargé coda (après brume)
+0:40:05.1  cue coda/c0 (Handover)
+0:40:05.1  portes : étage max 4 · vol au drop seul non · figures oui · salve non · pluie de météores non · ascension non · paliers de cascades 2 · paliers de plans 3 · événements 19
+0:40:39.5  titre « PLEIN GAZ »
+0:40:39.5  DROP n°22 · cascade near-miss · plan stunt-cam · flash 0.23
+0:42:43.4  DROP n°23 · cascade off-road · plan stunt-cam · flash 0.23
+0:44:31.8  DROP n°24 · cascade wall-ride · plan stunt-cam · flash 0.23
+0:46:35.6  DROP n°25 · cascade - · plan strobe · flash 0.23
+0:48:24.0  titre « PLUS FORT »
+0:48:24.0  DROP n°26 · cascade head-on · plan stunt-cam · flash 0.23
+0:50:00.0  appel coda/c1 (Go, entrée OnDrop)
+0:50:27.9  cue coda/c1 (Go)
+0:50:27.9  DROP n°27 · cascade - · plan flyby · flash 0.23
+0:50:27.9  portes : étage max 6 · vol au drop seul non · figures oui · salve oui · pluie de météores oui · ascension oui · paliers de cascades 3 · paliers de plans 4 · événements 23
+0:52:16.3  DROP n°28 · cascade loop · plan stunt-cam · flash 0.78
+0:54:20.1  DROP n°29 · cascade big-jump · plan stunt-cam · flash 0.78
+0:56:08.5  DROP n°30 · cascade - · plan wheel · flash 0.78
+0:58:12.4  titre « FONDEZ »
+0:58:12.4  DROP n°31 · cascade ascension · plan stunt-cam · flash 0.78
+1:00:00.8  DROP n°32 · cascade - · plan flyby · flash 0.78
+1:02:04.7  DROP n°33 · cascade loop · plan stunt-cam · flash 0.78
+1:03:53.0  DROP n°34 · cascade head-on · plan stunt-cam · flash 0.78
+1:05:56.9  titre « FONDEZ »
+1:05:56.9  DROP n°35 · cascade - · plan flyby · flash 0.78
+1:07:45.3  DROP n°36 · cascade - · plan wheel · flash 0.78
+1:09:49.2  DROP n°37 · cascade - · plan side-track · flash 0.78
+1:11:37.6  titre « PLUS HAUT »
+1:11:37.6  DROP n°38 · cascade inverted · plan stunt-cam · flash 0.78
+1:13:41.4  DROP n°39 · cascade slalom · plan stunt-cam · flash 0.78
+1:15:29.8  titre « LÂCHEZ TOUT »
+1:15:29.8  DROP n°40 · cascade loop · plan stunt-cam · flash 0.78
+1:17:33.7  DROP n°41 · cascade near-miss · plan stunt-cam · flash 0.78
+1:19:22.1  DROP n°42 · cascade ascension · plan stunt-cam · flash 0.78
+1:21:25.9  DROP n°43 · cascade rooftop · plan stunt-cam · flash 0.78
+1:23:14.3  titre « PLUS HAUT »
+1:23:14.3  DROP n°44 · cascade - · plan strobe · flash 0.78
+1:25:18.2  DROP n°45 · cascade rooftop · plan stunt-cam · flash 0.78
+1:27:06.6  DROP n°46 · cascade inverted · plan stunt-cam · flash 0.78
+1:29:10.5  titre « JUSQU'AUX ÉTOILES »
+1:29:10.5  DROP n°47 · cascade threading · plan stunt-cam · flash 0.78
+---
+9 cues, 47 drops, 9 titres, 3 passations ; pic de 2 événements par image

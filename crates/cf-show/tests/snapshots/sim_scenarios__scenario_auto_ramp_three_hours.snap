@@ -1,0 +1,142 @@
+---
+source: crates/cf-show/tests/sim_scenarios.rs
+expression: report.trace.render()
+---
+0:00:00.0  créneau chargé montee (après montee)
+0:00:00.0  cue montee/pre-intro (Open)
+0:00:00.0  portes : étage max 6 · vol au drop seul non · figures oui · salve oui · pluie de météores oui · ascension oui · paliers de cascades 3 · paliers de plans 4 · événements 23
+0:00:00.0  portes : étage max 0 · vol au drop seul non · figures non · salve non · pluie de météores non · ascension non · paliers de cascades 0 · paliers de plans 1 · événements 0
+0:01:04.0  appel montee/ville (Auto, entrée Cut)
+0:01:04.2  cue montee/ville (Auto)
+0:01:04.2  portes : étage max 0 · vol au drop seul non · figures non · salve non · pluie de météores non · ascension non · paliers de cascades 0 · paliers de plans 2 · événements 4
+0:01:06.1  DROP n°1 · cascade - · plan side-track · flash 0.00
+0:02:53.6  DROP n°2 · cascade - · plan orbit · flash 0.01
+0:04:56.5  DROP n°3 · cascade - · plan bumper · flash 0.03
+0:06:44.0  DROP n°4 · cascade - · plan bumper · flash 0.05
+0:08:46.9  DROP n°5 · cascade - · plan chase · flash 0.07
+0:10:34.4  DROP n°6 · cascade - · plan orbit · flash 0.09
+0:11:52.0  appel montee/rues (Auto, entrée OnDrop)
+0:12:37.3  cue montee/rues (Auto)
+0:12:37.3  DROP n°7 · cascade - · plan flyby · flash 0.10
+0:12:37.3  portes : étage max 2 · vol au drop seul oui · figures non · salve non · pluie de météores non · ascension non · paliers de cascades 2 · paliers de plans 2 · événements 11
+0:14:24.8  DROP n°8 · cascade - · plan flyby · flash 0.11
+0:16:27.7  DROP n°9 · cascade off-road · plan stunt-cam · flash 0.13
+0:18:15.2  DROP n°10 · cascade near-miss · plan stunt-cam · flash 0.14
+0:20:18.1  titre « PLUS FORT »
+0:20:18.1  DROP n°11 · cascade - · plan wheel · flash 0.15
+0:22:05.6  DROP n°12 · cascade slalom · plan stunt-cam · flash 0.16
+0:24:08.5  DROP n°13 · cascade head-on · plan stunt-cam · flash 0.17
+0:25:56.0  DROP n°14 · cascade - · plan side-track · flash 0.18
+0:27:58.9  DROP n°15 · cascade - · plan flyby · flash 0.19
+0:29:46.4  titre « DROP »
+0:29:46.4  DROP n°16 · cascade - · plan wheel · flash 0.20
+0:31:49.3  DROP n°17 · cascade head-on · plan stunt-cam · flash 0.22
+0:33:28.0  appel montee/envol (Auto, entrée OnDrop)
+0:33:36.8  cue montee/envol (Auto)
+0:33:36.8  DROP n°18 · cascade - · plan strobe · flash 0.23
+0:33:36.8  portes : étage max 4 · vol au drop seul non · figures oui · salve non · pluie de météores non · ascension non · paliers de cascades 2 · paliers de plans 3 · événements 19
+0:35:39.7  DROP n°19 · cascade - · plan strobe · flash 0.24
+0:37:27.2  DROP n°20 · cascade - · plan chase · flash 0.26
+0:39:30.1  DROP n°21 · cascade - · plan side-track · flash 0.28
+0:41:17.6  titre « PLEIN GAZ »
+0:41:17.6  DROP n°22 · cascade head-on · plan stunt-cam · flash 0.29
+0:43:20.5  DROP n°23 · cascade - · plan flyby · flash 0.31
+0:45:08.0  DROP n°24 · cascade - · plan chase · flash 0.33
+0:47:10.9  DROP n°25 · cascade - · plan strobe · flash 0.34
+0:48:58.4  DROP n°26 · cascade head-on · plan stunt-cam · flash 0.36
+0:51:01.3  titre « DROP »
+0:51:01.3  DROP n°27 · cascade threading · plan stunt-cam · flash 0.38
+0:52:48.8  DROP n°28 · cascade sign-hop · plan stunt-cam · flash 0.40
+0:54:51.7  DROP n°29 · cascade - · plan strobe · flash 0.41
+0:56:39.2  DROP n°30 · cascade near-miss · plan stunt-cam · flash 0.43
+0:58:42.1  titre « PLUS HAUT »
+0:58:42.1  DROP n°31 · cascade sign-hop · plan stunt-cam · flash 0.45
+1:00:29.6  DROP n°32 · cascade threading · plan stunt-cam · flash 0.47
+1:02:32.5  DROP n°33 · cascade - · plan wheel · flash 0.49
+1:04:04.0  appel montee/meteores (Auto, entrée OnDrop)
+1:04:20.0  cue montee/meteores (Auto)
+1:04:20.0  DROP n°34 · cascade - · plan orbit · flash 0.50
+1:04:20.0  portes : étage max 6 · vol au drop seul non · figures oui · salve oui · pluie de météores oui · ascension non · paliers de cascades 3 · paliers de plans 3 · événements 23
+1:06:22.9  titre « ALLUMEZ LE CIEL »
+1:06:22.9  DROP n°35 · cascade - · plan strobe · flash 0.52
+1:08:10.4  DROP n°36 · cascade rooftop · plan stunt-cam · flash 0.53
+1:10:13.3  DROP n°37 · cascade - · plan orbit · flash 0.55
+1:12:00.8  DROP n°38 · cascade - · plan flyby · flash 0.56
+1:14:03.7  DROP n°39 · cascade wall-ride · plan stunt-cam · flash 0.58
+1:15:51.2  titre « LÂCHEZ TOUT »
+1:15:51.2  DROP n°40 · cascade - · plan orbit · flash 0.59
+1:17:54.1  DROP n°41 · cascade - · plan wheel · flash 0.60
+1:19:41.6  DROP n°42 · cascade - · plan bumper · flash 0.62
+1:21:44.5  titre « PLUS FORT »
+1:21:44.5  DROP n°43 · cascade - · plan flyby · flash 0.63
+1:23:32.0  DROP n°44 · cascade big-jump · plan stunt-cam · flash 0.65
+1:25:34.9  DROP n°45 · cascade inverted · plan stunt-cam · flash 0.66
+1:27:22.4  DROP n°46 · cascade loop · plan stunt-cam · flash 0.68
+1:29:25.3  DROP n°47 · cascade slalom · plan stunt-cam · flash 0.69
+1:31:12.8  titre « ALLUMEZ LE CIEL »
+1:31:12.8  DROP n°48 · cascade off-road · plan stunt-cam · flash 0.71
+1:33:15.7  DROP n°49 · cascade inverted · plan stunt-cam · flash 0.72
+1:35:03.2  DROP n°50 · cascade - · plan side-track · flash 0.74
+1:37:06.1  titre « ON Y VA »
+1:37:06.1  DROP n°51 · cascade loop · plan stunt-cam · flash 0.76
+1:38:53.6  DROP n°52 · cascade - · plan orbit · flash 0.77
+1:40:04.0  appel montee/cosmos (Auto, entrée OnDrop)
+1:40:56.5  cue montee/cosmos (Auto)
+1:40:56.5  DROP n°53 · cascade - · plan side-track · flash 0.78
+1:40:56.5  portes : étage max 6 · vol au drop seul non · figures oui · salve oui · pluie de météores oui · ascension oui · paliers de cascades 3 · paliers de plans 4 · événements 23
+1:42:44.0  titre « TOUT POUR LA PISTE »
+1:42:44.0  DROP n°54 · cascade ascension · plan stunt-cam · flash 0.78
+1:44:46.9  DROP n°55 · cascade slalom · plan stunt-cam · flash 0.78
+1:46:34.4  DROP n°56 · cascade off-road · plan stunt-cam · flash 0.78
+1:48:37.3  titre « ACCROCHEZ-VOUS »
+1:48:37.3  DROP n°57 · cascade - · plan strobe · flash 0.78
+1:50:24.8  DROP n°58 · cascade big-jump · plan stunt-cam · flash 0.78
+1:52:27.7  DROP n°59 · cascade ascension · plan stunt-cam · flash 0.78
+1:54:15.2  DROP n°60 · cascade inverted · plan stunt-cam · flash 0.78
+1:56:18.1  titre « DROP »
+1:56:18.1  DROP n°61 · cascade wall-ride · plan stunt-cam · flash 0.78
+1:58:05.6  DROP n°62 · cascade near-miss · plan stunt-cam · flash 0.78
+2:00:08.5  DROP n°63 · cascade - · plan flyby · flash 0.78
+2:01:56.0  DROP n°64 · cascade sign-hop · plan stunt-cam · flash 0.78
+2:03:58.9  titre « PAS DE RETOUR »
+2:03:58.9  DROP n°65 · cascade loop · plan stunt-cam · flash 0.78
+2:05:46.4  DROP n°66 · cascade near-miss · plan stunt-cam · flash 0.78
+2:07:49.3  DROP n°67 · cascade - · plan chase · flash 0.78
+2:09:36.8  DROP n°68 · cascade threading · plan stunt-cam · flash 0.78
+2:11:39.7  titre « JUSQU'AUX ÉTOILES »
+2:11:39.7  DROP n°69 · cascade ascension · plan stunt-cam · flash 0.78
+2:13:27.2  DROP n°70 · cascade - · plan wheel · flash 0.78
+2:15:30.1  titre « ALLUMEZ LE CIEL »
+2:15:30.1  DROP n°71 · cascade sign-hop · plan stunt-cam · flash 0.78
+2:17:17.6  DROP n°72 · cascade - · plan chase · flash 0.78
+2:19:20.5  DROP n°73 · cascade big-jump · plan stunt-cam · flash 0.78
+2:21:08.0  DROP n°74 · cascade ascension · plan stunt-cam · flash 0.78
+2:23:10.9  titre « SANS FILET »
+2:23:10.9  DROP n°75 · cascade inverted · plan stunt-cam · flash 0.78
+2:24:58.4  DROP n°76 · cascade near-miss · plan stunt-cam · flash 0.78
+2:27:01.3  DROP n°77 · cascade threading · plan stunt-cam · flash 0.78
+2:28:48.8  DROP n°78 · cascade - · plan wheel · flash 0.78
+2:30:51.7  titre « PLUS HAUT »
+2:30:51.7  DROP n°79 · cascade - · plan flyby · flash 0.78
+2:32:39.2  DROP n°80 · cascade off-road · plan stunt-cam · flash 0.78
+2:34:42.1  titre « PLUS HAUT »
+2:34:42.1  DROP n°81 · cascade slalom · plan stunt-cam · flash 0.78
+2:36:29.6  DROP n°82 · cascade head-on · plan stunt-cam · flash 0.78
+2:38:32.5  DROP n°83 · cascade threading · plan stunt-cam · flash 0.78
+2:40:20.0  DROP n°84 · cascade loop · plan stunt-cam · flash 0.78
+2:42:22.9  titre « ON Y VA »
+2:42:22.9  DROP n°85 · cascade threading · plan stunt-cam · flash 0.78
+2:44:10.4  DROP n°86 · cascade ascension · plan stunt-cam · flash 0.78
+2:46:13.3  DROP n°87 · cascade rooftop · plan stunt-cam · flash 0.78
+2:48:00.8  titre « TOUT POUR LA PISTE »
+2:48:00.8  DROP n°88 · cascade inverted · plan stunt-cam · flash 0.78
+2:50:03.7  DROP n°89 · cascade near-miss · plan stunt-cam · flash 0.78
+2:51:51.2  titre « FAITES BRÛLER »
+2:51:51.2  DROP n°90 · cascade big-jump · plan stunt-cam · flash 0.78
+2:53:54.1  DROP n°91 · cascade slalom · plan stunt-cam · flash 0.78
+2:55:41.6  DROP n°92 · cascade wall-ride · plan stunt-cam · flash 0.78
+2:57:44.5  DROP n°93 · cascade loop · plan stunt-cam · flash 0.78
+2:59:32.0  titre « FONDEZ »
+2:59:32.0  DROP n°94 · cascade - · plan strobe · flash 0.78
+---
+6 cues, 94 drops, 23 titres, 0 passations ; pic de 2 événements par image
