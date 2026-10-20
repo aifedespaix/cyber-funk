@@ -25,6 +25,28 @@ pub struct Golden {
     /// Tous les changements de `BeatState.bpm`.
     pub bpm: Vec<BpmChange>,
     pub spectra: Vec<Spectrum>,
+    /// État initial au pas 0 (`groove`) puis tous les changements de `SectionTracker`.
+    pub sections: Vec<SectionChange>,
+    /// Pas où `BuildDetector` a reconnu une montée.
+    pub builds: Vec<u64>,
+    /// Grandeurs continues, une valeur tous les `analysis.sampleEvery` pas.
+    pub samples: Samples,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct SectionChange {
+    pub step: u64,
+    pub section: String,
+}
+
+/// `samples.x[k]` est la valeur après le pas `(k + 1) × sampleEvery`.
+#[derive(Debug, Deserialize)]
+pub struct Samples {
+    pub intensity: Vec<f64>,
+    pub bass: Vec<f64>,
+    pub mid: Vec<f64>,
+    pub high: Vec<f64>,
+    pub loud: Vec<f64>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -42,6 +64,8 @@ pub struct Analysis {
     pub step_rate: f64,
     #[serde(rename = "stepSamples")]
     pub step_samples: usize,
+    #[serde(rename = "sampleEvery")]
+    pub sample_every: u64,
 }
 
 #[derive(Debug, Deserialize)]
@@ -67,6 +91,15 @@ pub struct Spectrum {
 }
 
 impl Golden {
+    /// Section de Sillage après le pas `step`.
+    pub fn section_at(&self, step: u64) -> &str {
+        self.sections
+            .iter()
+            .take_while(|c| c.step <= step)
+            .last()
+            .map_or("groove", |c| c.section.as_str())
+    }
+
     /// BPM de Sillage après le pas `step` (valeur tenue depuis le dernier changement).
     pub fn bpm_at(&self, step: u64) -> Option<f64> {
         self.bpm

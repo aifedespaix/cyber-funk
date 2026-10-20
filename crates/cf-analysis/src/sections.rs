@@ -135,7 +135,13 @@ mod tests {
     const STEP: f64 = 512.0 / 48_000.0;
 
     /// Applique `loud(t)` pendant `seconds` au pas `dt` ; renvoie les changements `(temps, section)`.
-    fn run(tracker: &mut SectionTracker, start: f64, seconds: f64, dt: f64, loud: impl Fn(f64) -> f64) -> Vec<(f64, Section)> {
+    fn run(
+        tracker: &mut SectionTracker,
+        start: f64,
+        seconds: f64,
+        dt: f64,
+        loud: impl Fn(f64) -> f64,
+    ) -> Vec<(f64, Section)> {
         let mut changes = Vec::new();
         let steps = (seconds / dt).round() as u64;
         for i in 1..=steps {
@@ -177,12 +183,22 @@ mod tests {
     fn progressive_build_goes_calm_groove_peak_in_order() {
         let mut t = SectionTracker::new();
         // Calme 20 s, puis une montée linéaire de 0,05 à 0,75 sur 60 s, puis tenue.
-        let loud = |s: f64| if s < 20.0 { 0.05 } else { (0.05 + (s - 20.0) / 60.0 * 0.7).min(0.75) };
+        let loud = |s: f64| {
+            if s < 20.0 {
+                0.05
+            } else {
+                (0.05 + (s - 20.0) / 60.0 * 0.7).min(0.75)
+            }
+        };
         let changes = run(&mut t, 0.0, 110.0, STEP, loud);
         let sections: Vec<Section> = changes.iter().map(|c| c.1).collect();
         assert_eq!(sections, [Section::Calm, Section::Groove, Section::Peak], "{changes:?}");
         // Pas de saut calme → sommet : chaque changement est séparé d'au moins 6 s.
-        assert!(changes.windows(2).all(|w| w[1].0 - w[0].0 >= MIN_BETWEEN_CHANGES - 1e-9));
+        assert!(
+            changes
+                .windows(2)
+                .all(|w| w[1].0 - w[0].0 >= MIN_BETWEEN_CHANGES - 1e-9)
+        );
     }
 
     #[test]
@@ -211,8 +227,14 @@ mod tests {
     fn minimum_delay_between_changes_holds() {
         let mut t = SectionTracker::new();
         // Volume qui oscille vite entre fort et nul : les sections ne changent jamais à moins de 6 s d'écart.
-        let changes = run(&mut t, 0.0, 120.0, STEP, |s| if (s / 3.0) as u64 % 2 == 0 { 0.8 } else { 0.0 });
-        assert!(changes.windows(2).all(|w| w[1].0 - w[0].0 >= MIN_BETWEEN_CHANGES - 1e-9));
+        let changes = run(&mut t, 0.0, 120.0, STEP, |s| {
+            if ((s / 3.0) as u64).is_multiple_of(2) { 0.8 } else { 0.0 }
+        });
+        assert!(
+            changes
+                .windows(2)
+                .all(|w| w[1].0 - w[0].0 >= MIN_BETWEEN_CHANGES - 1e-9)
+        );
     }
 
     #[test]

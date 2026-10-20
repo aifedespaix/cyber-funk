@@ -76,7 +76,11 @@ impl BeatAnalyzer {
     /// (pour les vumètres et le diagnostic).
     #[must_use]
     pub fn spectrum(&self) -> &[u8; BIN_COUNT] {
-        if self.capture { &self.scaled } else { self.analyser.bytes() }
+        if self.capture {
+            &self.scaled
+        } else {
+            self.analyser.bytes()
+        }
     }
 
     fn publish(&self, state: &BeatState, out: &mut AudioFeatures) {
