@@ -51,7 +51,7 @@ vient de la taille de la tâche et du nombre d'itérations, bien plus que du dé
 ## Statuts
 
 ⬜ à faire · 🟨 en cours · 🟦 PR ouverte · ✅ fusionnée.
-En cours au dernier point : J4-04, J1-06 (PR #24).
+En cours au dernier point : J4-04.
 
 | ID | Tâche | Modèle | Effort | Dépend de | Statut |
 | --- | --- | --- | --- | --- | --- |
@@ -64,7 +64,7 @@ En cours au dernier point : J4-04, J1-06 (PR #24).
 | J1-03 | [Capture d'entrée et thread d'analyse](tasks/J1.md) | Opus 5.5 | `xhigh` | J0-01 | ✅ |
 | J1-04 | [Détecteur de kicks et tempo (portage de `beat.ts`)](tasks/J1.md) | Sonnet 5.5 | `high` | J1-01, J1-03 | ✅ |
 | J1-05 | [Sections, intensité, gain automatique du micro](tasks/J1.md) | Sonnet 5.5 | `medium` | J1-04 | ✅ |
-| J1-06 | [Pont Bevy et panneau audio de l'opérateur](tasks/J1.md) | Sonnet 5.5 | `medium` | J0-02, J1-02, J1-05 | ⬜ |
+| J1-06 | [Pont Bevy et panneau audio de l'opérateur](tasks/J1.md) | Sonnet 5.5 | `medium` | J0-02, J1-02, J1-05 | ✅ |
 | J1-07 | [Analyse hors ligne des démos (grille de temps en cache)](tasks/J1.md) | Sonnet 5.5 | `medium` | J1-04 | ⬜ |
 | J2-01 | [Modèle de données et format RON](tasks/J2.md) | Opus 5.5 | `high` | J0-01 | ✅ |
 | J2-02 | [Les 6 looks de Sillage et le fondu des portes](tasks/J2.md) | Sonnet 5.5 | `medium` | J2-01 | ✅ |
