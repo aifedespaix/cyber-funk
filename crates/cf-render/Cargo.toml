@@ -11,7 +11,8 @@ publish.workspace = true
 workspace = true
 
 [dependencies]
-bevy.workspace = true
+# `2d_bevy_render` : `Camera2d` et `Text2d` de la surcouche 2D (les cartons-titres).
+bevy = { workspace = true, features = ["2d_bevy_render"] }
 cf-show.workspace = true
 thiserror.workspace = true
 
@@ -19,9 +20,13 @@ thiserror.workspace = true
 tempfile.workspace = true
 
 [features]
-# Exemple fenêtré `box_city` (jugement à l'œil du tremblement à 400 km) : hors CI, il lie un binaire Bevy complet.
+# Exemples fenêtrés (`box_city`, `layers_demo`), pour juger à l'œil : hors CI, ils lient un binaire Bevy complet.
 demo = []
 
 [[example]]
 name = "box_city"
+required-features = ["demo"]
+
+[[example]]
+name = "layers_demo"
 required-features = ["demo"]

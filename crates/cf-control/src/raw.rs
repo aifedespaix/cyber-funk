@@ -41,6 +41,10 @@ pub enum RawEvent {
         cc: u8,
         value: u8,
     },
+    /// Program Change MIDI (`program` 0..=127, `channel` 0..=15). Les CC 14 bits n'ont pas d'événement propre : leurs
+    /// deux moitiés arrivent comme des [`RawEvent::MidiCc`] et c'est le [`Mapper`](crate::Mapper) qui les recompose,
+    /// parce que seul le profil sait quels CC forment une paire.
+    MidiProgram { port: PortId, channel: u8, program: u8 },
     /// Message OSC. `value` : premier argument numérique s'il y en a un (0..1 pour un potard, 1/0 pour un bouton,
     /// décalage signé pour un encodeur), `None` sinon (simple impulsion).
     Osc { address: String, value: Option<f32> },

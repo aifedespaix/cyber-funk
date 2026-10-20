@@ -75,7 +75,7 @@ struct LookHeader {
 }
 
 /// Situe une version lue par rapport au format courant.
-fn check_version(found: Option<u32>, origin: &str) -> Result<u32, LoadError> {
+pub(crate) fn check_version(found: Option<u32>, origin: &str) -> Result<u32, LoadError> {
     match found {
         None => Err(LoadError::MissingVersion {
             origin: origin.to_owned(),

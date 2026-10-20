@@ -1,6 +1,13 @@
 //! Le limiteur Rust rejoue le scénario produit par le vrai `show-fx-limiter.ts` de Sillage
 //! (`tools/sillage-golden/limiter.ts`) : mêmes décisions (accordé / refusé), mêmes niveaux à 2e-5 près
 //! (Sillage calcule en f64, ici en f32), mêmes couleurs après `defuseRed`.
+//!
+//! Écart volontaire (J2-06b) : quand une voie repart sous `BUSY_LEVEL` avec un pic demandé plus bas que son niveau
+//! courant, Sillage ramène le niveau au nouveau pic en une image (chute instantanée, garantie 2 violée) ; cyber-funk
+//! garde le niveau et le fait redescendre à pente bornée. Ce cas ne peut pas figurer dans le scénario de référence
+//! (les sorties divergeraient par construction) : `golden_scenario_never_hits_the_retrigger_divergence` vérifie qu'il
+//! en est absent, pour que la comparaison reste exacte ; le cas lui-même est testé dans `limiter_props.rs`
+//! (`retrigger_below_current_level_never_drops_instantly`).
 
 use cf_show::limiter::{Channel, FlashLimiter, FlashRequest, Rgb, defuse_red};
 use serde::Deserialize;
@@ -121,6 +128,45 @@ fn defuse_red_matches_sillage() -> Result<(), serde_json::Error> {
             "defuse_red({r}, {g}, {b}) = {out:?}, Sillage : {case_out:?}",
             case_out = case.out
         );
+    }
+    Ok(())
+}
+
+/// Écart J2-06b : aucun départ accordé du scénario ne part d'un niveau au moins égal à son pic (plafonné). Sinon Sillage
+/// et cyber-funk divergeraient sur ce départ et la comparaison de `limiter_matches_sillage_scenario` ne prouverait plus
+/// la fidélité du reste ; si une régénération du JSON fait apparaître ce cas, ce test le signale au lieu d'un faux écart.
+#[test]
+fn golden_scenario_never_hits_the_retrigger_divergence() -> Result<(), serde_json::Error> {
+    let golden = load()?;
+    let mut limiter = FlashLimiter::new();
+    for (i, op) in golden.ops.iter().enumerate() {
+        match *op {
+            Op::Step { dt } => limiter.step(dt),
+            Op::Trigger {
+                channel,
+                peak,
+                attack,
+                decay,
+                now,
+            } => {
+                let channel = if channel == 0 { Channel::Flash } else { Channel::Sweep };
+                let before = limiter.value(channel);
+                let request = FlashRequest {
+                    channel,
+                    peak,
+                    attack_s: attack,
+                    decay_s: decay,
+                };
+                if limiter.trigger(request, now) {
+                    let target = peak.min(channel.cap());
+                    assert!(
+                        before < target,
+                        "op {i} : départ à {before} vers un pic {target} plus bas (écart J2-06b)"
+                    );
+                }
+            }
+            Op::Policy { flashes, breathing } => limiter.set_policy(flashes, breathing),
+        }
     }
     Ok(())
 }

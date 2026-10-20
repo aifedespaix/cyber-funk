@@ -15,3 +15,8 @@ workspace = true
 serde = { workspace = true, features = ["rc"] }
 ron.workspace = true
 thiserror.workspace = true
+midir.workspace = true
+tracing.workspace = true
+crossbeam-channel.workspace = true
+# Le callback MIDI est un chemin temps réel : il s'exécute sous `assert_no_alloc` (voir `midi::callback`).
+assert_no_alloc.workspace = true

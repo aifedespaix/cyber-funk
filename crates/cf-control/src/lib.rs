@@ -28,6 +28,7 @@ mod defaults;
 mod error;
 mod keyboard;
 mod mapper;
+mod midi;
 mod profile;
 mod raw;
 mod source;
@@ -40,7 +41,13 @@ pub use defaults::SILLAGE_KEYBOARD_NAME;
 pub use error::{Error, Result};
 pub use keyboard::{Key, KeyCode, KeyEvent, Modifiers, ShiftRule};
 pub use mapper::{Mapper, Override, TimedAction};
+pub use midi::{
+    ConnectedPort, DEFAULT_QUEUE_CAPACITY, DEFAULT_SCAN_PERIOD, Dispatch, FakeBackend, FakeConnection, FakeMidi,
+    InputCallback, Learner, MidiBackend, MidiConfig, MidiEvent, MidiInput, MidiItem, MidiMessage, MidiParser,
+    MidiStats, MidirBackend, PortEvent, PortMatch, PortSelection, PortsSnapshot, canonical_port_name, dispatch,
+    match_port_name, port_names_match,
+};
 pub use profile::{Binding, ControlProfile, ProfileIssue};
 pub use raw::{PortId, RawEvent, RawInput};
-pub use source::{InputSource, MIDI_CHANNEL_MAX, MIDI_DATA_MAX, RelativeEncoding};
+pub use source::{CC14_LSB_OFFSET, CC14_MSB_MAX, InputSource, MIDI_CHANNEL_MAX, MIDI_DATA_MAX, RelativeEncoding};
 pub use template::{ActionKind, ActionTemplate, Mode, RELATIVE_LEVEL_STEP};
