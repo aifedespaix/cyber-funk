@@ -19,7 +19,8 @@
 //! ne sait pas la rendre : une couche de géométrie opaque écrase ce qui est dessous, il n'y a pas de « 50 % de ville
 //! devant le ciel » sans passer par une texture à part. Chaque couche est donc rendue dans sa propre texture HDR
 //! (`Rgba16Float`, alpha = couverture, effacée en transparent), puis une caméra **compositeur** ([`Compositor`]) les
-//! superpose dans l'ordre, chacune par un quad plein cadre dont l'opacité est celle du look.
+//! superpose dans l'ordre, chacune par un quad plein cadre dont l'opacité est celle du look. La surcouche 2D est posée à
+//! part, après le post-process, par un second compositeur ([`OverlayCompositor`], voir `compositor.rs`).
 //!
 //! Conséquences voulues :
 //!
@@ -28,9 +29,11 @@
 //! - **avant-plan jamais coupé** : sa texture a sa propre profondeur, effacée à chaque image. Un mur du monde, même
 //!   à 10 cm de l'objectif, n'a aucun moyen de la masquer ;
 //! - **post-process sur l'image composée** : le compositeur est une caméra 3D ordinaire sur la fenêtre, c'est elle que
-//!   J4-02 équipe (bloom, grade, flash). Les caméras de couche ne font ni tonemapping ni bloom.
+//!   J4-02 équipe (bloom, grade, flash). Les caméras de couche ne font ni tonemapping ni bloom ;
+//! - **surcouche intacte** : titres et nom du DJ ne subissent ni bloom, ni étalonnage, ni flash.
 //!
-//! Le prix : une texture plein cadre par couche (16,6 Mo en 1080p) et un quad plein cadre par couche active.
+//! Le prix : une texture plein cadre par couche (16,6 Mo en 1080p), un quad plein cadre par couche active, et une passe
+//! de plus quand la surcouche est allumée.
 //!
 //! # Ce que les mondes doivent savoir
 //!
@@ -43,6 +46,7 @@
 //!   perte de précision de l'origine flottante (voir `docs/tasks/J4.md`, signalé par J4-03).
 //! - Un matériau transparent doit rendre un alpha de couverture cohérent ; le fond opaque, lui, rend alpha = 1.
 
+mod compositor;
 mod markers;
 mod opacity;
 mod pose;
@@ -53,7 +57,8 @@ use bevy::camera::visibility::RenderLayers;
 pub use markers::{BackgroundLayer, ForegroundLayer, OverlayLayer, WorldLayer};
 pub use opacity::{LayerOpacity, OFF_BELOW};
 pub use pose::{CameraPose, DEFAULT_FOV_DEG, LayerView};
-pub use rig::{COMPOSITOR_ORDER, Compositor, LayerCamera, LayerTargets, LayersPlugin};
+pub use compositor::{COMPOSITOR_ORDER, Compositor, OVERLAY_COMPOSITOR_ORDER, OverlayCompositor};
+pub use rig::{LayerCamera, LayerTargets, LayersPlugin};
 
 /// Index de `RenderLayers` de l'arrière-plan.
 pub const BACKGROUND_INDEX: usize = 0;
@@ -65,6 +70,8 @@ pub const FOREGROUND_INDEX: usize = 2;
 pub const OVERLAY_INDEX: usize = 3;
 /// Index de `RenderLayers` du compositeur (ses quads), à part des quatre couches.
 pub(crate) const COMPOSITOR_INDEX: usize = 4;
+/// Index de `RenderLayers` du compositeur de la surcouche (son quad).
+pub(crate) const OVERLAY_COMPOSITOR_INDEX: usize = 5;
 
 /// Une des quatre couches de rendu.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
@@ -119,7 +126,12 @@ mod tests {
         }
         // Le compositeur est rendu après toutes les couches et ne partage aucun index avec elles.
         assert!(COMPOSITOR_ORDER > Layer::Overlay.order());
-        assert!(Layer::ALL.iter().all(|layer| layer.index() != COMPOSITOR_INDEX));
+        assert!(OVERLAY_COMPOSITOR_ORDER > COMPOSITOR_ORDER);
+        assert!(
+            Layer::ALL
+                .iter()
+                .all(|layer| layer.index() != COMPOSITOR_INDEX && layer.index() != OVERLAY_COMPOSITOR_INDEX)
+        );
     }
 
     #[test]
