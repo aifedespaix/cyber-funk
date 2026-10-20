@@ -126,7 +126,7 @@ mod tests {
         }
         // Le compositeur est rendu après toutes les couches et ne partage aucun index avec elles.
         assert!(COMPOSITOR_ORDER > Layer::Overlay.order());
-        assert!(OVERLAY_COMPOSITOR_ORDER > COMPOSITOR_ORDER);
+        const { assert!(OVERLAY_COMPOSITOR_ORDER > COMPOSITOR_ORDER) };
         assert!(
             Layer::ALL
                 .iter()

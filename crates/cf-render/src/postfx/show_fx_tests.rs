@@ -17,6 +17,8 @@ fn show() -> ShowFxInput {
     }
 }
 
+/// Le drop qui frappe dans l'image, avec ses effets.
+#[allow(clippy::unnecessary_wraps, reason = "se range directement dans `ShowFxInput::drop`")]
 fn drop_fx(flash: f32, rgb_split: f32) -> Option<DropFxPackage> {
     Some(DropFxPackage {
         flash,
@@ -141,7 +143,7 @@ fn flash_de_kick_sur_front_montant_au_sommet_au_plus_deux_par_seconde() {
         before = fx.flash();
         t += DT;
     }
-    assert!(!starts.is_empty());
+    assert_ne!(starts.len(), 0);
     for pair in starts.windows(2) {
         assert!(pair[1] - pair[0] > KICK_FLASH_GAP - 1e-9, "{pair:?}");
     }
@@ -149,7 +151,7 @@ fn flash_de_kick_sur_front_montant_au_sommet_au_plus_deux_par_seconde() {
     let mut fx = ShowFx::default();
     let mut top = 0.0_f32;
     for i in 0..60 {
-        fx.update(Some(&input), if i == 1 { 1.0 } else { 0.0 }, true, i as f64 * DT, 0);
+        fx.update(Some(&input), if i == 1 { 1.0 } else { 0.0 }, true, f64::from(i) * DT, 0);
         top = top.max(fx.flash());
     }
     assert!((top - 0.18).abs() < 1e-4, "{top}");
@@ -164,7 +166,7 @@ fn hors_sommet_pas_de_flash_de_kick() {
     let mut fx = ShowFx::default();
     for i in 0..300 {
         let pulse = if i % 30 == 0 { 1.0 } else { 0.0 };
-        fx.update(Some(&input), pulse, false, i as f64 * DT, 0);
+        fx.update(Some(&input), pulse, false, f64::from(i) * DT, 0);
         assert!(fx.flash().abs() < f32::EPSILON);
     }
 }
@@ -180,7 +182,7 @@ fn un_drop_a_chaque_image_reste_sous_trois_flashs_par_seconde() {
     let mut starts: Vec<f64> = Vec::new();
     let mut before = 0.0_f32;
     for i in 0..1200 {
-        let t = i as f64 * DT;
+        let t = f64::from(i) * DT;
         // Le cue change aussi à chaque image : flash et vague se disputent le même budget.
         let frame = ShowFxInput { cue_seq: i, ..input };
         fx.update(Some(&frame), 1.0, true, t, 0);
