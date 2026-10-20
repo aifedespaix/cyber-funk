@@ -4,6 +4,7 @@ use std::convert::Infallible;
 use std::path::PathBuf;
 use std::str::FromStr;
 
+use cf_render::AudioSource;
 use clap::{Parser, ValueEnum};
 
 /// Écran choisi pour le projecteur (`--projector-monitor`).
@@ -59,6 +60,27 @@ impl LogLevel {
     }
 }
 
+/// Source audio de départ (`--audio-source`).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, ValueEnum)]
+pub enum AudioSourceArg {
+    /// Micro, avec gain automatique.
+    Mic,
+    /// Entrée ligne d'une carte son, sans gain automatique.
+    Line,
+    /// Pistes de démo (défaut).
+    Demo,
+}
+
+impl From<AudioSourceArg> for AudioSource {
+    fn from(arg: AudioSourceArg) -> Self {
+        match arg {
+            AudioSourceArg::Mic => Self::Microphone,
+            AudioSourceArg::Line => Self::Line,
+            AudioSourceArg::Demo => Self::Demo,
+        }
+    }
+}
+
 /// Options de la ligne de commande.
 #[derive(Debug, Parser)]
 #[command(version, about = "Visuels 3D temps réel pour soirées DJ")]
@@ -82,6 +104,22 @@ pub struct Cli {
     /// Niveau de journalisation. Prioritaire sur `RUST_LOG` quand il est donné.
     #[arg(long, value_enum, value_name = "NIVEAU")]
     pub log: Option<LogLevel>,
+
+    /// Source audio de départ ; l'opérateur en change ensuite à chaud.
+    #[arg(long, value_enum, value_name = "SOURCE", default_value = "demo")]
+    pub audio_source: AudioSourceArg,
+
+    /// Dossier des pistes de démo (le sous-dossier `local/` est lu aussi).
+    #[arg(long, value_name = "DOSSIER", default_value = "assets/music")]
+    pub music_dir: PathBuf,
+
+    /// Décalage visuel initial en millisecondes (0 à 500), réglable ensuite dans le panneau opérateur.
+    #[arg(long, value_name = "MS", default_value_t = 0.0)]
+    pub latency_ms: f32,
+
+    /// Joue les démos vers une sortie nulle au lieu de la carte son (machines sans audio, démonstrations muettes).
+    #[arg(long)]
+    pub null_audio_output: bool,
 }
 
 #[cfg(test)]
@@ -99,6 +137,17 @@ mod tests {
         assert_eq!(cli.projector_monitor, None);
         assert!(!cli.windowed && !cli.no_operator);
         assert_eq!(cli.log, None);
+        assert_eq!(cli.audio_source, AudioSourceArg::Demo);
+        assert_eq!(cli.music_dir, PathBuf::from("assets/music"));
+        assert!(!cli.null_audio_output);
+    }
+
+    #[test]
+    fn les_options_audio_se_lisent() {
+        let cli = parse(&["--audio-source", "line", "--latency-ms", "80", "--null-audio-output"]);
+        assert_eq!(AudioSource::from(cli.audio_source), AudioSource::Line);
+        assert!((cli.latency_ms - 80.0).abs() < f32::EPSILON);
+        assert!(cli.null_audio_output);
     }
 
     #[test]

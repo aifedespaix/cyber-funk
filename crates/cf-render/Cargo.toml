@@ -13,8 +13,11 @@ workspace = true
 [dependencies]
 # `2d_bevy_render` : `Camera2d` et `Text2d` de la surcouche 2D (les cartons-titres).
 bevy = { workspace = true, features = ["2d_bevy_render"] }
+cf-analysis.workspace = true
+cf-audio.workspace = true
 cf-show.workspace = true
 thiserror.workspace = true
+tracing.workspace = true
 
 [dev-dependencies]
 tempfile.workspace = true

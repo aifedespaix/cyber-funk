@@ -1,6 +1,7 @@
 //! Socle de rendu de cyber-funk : ordre des systèmes dans l'image, puis (jalon J4) couches de rendu,
 //! post-process, streaming du monde, culling, qualité adaptative et palettes.
 
+pub mod audio;
 pub mod diagnostics;
 pub mod layers;
 pub mod origin;
@@ -8,6 +9,10 @@ mod schedule;
 pub mod streaming;
 pub mod world;
 
+pub use audio::{
+    AudioCommand, AudioConfig, AudioFeatures, AudioSource, AudioStatus, CfAudioPlugin, InputBackendChoice, Kick,
+    OutputChoice, SectionChanged, VisualLatency,
+};
 pub use diagnostics::{
     DiagnosticsPlugin, DiagnosticsSnapshot, ExportError, MeasurementSession, PassTiming, RenderScale, SessionRow,
 };

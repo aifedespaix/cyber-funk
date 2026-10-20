@@ -3,10 +3,24 @@
 use bevy::prelude::*;
 use bevy_egui::{EguiContext, PrimaryEguiContext, egui};
 
+use cf_render::audio::{AudioCommand, AudioFeatures, AudioStatus, VisualLatency};
+
+use crate::audio_panel;
 use crate::quit::{QuitDecision, QuitPrompt, QuitSource};
 
-/// Panneau central. Vide pour l'instant : les panneaux arrivent avec les tâches J1-06 et suivantes.
-pub(crate) fn main_panel(mut context: Single<&mut EguiContext, With<PrimaryEguiContext>>) {
+/// Largeur initiale du panneau audio (points egui) : assez pour les vumètres et la ligne des compteurs.
+const AUDIO_PANEL_WIDTH: f32 = 560.0;
+
+/// Panneau de l'opérateur : l'audio pour l'instant (J1-06) ; les autres panneaux arrivent avec les tâches suivantes.
+///
+/// Sans `CfAudioPlugin`, les ressources audio manquent : le panneau le dit au lieu de s'afficher à vide.
+pub(crate) fn main_panel(
+    mut context: Single<&mut EguiContext, With<PrimaryEguiContext>>,
+    status: Option<Res<AudioStatus>>,
+    features: Option<Res<AudioFeatures>>,
+    latency: Option<ResMut<VisualLatency>>,
+    mut commands: MessageWriter<AudioCommand>,
+) {
     // Depuis egui 0.36 les panneaux se posent dans un `Ui` racine, pas directement sur le contexte.
     let ctx = context.get_mut();
     let mut root = egui::Ui::new(
@@ -16,6 +30,21 @@ pub(crate) fn main_panel(mut context: Single<&mut EguiContext, With<PrimaryEguiC
             .layer_id(egui::LayerId::background())
             .max_rect(ctx.viewport_rect()),
     );
+    // À droite : la fenêtre flottante de diagnostic s'ouvre à gauche et ne doit pas recouvrir l'audio.
+    egui::Panel::right("audio_panel")
+        .default_size(AUDIO_PANEL_WIDTH)
+        .show(&mut root, |ui| {
+            egui::ScrollArea::vertical().show(ui, |ui| match (status, features, latency) {
+                (Some(status), Some(features), Some(mut latency)) => {
+                    let mut orders = Vec::new();
+                    audio_panel::draw(ui, &status, &features, &mut latency, &mut orders);
+                    commands.write_batch(orders);
+                }
+                _ => {
+                    ui.weak("Audio non branché (CfAudioPlugin absent).");
+                }
+            });
+        });
     egui::CentralPanel::default().show(&mut root, |ui| {
         ui.heading("cyber-funk");
     });

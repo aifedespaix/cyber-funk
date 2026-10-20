@@ -17,7 +17,7 @@ use bevy::prelude::*;
 use bevy::winit::WinitSettings;
 use cf_cinema::CinemaPlugin;
 use cf_operator::{OperatorPlugin, QuitGuardPlugin};
-use cf_render::{CorePlugin, DiagnosticsPlugin};
+use cf_render::{AudioConfig, CfAudioPlugin, CorePlugin, DiagnosticsPlugin, OutputChoice};
 use cf_world_neon::NeonWorldPlugin;
 use clap::Parser as _;
 
@@ -77,6 +77,7 @@ fn build_app(cli: &Cli) -> App {
     .add_plugins((
         CorePlugin,
         DiagnosticsPlugin::default(),
+        CfAudioPlugin::new(audio_config(cli)),
         ProjectorPlugin(projector),
         CinemaPlugin,
         NeonWorldPlugin,
@@ -90,6 +91,21 @@ fn build_app(cli: &Cli) -> App {
         app.add_plugins(OperatorPlugin);
     }
     app
+}
+
+/// Réglages audio tirés de la ligne de commande.
+fn audio_config(cli: &Cli) -> AudioConfig {
+    AudioConfig {
+        initial_source: cli.audio_source.into(),
+        music_dir: cli.music_dir.clone(),
+        latency_ms: cli.latency_ms,
+        output: if cli.null_audio_output {
+            OutputChoice::Null { speed: 1.0 }
+        } else {
+            OutputChoice::Default
+        },
+        ..AudioConfig::default()
+    }
 }
 
 /// Traduit la sortie de Bevy en code de retour du processus.
