@@ -1,0 +1,79 @@
+// La montée automatique de Sillage (`LEVEL_STARTS` de engine/show/acts.ts) en liste de cues : un créneau en mode Auto,
+// six cues, un par niveau. Un DJ qui ne veut rien préparer retrouve l'expérience de Sillage.
+//
+//   cargo run -p cyber-funk -- --show assets/shows/montee-auto.ron
+//
+// Durées : Sillage place les niveaux à 0 / 0 / 6 / 18 / 35 / 55 % d'un set de 180 min (`durationMinutes` par défaut,
+// soit 10 800 s). Le niveau 1 commence dès la sortie de la pré-intro ; chaque cue avance donc après la part de set
+// qui sépare son niveau du suivant : 6 % = 648 s, 12 % = 1 296 s, 17 % = 1 836 s, 20 % = 2 160 s. Pour un set d'une
+// autre durée, multiplier ces secondes par (durée / 180 min).
+//
+// Entrées : la pré-intro se quitte sur GO (comme dans Sillage, où seul l'opérateur la quitte) et le niveau 1 démarre
+// en coupe franche ; les niveaux suivants attendent le prochain drop (puis la phrase suivante, puis tout de suite :
+// logique de `levelIsDue` dans Sillage).
+Event(
+    version: 1,
+    settings: (
+        name: "Montée automatique",
+        theme: Preset(Velvet),
+        flashes: Limited,
+        latency_offset_ms: 0.0,
+        projector: Auto,
+        // Aucun flash, rien ne vole : le repli le plus sûr de la bibliothèque.
+        safe_look: "niveau-0-pre-intro",
+        dj_sign: true,
+        dj_on_ads: true,
+    ),
+    slots: [
+        DjSlot(
+            id: "montee",
+            dj: (name: ""),
+            audio: (bpm_min: 80.0, bpm_max: 180.0, sensitivity: 0.5, tempo_source: Auto),
+            mode: Auto,
+            cues: [
+                Cue(
+                    id: "pre-intro",
+                    name: "Pré-intro",
+                    look: "niveau-0-pre-intro",
+                    entry: Cut,
+                    advance: Manual,
+                ),
+                Cue(
+                    id: "ville",
+                    name: "Niveau 1 · La ville",
+                    look: "niveau-1-ville",
+                    entry: Cut,
+                    advance: After(seconds: 648.0),
+                ),
+                Cue(
+                    id: "rues",
+                    name: "Niveau 2 · Les rues",
+                    look: "niveau-2-rues",
+                    entry: OnDrop,
+                    advance: After(seconds: 1296.0),
+                ),
+                Cue(
+                    id: "envol",
+                    name: "Niveau 3 · L'envol",
+                    look: "niveau-3-envol",
+                    entry: OnDrop,
+                    advance: After(seconds: 1836.0),
+                ),
+                Cue(
+                    id: "meteores",
+                    name: "Niveau 4 · Les météores",
+                    look: "niveau-4-meteores",
+                    entry: OnDrop,
+                    advance: After(seconds: 2160.0),
+                ),
+                Cue(
+                    id: "cosmos",
+                    name: "Niveau 5 · Cosmos",
+                    look: "niveau-5-cosmos",
+                    entry: OnDrop,
+                    advance: Manual,
+                ),
+            ],
+        ),
+    ],
+)

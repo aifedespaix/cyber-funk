@@ -12,9 +12,19 @@ workspace = true
 
 [dependencies]
 cpal.workspace = true
+# Voir crates/cf-audio/src/feed : `push_interleaved` vérifie l'absence d'allocation dans le callback.
+assert_no_alloc.workspace = true
+crossbeam-channel.workspace = true
+rand_core.workspace = true
+rand_pcg.workspace = true
 rtrb.workspace = true
 rubato.workspace = true
+# Formats lus : MP3 (démos versionnées) et ce qu'un DJ dépose dans `assets/music/local/` (WAV, FLAC, OGG/Vorbis,
+# M4A/AAC).
+symphonia = { workspace = true, features = ["mp3", "flac", "wav", "pcm", "ogg", "vorbis", "aac", "isomp4", "opt-simd"] }
 thiserror.workspace = true
 tracing.workspace = true
-crossbeam-channel.workspace = true
-assert_no_alloc.workspace = true
+
+[dev-dependencies]
+anyhow.workspace = true
+tracing-subscriber.workspace = true

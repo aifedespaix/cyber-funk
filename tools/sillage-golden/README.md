@@ -114,3 +114,16 @@ bun run tools/sillage-golden/limiter.ts > crates/cf-show/tests/golden/limiter.js
 ```
 
 Le script vérifie lui-même l'empreinte git de la copie (comme `index.ts` pour les autres), indépendamment d'`index.ts`.
+
+## Niveaux et fondu des portes (J2-02)
+
+`gates.ts` fait tourner les copies conformes `sillage/engine/show/acts.ts` et `gates.ts` (`GateBlender`, `Variation`) :
+portes de chaque niveau à mix 0, 0,5 et 1, 600 images de glissement (dt variables, sauts de niveau, `snap`), 1200 images
+de `Variation` avec un LCG de graine fixe. Le JSON est relu par `crates/cf-show/tests/gates_golden.rs`, qui compare aussi
+les looks `assets/looks/niveau-*.ron` et `assets/shows/montee-auto.ron`.
+
+```bash
+bun run tools/sillage-golden/gates.ts > crates/cf-show/tests/golden/gates.json
+```
+
+Le script vérifie l'empreinte git des deux copies (`acts.ts` `18629ce241a7`, `gates.ts` `b7a840f8449f`, commit fd34481).
