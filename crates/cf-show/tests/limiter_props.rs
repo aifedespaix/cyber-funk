@@ -52,6 +52,9 @@ fn channel() -> impl Strategy<Value = Channel> {
 fn peak() -> impl Strategy<Value = f32> {
     prop_oneof![
         8 => 0.0f32..1.0,
+        // Petits pics autour de `MIN_PEAK` (0,001) et `BUSY_LEVEL` (0,02) : une voie y repart sans être vide (J2-06b,
+        // trop rare au tirage libre pour que la propriété le trouve seule).
+        3 => 0.0f32..0.03,
         2 => 1.0f32..100.0,
         1 => -5.0f32..0.0,
         1 => Just(0.0),
