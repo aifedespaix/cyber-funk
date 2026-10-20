@@ -159,7 +159,10 @@ fn golden_scenario_never_hits_the_retrigger_divergence() -> Result<(), serde_jso
                 };
                 if limiter.trigger(request, now) {
                     let target = peak.min(channel.cap());
-                    assert!(before < target, "op {i} : départ à {before} vers un pic {target} plus bas (écart J2-06b)");
+                    assert!(
+                        before < target,
+                        "op {i} : départ à {before} vers un pic {target} plus bas (écart J2-06b)"
+                    );
                 }
             }
             Op::Policy { flashes, breathing } => limiter.set_policy(flashes, breathing),
