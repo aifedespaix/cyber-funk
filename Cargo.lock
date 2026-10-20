@@ -2434,6 +2434,8 @@ dependencies = [
  "cf-cinema",
  "cf-render",
  "cf-show",
+ "serde_json",
+ "tracing",
 ]
 
 [[package]]
