@@ -29,7 +29,9 @@ impl Plugin for OperatorPlugin {
         app.world_mut()
             .resource_mut::<EguiGlobalSettings>()
             .auto_create_primary_context = false;
-        app.add_systems(Startup, window::spawn_operator_window)
-            .add_systems(EguiPrimaryContextPass, (ui::main_panel, diagnostics::diagnostics_window, ui::quit_dialog).chain());
+        app.add_systems(Startup, window::spawn_operator_window).add_systems(
+            EguiPrimaryContextPass,
+            (ui::main_panel, diagnostics::diagnostics_window, ui::quit_dialog).chain(),
+        );
     }
 }

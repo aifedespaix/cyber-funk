@@ -188,7 +188,10 @@ fn la_session_enregistre_une_ligne_par_image_et_s_exporte_sans_fenetre() {
 
     let session = app.world().resource::<MeasurementSession>();
     assert_eq!(session.rows().len(), 20, "rien n'est ajouté après l'arrêt");
-    assert!(session.rows().windows(2).all(|w| w[1].t_s > w[0].t_s), "le temps avance");
+    assert!(
+        session.rows().windows(2).all(|w| w[1].t_s > w[0].t_s),
+        "le temps avance"
+    );
     assert!(session.rows().iter().all(|r| r.visible_entities == 40));
 
     let mut csv = Vec::new();

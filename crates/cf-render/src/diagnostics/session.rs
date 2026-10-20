@@ -200,7 +200,7 @@ mod tests {
     fn hors_enregistrement_rien_n_est_garde() {
         let mut session = MeasurementSession::new(10);
         session.record(1.0, row(16.0, None));
-        assert!(session.rows().is_empty());
+        assert_eq!(session.rows(), []);
     }
 
     #[test]
@@ -240,7 +240,7 @@ mod tests {
         session.record(1.0, row(16.0, None));
         session.stop();
         session.start(10.0);
-        assert!(session.rows().is_empty());
+        assert_eq!(session.rows(), []);
         assert!(session.is_recording());
     }
 
@@ -257,6 +257,9 @@ mod tests {
         let text = std::fs::read_to_string(&path).unwrap_or_default();
         assert!(text.starts_with(CSV_HEADER));
         let impossible = path.join("x.csv");
-        assert!(session.save_csv(&impossible).is_err(), "un fichier ne peut pas servir de dossier");
+        assert!(
+            session.save_csv(&impossible).is_err(),
+            "un fichier ne peut pas servir de dossier"
+        );
     }
 }

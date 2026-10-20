@@ -107,7 +107,11 @@ pub(crate) fn draw(
             line(ui, "Entités du monde", &snapshot.world_entities.to_string());
             line(ui, "Tronçons actifs", &chunks_text(snapshot));
             line(ui, "Mémoire GPU (maillages)", &memory_text(snapshot.gpu_mesh_bytes));
-            line(ui, "Échelle de rendu", &format!("{:.0} %", snapshot.render_scale * 100.0));
+            line(
+                ui,
+                "Échelle de rendu",
+                &format!("{:.0} %", snapshot.render_scale * 100.0),
+            );
         });
 
     ui.separator();

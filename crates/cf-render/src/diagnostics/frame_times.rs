@@ -94,7 +94,11 @@ mod tests {
         }
         window.push(110.0);
         assert!((window.mean().unwrap_or_default() - 11.0).abs() < 1e-4);
-        assert_eq!(window.percentile(99.0), Some(10.0), "rang 99 sur 100 : l'accroc est le centième");
+        assert_eq!(
+            window.percentile(99.0),
+            Some(10.0),
+            "rang 99 sur 100 : l'accroc est le centième"
+        );
         assert_eq!(window.percentile(100.0), Some(110.0));
     }
 

@@ -5,7 +5,7 @@
 
 use std::collections::HashSet;
 
-use bevy::diagnostic::{DiagnosticsStore, EntityCountDiagnosticsPlugin};
+use bevy::diagnostic::{Diagnostic, DiagnosticsStore, EntityCountDiagnosticsPlugin};
 use bevy::prelude::*;
 use bevy::render::diagnostic::MeshAllocatorDiagnosticPlugin;
 
@@ -136,16 +136,16 @@ pub(super) fn collect_snapshot(
 
     snapshot.world_entities = store
         .get(&EntityCountDiagnosticsPlugin::ENTITY_COUNT)
-        .and_then(|d| d.value())
+        .and_then(Diagnostic::value)
         .map_or(0, |v| v as u32);
     snapshot.gpu_mesh_bytes = store
         .get(MeshAllocatorDiagnosticPlugin::slabs_size_diagnostic_path())
-        .and_then(|d| d.value())
+        .and_then(Diagnostic::value)
         .map(|v| v as u64);
 
     let mut total = 0;
     let mut visible = 0;
-    let count_kinds = scratch.frame % MESH_KIND_EVERY == 0;
+    let count_kinds = scratch.frame.is_multiple_of(MESH_KIND_EVERY);
     scratch.frame = scratch.frame.wrapping_add(1);
     if count_kinds {
         scratch.seen.clear();

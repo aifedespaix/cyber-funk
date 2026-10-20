@@ -58,7 +58,10 @@ impl Plugin for DiagnosticsPlugin {
             .init_resource::<RenderScale>()
             .init_resource::<FrameTimes>()
             .init_resource::<MeasurementSession>()
-            .add_systems(Update, (collect_snapshot, record_session).chain().in_set(CfSet::Present));
+            .add_systems(
+                Update,
+                (collect_snapshot, record_session).chain().in_set(CfSet::Present),
+            );
     }
 }
 
