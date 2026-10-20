@@ -176,6 +176,16 @@ impl DropTitles {
         self.entries.iter().map(|e| e.key.as_str())
     }
 
+    /// Le texte (en capitales) du titre d'identifiant `id` dans la langue demandée, ou `None` s'il n'existe pas.
+    /// Copie du pointeur partagé : aucune allocation (sert à l'action `Title` de l'opérateur).
+    #[must_use]
+    pub fn text(&self, id: &str, language: TitleLanguage) -> Option<Arc<str>> {
+        self.entries
+            .iter()
+            .find(|e| e.key.strip_prefix("title:") == Some(id))
+            .map(|e| e.text(language))
+    }
+
     pub(crate) fn entries(&self) -> &[Entry] {
         &self.entries
     }

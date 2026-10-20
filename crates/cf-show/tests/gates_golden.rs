@@ -331,9 +331,10 @@ fn auto_climb_follows_sillage_level_starts() {
     let ids: Vec<&str> = slot.cues.iter().map(|cue| cue.look.as_str()).collect();
     assert_eq!(ids, LEVEL_FILES);
 
-    // La pré-intro se quitte sur GO ; chaque niveau 1 à 4 avance après la part de set qui le sépare du suivant.
+    // La pré-intro se quitte quand la musique est là (`wait.ts`) ; chaque niveau 1 à 4 avance après la part de set
+    // qui le sépare du suivant.
     let starts = golden().level_starts;
-    assert!(matches!(slot.cues[0].advance, CueAdvance::Manual));
+    assert!(matches!(slot.cues[0].advance, CueAdvance::OnMusic));
     assert!(matches!(slot.cues[5].advance, CueAdvance::Manual));
     for level in 1..=4 {
         let expected = (starts[level + 1] - starts[level]) * SET_SECONDS;

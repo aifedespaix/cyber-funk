@@ -51,6 +51,10 @@ struct Entry {
     high: Option<bool>,
     /// Les deux moitiés du dernier CC 14 bits reçu (sans effet pour les autres sources).
     wide: WideCc,
+    /// Mode à maintien : un appui a été lu par cette ligne et son relâchement pas encore. Un relâchement sans appui
+    /// vu (bouton enfoncé avant un changement de profil) est ignoré, et [`Mapper::release_held`] relâche ce qui est
+    /// encore tenu.
+    held: bool,
 }
 
 /// Recomposition d'un CC 14 bits : octet de poids fort sur `cc`, de poids faible sur `cc + 32`.
@@ -149,6 +153,7 @@ impl Mapper {
                         binding: binding.clone(),
                         high: None,
                         wide: WideCc::default(),
+                        held: false,
                     },
                     p,
                 ));
@@ -156,6 +161,42 @@ impl Mapper {
         }
         self.entries = entries.into_iter().map(|(entry, _)| entry).collect();
         Ok(overrides)
+    }
+
+    /// Comme [`Mapper::load`], mais relâche d'abord proprement tout ce qui est tenu (voir [`Mapper::release_held`]) :
+    /// les actions de relâchement sont ajoutées à `released`, horodatées `time_s`, à transmettre au spectacle avant
+    /// toute autre entrée. C'est la façon de changer de profil en plein show (passation de DJ) : un Blackout tenu à
+    /// la main pendant le changement ne reste jamais allumé.
+    ///
+    /// # Errors
+    /// Comme [`Mapper::load`] ; rien n'est relâché ni remplacé si un profil est invalide.
+    pub fn reload(
+        &mut self,
+        profiles: &[&ControlProfile],
+        time_s: f64,
+        released: &mut Vec<TimedAction>,
+    ) -> Result<Vec<Override>> {
+        for profile in profiles {
+            profile.validate()?;
+        }
+        self.release_held(time_s, released);
+        self.load(profiles)
+    }
+
+    /// Relâche tout bouton à maintien encore tenu (`Blackout` en mode `Momentary`, niveau à 1 tant que le pad est
+    /// enfoncé…) : ajoute à `out` l'action de relâchement de chacun, horodatée `time_s`. Le vrai relâchement du
+    /// bouton, s'il arrive ensuite, est ignoré. À appeler avant de changer de profil, ou quand la fenêtre perd le
+    /// clavier. Sans allocation si `out` a la place.
+    pub fn release_held(&mut self, time_s: f64, out: &mut Vec<TimedAction>) {
+        for entry in &mut self.entries {
+            if !entry.held {
+                continue;
+            }
+            entry.held = false;
+            if let Some(action) = produce(entry, Signal::Release) {
+                out.push(TimedAction { time_s, action });
+            }
+        }
     }
 
     /// La table effective, après fusion.
@@ -191,6 +232,16 @@ impl Mapper {
             .iter_mut()
             .find(|e| e.binding.source.matches(&input.event, port_name))?;
         let signal = read(entry, &input.event)?;
+        if entry.binding.mode == Mode::Momentary {
+            match signal {
+                Signal::Press => entry.held = true,
+                // Relâchement d'un appui que cette table n'a pas vu (profil changé entre-temps) : rien à relâcher.
+                // Sans cette garde, il produirait l'ordre « éteins » d'une autre action liée au même geste.
+                Signal::Release if !entry.held => return None,
+                Signal::Release => entry.held = false,
+                Signal::Level(_) | Signal::Delta(_) => {}
+            }
+        }
         let action = produce(entry, signal)?;
         Some(TimedAction {
             time_s: input.time_s,

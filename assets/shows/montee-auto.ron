@@ -8,9 +8,10 @@
 // qui sépare son niveau du suivant : 6 % = 648 s, 12 % = 1 296 s, 17 % = 1 836 s, 20 % = 2 160 s. Pour un set d'une
 // autre durée, multiplier ces secondes par (durée / 180 min).
 //
-// Entrées : la pré-intro se quitte sur GO (comme dans Sillage, où seul l'opérateur la quitte) et le niveau 1 démarre
-// en coupe franche ; les niveaux suivants attendent le prochain drop (puis la phrase suivante, puis tout de suite :
-// logique de `levelIsDue` dans Sillage).
+// Entrées : la pré-intro se quitte quand la musique est franchement là (`OnMusic` : au moins 45 s puis ~8 s d'énergie
+// soutenue, `wait.ts` de Sillage ; GO la quitte aussi) et le niveau 1 démarre en coupe franche ; les niveaux suivants
+// attendent le prochain drop (puis la phrase suivante, puis tout de suite : logique de `levelIsDue` dans Sillage).
+// Le chronomètre d'un cue part à son appel, pas à son entrée : l'attente du drop ne décale pas les niveaux suivants.
 Event(
     version: 1,
     settings: (
@@ -36,7 +37,7 @@ Event(
                     name: "Pré-intro",
                     look: "niveau-0-pre-intro",
                     entry: Cut,
-                    advance: Manual,
+                    advance: OnMusic,
                 ),
                 Cue(
                     id: "ville",
