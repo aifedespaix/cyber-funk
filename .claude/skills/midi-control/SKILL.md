@@ -38,6 +38,15 @@ Valeurs continues normalisées 0..1.
   précédent/suivant, 0-5 aller au cue, G / Maj+G DJ suivant/précédent, T afficher le DJ, A Ascension, E événement,
   X flashs, B respiration, O surcouche opérateur, Maj+Espace lecture. Lettres lues selon la disposition (AZERTY ok).
 
+## Ajouts de J3-02 (module `midi` de `cf-control`)
+
+- Sources en plus : `InputSource::MidiCc14` (fader 14 bits, recomposé par le `Mapper`) et `InputSource::MidiProgram`
+  (événement `RawEvent::MidiProgram`). Noms de ports comparés de façon souple, sans allocation.
+- Hôte MIDI derrière un trait (`FakeMidi` pour les tests) ; rebranchement par scrutation toutes les ~2 s, `MidiInput::rescan()`
+  en secours. Les messages d'horloge MIDI (0xF8…) arrivent par `Dispatch::Other` : c'est l'entrée de J3-03.
+- Learn : `start_learn_as(template, Mode::Relative, encoding)` pour un encodeur sans fin (non deviné) ; `Learner::poll`
+  à chaque image (un CC attend 50 ms un compagnon 14 bits).
+
 ## MIDI (`midir`)
 
 - Thread d'entrée géré par `midir` : le callback ne fait que parser et pousser dans un canal borné (pas d'allocation
