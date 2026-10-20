@@ -14,7 +14,7 @@ pub enum Dispatch {
     /// Un contrôleur apparaît ou disparaît (le mapper en a déjà été informé), pour l'interface.
     Port(PortEvent),
     /// Un message qui n'est pas une commande de show (horloge, transport, position de morceau, pitch bend…) : à
-    /// J3-03 (MIDI Clock) et aux consommateurs de molettes.
+    /// donner à [`MidiClock::handle`](crate::MidiClock::handle) et aux consommateurs de molettes.
     Other(MidiEvent),
     /// Une commande qu'aucun binding ne reconnaît, ou qui ne change rien.
     Ignored,

@@ -1,9 +1,9 @@
 //! `AudioFeatures` : ce que l'analyse publie à chaque pas, lu par tout le reste de l'application.
 //!
 //! Contrat du skill `realtime-audio` : reprend `BeatState` (`beat.ts`) et `SectionTracker` (`sections.ts`) de
-//! Sillage, plus l'arbitrage du tempo et l'horloge audio. J1-03 pose la structure ; les champs musicaux restent à leur
-//! valeur neutre jusqu'à leur calcul (kicks et tempo : J1-04 ; sections, intensité : J1-05 ; sources de tempo
-//! externes, phase, mesure, phrase : J3-03).
+//! Sillage, plus l'arbitrage du tempo et l'horloge audio. Le thread d'analyse remplit les champs audio ; `bpm`,
+//! `tempo_source`, `confidence`, `phase`, `bar` et `phrase` sont réécrits côté application par
+//! [`TempoArbiter::publish`](crate::TempoArbiter::publish), qui arbitre entre horloge MIDI, Link, audio et tap.
 
 /// Section du morceau (`Section` de `sections.ts`).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default)]
@@ -75,11 +75,11 @@ pub struct AudioFeatures {
     pub tempo_source: TempoSource,
     /// Confiance dans le tempo, 0..1.
     pub confidence: f32,
-    /// Position dans la mesure, 0..1.
+    /// Position dans la mesure, 0..1 (0 : temps 1).
     pub phase: f32,
     /// Numéro de mesure.
     pub bar: u32,
-    /// Numéro de phrase (groupe de mesures).
+    /// Numéro de phrase (seize temps, quatre mesures).
     pub phrase: u32,
 }
 
