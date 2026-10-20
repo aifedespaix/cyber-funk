@@ -36,6 +36,15 @@ enum Op {
     Jump(f64),
 }
 
+/// Plage `low..high` (0 ≤ `low` < `high`) tirée comme `0..high-low` puis décalée. proptest 1.12 (dernière version)
+/// panique par intermittence sur une plage f32 dont la borne basse est non nulle et plus petite en valeur absolue que la
+/// haute (`0.05..0.3`, `0.3..5.0`, `0.15..4.0`) : son `debug_assert!(self.low - result < initial.step)` compare à un
+/// pas négatif quand le découpage part de la borne haute. La panique survient au tirage, hors du test, sans réduction
+/// ni graine enregistrée : environ un échec toutes les deux campagnes de 20 000 cas, et un faux rouge possible en CI.
+fn span(low: f32, high: f32) -> impl Strategy<Value = f32> {
+    (0.0f32..high - low).prop_map(move |x| low + x)
+}
+
 fn channel() -> impl Strategy<Value = Channel> {
     prop_oneof![Just(Channel::Flash), Just(Channel::Sweep)]
 }
@@ -43,6 +52,9 @@ fn channel() -> impl Strategy<Value = Channel> {
 fn peak() -> impl Strategy<Value = f32> {
     prop_oneof![
         8 => 0.0f32..1.0,
+        // Petits pics autour de `MIN_PEAK` (0,001) et `BUSY_LEVEL` (0,02) : une voie y repart sans être vide (J2-06b,
+        // trop rare au tirage libre pour que la propriété le trouve seule).
+        3 => 0.0f32..0.03,
         2 => 1.0f32..100.0,
         1 => -5.0f32..0.0,
         1 => Just(0.0),
@@ -56,7 +68,7 @@ fn peak() -> impl Strategy<Value = f32> {
 fn duration() -> impl Strategy<Value = f32> {
     prop_oneof![
         6 => 0.0f32..0.5,
-        2 => 0.5f32..30.0,
+        2 => span(0.5, 30.0),
         1 => Just(0.0),
         1 => -3.0f32..0.0,
         1 => Just(f32::NAN),
@@ -89,8 +101,8 @@ fn bad_clock() -> impl Strategy<Value = f64> {
 fn dt() -> impl Strategy<Value = f32> {
     prop_oneof![
         8 => 0.0f32..0.05,
-        3 => 0.05f32..0.3,
-        1 => 0.3f32..5.0,
+        3 => span(0.05, 0.3),
+        1 => span(0.3, 5.0),
         1 => Just(0.0),
         1 => -0.2f32..0.0,
         1 => Just(f32::NAN),
@@ -189,8 +201,18 @@ fn grants(events: &[Event]) -> Vec<f64> {
     events.iter().filter_map(|e| e.granted_at).collect()
 }
 
+/// 512 cas par défaut ; `PROPTEST_CASES` l'emporte s'il est posé (campagne longue). `ProptestConfig::with_cases`
+/// écraserait la variable d'environnement : une campagne à 20 000 cas n'en aurait silencieusement joué que 512.
+fn config() -> ProptestConfig {
+    let mut config = ProptestConfig::default();
+    if std::env::var_os("PROPTEST_CASES").is_none() {
+        config.cases = 512;
+    }
+    config
+}
+
 proptest! {
-    #![proptest_config(ProptestConfig::with_cases(512))]
+    #![proptest_config(config())]
 
     /// Garantie 1 : dans toute fenêtre glissante d'une seconde, au plus `MAX_FLASHES_PER_SECOND` départs, toutes voies
     /// confondues, même avec une horloge folle.
@@ -292,7 +314,7 @@ proptest! {
     #[test]
     fn prop_g5_defuse_red_never_leaves_saturated_red(
         r in color_component(), g in color_component(), b in color_component(),
-        red_bias in 0.0f32..1.0, strong in 0.15f32..4.0,
+        red_bias in 0.0f32..1.0, strong in span(0.15, 4.0),
     ) {
         // Couleur libre, et couleur forcée à dominante rouge (la zone dangereuse, trop rare au tirage libre).
         let free = Rgb::new(r, g, b);
@@ -369,4 +391,48 @@ fn requests_are_clamped_to_caps_and_min_fade() {
         "{}",
         l.value(Channel::Flash)
     );
+}
+
+/// Graine `ca1fadda…` (J2-06b), réduite : une vague repart sous `BUSY_LEVEL` (0,02) sans être vide, avec un pic demandé
+/// plus bas que ce qui brille encore. Sillage (et J2-06) ramenait le niveau au nouveau pic en une image : chute de
+/// 0,0131 en 4,6 ms, soit 2,85/s pour une pente maximale de `MAX_SWEEP_PEAK / MIN_FADE` = 1,75/s.
+#[test]
+fn retrigger_below_current_level_never_drops_instantly() {
+    let sweep = |peak| FlashRequest {
+        channel: Channel::Sweep,
+        peak,
+        attack_s: 0.0,
+        decay_s: 0.0,
+    };
+    let mut l = FlashLimiter::new();
+    assert!(l.trigger(sweep(0.017_057_538), 0.0));
+    // Trois trous d'image, chacun borné à MAX_STEP : 0,1 s de limiteur ≥ MIN_FADE, la vague est à son sommet.
+    let mut now = 0.0f64;
+    for dt in [0.254_805_4f32, 0.038_025_68, 0.047_331_773] {
+        l.step(dt);
+        now += f64::from(dt);
+    }
+    let top = l.value(Channel::Sweep);
+    assert!((top - 0.017_057_538).abs() < 1e-7, "{top}");
+    // Voie sous BUSY_LEVEL et dernier départ à plus de MIN_GAP : le second départ est accordé (règle de Sillage).
+    assert!(l.trigger(sweep(0.003_962_981), now));
+    let dt = 0.004_592_938_3f32;
+    l.step(dt);
+    let after = l.value(Channel::Sweep);
+    let max_delta = MAX_SWEEP_PEAK / MIN_FADE * dt;
+    assert!(
+        (top - after).abs() <= max_delta,
+        "Δ={} > {max_delta} : chute instantanée vers le nouveau pic",
+        (top - after).abs()
+    );
+    // Le niveau n'est pas ramené au nouveau pic : il garde son sommet puis redescend à la pente du nouveau départ.
+    assert!((after - top).abs() < 1e-7, "{after}");
+    let mut prev = after;
+    for _ in 0..30 {
+        l.step(MAX_STEP);
+        let v = l.value(Channel::Sweep);
+        assert!(v <= prev && prev - v <= MAX_SWEEP_PEAK / MIN_FADE * MAX_STEP * (1.0 + SLOPE_EPS));
+        prev = v;
+    }
+    assert!(prev == 0.0, "la vague doit finir par s'éteindre : {prev}");
 }

@@ -194,10 +194,16 @@ impl FlashLimiter {
         let d = dt_s.min(MAX_STEP);
         for c in 0..CHANNELS {
             if self.rising[c] {
-                self.level[c] += self.rise[c] * d;
-                if self.level[c] >= self.peak[c] {
-                    self.level[c] = self.peak[c];
+                // Une montée ne fait jamais baisser le niveau. Une voie peut repartir sous `BUSY_LEVEL` sans être
+                // vide, avec un pic demandé plus bas que ce qui brille encore : ramener le niveau au nouveau pic
+                // serait une chute instantanée (défaut hérité de Sillage, voir PR J2-06b). Le sommet est alors le
+                // niveau courant, et la descente suit la pente `fall`, bornée par `MIN_FADE` comme les autres.
+                let next = self.level[c] + self.rise[c] * d;
+                if next >= self.peak[c] {
+                    self.level[c] = self.level[c].max(self.peak[c]);
                     self.rising[c] = false;
+                } else {
+                    self.level[c] = next;
                 }
             } else if self.level[c] > 0.0 {
                 self.level[c] = (self.level[c] - self.fall[c] * d).max(0.0);
