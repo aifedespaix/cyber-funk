@@ -7,7 +7,7 @@ use bevy::prelude::*;
 use cf_analysis::Section;
 use cf_show::limiter::Rgb;
 
-use super::bloom::{bloom_mip, bloom_settings, bloom_strength};
+use super::bloom::{bloom_intensity, bloom_mip, bloom_settings, bloom_strength};
 use super::{CurrentShowFx, GradeUniforms, LensWeather, PostFxSettings, PostFxState};
 use crate::{AudioFeatures, Compositor, LayerTargets};
 
@@ -96,7 +96,7 @@ pub(super) fn update_postfx(
         };
         match (settings.bloom, bloom) {
             (true, Some(mut bloom)) => {
-                bloom.intensity = bloom_settings(strength, mip).intensity;
+                bloom.intensity = bloom_intensity(strength);
                 if bloom.max_mip_dimension != mip {
                     bloom.max_mip_dimension = mip;
                 }

@@ -44,7 +44,8 @@ use bevy::render::extract_component::{ExtractComponentPlugin, UniformComponentPl
 use bevy::shader::Shader;
 
 pub use bloom::{
-    BLOOM_PULSE, BLOOM_STRENGTH, BLOOM_THRESHOLD, DEFAULT_BLOOM_DIVISOR, bloom_mip, bloom_settings, bloom_strength,
+    BLOOM_PULSE, BLOOM_STRENGTH, BLOOM_THRESHOLD, DEFAULT_BLOOM_DIVISOR, bloom_intensity, bloom_mip, bloom_settings,
+    bloom_strength,
 };
 pub use grade::{GRAIN, GradeUniforms};
 pub use lens::Lens;

@@ -12,7 +12,7 @@ use std::time::Instant;
 use bevy::post_process::bloom::Bloom;
 use bevy::prelude::*;
 use bevy::render::view::screenshot::{Screenshot, ScreenshotCaptured, save_to_disk};
-use cf_render::postfx::GradeUniforms;
+use cf_render::postfx::{GradeUniforms, bloom_strength};
 use cf_render::{AudioFeatures, Compositor, CurrentShowFx, PostFxSettings, ShowFxInput};
 
 use crate::{CALM, DROP, SIZE, TITLE_GREY};
@@ -221,9 +221,9 @@ pub(crate) fn run_check(
     }
     check.captured = Some(now);
     let (grade, bloom) = *compositor;
-    check
-        .uniforms
-        .push((phase.name, *grade, bloom.map_or(0.0, |b| b.intensity)));
+    // Pour la référence : la force de l'`UnrealBloomPass` de Sillage (0 sans bloom), pas l'intensité de Bevy.
+    let strength = if bloom.is_some() { bloom_strength(audio.0.pulse) } else { 0.0 };
+    check.uniforms.push((phase.name, *grade, strength));
     let name = phase.name;
     let mut shot = commands.spawn(Screenshot::primary_window());
     shot.observe(move |captured: On<ScreenshotCaptured>, mut check: ResMut<Check>| {
@@ -310,19 +310,22 @@ fn evaluate(check: &Check) -> AppExit {
     let width = neutral.width;
     let height = SIZE.1;
 
-    // La surcouche : les pixels pleinement couverts par le titre dans la capture neutre, à sa couleur exacte.
+    // La surcouche : les pixels pleinement couverts par le titre dans la capture neutre. Un pixel du bord d'une lettre
+    // (couverture partielle, antialiasing) laisse voir un peu de la scène ; on ne garde que ceux dont les huit voisins
+    // sont aussi à la couleur du titre.
     let grey = (TITLE_GREY.powf(1.0 / 2.4) * 1.055 - 0.055) * 255.0;
+    let is_title = |x: u32, y: u32| neutral.pixel(x, y).iter().all(|c| (c - grey).abs() <= 2.0);
     let mut mask = Vec::new();
     for ((x0, y0), (x1, y1)) in TITLE_ZONES {
-        for y in y0..y1.min(height) {
-            for x in x0..x1.min(width) {
-                if neutral.pixel(x, y).iter().all(|c| (c - grey).abs() <= 2.0) {
+        for y in y0.max(1)..y1.min(height - 1) {
+            for x in x0.max(1)..x1.min(width - 1) {
+                if (y - 1..=y + 1).all(|yy| (x - 1..=x + 1).all(|xx| is_title(xx, yy))) {
                     mask.push((x, y));
                 }
             }
         }
     }
-    verdict(mask.len() > 800, format!("le titre 2D est dessiné ({} pixels à sa couleur)", mask.len()));
+    verdict(mask.len() > 300, format!("le titre 2D est dessiné ({} pixels à sa couleur)", mask.len()));
     for phase in &PHASES[1..] {
         let Some(image) = shot(phase.name) else {
             verdict(false, format!("{} : capture absente", phase.name));

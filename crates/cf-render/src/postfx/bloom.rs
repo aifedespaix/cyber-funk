@@ -4,9 +4,12 @@
 //! (de la demi-résolution au 1/32) et rajoute la somme pondérée (`strength` × facteurs mélangés par `radius`) ; Bevy
 //! fait une pyramide de sous-échantillonnage / sur-échantillonnage (filtre de Jimenez), avec une pondération par
 //! fréquence (`low_frequency_boost`). On garde de Sillage ce qui se voit : le **seuil haut** (seules les sources
-//! vraiment intenses rayonnent), le mode **additif**, la **demi-résolution** de départ, la **pulsation** sur le kick,
-//! et un halo **serré** (`radius` 0,22 : les petites échelles dominent). L'intensité de Bevy est calée à l'œil sur la
-//! capture de référence de Sillage (voir la PR de J4-02).
+//! vraiment intenses rayonnent), le mode **additif**, la **demi-résolution** de départ et la **pulsation** sur le kick.
+//!
+//! L'intensité de Bevy ne répond pas linéairement à celle de Sillage (elle s'applique à chaque étage de la pyramide) :
+//! elle est calée sur le rendu de référence de Sillage (`tools/sillage-golden/postfx/`, même scène, même shader
+//! d'étalonnage), au repos (force 0,3) et au sommet d'un kick (force 0,5). Écart moyen résiduel sur la scène de
+//! référence : 6 à 9 niveaux sur 255 (ciel, charte, halo d'un néon, reflet de la route), voir la PR de J4-02.
 
 use bevy::post_process::bloom::{Bloom, BloomCompositeMode, BloomPrefilter};
 
@@ -18,13 +21,13 @@ pub const BLOOM_PULSE: f32 = 0.2;
 pub const BLOOM_THRESHOLD: f32 = 0.85;
 /// Diviseur de résolution du bloom par défaut (`bloomDivisor` de Sillage) : 2 (net) ou plus (économe).
 pub const DEFAULT_BLOOM_DIVISOR: u32 = 2;
-/// Passage de la force de Sillage à l'intensité de Bevy (calé sur capture, voir la doc du module).
-const BLOOM_GAIN: f32 = 1.0;
+/// Intensité de Bevy = `INTENSITY_AT_ZERO + INTENSITY_PER_STRENGTH × force de Sillage`, calée sur la référence :
+/// force 0,3 → 0,45, force 0,5 → 0,55. Valable sur la plage de `bloom_strength` (0,3 → 0,5).
+const INTENSITY_AT_ZERO: f32 = 0.3;
+const INTENSITY_PER_STRENGTH: f32 = 0.5;
 /// Douceur du genou du seuil. Sillage a un `smoothWidth` de 0,01 (un seuil presque franc) ; un genou trop dur
 /// scintille sur les arêtes fines en mouvement avec la pyramide de Bevy.
 const THRESHOLD_SOFTNESS: f32 = 0.2;
-/// Pondération des basses fréquences : basse, pour un halo serré (`radius` 0,22 de Sillage).
-const LOW_FREQUENCY_BOOST: f32 = 0.3;
 /// Bornes de la taille du premier niveau du bloom (px).
 const MIN_MIP: u32 = 64;
 const MAX_MIP: u32 = 2048;
@@ -42,12 +45,18 @@ pub fn bloom_mip(height_px: u32, divisor: u32) -> u32 {
     (height_px / divisor.max(1)).clamp(MIN_MIP, MAX_MIP)
 }
 
-/// Le `Bloom` de Bevy pour une force de Sillage et une taille de premier niveau.
+/// Intensité du `Bloom` de Bevy pour une force de Sillage.
+#[must_use]
+pub fn bloom_intensity(strength: f32) -> f32 {
+    INTENSITY_AT_ZERO + INTENSITY_PER_STRENGTH * strength
+}
+
+/// Le `Bloom` de Bevy pour une force de Sillage et une taille de premier niveau. Pondération des fréquences : celle
+/// de `Bloom::NATURAL`, qui donne l'étalement de l'`UnrealBloomPass` sur la référence.
 #[must_use]
 pub fn bloom_settings(strength: f32, max_mip_dimension: u32) -> Bloom {
     Bloom {
-        intensity: strength * BLOOM_GAIN,
-        low_frequency_boost: LOW_FREQUENCY_BOOST,
+        intensity: bloom_intensity(strength),
         prefilter: BloomPrefilter {
             threshold: BLOOM_THRESHOLD,
             threshold_softness: THRESHOLD_SOFTNESS,
@@ -84,5 +93,11 @@ mod tests {
         assert_eq!(bloom.composite_mode, BloomCompositeMode::Additive);
         assert!((bloom.prefilter.threshold - 0.85).abs() < 1e-6);
         assert_eq!(bloom.max_mip_dimension, 540);
+    }
+
+    #[test]
+    fn l_intensite_de_bevy_suit_le_calage_sur_sillage() {
+        assert!((bloom_intensity(BLOOM_STRENGTH) - 0.45).abs() < 1e-6);
+        assert!((bloom_intensity(BLOOM_STRENGTH + BLOOM_PULSE) - 0.55).abs() < 1e-6);
     }
 }
