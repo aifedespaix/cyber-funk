@@ -59,7 +59,11 @@ fn aucun_no_frustum_culling_sans_justification() {
             rust_files(&member.path().join(sub), &mut files);
         }
     }
-    assert!(files.len() > 20, "le parcours ne trouve presque aucun fichier : {}", files.len());
+    assert!(
+        files.len() > 20,
+        "le parcours ne trouve presque aucun fichier : {}",
+        files.len()
+    );
     let mut bad = Vec::new();
     for file in files {
         // Ce fichier cite le composant dans ses exemples de test.
@@ -85,7 +89,7 @@ fn le_scanner_accepte_un_usage_justifie() {
 // n'a pas d'amplitude maximale connue.
 commands.spawn((Mesh3d(m), NoFrustumCulling));
 ";
-    assert!(violations(source).is_empty());
+    assert_eq!(violations(source), Vec::<usize>::new());
 }
 
 #[test]
@@ -95,12 +99,15 @@ fn le_scanner_refuse_un_usage_nu_ou_un_commentaire_sans_aabb() {
     let off_topic = "// pour que ça marche\ncommands.spawn((Mesh3d(m), NoFrustumCulling));\n";
     assert_eq!(violations(off_topic), vec![2]);
     // Un commentaire trop loin au-dessus ne compte pas.
-    let far = format!("// Aabb impossible\n{}x.insert(NoFrustumCulling);\n", "let a = 1;\n".repeat(WINDOW + 1));
+    let far = format!(
+        "// Aabb impossible\n{}x.insert(NoFrustumCulling);\n",
+        "let a = 1;\n".repeat(WINDOW + 1)
+    );
     assert_eq!(violations(&far), vec![WINDOW + 3]);
 }
 
 #[test]
 fn le_scanner_ignore_la_documentation_qui_interdit_le_composant() {
     let source = "/// Jamais `NoFrustumCulling` ici.\n//! Voir NoFrustumCulling.\n// NoFrustumCulling : non.\n";
-    assert!(violations(source).is_empty());
+    assert_eq!(violations(source), Vec::<usize>::new());
 }

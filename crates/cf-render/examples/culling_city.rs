@@ -24,26 +24,28 @@
 //! - `full` : + occlusion GPU sur la caméra du monde (avec `DepthPrepass`).
 //!
 //! Une voiture invisible roule à 40 m/s, la caméra la suit : le monde se recycle pendant la mesure. Seule la couche
-//! monde est allumée, pour que les chiffres ne mélangent pas le fond ni la surcouche. Le pas de simulation est fixe.
+//! monde est allumée, pour que les chiffres ne mélangent pas le fond ni la surcouche. Le pas de simulation est fixe
+//! (1/60 s par image) ; le temps d'image mesuré est, lui, le temps réel.
 //!
 //! Sans écran : `xvfb-run -a` et le rendu logiciel de Mesa (`VK_ICD_FILENAMES=/usr/share/vulkan/icd.d/lvp_icd.json`).
 //! Les millisecondes GPU de `lavapipe` sont celles d'un processeur qui émule un GPU : elles comparent les modes
 //! entre eux, elles ne disent rien des performances sur une carte graphique.
 
-use std::time::Instant;
+// Le résultat de la mesure est la sortie du programme : des lignes `RESULT` / `PASS` / `DIAG` que les scripts lisent.
+#![allow(clippy::print_stdout, clippy::print_stderr)]
+// `NoFrustumCulling` n'est importé que pour le mode de référence `none` (voir `tag_pieces`, où est écrit pourquoi aucun
+// `Aabb` ne conviendrait).
 
 use bevy::camera::visibility::{NoFrustumCulling, ViewVisibility};
 use bevy::diagnostic::DiagnosticsStore;
 use bevy::math::DVec3;
 use bevy::prelude::*;
-use bevy::render::diagnostic::RenderDiagnosticsPlugin;
 use bevy::render::view::screenshot::{Screenshot, save_to_disk};
-use bevy::time::TimeUpdateStrategy;
 use bevy::window::{PresentMode, WindowResolution};
 use cf_render::streaming::StreamedPiece;
 use cf_render::{
-    AbsolutePosition, BoxWorld, CameraPose, CfSet, CorePlugin, CullingPlugin, CullingSettings, Layer, LayerOpacity,
-    LayersPlugin, StreamFocus, StreamStats, WorldLayer, WorldPlugin,
+    AbsolutePosition, BoxWorld, CameraPose, CfSet, CorePlugin, CullingPlugin, CullingSettings, DiagnosticsPlugin,
+    DiagnosticsSnapshot, Layer, LayerOpacity, LayersPlugin, MeasurementSession, StreamFocus, WorldLayer, WorldPlugin,
 };
 
 const SPEED_MPS: f64 = 40.0;
@@ -89,8 +91,6 @@ struct Demo {
     measured_frames: Option<u32>,
     snapshot: Option<std::ffi::OsString>,
     visible: Vec<u32>,
-    frame_ms: Vec<f32>,
-    last: Option<Instant>,
 }
 
 #[derive(Component)]
@@ -118,13 +118,13 @@ fn main() {
             ..default()
         }))
         .add_plugins((
-            RenderDiagnosticsPlugin,
             CorePlugin,
+            // Surcouche de diagnostic (J4-05) : temps par passe, entités visibles, session CSV.
+            DiagnosticsPlugin::default(),
             LayersPlugin::default(),
             WorldPlugin::new(BoxWorld::new(7).with_rows_per_chunk(rows).with_fog_cull(fog)),
             CullingPlugin { settings },
         ))
-        .insert_resource(TimeUpdateStrategy::ManualDuration(std::time::Duration::from_secs_f64(DT_S)))
         .insert_resource(Demo {
             mode,
             aerial: std::env::var("CF_VIEW").is_ok_and(|v| v == "aerial"),
@@ -133,8 +133,6 @@ fn main() {
             measured_frames,
             snapshot: std::env::var_os("CF_SNAPSHOT"),
             visible: Vec::new(),
-            frame_ms: Vec::new(),
-            last: None,
         })
         .add_systems(Startup, spawn_scene)
         .add_systems(Update, (tag_pieces, drive.in_set(CfSet::Direct), measure).chain())
@@ -146,11 +144,7 @@ fn spawn_scene(mut commands: Commands, mut opacity: ResMut<LayerOpacity>) {
     for layer in [Layer::Background, Layer::Foreground, Layer::Overlay] {
         opacity.set(layer, 0.0);
     }
-    commands.spawn((
-        Car,
-        StreamFocus,
-        AbsolutePosition(DVec3::new(0.0, 1.0, 0.0)),
-    ));
+    commands.spawn((Car, StreamFocus, AbsolutePosition(DVec3::new(0.0, 1.0, 0.0))));
     commands.spawn((
         DirectionalLight {
             illuminance: 9_000.0,
@@ -199,18 +193,17 @@ fn drive(mut demo: ResMut<Demo>, mut car: Query<&mut AbsolutePosition, With<Car>
     };
 }
 
-#[allow(clippy::too_many_arguments)]
 fn measure(
     mut commands: Commands,
     mut demo: ResMut<Demo>,
-    stats: Res<StreamStats>,
     pieces: Query<&ViewVisibility, With<StreamedPiece>>,
     diagnostics: Res<DiagnosticsStore>,
+    snapshot: Res<DiagnosticsSnapshot>,
+    mut session: ResMut<MeasurementSession>,
+    time: Res<Time<Real>>,
     mut exit: MessageWriter<AppExit>,
 ) {
     demo.frame += 1;
-    let now = Instant::now();
-    let frame_ms = demo.last.replace(now).map(|t| (now - t).as_secs_f32() * 1000.0);
     if demo.frame <= WARMUP_FRAMES {
         return;
     }
@@ -218,12 +211,11 @@ fn measure(
         return;
     };
     let index = demo.frame - WARMUP_FRAMES;
+    if index == 1 {
+        session.start(time.elapsed_secs_f64());
+    }
     if index <= measured {
-        let visible = pieces.iter().filter(|v| v.get()).count() as u32;
-        demo.visible.push(visible);
-        if let Some(ms) = frame_ms {
-            demo.frame_ms.push(ms);
-        }
+        demo.visible.push(pieces.iter().filter(|v| v.get()).count() as u32);
         if index == measured / 2
             && let Some(path) = demo.snapshot.take()
         {
@@ -231,43 +223,66 @@ fn measure(
         }
         return;
     }
+    session.stop();
     // Quelques images de plus : la capture partie à mi-mesure arrive avec un peu de retard.
     if index < measured + 20 {
         return;
     }
-    report(&demo, &stats, &diagnostics);
+    report(&demo, &snapshot, &session, &diagnostics);
+    if let Some(path) = std::env::var_os("CF_CSV") {
+        match session.save_csv(std::path::Path::new(&path)) {
+            Ok(rows) => println!("CSV {rows} lignes dans {}", std::path::Path::new(&path).display()),
+            Err(error) => eprintln!("export CSV impossible : {error}"),
+        }
+    }
     exit.write(AppExit::Success);
 }
 
-fn mean(values: &[f32]) -> f32 {
-    values.iter().sum::<f32>() / values.len().max(1) as f32
+fn mean(values: impl Iterator<Item = f32>) -> f32 {
+    let (sum, n) = values.fold((0.0, 0_u32), |(s, n), v| (s + v, n + 1));
+    sum / n.max(1) as f32
 }
 
-fn report(demo: &Demo, stats: &StreamStats, diagnostics: &DiagnosticsStore) {
-    let visible: Vec<f32> = demo.visible.iter().map(|&v| v as f32).collect();
-    let mut sorted = demo.frame_ms.clone();
-    sorted.sort_by(f32::total_cmp);
-    let p99 = sorted.get(sorted.len().saturating_sub(1) * 99 / 100).copied().unwrap_or(0.0);
+fn report(demo: &Demo, snapshot: &DiagnosticsSnapshot, session: &MeasurementSession, diagnostics: &DiagnosticsStore) {
+    let stream = snapshot.stream.unwrap_or_default();
+    let rows = session.rows();
+    let mut frame_ms: Vec<f32> = rows.iter().map(|r| r.frame_ms).collect();
+    frame_ms.sort_by(f32::total_cmp);
+    let p99 = frame_ms
+        .get(frame_ms.len().saturating_sub(1) * 99 / 100)
+        .copied()
+        .unwrap_or(0.0);
+    let gpu: Vec<f32> = rows.iter().filter_map(|r| r.gpu_ms).map(|g| g as f32).collect();
     println!(
-        "RESULT mode={} view={} pooled={} placed={} cpu_visible_mean={:.0} cpu_visible_min={:.0} \
-         cpu_visible_max={:.0} frame_ms_mean={:.2} frame_ms_p99={:.2}",
+        "RESULT mode={} view={} frames={} pooled={} placed={} pieces_visible_mean={:.0} pieces_visible_min={} \
+         pieces_visible_max={} renderable={} visible_entities_mean={:.0} frame_ms_mean={:.2} frame_ms_p99={p99:.2} \
+         gpu_ms_mean={:.2} draw_batches_lower_bound={}",
         demo.mode.name(),
         if demo.aerial { "aerial" } else { "street" },
-        stats.pieces_pooled,
-        stats.pieces_used,
-        mean(&visible),
-        visible.iter().copied().fold(f32::INFINITY, f32::min),
-        visible.iter().copied().fold(0.0, f32::max),
-        mean(&demo.frame_ms),
-        p99,
+        rows.len(),
+        stream.pieces_pooled,
+        stream.pieces_used,
+        mean(demo.visible.iter().map(|&v| v as f32)),
+        demo.visible.iter().min().copied().unwrap_or(0),
+        demo.visible.iter().max().copied().unwrap_or(0),
+        snapshot.renderable_entities,
+        mean(rows.iter().map(|r| r.visible_entities as f32)),
+        mean(frame_ms.iter().copied()),
+        mean(gpu.iter().copied()),
+        snapshot.visible_mesh_kinds,
     );
-    // Chaque durée GPU / compteur que Bevy a mesuré, moyenné sur la fenêtre de l'historique.
+    // Passes de premier niveau, vue de la surcouche (dernière image).
+    for pass in snapshot.passes.iter().filter(|p| p.is_top_level()) {
+        println!("PASS {} cpu_ms={:?} gpu_ms={:?}", pass.name, pass.cpu_ms, pass.gpu_ms);
+    }
+    // Compteurs de pipeline du GPU, moyennés sur l'historique de Bevy : sommets traités par passe. Un immeuble est un
+    // cube de 24 sommets : sommets / 24 estime les immeubles réellement dessinés (occlusion comprise).
     let mut lines: Vec<String> = diagnostics
         .iter()
         .filter_map(|d| {
             let path = d.path().to_string();
-            (path.contains("elapsed_gpu") || path.contains("invocations") || path.contains("primitives"))
-                .then(|| format!("DIAG {path} avg={:.4}", d.average().unwrap_or(f64::NAN)))
+            path.contains("vertex_shader_invocations")
+                .then(|| format!("DIAG {path} avg={:.1}", d.average().unwrap_or(f64::NAN)))
         })
         .collect();
     lines.sort();

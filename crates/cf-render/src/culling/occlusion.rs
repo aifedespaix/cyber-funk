@@ -42,11 +42,16 @@ use crate::layers::{Layer, LayerCamera};
 #[derive(Component, Debug, Default, Clone, Copy)]
 pub(crate) struct OwnsDepthPrepass;
 
+/// Caméras de couche qui viennent d'apparaître et ne sont pas encore des vues de culling.
+type NewLayerCameras<'w, 's> =
+    Query<'w, 's, (Entity, &'static LayerCamera), (Added<LayerCamera>, Without<CullingView>)>;
+
+/// Vues de culling avec ce qu'elles portent déjà : occlusion, prépasse de profondeur, prépasse posé par le culling.
+type CullingViews<'w, 's> =
+    Query<'w, 's, (Entity, Has<OcclusionCulling>, Has<DepthPrepass>, Has<OwnsDepthPrepass>), With<CullingView>>;
+
 /// Marque d'office la caméra de la couche monde comme vue de culling.
-pub(crate) fn adopt_world_camera(
-    mut commands: Commands,
-    cameras: Query<(Entity, &LayerCamera), (Added<LayerCamera>, Without<CullingView>)>,
-) {
+pub(crate) fn adopt_world_camera(mut commands: Commands, cameras: NewLayerCameras) {
     for (entity, LayerCamera(layer)) in &cameras {
         if *layer == Layer::World {
             commands.entity(entity).insert(CullingView);
@@ -59,7 +64,7 @@ pub(crate) fn adopt_world_camera(
 pub(crate) fn sync_occlusion(
     mut commands: Commands,
     settings: Res<CullingSettings>,
-    views: Query<(Entity, Has<OcclusionCulling>, Has<DepthPrepass>, Has<OwnsDepthPrepass>), With<CullingView>>,
+    views: CullingViews,
     fresh: Query<(), Added<CullingView>>,
 ) {
     if !settings.is_changed() && fresh.is_empty() {

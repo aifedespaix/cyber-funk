@@ -68,7 +68,11 @@ fn seule_la_camera_du_monde_recoit_l_occlusion_et_son_prepass() {
         assert_eq!(has_occlusion(&app, camera), (false, false), "{layer:?}");
     }
     // Le compositeur (ses quads plein cadre n'occultent rien) n'en reçoit pas non plus.
-    let cameras = app.world_mut().query_filtered::<Entity, With<Camera>>().iter(app.world()).count();
+    let cameras = app
+        .world_mut()
+        .query_filtered::<Entity, With<Camera>>()
+        .iter(app.world())
+        .count();
     let equipped = app
         .world_mut()
         .query_filtered::<Entity, With<OcclusionCulling>>()
@@ -113,7 +117,11 @@ fn un_prepass_pose_par_un_autre_n_est_jamais_retire() {
     assert_eq!(has_occlusion(&app, camera), (true, true));
     app.world_mut().resource_mut::<CullingSettings>().occlusion = false;
     app.update();
-    assert_eq!(has_occlusion(&app, camera), (false, true), "le prépasse d'un autre reste");
+    assert_eq!(
+        has_occlusion(&app, camera),
+        (false, true),
+        "le prépasse d'un autre reste"
+    );
 }
 
 #[test]
@@ -125,7 +133,11 @@ fn rien_ne_bouge_en_regime_etabli() {
     for _ in 0..10 {
         app.update();
     }
-    assert_eq!(has_occlusion(&app, world), (false, true), "le système a travaillé sans changement de réglage");
+    assert_eq!(
+        has_occlusion(&app, world),
+        (false, true),
+        "le système a travaillé sans changement de réglage"
+    );
 }
 
 #[test]
@@ -207,7 +219,13 @@ fn la_cadence_suit_la_visibilite_et_la_distance_dans_l_image() {
         .collect();
     assert_eq!(
         cadences,
-        vec![Cadence::Full, Cadence::Half, Cadence::Quarter, Cadence::Eighth, Cadence::Frozen]
+        vec![
+            Cadence::Full,
+            Cadence::Half,
+            Cadence::Quarter,
+            Cadence::Eighth,
+            Cadence::Frozen
+        ]
     );
 }
 
@@ -245,7 +263,10 @@ fn le_reglage_desactive_la_cadence() {
         },
         true,
     );
-    let mut probes = [spawn_probe(&mut app, 1_000.0, false), spawn_probe(&mut app, 500.0, true)];
+    let mut probes = [
+        spawn_probe(&mut app, 1_000.0, false),
+        spawn_probe(&mut app, 500.0, true),
+    ];
     run(&mut app, &mut probes, 32);
     assert_eq!((probes[0].turns, probes[1].turns), (32, 32));
 }
@@ -324,7 +345,10 @@ fn la_plage_de_brume_retire_les_immeubles_lointains_et_eux_seuls() {
     };
     assert_eq!(beyond(&mut with_range), 0);
     let drawn_beyond_without = beyond(&mut without);
-    assert!(drawn_beyond_without > 100, "témoin : {drawn_beyond_without} immeubles au-delà de la brume sans plage");
+    assert!(
+        drawn_beyond_without > 100,
+        "témoin : {drawn_beyond_without} immeubles au-delà de la brume sans plage"
+    );
     let ranged_without = without
         .world_mut()
         .query::<&VisibilityRange>()

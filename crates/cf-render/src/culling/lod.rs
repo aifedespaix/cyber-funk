@@ -186,7 +186,7 @@ impl SimulationLod {
             return;
         };
         self.pending_s += dt_s.max(0.0);
-        if frame.wrapping_add(self.phase) % period == 0 {
+        if frame.wrapping_add(self.phase).is_multiple_of(period) {
             self.due = true;
             self.step_s = self.pending_s;
             self.pending_s = 0.0;
@@ -348,7 +348,10 @@ mod tests {
                     usize::from(lod.due())
                 })
                 .sum::<usize>();
-            assert!((60..190).contains(&due), "image {frame} : {due} objets de tour sur 1000");
+            assert!(
+                (60..190).contains(&due),
+                "image {frame} : {due} objets de tour sur 1000"
+            );
         }
     }
 

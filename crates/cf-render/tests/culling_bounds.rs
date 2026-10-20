@@ -12,9 +12,9 @@
 
 #![allow(clippy::expect_used, clippy::panic)]
 
+use bevy::camera::Projection;
 use bevy::camera::primitives::{Aabb, Frustum, Sphere as BoundingSphere};
 use bevy::camera::visibility::{NoAutoAabb, ViewVisibility};
-use bevy::camera::Projection;
 use bevy::math::{DVec3, Vec3A};
 use bevy::mesh::skinning::SkinnedMeshInverseBindposes;
 use bevy::mesh::{Indices, VertexAttributeValues};
@@ -107,7 +107,7 @@ fn surface_samples(mesh: &Mesh) -> Vec<Vec3> {
         Some(Indices::U32(i)) => i.iter().map(|&i| i as usize).collect(),
         None => (0..vertices.len()).collect(),
     };
-    for tri in indices.chunks_exact(3) {
+    for tri in indices.as_chunks::<3>().0 {
         samples.push((vertices[tri[0]] + vertices[tri[1]] + vertices[tri[2]]) / 3.0);
     }
     samples
@@ -124,7 +124,7 @@ fn point_in_frustum(frustum: &Frustum, point: Vec3) -> bool {
 
 /// Résultat d'un contrôle de clignotement.
 #[derive(Debug, Default)]
-struct Popping {
+struct EdgeReport {
     /// Entités examinées (celles qui sont posées dans le monde, `Visibility` non cachée).
     checked: usize,
     /// Entités dont au moins un point de surface est dans le champ.
@@ -134,10 +134,10 @@ struct Popping {
 }
 
 /// Compare, pour chaque entité dessinable, « un point de son maillage est dans le champ » à `ViewVisibility`.
-fn check_popping(app: &mut App, camera: Entity) -> Popping {
+fn check_popping(app: &mut App, camera: Entity) -> EdgeReport {
     let world = app.world_mut();
     let frustum = *world.get::<Frustum>(camera).expect("frustum de la caméra");
-    let mut result = Popping::default();
+    let mut result = EdgeReport::default();
     let mut query = world.query::<(&Mesh3d, &GlobalTransform, &ViewVisibility, &InheritedVisibility)>();
     let meshes = world.resource::<Assets<Mesh>>();
     for (mesh, transform, view, inherited) in query.iter(world) {
@@ -193,11 +193,7 @@ fn les_aabb_de_la_ville_enveloppent_leurs_maillages() {
         checked += 1;
     }
     // Toutes les pièces préallouées ont un `Aabb`, y compris celles qui sont cachées (pool).
-    let pooled = app
-        .world_mut()
-        .query::<&StreamedPiece>()
-        .iter(app.world())
-        .count();
+    let pooled = app.world_mut().query::<&StreamedPiece>().iter(app.world()).count();
     assert_eq!(checked, pooled);
     assert!(pooled > 5_000, "{pooled} pièces");
 }
@@ -207,7 +203,7 @@ fn aucun_immeuble_ne_clignote_au_bord_de_l_ecran() {
     let mut app = app(dense_city());
     start_city(&mut app);
     let camera = spawn_camera(&mut app);
-    let mut total = Popping::default();
+    let mut total = EdgeReport::default();
     for seed in 0..120_u64 {
         // Dans la ville, au milieu des immeubles, de tous côtés et à toute hauteur.
         pose(
@@ -285,7 +281,10 @@ fn le_controle_a_des_dents_un_aabb_trop_petit_fait_clignoter() {
         popping += check_popping(&mut app, camera).popping;
     }
     eprintln!("témoin : {popping} immeubles clignotants sur 40 poses");
-    assert!(popping > 1_000, "le témoin devrait clignoter beaucoup, pas {popping} fois");
+    assert!(
+        popping > 1_000,
+        "le témoin devrait clignoter beaucoup, pas {popping} fois"
+    );
 }
 
 /// Un mesh minuscule dont le vertex shader écarte les sommets jusqu'à `REACH` m de l'origine de l'entité, laquelle suit

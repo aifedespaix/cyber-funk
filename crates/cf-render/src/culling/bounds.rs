@@ -87,7 +87,10 @@ pub fn aabb_encloses_mesh(aabb: &Aabb, mesh: &Mesh, tolerance_m: f32) -> bool {
     let Some(VertexAttributeValues::Float32x3(positions)) = mesh.attribute(Mesh::ATTRIBUTE_POSITION) else {
         return false;
     };
-    let (min, max) = (aabb.min() - Vec3A::splat(tolerance_m), aabb.max() + Vec3A::splat(tolerance_m));
+    let (min, max) = (
+        aabb.min() - Vec3A::splat(tolerance_m),
+        aabb.max() + Vec3A::splat(tolerance_m),
+    );
     positions.iter().all(|p| {
         let p = Vec3A::from(Vec3::from_array(*p));
         p.cmpge(min).all() && p.cmple(max).all()
@@ -129,7 +132,7 @@ mod tests {
 
     #[test]
     fn un_mesh_deplace_garde_tout_son_deplacement_dans_son_volume() {
-        let mesh = Mesh::from(Sphere::new(10.0).mesh().uv(16, 8));
+        let mesh = Sphere::new(10.0).mesh().uv(16, 8);
         let (bounds, _) = displaced_bounds(&mesh, 2.5).expect("positions");
         assert!(aabb_encloses_mesh(&bounds, &mesh, 0.0));
         assert_eq!(bounds.half_extents, Vec3A::splat(12.5));

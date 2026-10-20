@@ -105,9 +105,18 @@ mod tests {
         // La table de la documentation de `VisibilityRange` : 20 m puis 70 m, fondu de 5 m, fin à 150 m.
         let ranges = lod_ranges(&[20.0, 70.0], 5.0, 150.0);
         assert_eq!(ranges.len(), 3);
-        assert_eq!((ranges[0].start_margin.clone(), ranges[0].end_margin.clone()), (0.0..0.0, 20.0..25.0));
-        assert_eq!((ranges[1].start_margin.clone(), ranges[1].end_margin.clone()), (20.0..25.0, 70.0..75.0));
-        assert_eq!((ranges[2].start_margin.clone(), ranges[2].end_margin.clone()), (70.0..75.0, 150.0..150.0));
+        assert_eq!(
+            (ranges[0].start_margin.clone(), ranges[0].end_margin.clone()),
+            (0.0..0.0, 20.0..25.0)
+        );
+        assert_eq!(
+            (ranges[1].start_margin.clone(), ranges[1].end_margin.clone()),
+            (20.0..25.0, 70.0..75.0)
+        );
+        assert_eq!(
+            (ranges[2].start_margin.clone(), ranges[2].end_margin.clone()),
+            (70.0..75.0, 150.0..150.0)
+        );
     }
 
     #[test]
@@ -137,9 +146,24 @@ mod tests {
             let ranges = lod_ranges(boundaries, 20.0, 100.0);
             assert_eq!(ranges.len(), boundaries.len() + 1);
             for r in &ranges {
-                assert!(r.start_margin.start <= r.start_margin.end, "{:?} {:?}", r.start_margin, r.end_margin);
-                assert!(r.start_margin.end <= r.end_margin.start, "{:?} {:?}", r.start_margin, r.end_margin);
-                assert!(r.end_margin.start <= r.end_margin.end, "{:?} {:?}", r.start_margin, r.end_margin);
+                assert!(
+                    r.start_margin.start <= r.start_margin.end,
+                    "{:?} {:?}",
+                    r.start_margin,
+                    r.end_margin
+                );
+                assert!(
+                    r.start_margin.end <= r.end_margin.start,
+                    "{:?} {:?}",
+                    r.start_margin,
+                    r.end_margin
+                );
+                assert!(
+                    r.end_margin.start <= r.end_margin.end,
+                    "{:?} {:?}",
+                    r.start_margin,
+                    r.end_margin
+                );
             }
             for pair in ranges.windows(2) {
                 assert_eq!(pair[0].end_margin, pair[1].start_margin);
