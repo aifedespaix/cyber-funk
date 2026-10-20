@@ -16,3 +16,6 @@ bevy_egui.workspace = true
 cf-render.workspace = true
 cf-show.workspace = true
 tracing.workspace = true
+
+[dev-dependencies]
+tempfile.workspace = true

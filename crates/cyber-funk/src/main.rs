@@ -17,7 +17,7 @@ use bevy::prelude::*;
 use bevy::winit::WinitSettings;
 use cf_cinema::CinemaPlugin;
 use cf_operator::{OperatorPlugin, QuitGuardPlugin};
-use cf_render::CorePlugin;
+use cf_render::{CorePlugin, DiagnosticsPlugin};
 use cf_world_neon::NeonWorldPlugin;
 use clap::Parser as _;
 
@@ -76,6 +76,7 @@ fn build_app(cli: &Cli) -> App {
     .insert_resource(ShowRequest(cli.show.clone()))
     .add_plugins((
         CorePlugin,
+        DiagnosticsPlugin::default(),
         ProjectorPlugin(projector),
         CinemaPlugin,
         NeonWorldPlugin,

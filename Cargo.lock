@@ -2350,6 +2350,7 @@ dependencies = [
  "bevy_egui",
  "cf-render",
  "cf-show",
+ "tempfile",
  "tracing",
 ]
 
