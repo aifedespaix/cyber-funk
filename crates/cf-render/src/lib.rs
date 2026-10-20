@@ -2,6 +2,7 @@
 //! post-process, streaming du monde, culling, qualité adaptative et palettes.
 
 pub mod audio;
+pub mod culling;
 pub mod diagnostics;
 pub mod layers;
 pub mod origin;
@@ -13,6 +14,10 @@ pub mod world;
 pub use audio::{
     AudioCommand, AudioConfig, AudioFeatures, AudioSource, AudioStatus, CfAudioPlugin, InputBackendChoice, Kick,
     OutputChoice, SectionChanged, VisualLatency,
+};
+pub use culling::{
+    Cadence, CullingPlugin, CullingSet, CullingSettings, CullingView, FOG_FULL_M, LodBands, LodClock, SimulationLod,
+    aabb_encloses_mesh, displaced_bounds, follow_camera_bounds, lod_ranges, mesh_aabb, padded, until_fog,
 };
 pub use diagnostics::{
     DiagnosticsPlugin, DiagnosticsSnapshot, ExportError, MeasurementSession, PassTiming, RenderScale, SessionRow,

@@ -2,8 +2,8 @@
 //!
 //! Sur une source de capture (micro, entrée ligne), le spectre passe d'abord par le gain automatique par bande
 //! (`BandGain`) pour retrouver l'échelle d'un fichier musical ; le volume `loud` du détecteur alimente ensuite le
-//! `SectionTracker` (section, intensité). L'arbitrage des sources de tempo (`tempo_source`, `confidence`, phase,
-//! mesure) viendra en J3-03 : ces champs restent à leur valeur neutre ici.
+//! `SectionTracker` (section, intensité). Les champs de grille (`tempo_source`, `confidence`, phase, mesure) restent
+//! neutres ici : l'arbitre ([`TempoArbiter`](crate::TempoArbiter)) les écrit côté application.
 
 use cf_audio::feed::{ANALYSIS_SAMPLE_RATE, HOP};
 use cf_audio::source::SourceKind;

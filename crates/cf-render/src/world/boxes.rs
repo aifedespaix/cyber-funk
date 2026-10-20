@@ -9,6 +9,7 @@ use bevy::prelude::*;
 use cf_show::model::ShowGates;
 
 use super::{Replan, Subject, SubjectContext, SubjectKind, SubjectSink, World, WorldError};
+use crate::culling::{FOG_FULL_M, until_fog};
 use crate::streaming::{ArchetypeId, ChunkInfo, ChunkPlan, PieceRegistry, StreamLayout, splitmix64};
 
 /// Longueur d'un tronçon : l'écart entre deux rangées d'immeubles (`SPACING` de `scenery.ts`), en m.
@@ -115,6 +116,8 @@ pub struct BoxWorld {
     seed: u64,
     rows_per_chunk: u16,
     cars_per_chunk: u16,
+    /// Distance caméra au-delà de laquelle les immeubles ne sont plus dessinés (`VisibilityRange`), `None` : jamais.
+    fog_cull_m: Option<f32>,
     boxes: ArchetypeId,
     landmarks: ArchetypeId,
     cars: ArchetypeId,
@@ -134,6 +137,7 @@ impl BoxWorld {
             seed,
             rows_per_chunk: 1,
             cars_per_chunk: MAX_CARS,
+            fog_cull_m: Some(FOG_FULL_M),
             boxes: ArchetypeId::default(),
             landmarks: ArchetypeId::default(),
             cars: ArchetypeId::default(),
@@ -145,6 +149,21 @@ impl BoxWorld {
     pub fn with_rows_per_chunk(mut self, rows: u16) -> Self {
         self.rows_per_chunk = rows.max(1);
         self
+    }
+
+    /// Distance (m) au-delà de laquelle les immeubles ne sont plus dessinés, `None` pour tout dessiner jusqu'au bout
+    /// de la fenêtre. Par défaut [`FOG_FULL_M`] : la brume de Sillage a alors tout couvert. Les tours-repères et les
+    /// voitures n'ont pas de limite (ce sont des sujets de caméra). Lue au démarrage du monde (`setup`).
+    #[must_use]
+    pub fn with_fog_cull(mut self, end_m: Option<f32>) -> Self {
+        self.fog_cull_m = end_m;
+        self
+    }
+
+    /// Distance de coupe des immeubles, si elle est réglée.
+    #[must_use]
+    pub fn fog_cull_m(&self) -> Option<f32> {
+        self.fog_cull_m
     }
 
     /// Capacité d'immeubles par tronçon.
@@ -236,11 +255,19 @@ impl World for BoxWorld {
             emissive: LinearRgba::rgb(2.0, 0.3, 0.6),
             ..default()
         });
-        self.boxes = pieces.add(
-            "box",
-            self.boxes_per_chunk(),
-            (Mesh3d(mesh.clone()), MeshMaterial3d(facade)),
-        );
+        self.boxes = match self.fog_cull_m {
+            // Au-delà de la brume l'immeuble est de la couleur du fond : Bevy le saute avant même le frustum.
+            Some(end_m) => pieces.add(
+                "box",
+                self.boxes_per_chunk(),
+                (Mesh3d(mesh.clone()), MeshMaterial3d(facade), until_fog(end_m)),
+            ),
+            None => pieces.add(
+                "box",
+                self.boxes_per_chunk(),
+                (Mesh3d(mesh.clone()), MeshMaterial3d(facade)),
+            ),
+        };
         self.landmarks = pieces.add("landmark", 1, (Mesh3d(mesh.clone()), MeshMaterial3d(tower)));
         self.cars = pieces.add("car", MAX_CARS, (Mesh3d(mesh), MeshMaterial3d(car)));
         Ok(())

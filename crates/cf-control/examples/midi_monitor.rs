@@ -9,6 +9,9 @@
 //!
 //! Sert à vérifier un contrôleur avant un show : quels numéros de notes et de CC il envoie, sur quel canal (affiché de
 //! 1 à 16), et si le profil les reconnaît. Débranchez et rebranchez le contrôleur pour voir le rebranchement à chaud.
+//!
+//! Le MIDI Clock d'un logiciel de mix (24 impulsions par noire) n'est pas affiché impulsion par impulsion : une ligne
+//! par temps résume le tempo filtré, la position (mesure.temps) et l'état du transport.
 
 // Un outil en ligne de commande dont la sortie est le but : les lints du reste du dépôt contre `println!` ne s'y
 // appliquent pas.
@@ -18,8 +21,8 @@ use std::process::ExitCode;
 use std::time::{Duration, Instant};
 
 use cf_control::{
-    ControlProfile, Dispatch, Learner, Mapper, MidiBackend, MidiConfig, MidiInput, MidiItem, MidiMessage, MidirBackend,
-    PortEvent, PortSelection, dispatch,
+    ControlProfile, Dispatch, Learner, Mapper, MidiBackend, MidiClock, MidiConfig, MidiInput, MidiItem, MidiMessage,
+    MidirBackend, PortEvent, PortSelection, dispatch,
 };
 
 /// Période de lecture du flux : bien en dessous d'une image, assez large pour ne pas occuper un cœur.
@@ -90,6 +93,18 @@ fn describe(message: MidiMessage) -> String {
     }
 }
 
+fn describe_clock(time_s: f64, clock: &MidiClock) -> String {
+    let beat = clock.song_beats();
+    let bpm = clock.bpm().map_or_else(|| "  ?  ".to_owned(), |b| format!("{b:5.1}"));
+    let confidence = clock.estimate().map_or(0.0, |e| e.confidence);
+    format!(
+        "{time_s:>9.3}  horloge   {bpm} BPM  mesure {:>4}.{}  {:?}  confiance {confidence:.2}",
+        (beat / 4.0).floor() as u64 + 1,
+        (beat.rem_euclid(4.0)).floor() as u64 + 1,
+        clock.transport()
+    )
+}
+
 fn run(args: &Args) -> Result<(), Box<dyn std::error::Error>> {
     if args.list {
         let ports = MidirBackend.list_ports()?;
@@ -114,6 +129,8 @@ fn run(args: &Args) -> Result<(), Box<dyn std::error::Error>> {
         None => Mapper::new(),
     };
     let mut learner = Learner::new();
+    let mut clock = MidiClock::new();
+    let mut last_beat = None;
 
     let selection = args
         .port
@@ -134,6 +151,20 @@ fn run(args: &Args) -> Result<(), Box<dyn std::error::Error>> {
             std::thread::sleep(POLL);
             continue;
         };
+        if let MidiItem::Message(event) = &item
+            && event.message == MidiMessage::TimingClock
+        {
+            clock.handle(event);
+            let beat = clock.song_beats().floor();
+            if last_beat != Some(beat) {
+                last_beat = Some(beat);
+                println!("{}", describe_clock(event.time_s, &clock));
+            }
+            continue;
+        }
+        if let MidiItem::Message(event) = &item {
+            clock.handle(event);
+        }
         let time_s = match &item {
             MidiItem::Message(event) => event.time_s,
             MidiItem::Port(_) => start.elapsed().as_secs_f64(),

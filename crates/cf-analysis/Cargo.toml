@@ -20,6 +20,9 @@ assert_no_alloc.workspace = true
 realfft.workspace = true
 
 [dev-dependencies]
+# Tests de bout en bout de l'arbitrage avec le vrai décodeur de MIDI Clock (dépendance de test seulement : en
+# production, `cf-analysis` et `cf-control` restent indépendants, le pont de l'application relie les deux).
+cf-control.workspace = true
 tracing-subscriber.workspace = true
 criterion.workspace = true
 serde.workspace = true
