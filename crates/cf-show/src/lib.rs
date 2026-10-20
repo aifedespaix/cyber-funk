@@ -5,6 +5,7 @@
 //! systèmes, comme le `ShowDirector` de Sillage. Le limiteur photosensible (WCAG 2.3.1) et la sauvegarde continue
 //! vivent aussi ici (voir skills `show-model` et `live-safety`).
 
+pub mod director;
 pub mod drop;
 pub mod freshness;
 pub mod gates;
