@@ -80,7 +80,7 @@ fn build_app(cli: &Cli) -> App {
         CfAudioPlugin::new(audio_config(cli)),
         ProjectorPlugin(projector),
         CinemaPlugin,
-        NeonWorldPlugin,
+        NeonWorldPlugin::default(),
         TestScenePlugin,
     ));
 
