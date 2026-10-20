@@ -75,10 +75,10 @@ fn controls_group(ui: &mut egui::Ui, status: &ControlsStatus) {
         ui.strong("Contrôles");
         ui.label(ports_text(status));
         ui.label(format!("Dernier message : {}", input_text(status.last_input.as_ref())));
-        let action = status
-            .last_action
-            .as_ref()
-            .map_or_else(|| "—".to_owned(), |(time_s, action)| format!("{action:?} (à {time_s:.1} s)"));
+        let action = status.last_action.as_ref().map_or_else(
+            || "—".to_owned(),
+            |(time_s, action)| format!("{action:?} (à {time_s:.1} s)"),
+        );
         ui.label(format!("Dernière action : {action}"));
         if status.midi_running {
             ui.weak(format!(

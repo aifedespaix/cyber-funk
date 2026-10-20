@@ -231,7 +231,9 @@ pub(super) fn update_tempo(mut bridge: ResMut<ControlBridge>, mut features: ResM
     bridge
         .arbiter
         .offer(TempoSource::Clock, bridge.clock.estimate().map(reading));
-    bridge.arbiter.offer(TempoSource::Tap, bridge.tap.estimate().map(reading));
+    bridge
+        .arbiter
+        .offer(TempoSource::Tap, bridge.tap.estimate().map(reading));
     bridge.arbiter.update(now);
     bridge.arbiter.publish(&mut features.0);
 }

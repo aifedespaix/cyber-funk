@@ -118,7 +118,11 @@ mod tests {
         assert_eq!(key_code(BevyKey::Digit3), Some(CfKey::Digit3));
         assert_eq!(key_code(BevyKey::KeyG), Some(CfKey::KeyG));
         assert_eq!(key_code(BevyKey::F12), Some(CfKey::F12));
-        assert_eq!(key_code(BevyKey::ShiftLeft), None, "un modificateur n'est pas une commande");
+        assert_eq!(
+            key_code(BevyKey::ShiftLeft),
+            None,
+            "un modificateur n'est pas une commande"
+        );
     }
 
     #[test]

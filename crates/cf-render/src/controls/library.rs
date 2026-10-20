@@ -22,7 +22,7 @@ pub enum LibraryError {
         /// Fichier en cause.
         path: PathBuf,
         /// Erreur de `cf-control` (syntaxe RON, bindings en conflit…).
-        source: cf_control::Error,
+        source: Box<cf_control::Error>,
     },
 }
 
@@ -60,14 +60,12 @@ impl ControllerLibrary {
                 continue;
             };
             let text = std::fs::read_to_string(&path).map_err(io(&path))?;
-            let profile = ControlProfile::from_ron(&text).map_err(|source| LibraryError::Profile {
+            let profile_error = |source| LibraryError::Profile {
                 path: path.clone(),
-                source,
-            })?;
-            profile.validate().map_err(|source| LibraryError::Profile {
-                path: path.clone(),
-                source,
-            })?;
+                source: Box::new(source),
+            };
+            let profile = ControlProfile::from_ron(&text).map_err(profile_error)?;
+            profile.validate().map_err(profile_error)?;
             library.profiles.insert(id.to_owned(), profile);
         }
         Ok(library)

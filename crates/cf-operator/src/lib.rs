@@ -15,8 +15,8 @@ pub use quit::{QuitConfirmation, QuitDecision, QuitGuardPlugin, QuitPrompt, Quit
 pub use window::OperatorWindow;
 
 use bevy::prelude::*;
-use bevy_egui::{EguiGlobalSettings, EguiPlugin, EguiPrimaryContextPass};
 use bevy_egui::input::EguiWantsInput;
+use bevy_egui::{EguiGlobalSettings, EguiPlugin, EguiPrimaryContextPass};
 use cf_render::{CfSet, TextInputFocus};
 
 /// Plugin de la fenêtre opérateur : fenêtre, contexte egui, panneau principal et dialogue de sortie.

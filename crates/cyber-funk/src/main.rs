@@ -18,9 +18,7 @@ use bevy::prelude::*;
 use bevy::winit::WinitSettings;
 use cf_cinema::CinemaPlugin;
 use cf_operator::{OperatorPlugin, QuitGuardPlugin};
-use cf_render::{
-    AudioConfig, CfAudioPlugin, ControlsPlugin, CorePlugin, DiagnosticsPlugin, OutputChoice, ShowPlugin,
-};
+use cf_render::{AudioConfig, CfAudioPlugin, ControlsPlugin, CorePlugin, DiagnosticsPlugin, OutputChoice, ShowPlugin};
 use cf_world_neon::NeonWorldPlugin;
 use clap::Parser as _;
 

@@ -83,6 +83,10 @@ impl From<AudioSourceArg> for AudioSource {
 
 /// Options de la ligne de commande.
 #[derive(Debug, Parser)]
+#[allow(
+    clippy::struct_excessive_bools,
+    reason = "options de ligne de commande indépendantes, une par drapeau"
+)]
 #[command(version, about = "Visuels 3D temps réel pour soirées DJ")]
 pub struct Cli {
     /// Fichier de show (RON) à charger au démarrage.

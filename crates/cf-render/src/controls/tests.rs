@@ -120,7 +120,11 @@ fn taper_dans_un_champ_texte_ne_declenche_rien() {
         release(&mut app, code, key);
         app.update();
     }
-    assert!(seen(&app).is_empty(), "aucune action tapée dans egui : {:?}", seen(&app));
+    assert!(
+        seen(&app).is_empty(),
+        "aucune action tapée dans egui : {:?}",
+        seen(&app)
+    );
     // Le champ perd le focus : le clavier redevient une commande.
     app.world_mut().resource_mut::<TextInputFocus>().0 = false;
     press(&mut app, KeyCode::KeyD, Key::Character("d".into()));

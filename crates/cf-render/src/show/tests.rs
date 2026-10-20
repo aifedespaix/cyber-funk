@@ -13,8 +13,8 @@ use cf_show::load::{LoadedShow, LookLibrary};
 use cf_show::model::ControlProfileId;
 
 use super::*;
-use crate::controls::tests::{controls_app_with, press, release, seen};
 use crate::audio::AudioFeatures;
+use crate::controls::tests::{controls_app_with, press, release, seen};
 use crate::controls::{ControllerLibrary, ControlsConfig, ControlsStatus, MidiChoice, TextInputFocus};
 
 fn assets() -> PathBuf {
@@ -96,7 +96,7 @@ fn until(app: &mut App, max_s: f64, what: &str, done: impl Fn(&App) -> bool) {
         }
         std::thread::sleep(Duration::from_millis(2));
     }
-    panic!("{what} : rien après {max_s} s");
+    assert!(done(app), "{what} : rien après {max_s} s");
 }
 
 #[test]
@@ -104,7 +104,11 @@ fn le_spectacle_s_ouvre_et_publie_son_etat() {
     let app = app(&[], MidiChoice::Off);
     assert_eq!(state(&app).slot, 0);
     assert_eq!(state(&app).cue, 0);
-    assert!(facts(&app).iter().any(|e| matches!(e, ShowEvent::SlotLoaded { slot: 0, .. })));
+    assert!(
+        facts(&app)
+            .iter()
+            .any(|e| matches!(e, ShowEvent::SlotLoaded { slot: 0, .. }))
+    );
 }
 
 #[test]
@@ -116,7 +120,12 @@ fn fleche_droite_change_de_cue() {
     assert!(
         facts(&app).iter().any(|e| matches!(
             e,
-            ShowEvent::CueCalled { slot: 0, cue: 1, cause: CueCause::Go, .. }
+            ShowEvent::CueCalled {
+                slot: 0,
+                cue: 1,
+                cause: CueCause::Go,
+                ..
+            }
         )),
         "le cue 1 est appelé par le GO du clavier : {:?}",
         facts(&app)
@@ -130,7 +139,9 @@ fn un_pad_midi_change_de_cue() {
     let fake = FakeMidi::new();
     fake.plug("Pads de test");
     let mut app = app(&["generic-8knobs-8pads"], MidiChoice::Fake(fake.clone()));
-    until(&mut app, 3.0, "ouverture du port MIDI", |_| !fake.open_ports().is_empty());
+    until(&mut app, 3.0, "ouverture du port MIDI", |_| {
+        !fake.open_ports().is_empty()
+    });
     // Pad 1 (note 36, canal 1) : GO.
     assert!(fake.send("Pads de test", &[0x90, 36, 100]));
     assert!(fake.send("Pads de test", &[0x80, 36, 0]));
@@ -154,8 +165,12 @@ fn rien_ne_part_quand_egui_a_le_clavier_et_le_cue_ne_bouge_pas() {
         press(&mut app, code, key);
         app.update();
     }
-    assert!(seen(&app).is_empty());
-    assert!(!facts(&app).iter().any(|e| matches!(e, ShowEvent::CueCalled { cue: 1, .. })));
+    assert_eq!(seen(&app), []);
+    assert!(
+        !facts(&app)
+            .iter()
+            .any(|e| matches!(e, ShowEvent::CueCalled { cue: 1, .. }))
+    );
 }
 
 #[test]
@@ -163,7 +178,9 @@ fn la_passation_relache_le_noir_tenu_et_change_de_table() {
     let fake = FakeMidi::new();
     fake.plug("Pads de test");
     let mut app = app(&["generic-8knobs-8pads"], MidiChoice::Fake(fake.clone()));
-    until(&mut app, 3.0, "ouverture du port MIDI", |_| !fake.open_ports().is_empty());
+    until(&mut app, 3.0, "ouverture du port MIDI", |_| {
+        !fake.open_ports().is_empty()
+    });
     // Pad 5 (note 40) tenu : noir.
     assert!(fake.send("Pads de test", &[0x90, 40, 100]));
     until(&mut app, 3.0, "noir demandé", |a| state(a).blackout_on);
@@ -171,7 +188,9 @@ fn la_passation_relache_le_noir_tenu_et_change_de_table() {
     press(&mut app, KeyCode::KeyG, Key::Character("g".into()));
     release(&mut app, KeyCode::KeyG, Key::Character("g".into()));
     until(&mut app, 60.0, "créneau 1 chargé", |a| {
-        facts(a).iter().any(|e| matches!(e, ShowEvent::SlotLoaded { slot: 1, .. }))
+        facts(a)
+            .iter()
+            .any(|e| matches!(e, ShowEvent::SlotLoaded { slot: 1, .. }))
     });
     // Le bouton tenu a été relâché par `Mapper::reload` : le noir s'éteint sans que le doigt ait quitté le pad.
     until(&mut app, 3.0, "noir relâché", |a| !state(a).blackout_on);
@@ -208,7 +227,9 @@ fn l_horloge_midi_prend_la_main_et_se_publie() {
     let fake = FakeMidi::new();
     fake.plug("Logiciel de mix");
     let mut app = app(&[], MidiChoice::Fake(fake.clone()));
-    until(&mut app, 3.0, "ouverture du port MIDI", |_| !fake.open_ports().is_empty());
+    until(&mut app, 3.0, "ouverture du port MIDI", |_| {
+        !fake.open_ports().is_empty()
+    });
     assert!(fake.send("Logiciel de mix", &[0xFA]));
     // ~125 BPM : 24 impulsions par noire, une toutes les 20 ms, pendant deux secondes.
     for _ in 0..100 {
@@ -243,4 +264,3 @@ fn sans_show_les_controles_tournent_quand_meme() {
     assert_eq!(seen(&app), [Action::Go]);
     assert!(app.world().get_resource::<CurrentShow>().is_none());
 }
-

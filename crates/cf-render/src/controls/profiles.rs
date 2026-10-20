@@ -77,6 +77,11 @@ fn reload(
         .mapper
         .reload(&stack, now_s, released)
         .map_err(|error| error.to_string())?;
-    tracing::debug!(slot, profils = stack.len(), remplacements = overrides.len(), "contrôles : table rechargée");
+    tracing::debug!(
+        slot,
+        profils = stack.len(),
+        remplacements = overrides.len(),
+        "contrôles : table rechargée"
+    );
     Ok(())
 }
