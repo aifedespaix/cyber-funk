@@ -144,4 +144,4 @@ fn forward_playback(mut actions: MessageReader<ControlAction>, mut commands: Mes
 }
 
 #[cfg(test)]
-mod tests;
+pub(crate) mod tests;
