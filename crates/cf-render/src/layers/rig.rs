@@ -5,16 +5,15 @@
 //! Système par système, en `CfSet::Present` :
 //! 1. [`resize_targets`] garde les textures à la taille de la fenêtre ;
 //! 2. [`apply_pose`] pose les caméras d'après [`CameraPose`] (position, orientation, FOV) ;
-//! 3. [`apply_opacity`] allume ou éteint les couches d'après [`LayerOpacity`] et règle l'opacité des quads.
+//! 3. [`apply_opacity`] allume ou éteint les couches d'après [`LayerOpacity`] et règle l'opacité des quads ; la caméra
+//!    de l'[`OverlayCompositor`] suit la surcouche.
 //!
 //! Aucun ne fait d'allocation en régime établi : les écritures sont conditionnelles (`set_if_neq`, comparaison avec la
 //! valeur déjà appliquée) pour ne pas déclencher de ré-extraction de composants inchangés.
 
 use bevy::asset::RenderAssetUsages;
-use bevy::camera::visibility::RenderLayers;
 use bevy::camera::{
-    Camera, Camera2d, Camera3d, ClearColorConfig, Hdr, OrthographicProjection, PerspectiveProjection, Projection,
-    RenderTarget, ScalingMode,
+    Camera, Camera2d, Camera3d, ClearColorConfig, Hdr, PerspectiveProjection, Projection, RenderTarget,
 };
 use bevy::core_pipeline::tonemapping::{DebandDither, Tonemapping};
 use bevy::math::DVec3;
@@ -23,11 +22,10 @@ use bevy::render::render_resource::{Extent3d, TextureFormat};
 use bevy::render::view::Msaa;
 use bevy::window::PrimaryWindow;
 
-use super::{COMPOSITOR_INDEX, Layer, LayerOpacity};
+use super::compositor::{LayerQuad, OverlayCompositor, spawn_compositors};
+use super::{Layer, LayerOpacity};
 use crate::{CameraPose, CfSet, FloatingOrigin};
 
-/// `Camera::order` du compositeur : après les quatre couches.
-pub const COMPOSITOR_ORDER: isize = 10;
 /// Format des textures de couche : HDR (le bloom garde les valeurs au-delà de 1) avec un canal alpha de couverture.
 const LAYER_FORMAT: TextureFormat = TextureFormat::Rgba16Float;
 /// Taille des textures tant qu'aucune fenêtre n'est connue (tests, démarrage).
@@ -59,15 +57,6 @@ fn clear_color(layer: Layer) -> Color {
 #[derive(Component, Debug, Clone, Copy, PartialEq, Eq)]
 pub struct LayerCamera(pub Layer);
 
-/// La caméra qui compose les couches dans la fenêtre. C'est elle que le post-process (J4-02) équipe : il s'applique
-/// ainsi à l'image composée.
-#[derive(Component, Debug, Default, Clone, Copy)]
-pub struct Compositor;
-
-/// Quad plein cadre du compositeur qui affiche la texture d'une couche.
-#[derive(Component, Debug, Clone, Copy)]
-struct LayerQuad(Layer);
-
 /// Les textures de couche, et leur taille courante.
 #[derive(Resource, Debug)]
 pub struct LayerTargets {
@@ -92,7 +81,8 @@ impl LayerTargets {
     }
 }
 
-/// Installe le rig de couches : ressources [`CameraPose`] et [`LayerOpacity`], les cinq caméras et leurs quads.
+/// Installe le rig de couches : ressources [`CameraPose`] et [`LayerOpacity`], les six caméras (quatre couches, deux
+/// compositeurs) et leurs quads.
 ///
 /// Les caméras naissent à `Startup`. Tant que `CfSet::Present` n'a pas tourné, toutes les couches sont éteintes.
 #[derive(Debug, Clone, Copy)]
@@ -205,43 +195,7 @@ fn spawn_rig(
         }
     }
 
-    commands.spawn((
-        Compositor,
-        Camera3d::default(),
-        Camera {
-            order: COMPOSITOR_ORDER,
-            clear_color: ClearColorConfig::Custom(Color::BLACK),
-            ..default()
-        },
-        Projection::Orthographic(OrthographicProjection {
-            near: 0.1,
-            far: 10.0,
-            scaling_mode: ScalingMode::Fixed {
-                width: 2.0,
-                height: 2.0,
-            },
-            ..OrthographicProjection::default_3d()
-        }),
-        RenderLayers::layer(COMPOSITOR_INDEX),
-        Hdr,
-        // Ni tonemapping ni MSAA : les quads sont des aplats alignés sur les pixels. J4-02 pose ici bloom, grade et
-        // tonemapping.
-        Tonemapping::None,
-        DebandDither::Disabled,
-        Msaa::Off,
-        Transform::default(),
-    ));
-    for layer in Layer::ALL {
-        commands.spawn((
-            LayerQuad(layer),
-            Mesh3d(quad.clone()),
-            MeshMaterial3d(material_handles[layer.index()].clone()),
-            // Du fond (le plus loin) à la surcouche (le plus près) : le tri des matériaux transparents fait le reste.
-            Transform::from_xyz(0.0, 0.0, -(4.0 - layer.index() as f32)),
-            RenderLayers::layer(COMPOSITOR_INDEX),
-            Visibility::Hidden,
-        ));
-    }
+    spawn_compositors(&mut commands, &quad, &material_handles);
 
     commands.insert_resource(LayerTargets {
         images: image_handles,
@@ -306,7 +260,8 @@ fn apply_pose(
 fn apply_opacity(
     opacity: Res<LayerOpacity>,
     mut targets: ResMut<LayerTargets>,
-    mut cameras: Query<(&LayerCamera, &mut Camera)>,
+    mut cameras: Query<(&LayerCamera, &mut Camera), Without<OverlayCompositor>>,
+    mut overlay_compositor: Query<&mut Camera, (With<OverlayCompositor>, Without<LayerCamera>)>,
     mut quads: Query<(&LayerQuad, &mut Visibility)>,
     mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
@@ -314,6 +269,13 @@ fn apply_opacity(
         let on = opacity.is_on(*layer);
         if camera.is_active != on {
             camera.is_active = on;
+        }
+    }
+    // Le second compositeur n'a que la surcouche à poser : éteint avec elle.
+    let overlay_on = opacity.is_on(Layer::Overlay);
+    for mut camera in &mut overlay_compositor {
+        if camera.is_active != overlay_on {
+            camera.is_active = overlay_on;
         }
     }
     for (LayerQuad(layer), mut visibility) in &mut quads {

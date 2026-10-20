@@ -67,7 +67,7 @@ fn seule_la_camera_du_monde_recoit_l_occlusion_et_son_prepass() {
         assert!(!app.world().entity(camera).contains::<CullingView>(), "{layer:?}");
         assert_eq!(has_occlusion(&app, camera), (false, false), "{layer:?}");
     }
-    // Le compositeur (ses quads plein cadre n'occultent rien) n'en reçoit pas non plus.
+    // Les deux compositeurs (leurs quads plein cadre n'occultent rien) n'en reçoivent pas non plus.
     let cameras = app
         .world_mut()
         .query_filtered::<Entity, With<Camera>>()
@@ -78,7 +78,7 @@ fn seule_la_camera_du_monde_recoit_l_occlusion_et_son_prepass() {
         .query_filtered::<Entity, With<OcclusionCulling>>()
         .iter(app.world())
         .count();
-    assert_eq!((cameras, equipped), (5, 1));
+    assert_eq!((cameras, equipped), (6, 1));
 }
 
 #[test]

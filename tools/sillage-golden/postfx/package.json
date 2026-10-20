@@ -1,0 +1,16 @@
+{
+  "name": "sillage-golden-postfx",
+  "private": true,
+  "type": "module",
+  "description": "Rendu de référence du post-process de Sillage (three.js) à côté des captures de cyber-funk (J4-02)",
+  "scripts": {
+    "build": "bun build scene.ts --outdir dist --target browser --format iife",
+    "render": "node render.mjs"
+  },
+  "dependencies": {
+    "three": "0.186.1"
+  },
+  "devDependencies": {
+    "playwright": "1.64.1"
+  }
+}

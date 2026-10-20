@@ -6,6 +6,7 @@ pub mod culling;
 pub mod diagnostics;
 pub mod layers;
 pub mod origin;
+pub mod postfx;
 mod schedule;
 pub mod streaming;
 pub mod world;
@@ -23,9 +24,10 @@ pub use diagnostics::{
 };
 pub use layers::{
     BackgroundLayer, COMPOSITOR_ORDER, CameraPose, Compositor, ForegroundLayer, Layer, LayerCamera, LayerOpacity,
-    LayerTargets, LayersPlugin, OFF_BELOW, OverlayLayer, WorldLayer,
+    LayerTargets, LayersPlugin, OFF_BELOW, OVERLAY_COMPOSITOR_ORDER, OverlayCompositor, OverlayLayer, WorldLayer,
 };
 pub use origin::{AbsolutePosition, FloatingOrigin, ORIGIN_STEP, OriginPlugin, OriginTracker, StreamFocus};
+pub use postfx::{CurrentShowFx, LensWeather, PostFxPlugin, PostFxSettings, PostFxState, ShowFxInput};
 pub use schedule::{CfSet, CorePlugin};
 pub use streaming::{ChunkInfo, ChunkPlan, ChunkStream, EntityPool, PieceRegistry, StreamLayout, StreamStats};
 pub use world::{

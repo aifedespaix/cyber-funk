@@ -23,7 +23,8 @@ tracing.workspace = true
 tempfile.workspace = true
 
 [features]
-# Exemples fenêtrés (`box_city`, `layers_demo`, `culling_city`), pour juger à l'œil : hors CI, ils lient un binaire Bevy complet.
+# Exemples fenêtrés (`box_city`, `layers_demo`, `culling_city`, `postfx_demo`), pour juger à l'œil : hors CI, ils lient
+# un binaire Bevy complet.
 demo = []
 
 [[example]]
@@ -36,4 +37,8 @@ required-features = ["demo"]
 
 [[example]]
 name = "culling_city"
+required-features = ["demo"]
+
+[[example]]
+name = "postfx_demo"
 required-features = ["demo"]

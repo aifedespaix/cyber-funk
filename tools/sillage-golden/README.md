@@ -39,6 +39,9 @@ Ces trois fichiers ne sont **jamais modifiés** : `index.ts` recalcule leur empr
 elle ne correspond plus au commit ci-dessus. Pour suivre une nouvelle version de Sillage : recopier les fichiers,
 mettre à jour `SILLAGE_COMMIT` et `VENDORED` dans `index.ts`, régénérer, relire le diff des JSON.
 
+Copie conforme hors de ce script : `sillage/engine/postfx-grade.ts` (blob `c4534db67ff2`), utilisée par le rendu de
+référence du post-process (`postfx/`, J4-02, voir son `README.md`).
+
 Bouchons (ce ne sont **pas** des copies) : `sillage/engine/live-palette.ts`, `sillage/engine/palette.ts` et
 `stubs/three.ts` (branché par `paths` dans `tsconfig.json`). `sections.ts` en a besoin pour sa teinte d'ambiance
 `mood`, qui lit le thème CSS du navigateur et ne fait pas partie des données de référence (elle relève de J4-08). Le
