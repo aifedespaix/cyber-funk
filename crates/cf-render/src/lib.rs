@@ -12,6 +12,7 @@ pub mod postfx;
 mod schedule;
 pub mod show;
 pub mod streaming;
+pub mod warmup;
 pub mod world;
 
 pub use audio::{
@@ -31,7 +32,7 @@ pub use diagnostics::{
 };
 pub use layers::{
     BackgroundLayer, COMPOSITOR_ORDER, CameraPose, Compositor, ForegroundLayer, Layer, LayerCamera, LayerOpacity,
-    LayerTargets, LayersPlugin, OFF_BELOW, OVERLAY_COMPOSITOR_ORDER, OverlayCompositor, OverlayLayer, WorldLayer,
+    LayerTargets, LayerWarmup, LayersPlugin, OFF_BELOW, OVERLAY_COMPOSITOR_ORDER, OverlayCompositor, OverlayLayer, WorldLayer,
 };
 pub use origin::{AbsolutePosition, FloatingOrigin, ORIGIN_STEP, OriginPlugin, OriginTracker, StreamFocus};
 pub use palette::{
@@ -42,6 +43,9 @@ pub use postfx::{CurrentShowFx, LensWeather, PostFxPlugin, PostFxSettings, PostF
 pub use schedule::{CfSet, CorePlugin};
 pub use show::{CurrentShow, ShowControls, ShowEventMessage, ShowPlugin, ShowRuntime};
 pub use streaming::{ChunkInfo, ChunkPlan, ChunkStream, EntityPool, PieceRegistry, StreamLayout, StreamStats};
+pub use warmup::{
+    AppState, LatePipelines, LoadTracker, WarmupAppExt, WarmupPlugin, WarmupProgress, WarmupRegistry, show_may_run,
+};
 pub use world::{
     BoxWorld, CurrentGates, Replan, Subject, SubjectKind, Subjects, World, WorldCorePlugin, WorldError, WorldPlugin,
     WorldSet,

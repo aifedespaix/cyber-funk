@@ -23,7 +23,7 @@ use bevy::render::view::Msaa;
 use bevy::window::PrimaryWindow;
 
 use super::compositor::{LayerQuad, OverlayCompositor, spawn_compositors};
-use super::{Layer, LayerOpacity};
+use super::{Layer, LayerOpacity, LayerWarmup};
 use crate::{CameraPose, CfSet, FloatingOrigin};
 
 /// Format des textures de couche : HDR (le bloom garde les valeurs au-delà de 1) avec un canal alpha de couverture.
@@ -258,13 +258,20 @@ fn apply_pose(
 ///
 /// Une couche éteinte n'a ni caméra active ni quad visible : elle ne coûte rien au GPU.
 fn apply_opacity(
-    opacity: Res<LayerOpacity>,
+    requested: Res<LayerOpacity>,
+    warmup: Option<Res<LayerWarmup>>,
     mut targets: ResMut<LayerTargets>,
     mut cameras: Query<(&LayerCamera, &mut Camera), Without<OverlayCompositor>>,
     mut overlay_compositor: Query<&mut Camera, (With<OverlayCompositor>, Without<LayerCamera>)>,
     mut quads: Query<(&LayerQuad, &mut Visibility)>,
     mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
+    // Préchauffe : tout est allumé à pleine opacité (voir `LayerWarmup`).
+    let opacity = if warmup.is_some_and(|warmup| warmup.0) {
+        LayerOpacity::default()
+    } else {
+        *requested
+    };
     for (LayerCamera(layer), mut camera) in &mut cameras {
         let on = opacity.is_on(*layer);
         if camera.is_active != on {

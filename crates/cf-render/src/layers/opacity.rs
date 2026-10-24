@@ -31,6 +31,13 @@ impl Default for LayerOpacity {
     }
 }
 
+/// Préchauffe en cours : toutes les couches rendent, quelle que soit l'opacité demandée par le look.
+///
+/// Posée à `true` par `WarmupPlugin` pendant le chargement (J4-07) : une couche éteinte par le premier look (avant-plan,
+/// surcouche) compilerait sinon ses pipelines à son premier allumage, en plein show. Le rideau cache ce rendu de travail.
+#[derive(Resource, Debug, Default, Clone, Copy, PartialEq, Eq)]
+pub struct LayerWarmup(pub bool);
+
 /// Ramène une opacité dans `[0, 1]`. Une valeur non numérique éteint la couche (le plus sûr à l'écran).
 fn sanitize(value: f32) -> f32 {
     if value.is_nan() { 0.0 } else { value.clamp(0.0, 1.0) }

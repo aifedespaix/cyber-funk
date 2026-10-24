@@ -142,7 +142,11 @@ impl Plugin for ShowPlugin {
                     });
                 app.add_systems(
                     Update,
-                    (run_show, crate::controls::apply_slot_profiles)
+                    // L'horloge du show ne court pas pendant le chargement (J4-07).
+                    (
+                        run_show.run_if(crate::warmup::show_may_run),
+                        crate::controls::apply_slot_profiles,
+                    )
                         .chain()
                         .in_set(CfSet::Show),
                 );
