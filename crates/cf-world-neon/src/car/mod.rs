@@ -29,6 +29,7 @@ pub mod model;
 pub mod motion;
 pub mod paint;
 pub mod rig;
+pub mod safety;
 pub mod shapes;
 pub mod smoke;
 pub mod spawn;
