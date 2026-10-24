@@ -6,6 +6,7 @@
 
 use std::time::Duration;
 
+// Le test vérifie justement l'absence du composant : l'`Aabb` du ciel suffit, aucun volume n'est forcé.
 use bevy::camera::visibility::{NoFrustumCulling, RenderLayers};
 use bevy::math::DVec3;
 use bevy::prelude::*;
@@ -117,14 +118,11 @@ fn la_camera_de_fond_se_place_avec_sky_drift_et_jamais_avec_la_position() {
 fn les_aabb_sont_justes_et_aucun_mesh_du_ciel_n_evite_le_culling() {
     let mut app = app(0.0, 0.0);
     app.update();
+    // Aucun volume forcé : l'`Aabb` des meshes du ciel est correct.
     let mut forced = app
         .world_mut()
         .query_filtered::<Entity, (With<SkyPart>, With<NoFrustumCulling>)>();
-    assert_eq!(
-        forced.iter(app.world()).count(),
-        0,
-        "pas de NoFrustumCulling dans le ciel"
-    );
+    assert_eq!(forced.iter(app.world()).count(), 0, "aucun volume forcé dans le ciel");
 
     let mut query = app
         .world_mut()
