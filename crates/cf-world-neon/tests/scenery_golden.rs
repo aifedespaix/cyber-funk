@@ -42,9 +42,18 @@ fn clearing(v: &Value) -> Clearing {
 fn config_of(case: &Value) -> SceneryConfig {
     let mut config = SceneryConfig::default();
     config.set_quality(usize::try_from(case["quality"].as_u64().expect("qualité")).expect("qualité"));
-    let clearings: Vec<Clearing> = case["clearings"].as_array().expect("zones").iter().map(clearing).collect();
+    let clearings: Vec<Clearing> = case["clearings"]
+        .as_array()
+        .expect("zones")
+        .iter()
+        .map(clearing)
+        .collect();
     config.set_clearings(&clearings);
-    config.set_sign_clearing(case["signClearing"].as_object().map(|_| clearing(&case["signClearing"])));
+    config.set_sign_clearing(
+        case["signClearing"]
+            .as_object()
+            .map(|_| clearing(&case["signClearing"])),
+    );
     config
 }
 
@@ -84,7 +93,11 @@ fn rust_parts(config: &SceneryConfig, base: i64) -> Vec<Seen> {
             };
             parts.push(Seen {
                 row: index,
-                pos: [f64::from(part.x), f64::from(part.y), -(index as f64) * SPACING_M + f64::from(part.z)],
+                pos: [
+                    f64::from(part.x),
+                    f64::from(part.y),
+                    -(index as f64) * SPACING_M + f64::from(part.z),
+                ],
                 size: part.size.map(f64::from),
                 tint: part.tint,
                 info: [f64::from(part.seed), spot, f64::from(part.tier as u8), offset],
@@ -150,7 +163,7 @@ fn les_boites_et_les_projecteurs_sont_ceux_de_sillage() {
         let context = format!("carZ {}", case["carZ"]);
         let rows: Vec<Row> = (base..base + ROWS).map(|i| Row::generate(i, &config)).collect();
 
-        let boxes: Vec<_> = rows.iter().flat_map(|r| r.hitboxes()).collect();
+        let boxes: Vec<_> = rows.iter().flat_map(Row::hitboxes).collect();
         let theirs = case["hitboxes"].as_array().expect("boîtes");
         assert_eq!(boxes.len(), theirs.len(), "{context} : nombre de boîtes");
         for (a, b) in boxes.iter().zip(theirs) {
@@ -162,7 +175,7 @@ fn les_boites_et_les_projecteurs_sont_ceux_de_sillage() {
             close(f64::from(a.top), top, "sommet", &context);
         }
 
-        let spots: Vec<_> = rows.iter().flat_map(|r| r.spots()).collect();
+        let spots: Vec<_> = rows.iter().flat_map(Row::spots).collect();
         let theirs = case["spots"].as_array().expect("projecteurs");
         assert_eq!(spots.len(), theirs.len(), "{context} : nombre de projecteurs");
         for (a, b) in spots.iter().zip(theirs) {
@@ -189,7 +202,11 @@ fn collisions_toits_et_facades_repondent_comme_sillage() {
             let at = format!("{context}, en ({x:.2}, {y:.2}, {z:.2}), rayon {radius}");
             let expected = q["collides"].as_bool().expect("booléen");
             hits += usize::from(expected);
-            assert_eq!(collides(&config, DVec3::new(x, y, z), radius), expected, "collides {at}");
+            assert_eq!(
+                collides(&config, DVec3::new(x, y, z), radius),
+                expected,
+                "collides {at}"
+            );
 
             // Sillage répond −1 quand il n'y a pas de toit.
             let roof = num(&q["roof"]);

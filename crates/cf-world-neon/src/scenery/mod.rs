@@ -55,7 +55,10 @@ pub const FOG_END_M: f32 = cf_render::FOG_FULL_M;
 /// nappe de brouillard) : il serait coupé à 0 m de la caméra. La distance doit être celle du pavé, d'où `use_aabb`.
 #[must_use]
 pub fn fog_range() -> VisibilityRange {
-    VisibilityRange { use_aabb: true, ..cf_render::until_fog(FOG_END_M) }
+    VisibilityRange {
+        use_aabb: true,
+        ..cf_render::until_fog(FOG_END_M)
+    }
 }
 
 /// Ce que la ville partage : le pavé unité, le matériau de façade, la famille de pièces des tronçons. Créés une fois, dans

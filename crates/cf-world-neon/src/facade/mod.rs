@@ -36,7 +36,12 @@ pub struct FacadeLook {
 
 impl Default for FacadeLook {
     fn default() -> Self {
-        Self { build: 1.0, flash: 0.0, win_pulse: 0.0, clock_s: None }
+        Self {
+            build: 1.0,
+            flash: 0.0,
+            win_pulse: 0.0,
+            clock_s: None,
+        }
     }
 }
 

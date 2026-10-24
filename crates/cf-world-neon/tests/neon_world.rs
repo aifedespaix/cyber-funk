@@ -55,7 +55,8 @@ fn tout_ce_que_le_monde_dessine_est_dans_la_couche_monde() {
         .iter(app.world())
         .map(|(n, l, _)| (n.to_string(), l.clone()))
         .collect();
-    assert_eq!(found.len(), 2, "la route et le point suivi : {found:?}");
+    // La route, le point suivi et les six pavés des arches ont un nom ; les pièces des tronçons n'en ont pas (voir `city.rs`).
+    assert_eq!(found.len(), 2 + 6, "la route, le point suivi et les arches : {found:?}");
     for (name, layers) in &found {
         assert_eq!(*layers, world_layers, "{name} n'est pas dans la couche monde");
     }

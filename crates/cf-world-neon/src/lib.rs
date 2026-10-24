@@ -28,8 +28,8 @@ pub mod world;
 use bevy::prelude::*;
 use cf_render::WorldPlugin;
 
-pub use facade::{FacadeLook, FacadeMaterial, FacadePlugin};
 pub use chase::{ChasePlugin, Runner, RunnerConfig, chase_pose};
+pub use facade::{FacadeLook, FacadeMaterial, FacadePlugin};
 pub use road::{Road, RoadLook, RoadMaterial, RoadPalette, RoadPlugin};
 pub use route::{RoutePlan, RoutePlanner};
 pub use scenery::{Clearing, SceneryConfig, SpotAnchor};
@@ -51,7 +51,10 @@ pub struct NeonWorldPlugin {
 
 impl Default for NeonWorldPlugin {
     fn default() -> Self {
-        Self { standalone: true, city: true }
+        Self {
+            standalone: true,
+            city: true,
+        }
     }
 }
 
@@ -59,7 +62,10 @@ impl NeonWorldPlugin {
     /// Le monde seul : ni point suivi ni caméra, c'est l'application (voiture, réalisateur) qui les fournit.
     #[must_use]
     pub fn embedded() -> Self {
-        Self { standalone: false, city: true }
+        Self {
+            standalone: false,
+            city: true,
+        }
     }
 
     /// Sans ville : la route seule (captures de référence de la route, `road_demo`).
@@ -72,22 +78,30 @@ impl NeonWorldPlugin {
 
 impl Plugin for NeonWorldPlugin {
     fn build(&self, app: &mut App) {
-        app.add_plugins((WorldPlugin::new(if self.city { NeonWorld::default() } else { NeonWorld::default().without_city() }), RoadPlugin, FacadePlugin))
-            .init_resource::<RoutePlan>()
-            .init_resource::<RoutePlanner>()
-            .add_systems(
-                Update,
-                route::update_route_plan
-                    .in_set(cf_render::CfSet::Simulate)
-                    .after(cf_render::WorldSet::Chunks),
-            )
-            .add_systems(
-                Update,
-                scenery::arches::update_arches
-                    .in_set(cf_render::CfSet::Simulate)
-                    .after(route::update_route_plan)
-                    .run_if(resource_exists::<scenery::arches::ArchPool>),
-            );
+        app.add_plugins((
+            WorldPlugin::new(if self.city {
+                NeonWorld::default()
+            } else {
+                NeonWorld::default().without_city()
+            }),
+            RoadPlugin,
+            FacadePlugin,
+        ))
+        .init_resource::<RoutePlan>()
+        .init_resource::<RoutePlanner>()
+        .add_systems(
+            Update,
+            route::update_route_plan
+                .in_set(cf_render::CfSet::Simulate)
+                .after(cf_render::WorldSet::Chunks),
+        )
+        .add_systems(
+            Update,
+            scenery::arches::update_arches
+                .in_set(cf_render::CfSet::Simulate)
+                .after(route::update_route_plan)
+                .run_if(resource_exists::<scenery::arches::ArchPool>),
+        );
         if self.standalone {
             app.add_plugins(ChasePlugin::default());
         }

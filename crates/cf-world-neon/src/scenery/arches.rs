@@ -25,7 +25,11 @@ pub struct ArchPool {
 
 impl ArchPool {
     /// Crée les six pavés, cachés. Démarrage seulement.
-    pub(crate) fn spawn(ecs: &mut World, mesh: &Handle<Mesh>, material: &Handle<crate::facade::FacadeMaterial>) -> Self {
+    pub(crate) fn spawn(
+        ecs: &mut World,
+        mesh: &Handle<Mesh>,
+        material: &Handle<crate::facade::FacadeMaterial>,
+    ) -> Self {
         let entities = std::array::from_fn(|i| {
             ecs.spawn((
                 Name::new(format!("arche {}.{}", i / PARTS, i % PARTS)),
@@ -95,7 +99,9 @@ pub(crate) fn update_arches(
     for (slot, bridge) in plan.bridges.slots().iter().enumerate() {
         let placed = bridge.as_ref().filter(|_| world.has_city()).map(|b| (b, blocks(b)));
         for part in 0..PARTS {
-            let Some(&entity) = pool.entities.get(slot * PARTS + part) else { continue };
+            let Some(&entity) = pool.entities.get(slot * PARTS + part) else {
+                continue;
+            };
             let Ok((mut position, mut transform, mut tag, mut visibility)) = blocks_q.get_mut(entity) else {
                 continue;
             };
@@ -124,11 +130,17 @@ mod tests {
     fn les_piliers_et_le_tablier_sont_ceux_de_sillage() {
         let bridge = Bridge::of_cell(2);
         let [left, right, deck] = blocks(&bridge);
-        assert!((left.x + 15.25).abs() < 1e-9 && (right.x - 15.25).abs() < 1e-9, "pilier à 19,5 − 8,5/2");
+        assert!(
+            (left.x + 15.25).abs() < 1e-9 && (right.x - 15.25).abs() < 1e-9,
+            "pilier à 19,5 − 8,5/2"
+        );
         // Du vide (−384 m) jusqu'au dessous du tablier (24 m).
         assert!((left.y + 384.0).abs() < 1e-9 && (left.size.y - 408.0).abs() < 1e-3);
         assert!((deck.y - 24.0).abs() < 1e-9 && (deck.size.y - 11.0).abs() < 1e-3 && (deck.size.x - 39.0).abs() < 1e-3);
-        assert_eq!([left.seed, right.seed, deck.seed], [bridge.seed, bridge.seed + 7, bridge.seed + 13]);
+        assert_eq!(
+            [left.seed, right.seed, deck.seed],
+            [bridge.seed, bridge.seed + 7, bridge.seed + 13]
+        );
         // Le tablier est dans l'emprise verticale que le pilote lit.
         let span = crate::route::bridge_span();
         assert!((f64::from(deck.size.y) - (span.hi - span.lo)).abs() < 1e-3);

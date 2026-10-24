@@ -7,8 +7,8 @@
 
 use bevy::ecs::world::World as EcsWorld;
 use bevy::prelude::*;
-use cf_render::world::{SubjectContext, SubjectSink};
 use cf_render::streaming::ArchetypeId;
+use cf_render::world::{SubjectContext, SubjectSink};
 use cf_render::{ChunkInfo, ChunkPlan, PieceRegistry, Replan, StreamLayout, World, WorldError, WorldLayer};
 use cf_show::model::ShowGates;
 
@@ -48,7 +48,12 @@ impl NeonWorld {
     /// Un monde de graine `seed` : avec l'index d'un tronçon, elle détermine tout son contenu.
     #[must_use]
     pub fn new(seed: u64) -> Self {
-        Self { seed, scenery: SceneryConfig::default(), family: None, city: true }
+        Self {
+            seed,
+            scenery: SceneryConfig::default(),
+            family: None,
+            city: true,
+        }
     }
 
     /// La graine du monde.
@@ -155,7 +160,11 @@ impl World for NeonWorld {
         self.family = Some(family);
         let arches = ArchPool::spawn(ecs, &mesh, &material);
         ecs.insert_resource(arches);
-        ecs.insert_resource(SceneryAssets { mesh, material, pieces: family });
+        ecs.insert_resource(SceneryAssets {
+            mesh,
+            material,
+            pieces: family,
+        });
         Ok(())
     }
 

@@ -35,7 +35,14 @@ pub struct FrameInputs {
 
 impl Default for FrameInputs {
     fn default() -> Self {
-        Self { time_s: 0.0, pulse: 0.0, bass: 0.0, mid: 0.0, high: 0.0, beat: 0.0 }
+        Self {
+            time_s: 0.0,
+            pulse: 0.0,
+            bass: 0.0,
+            mid: 0.0,
+            high: 0.0,
+            beat: 0.0,
+        }
     }
 }
 
@@ -45,11 +52,21 @@ fn vec4(color: LinearRgb) -> Vec4 {
 
 /// Les uniformes de l'image (`Scenery.update` de Sillage, plus le bloc de palette).
 #[must_use]
-pub fn build_params(palette: &ScenePalette, look: &FacadeLook, wet: f32, rain: f32, frame: &FrameInputs) -> FacadeParams {
+pub fn build_params(
+    palette: &ScenePalette,
+    look: &FacadeLook,
+    wet: f32,
+    rain: f32,
+    frame: &FrameInputs,
+) -> FacadeParams {
     let get = |color| palette.get(color);
     // `uMist` de Sillage : `velvet` mélangé de 35 % au violet, assombri de 10 %.
     let mist = get(SceneColor::Velvet).lerp(get(SceneColor::Violet), 0.35);
-    let mist = LinearRgb { r: mist.r * 0.9, g: mist.g * 0.9, b: mist.b * 0.9 };
+    let mist = LinearRgb {
+        r: mist.r * 0.9,
+        g: mist.g * 0.9,
+        b: mist.b * 0.9,
+    };
     FacadeParams {
         ink: vec4(get(SceneColor::Ink)),
         ice: vec4(get(SceneColor::Ice)),
@@ -58,14 +75,19 @@ pub fn build_params(palette: &ScenePalette, look: &FacadeLook, wet: f32, rain: f
         mist: vec4(mist),
         scan: vec4(get(SceneColor::Mint)),
         cycle: palette.prismatic_cycle().map(vec4),
-        frame: Vec4::new(
-            (frame.time_s % TIME_WRAP_S) as f32,
-            frame.pulse,
-            frame.bass,
-            frame.mid,
+        frame: Vec4::new((frame.time_s % TIME_WRAP_S) as f32, frame.pulse, frame.bass, frame.mid),
+        audio: Vec4::new(
+            frame.high,
+            frame.beat as f32,
+            look.build.clamp(0.0, 1.0),
+            look.flash.clamp(0.0, 1.0),
         ),
-        audio: Vec4::new(frame.high, frame.beat as f32, look.build.clamp(0.0, 1.0), look.flash.clamp(0.0, 1.0)),
-        weather: Vec4::new(wet.clamp(0.0, 1.0), rain.clamp(0.0, 1.0), look.win_pulse.clamp(0.0, 1.0), 0.0),
+        weather: Vec4::new(
+            wet.clamp(0.0, 1.0),
+            rain.clamp(0.0, 1.0),
+            look.win_pulse.clamp(0.0, 1.0),
+            0.0,
+        ),
     }
 }
 
@@ -80,7 +102,9 @@ pub(super) fn update_material(
     materials: Option<ResMut<Assets<FacadeMaterial>>>,
     scenery: Option<Res<crate::scenery::SceneryAssets>>,
 ) {
-    let (Some(mut materials), Some(scenery)) = (materials, scenery) else { return };
+    let (Some(mut materials), Some(scenery)) = (materials, scenery) else {
+        return;
+    };
     let frame = features.as_deref().map_or_else(FrameInputs::default, |f| FrameInputs {
         time_s: 0.0,
         pulse: f.0.pulse,
@@ -89,7 +113,10 @@ pub(super) fn update_material(
         high: f.0.high,
         beat: f.0.beat,
     });
-    let frame = FrameInputs { time_s: look.clock_s.unwrap_or_else(|| time.elapsed_secs_f64()), ..frame };
+    let frame = FrameInputs {
+        time_s: look.clock_s.unwrap_or_else(|| time.elapsed_secs_f64()),
+        ..frame
+    };
     let params = build_params(&palette, &look, road.wet, road.rain, &frame);
     if materials.get(&scenery.material).is_some_and(|m| m.params == params) {
         return;
