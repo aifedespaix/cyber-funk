@@ -150,7 +150,7 @@ mod tests {
         ))
         .init_resource::<Empty>();
         // Un catalogue d'un seul plan : la chevauchée, qui lance son astre faute d'en trouver un en vol.
-        app.insert_resource(CinemaDirector::new(vec![Box::new(crate::shots::MeteorRide)], false, 1));
+        app.insert_resource(CinemaDirector::new(vec![Box::new(shots::MeteorRide)], false, 1));
         app.world_mut().resource_mut::<CinemaWorld>().car = DVec3::new(0.0, 0.0, -1000.0);
         app.world_mut().resource_mut::<CinemaWorld>().dt = 0.016;
         app.update();
