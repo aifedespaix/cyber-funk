@@ -3,8 +3,8 @@
 use bevy::prelude::*;
 use bevy_egui::{EguiContext, PrimaryEguiContext, egui};
 
+use cf_render::ControlsStatus;
 use cf_render::audio::{AudioCommand, AudioFeatures, AudioStatus, VisualLatency};
-use cf_render::{ControlsStatus, CurrentShow};
 
 use crate::live::{self, LiveParams};
 use crate::loading::{self, LoadingView};
@@ -23,7 +23,6 @@ pub(crate) fn main_panel(
     features: Option<Res<AudioFeatures>>,
     latency: Option<ResMut<VisualLatency>>,
     mut commands: MessageWriter<AudioCommand>,
-    show: Option<Res<CurrentShow>>,
     controls: Option<Res<ControlsStatus>>,
     loading: LoadingView,
     mut live: LiveParams,
@@ -38,8 +37,8 @@ pub(crate) fn main_panel(
             .max_rect(ctx.viewport_rect()),
     );
     // Vue Live : elle remplace tous les panneaux (édition verrouillée, rien d'autre à l'écran que le pupitre).
-    if !loading.is_loading() && live.is_live(show.as_deref()) {
-        live.draw(&mut root, show.as_deref(), features.as_deref(), controls.as_deref());
+    if !loading.is_loading() && live.is_live() {
+        live.draw(&mut root, features.as_deref(), controls.as_deref());
         return;
     }
     let features_copy = features.as_deref().copied();
@@ -66,12 +65,12 @@ pub(crate) fn main_panel(
         }
         ui.horizontal(|ui| {
             ui.heading("cyber-funk");
-            live::mode_button(ui, &mut live, show.is_some());
+            live::mode_button(ui, &mut live);
         });
         loading::draw_late_warning(ui, loading.late_pipelines());
         egui::ScrollArea::vertical().show(ui, |ui| match (controls, features_copy) {
             (Some(controls), Some(features)) => {
-                controls_panel::draw(ui, show.as_deref().map(|s| &s.0), &controls, &features);
+                controls_panel::draw(ui, live.show(), &controls, &features);
             }
             _ => {
                 ui.weak("Contrôles non branchés (ControlsPlugin absent).");

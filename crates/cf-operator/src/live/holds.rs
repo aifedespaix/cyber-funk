@@ -19,7 +19,7 @@ pub(crate) struct HoldTracker {
 impl HoldTracker {
     /// Le bouton est-il enclenché par nous ?
     #[cfg(test)]
-    pub(crate) fn is_held(&self) -> bool {
+    pub(crate) fn is_held(self) -> bool {
         self.held
     }
 

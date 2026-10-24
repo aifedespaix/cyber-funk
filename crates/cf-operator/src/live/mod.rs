@@ -28,7 +28,7 @@ use cf_render::{
     ControlAction, ControlBridge, ControlsStatus, CurrentShow, DiagnosticsSnapshot, ShowEventMessage, ShowRuntime,
     ShowSheet, submit_action,
 };
-use cf_show::director::ShowEvent;
+use cf_show::director::{ShowEvent, ShowState};
 
 use commands::LiveCommand;
 use holds::HoldTracker;
@@ -96,6 +96,7 @@ pub(crate) struct LiveParams<'w> {
     pub mode: Res<'w, OperatorMode>,
     pub prompt: ResMut<'w, ModePrompt>,
     pub orders: ResMut<'w, LiveOrders>,
+    show: Option<Res<'w, CurrentShow>>,
     sheet: Option<Res<'w, ShowSheet>>,
     runtime: Option<Res<'w, ShowRuntime>>,
     diagnostics: Option<Res<'w, DiagnosticsSnapshot>>,
@@ -103,19 +104,23 @@ pub(crate) struct LiveParams<'w> {
 
 impl LiveParams<'_> {
     /// La vue Live est-elle celle à afficher ? Il lui faut un show et sa feuille de conduite.
-    pub(crate) fn is_live(&self, show: Option<&CurrentShow>) -> bool {
-        *self.mode == OperatorMode::Live && show.is_some() && self.sheet.is_some()
+    pub(crate) fn is_live(&self) -> bool {
+        *self.mode == OperatorMode::Live && self.show.is_some() && self.sheet.is_some()
+    }
+
+    /// L'état du spectacle de l'image, s'il y a un show.
+    pub(crate) fn show(&self) -> Option<&ShowState> {
+        self.show.as_deref().map(|s| &s.0)
     }
 
     /// Dessine la vue Live. Ne fait rien sans show.
     pub(crate) fn draw(
         &mut self,
         root: &mut egui::Ui,
-        show: Option<&CurrentShow>,
         features: Option<&AudioFeatures>,
         controls: Option<&ControlsStatus>,
     ) {
-        let (Some(show), Some(sheet)) = (show, self.sheet.as_deref()) else {
+        let (Some(show), Some(sheet)) = (self.show.as_deref(), self.sheet.as_deref()) else {
             return;
         };
         let data = LiveData {
@@ -135,7 +140,8 @@ impl LiveParams<'_> {
 }
 
 /// Bouton « Passer en Live » de la Préparation (la vue Live a le sien dans sa frise).
-pub(crate) fn mode_button(ui: &mut egui::Ui, params: &mut LiveParams<'_>, has_show: bool) {
+pub(crate) fn mode_button(ui: &mut egui::Ui, params: &mut LiveParams<'_>) {
+    let has_show = params.show.is_some();
     let command = LiveCommand::SwitchMode;
     let label = format!("Passer en Live  [{}]", command.shortcut_text());
     if ui.add_enabled(has_show, egui::Button::new(label)).clicked() {
@@ -144,6 +150,13 @@ pub(crate) fn mode_button(ui: &mut egui::Ui, params: &mut LiveParams<'_>, has_sh
     if !has_show {
         ui.weak("Pas de show chargé : rien à piloter en Live.");
     }
+}
+
+/// Le show et sa feuille de conduite, optionnels : sans show il n'y a rien à piloter.
+#[derive(SystemParam)]
+pub(crate) struct ShowRefs<'w> {
+    show: Option<Res<'w, CurrentShow>>,
+    sheet: Option<Res<'w, ShowSheet>>,
 }
 
 /// Les touches propres à la vue, le maintien du Blackout et les relâchements forcés.
@@ -156,8 +169,7 @@ pub(crate) fn live_input(
     mut prompt: ResMut<ModePrompt>,
     mut holds: ResMut<LiveHolds>,
     mut orders: ResMut<LiveOrders>,
-    show: Option<Res<CurrentShow>>,
-    sheet: Option<Res<ShowSheet>>,
+    show: ShowRefs,
     mut facts: MessageReader<ShowEventMessage>,
     mut pressed: Local<Vec<LiveCommand>>,
 ) {
@@ -179,7 +191,7 @@ pub(crate) fn live_input(
 
     let dialog_open = prompt.target.is_some();
     let allowed = live && focused && !typing && !dialog_open;
-    let blackout_on = show.as_deref().is_some_and(|s| s.blackout_on);
+    let blackout_on = show.show.as_deref().is_some_and(|s| s.blackout_on);
     if let Some(switch) = holds.blackout.update(blackout_key, allowed, blackout_on) {
         orders.0.push(Action::Blackout(switch));
     }
@@ -189,7 +201,7 @@ pub(crate) fn live_input(
         ctx.input(|i| commands::poll(i, &mut pressed));
     }
     let mut request = None;
-    let context = show.as_deref().zip(sheet.as_deref()).map(|(show, sheet)| {
+    let context = show.show.as_deref().zip(show.sheet.as_deref()).map(|(show, sheet)| {
         let data = LiveData {
             state: &show.0,
             sheet,
@@ -209,7 +221,7 @@ pub(crate) fn live_input(
     }
     if let Some(target) = request {
         // Sans show, la Préparation n'a pas de Live vers lequel aller.
-        if target == OperatorMode::Preparation || show.is_some() {
+        if target == OperatorMode::Preparation || show.show.is_some() {
             prompt.target = Some(target);
         }
     }
@@ -273,17 +285,14 @@ pub(crate) fn flush_orders(
     if orders.0.is_empty() {
         return;
     }
-    match (bridge, status) {
-        (Some(mut bridge), Some(mut status)) => {
-            for action in orders.0.drain(..) {
-                submit_action(&mut bridge, &mut status, &mut out, action);
-            }
+    if let (Some(mut bridge), Some(mut status)) = (bridge, status) {
+        for action in orders.0.drain(..) {
+            submit_action(&mut bridge, &mut status, &mut out, action);
         }
-        _ => {
-            let time_s = time.elapsed_secs_f64();
-            for action in orders.0.drain(..) {
-                out.write(ControlAction(TimedAction { time_s, action }));
-            }
+    } else {
+        let time_s = time.elapsed_secs_f64();
+        for action in orders.0.drain(..) {
+            out.write(ControlAction(TimedAction { time_s, action }));
         }
     }
 }

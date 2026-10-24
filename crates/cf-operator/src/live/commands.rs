@@ -369,7 +369,7 @@ mod tests {
                 !command.shortcut_text().is_empty(),
                 "{command:?} sans raccourci affiché"
             );
-            assert!(!command.label().is_empty());
+            assert_ne!(command.label(), "");
         }
     }
 
@@ -485,7 +485,7 @@ mod tests {
             |input| {
                 let mut out = Vec::new();
                 poll(input, &mut out);
-                assert!(out.is_empty());
+                assert_eq!(out, Vec::<LiveCommand>::new());
             },
         );
         // La répétition d'un potard continue de le balayer.
@@ -525,7 +525,7 @@ mod tests {
             |input| {
                 let mut out = Vec::new();
                 poll(input, &mut out);
-                assert!(out.is_empty());
+                assert_eq!(out, Vec::<LiveCommand>::new());
             },
         );
     }

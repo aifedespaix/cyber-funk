@@ -107,10 +107,10 @@ fn slots_bar(
             }
             // Un clic sur un autre créneau l'arme : le prochain « DJ suivant » y mène.
             let response = ui.add_enabled(index != state.slot, button.min_size(size));
-            if response.clicked() {
-                if let Ok(rank) = u16::try_from(index) {
-                    orders.push(Action::ArmDj(cf_control::DjIndex(rank)));
-                }
+            if response.clicked()
+                && let Ok(rank) = u16::try_from(index)
+            {
+                orders.push(Action::ArmDj(cf_control::DjIndex(rank)));
             }
         }
         action_button(ui, LiveCommand::NextDj, ctx, orders, size, false);
