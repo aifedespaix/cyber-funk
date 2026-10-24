@@ -306,7 +306,7 @@ fn la_vue_se_dessine_avec_tous_ses_raccourcis_et_sans_texte_sous_14_px() {
         assert!(text.contains(&shown), "bouton « {shown} » absent de la vue :\n{text}");
     }
     // Master : son raccourci est écrit sous le curseur.
-    assert!(text.contains("Page ↑ / Page ↓"));
+    assert!(text.contains("PgUp / PgDn"));
     assert!(
         smallest >= MIN_TEXT,
         "texte de {smallest} points : la vue Live ne descend pas sous {MIN_TEXT}"

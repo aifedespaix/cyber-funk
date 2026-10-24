@@ -189,8 +189,8 @@ impl LiveCommand {
     /// Le raccourci de la commande.
     pub(crate) fn shortcut(self) -> Shortcut {
         match self {
-            Self::Go => Shortcut::Bridge("→"),
-            Self::Back => Shortcut::Bridge("←"),
+            Self::Go => Shortcut::Bridge("Droite"),
+            Self::Back => Shortcut::Bridge("Gauche"),
             Self::Hold => press(Key::H, "H"),
             Self::NextDj => Shortcut::Bridge("G"),
             Self::PrevDj => Shortcut::Bridge("Maj+G"),
@@ -213,14 +213,14 @@ impl LiveCommand {
                 shift: false,
                 ctrl: false,
                 repeat: true,
-                text: "Page ↑",
+                text: "PgUp",
             },
             Self::MasterDown => Shortcut::Press {
                 key: Key::PageDown,
                 shift: false,
                 ctrl: false,
                 repeat: true,
-                text: "Page ↓",
+                text: "PgDn",
             },
             Self::MacroUp(i) | Self::MacroDown(i) => {
                 let (key, up, down) = MACRO_KEYS[usize::from(i).min(MACROS - 1)];

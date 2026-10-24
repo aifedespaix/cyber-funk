@@ -208,7 +208,11 @@ fn cue_row(
                 ui.label(RichText::new(line).strong().color(color));
             }
             if let Some(progress) = state.cue_progress {
-                ui.add(egui::ProgressBar::new(progress.clamp(0.0, 1.0)).desired_width(ui.available_width()));
+                ui.add(
+                    egui::ProgressBar::new(progress.clamp(0.0, 1.0))
+                        .desired_width(ui.available_width())
+                        .desired_height(14.0),
+                );
             }
         }
     });

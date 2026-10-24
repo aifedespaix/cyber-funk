@@ -88,6 +88,7 @@ pub(crate) fn level_bar(ui: &mut egui::Ui, label: &str, value: f32) {
         ui.add(
             egui::ProgressBar::new(value.clamp(0.0, 1.0))
                 .desired_width(ui.available_width().max(80.0))
+                .desired_height(18.0)
                 .corner_radius(2),
         );
     });
