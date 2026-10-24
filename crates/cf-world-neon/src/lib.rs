@@ -11,6 +11,7 @@
 //! - [`world`] : [`NeonWorld`], l'implémentation du trait `World` (streaming) ;
 //! - [`chase`] : caméra de poursuite provisoire, en attendant le réalisateur (J6), et point suivi provisoire pour les
 //!   exemples sans pilote ;
+//! - [`cinema`] (J6-01) : le branchement sur le réalisateur (collisions, `CinemaWorld` de chaque image) ;
 //! - [`pilot`] (J5-06) : le pilote automatique (allure, chorégraphie, vol, esquives) et [`CarAnimation`] ;
 //! - [`car`] (J5-05) : la voiture (`CyberCar` de Sillage), ses lumières, sa traînée, la fumée de ses pneus. Elle prend la
 //!   place du pavé du point suivi provisoire.
@@ -24,6 +25,7 @@
 
 pub mod car;
 pub mod chase;
+pub mod cinema;
 pub mod facade;
 pub mod pilot;
 pub mod rng;
@@ -38,6 +40,7 @@ use cf_render::WorldPlugin;
 
 pub use car::{Car, CarControls, CarPlugin};
 pub use chase::{ChaseCameraPlugin, ChasePlugin, Runner, RunnerConfig, chase_pose};
+pub use cinema::{CinemaInput, NeonCinemaPlugin, fill_cinema_world};
 pub use facade::{FacadeLook, FacadeMaterial, FacadePlugin};
 pub use pilot::{CarAnimation, Pilot, PilotPlugin, PilotSettings, PilotTraffic};
 pub use road::{Road, RoadLook, RoadMaterial, RoadPalette, RoadPlugin};
