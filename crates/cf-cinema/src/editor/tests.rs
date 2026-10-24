@@ -108,6 +108,7 @@ fn parts_par_rang_sur_une_heure() {
     );
     let report =
         format!("commun {common:.3}, peu commun {uncommon:.3}, rare {rare:.3}, épique {epic:.3} sur {n} plans");
+    eprintln!("{report}");
     // Probabilités de base de Sillage : 0,70 / 0,22 / 0,07 / 0,01. Les garde-fous de rareté (un rare au plus toutes les
     // 75 s, soit au mieux 9 s / 75 s = 12 % des plans) et les bonus de montée ôtent des rares au profit du reste.
     assert!((0.55..=0.85).contains(&common), "commun : {report}");
