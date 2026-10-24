@@ -190,6 +190,7 @@ pub struct BeatView {
 
 /// Le spectacle vu par le réalisateur (ce qu'il lit du `ShowState`). Recopié à chaque image : `Copy`, sans allocation.
 #[derive(Debug, Clone, Copy, PartialEq)]
+#[allow(clippy::struct_excessive_bools)] // Copie des drapeaux du `ShowState` que lit le réalisateur.
 pub struct ShowView {
     /// Un spectacle tourne (un show est chargé). Faux : rythme de clip historique, sans portes.
     pub active: bool,

@@ -218,7 +218,7 @@ mod tests {
     #[test]
     fn temps_mesures_et_phrases() {
         let mut tracker = CueTracker::default();
-        assert!(tracker.update(&world(0.0, 15)).as_slice().is_empty());
+        assert_eq!(tracker.update(&world(0.0, 15)).as_slice(), &[]);
         let cues = tracker.update(&world(0.5, 16));
         assert!(cues.has(CueKind::Beat) && cues.has(CueKind::Bar) && cues.has(CueKind::Phrase));
         let cues = tracker.update(&world(1.0, 17));
@@ -250,7 +250,7 @@ mod tests {
         let mut w = world(0.0, 1);
         w.live = false;
         w.drop = true;
-        assert!(tracker.update(&w).as_slice().is_empty());
+        assert_eq!(tracker.update(&w).as_slice(), &[]);
     }
 
     #[test]

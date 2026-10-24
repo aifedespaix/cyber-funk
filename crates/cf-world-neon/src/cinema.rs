@@ -69,7 +69,11 @@ pub fn fill_cinema_world(world: &mut CinemaWorld, input: &CinemaInput<'_>) {
     let a = input.animation;
     let v = world.car_velocity;
     // Lacet de la voiture d'après sa trajectoire (la route file vers −z), puis l'assiette de vol.
-    let yaw = if v.x.abs() + v.z.abs() > 0.1 { (-v.x).atan2(-v.z) } else { 0.0 };
+    let yaw = if v.x.abs() + v.z.abs() > 0.1 {
+        (-v.x).atan2(-v.z)
+    } else {
+        0.0
+    };
     world.car_rotation = Quat::from_rotation_y(yaw) * a.orientation();
     world.cabin = Cabin {
         position: input.car + (world.car_rotation * CABIN_OFFSET).as_dvec3(),

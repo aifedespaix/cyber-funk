@@ -79,7 +79,9 @@ fn direct<W: Obstacles + Resource>(
     director: Option<ResMut<CinemaDirector>>,
     mut pose: ResMut<CameraPose>,
 ) {
-    let (Some(obstacles), Some(mut director)) = (obstacles, director) else { return };
+    let (Some(obstacles), Some(mut director)) = (obstacles, director) else {
+        return;
+    };
     let list = subjects.as_deref().map_or(&[][..], Subjects::as_slice);
     let frame = CinemaFrame::new(&world, &*obstacles, list);
     if !director.active() {
@@ -111,8 +113,12 @@ mod tests {
     #[test]
     fn le_reealisateur_ecrit_la_pose_lue_par_le_rig() {
         let mut app = App::new();
-        app.add_plugins((cf_render::CorePlugin, CinemaPlugin::default(), CinemaWorldPlugin::<Empty>::default()))
-            .init_resource::<Empty>();
+        app.add_plugins((
+            cf_render::CorePlugin,
+            CinemaPlugin::default(),
+            CinemaWorldPlugin::<Empty>::default(),
+        ))
+        .init_resource::<Empty>();
         app.world_mut().resource_mut::<CinemaWorld>().car = DVec3::new(0.0, 0.0, -1000.0);
         app.world_mut().resource_mut::<CinemaWorld>().dt = 0.016;
         for _ in 0..400 {

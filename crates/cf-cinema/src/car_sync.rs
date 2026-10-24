@@ -122,8 +122,7 @@ impl CarSync {
         if approaching && !self.landing {
             self.landing = true;
             self.emit(CarEventKind::Descent, world, 0.0);
-        } else if self.landing
-            && (a.phase == FlightPhase::Ground || (a.phase == FlightPhase::Flying && a.climb > -0.3))
+        } else if self.landing && (a.phase == FlightPhase::Ground || (a.phase == FlightPhase::Flying && a.climb > -0.3))
         {
             self.landing = false;
         }
@@ -197,7 +196,10 @@ impl CarSync {
         self.last = Some((kind, world.time));
         self.shake = self.shake.max(shake);
         // Seuls les débuts d'animation peuvent faire changer de plan.
-        if matches!(kind, CarEventKind::Takeoff | CarEventKind::Descent | CarEventKind::Dodge) {
+        if matches!(
+            kind,
+            CarEventKind::Takeoff | CarEventKind::Descent | CarEventKind::Dodge
+        ) {
             self.pending = Some(kind);
         }
     }
@@ -237,10 +239,20 @@ mod tests {
         world.animation.bounce = 1.0;
         let mut pose = CameraPose::default();
         for _ in 0..200 {
-            sync.apply(&world, &mut pose, Some(SyncTarget { id: "orbit", follows_car: false }));
+            sync.apply(
+                &world,
+                &mut pose,
+                Some(SyncTarget {
+                    id: "orbit",
+                    follows_car: false,
+                }),
+            );
         }
         assert_eq!(pose, CameraPose::default());
-        let target = Some(SyncTarget { id: "chase", follows_car: true });
+        let target = Some(SyncTarget {
+            id: "chase",
+            follows_car: true,
+        });
         for _ in 0..200 {
             pose = CameraPose::default();
             sync.apply(&world, &mut pose, target);

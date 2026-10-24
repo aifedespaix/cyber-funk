@@ -24,7 +24,7 @@ impl CinemaRng {
         self.state = self.state.wrapping_add(0x6d2b_79f5);
         let mut t = self.state;
         t = (t ^ (t >> 15)).wrapping_mul(t | 1);
-        t ^= t.wrapping_add((t ^ (t >> 7)).wrapping_mul(t | 61));
+        t ^= t.wrapping_add((t ^ (t >> 7)).wrapping_mul(t | 0x3d));
         f64::from(t ^ (t >> 14)) / 4_294_967_296.0
     }
 
@@ -57,7 +57,11 @@ mod tests {
     #[test]
     fn meme_suite_que_sillage() {
         let mut rng = CinemaRng::new(42);
-        let expected = [0.601_103_751_920_163_6, 0.448_290_558_997_541_67, 0.852_465_793_490_409_9];
+        let expected = [
+            0.601_103_751_920_163_6,
+            0.448_290_558_997_541_67,
+            0.852_465_793_490_409_9,
+        ];
         for e in expected {
             assert!((rng.next_f64() - e).abs() < 1e-15);
         }

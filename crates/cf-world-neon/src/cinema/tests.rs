@@ -101,8 +101,14 @@ fn dix_minutes_dans_neon_city_sans_pose_dans_un_mur() {
         let pose = *director.update(&view);
         let p = pose.position;
         assert!(p.is_finite() && pose.rotation.is_finite(), "pose non finie à t={time}");
-        assert!(!city.collides(p, CAMERA_RADIUS), "pose dans un mur à t={time:.2} : {p} (voiture {car})");
-        assert!(p.z >= car.z - MAX_AHEAD - 1e-6 && p.z <= car.z + MAX_BEHIND + 1e-6, "hors bornes à t={time}");
+        assert!(
+            !city.collides(p, CAMERA_RADIUS),
+            "pose dans un mur à t={time:.2} : {p} (voiture {car})"
+        );
+        assert!(
+            p.z >= car.z - MAX_AHEAD - 1e-6 && p.z <= car.z + MAX_BEHIND + 1e-6,
+            "hors bornes à t={time}"
+        );
         assert!(p.y <= view.ground() + MAX_HEIGHT + 1e-6, "trop haut à t={time}");
 
         let flying = frame.animation.airborne();
@@ -120,7 +126,10 @@ fn dix_minutes_dans_neon_city_sans_pose_dans_un_mur() {
         }
     }
     let stats = director.stats();
-    assert!(flights >= 1, "la voiture n'a jamais volé : le test ne couvre pas les envols");
+    assert!(
+        flights >= 1,
+        "la voiture n'a jamais volé : le test ne couvre pas les envols"
+    );
     assert!(on_grid >= 30, "{on_grid} coupes sur la grille");
     assert_eq!(stats.fallbacks, 0, "{stats:?}");
 }

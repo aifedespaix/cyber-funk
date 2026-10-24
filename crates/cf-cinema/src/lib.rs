@@ -38,11 +38,13 @@ pub mod transition;
 pub mod types;
 pub mod world;
 
-pub use director::{CAMERA_RADIUS, CinemaDirector, DirectorStats, MAX_AHEAD, MAX_BEHIND, MAX_CUTS_PER_SECOND, MAX_HEIGHT};
+pub use director::{
+    CAMERA_RADIUS, CinemaDirector, DirectorStats, MAX_AHEAD, MAX_BEHIND, MAX_CUTS_PER_SECOND, MAX_HEIGHT,
+};
 pub use plugin::{CinemaPlugin, CinemaSet, CinemaWorldPlugin, DEFAULT_SEED};
 pub use shot::{Shot, ShotSpec};
 pub use types::{
-    BeatView, Cabin, CarAnimation, Cue, CueKind, FlightPhase, MeteorBlast, RingPlanet, Section, ShotTier, ShowView, Stunt,
-    TransitionKind, Trick, TrickKind,
+    BeatView, Cabin, CarAnimation, Cue, CueKind, FlightPhase, MeteorBlast, RingPlanet, Section, ShotTier, ShowView,
+    Stunt, TransitionKind, Trick, TrickKind,
 };
 pub use world::{CinemaFrame, CinemaWorld, MAX_DT, NoObstacles, Obstacles};

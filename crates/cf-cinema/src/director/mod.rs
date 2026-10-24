@@ -292,7 +292,13 @@ impl CinemaDirector {
     }
 
     /// Prépare le plan suivant et lance la transition ; renvoie faux si rien n'est disponible.
-    fn queue(&mut self, frame: &CinemaFrame<'_>, decision: Decision, forced: Option<TransitionKind>, on_beat: bool) -> bool {
+    fn queue(
+        &mut self,
+        frame: &CinemaFrame<'_>,
+        decision: Decision,
+        forced: Option<TransitionKind>,
+        on_beat: bool,
+    ) -> bool {
         let index = match decision.spec {
             Some(index) => index,
             None => match self.editor.pick(frame, &self.catalog, decision.mode, self.current.spec) {
@@ -300,7 +306,9 @@ impl CinemaDirector {
                 None => return false,
             },
         };
-        let Some(spec) = self.catalog.get(index) else { return false };
+        let Some(spec) = self.catalog.get(index) else {
+            return false;
+        };
         let mut shot = spec.create(frame, &mut self.rng);
         shot.update(frame, &mut self.incoming.pose);
         self.incoming.shot = Some(shot);
@@ -312,7 +320,9 @@ impl CinemaDirector {
             .kind
             .or(forced)
             .unwrap_or_else(|| self.choose_kind(frame, index, decision.mode, distance, cabin));
-        let Some(spec) = self.catalog.get(index) else { return false };
+        let Some(spec) = self.catalog.get(index) else {
+            return false;
+        };
         self.editor.register(index, spec.as_ref(), frame);
         if kind == TransitionKind::Cut {
             self.last_cut = frame.time;
@@ -344,7 +354,14 @@ impl CinemaDirector {
     /// La caméra voyage : fondu en arc, envolée pour les longs trajets. La coupe franche est un effet réservé : un
     /// drop, l'astre qui tombe, la plongée vers l'habitacle ou une figure, et pas plus d'une toutes les 45 s (sauf
     /// l'astre).
-    fn choose_kind(&self, frame: &CinemaFrame<'_>, index: usize, mode: PickMode, distance: f64, cabin: bool) -> TransitionKind {
+    fn choose_kind(
+        &self,
+        frame: &CinemaFrame<'_>,
+        index: usize,
+        mode: PickMode,
+        distance: f64,
+        cabin: bool,
+    ) -> TransitionKind {
         let Some(spec) = self.catalog.get(index) else {
             return TransitionKind::Blend;
         };

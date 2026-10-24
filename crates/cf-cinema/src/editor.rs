@@ -97,7 +97,7 @@ impl Editor {
                 if Some(index) == current || !spec.available(frame) {
                     continue;
                 }
-                if strict && !(self.in_energy(frame, spec.as_ref()) && self.rested(frame, index, spec.as_ref())) {
+                if strict && !(Self::in_energy(frame, spec.as_ref()) && self.rested(frame, index, spec.as_ref())) {
                     continue;
                 }
                 let weight = spec.weight().max(0.0);
@@ -155,7 +155,7 @@ impl Editor {
         self.screen.switch_to(index, frame.time);
     }
 
-    fn in_energy(&self, frame: &CinemaFrame<'_>, spec: &dyn ShotSpec) -> bool {
+    fn in_energy(frame: &CinemaFrame<'_>, spec: &dyn ShotSpec) -> bool {
         let (lo, hi) = spec.energy();
         (lo..=hi).contains(&frame.intensity)
     }

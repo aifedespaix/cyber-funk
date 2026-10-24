@@ -18,6 +18,7 @@ pub const BREATH_GRID: u32 = 16;
 
 /// Les repères d'une image, ramenés à quelques booléens.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+#[allow(clippy::struct_excessive_bools)] // Les drapeaux de `CueFlags` de Sillage, tels quels.
 pub struct CueFlags {
     /// Le drop part.
     pub drop: bool,

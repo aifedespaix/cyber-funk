@@ -40,7 +40,11 @@ impl Obstacles for BoxCity {
                 }
                 let inner = 9.5 + 4.5 * h;
                 let top = 8.0 + 82.0 * hash(index * 7 + 3);
-                let (x0, x1) = if side < 0.0 { (-inner - 20.0, -inner) } else { (inner, inner + 20.0) };
+                let (x0, x1) = if side < 0.0 {
+                    (-inner - 20.0, -inner)
+                } else {
+                    (inner, inner + 20.0)
+                };
                 let (z0, z1) = (index as f64 * ROW + 2.0, (index + 1) as f64 * ROW - 2.0);
                 if at.y < top + reach
                     && at.x > x0 - reach
@@ -130,7 +134,11 @@ impl Sim {
         let previous = w.altitude;
         w.altitude += (target - w.altitude) * crate::pose::follow(DT, 0.8);
         w.animation.climb = (w.altitude - previous) / DT;
-        w.animation.phase = if w.altitude > 1.0 { FlightPhase::Flying } else { FlightPhase::Ground };
+        w.animation.phase = if w.altitude > 1.0 {
+            FlightPhase::Flying
+        } else {
+            FlightPhase::Ground
+        };
         w.car.y = f64::from(w.altitude);
         w.car_velocity = Vec3::new(1.8 * (t * 0.3).cos() as f32, w.animation.climb, -w.speed);
     }
@@ -140,8 +148,15 @@ impl Sim {
 fn check_pose(pose: &CameraPose, frame: &CinemaFrame<'_>) {
     let p = pose.position;
     assert!(crate::pose::is_finite(pose), "pose non finie à t={}", frame.time);
-    assert!(!frame.collides(p, CAMERA_RADIUS), "pose dans un mur à t={} : {p}", frame.time);
-    assert!(p.z >= frame.car.z - MAX_AHEAD - 1e-6 && p.z <= frame.car.z + MAX_BEHIND + 1e-6, "hors bornes : {p}");
+    assert!(
+        !frame.collides(p, CAMERA_RADIUS),
+        "pose dans un mur à t={} : {p}",
+        frame.time
+    );
+    assert!(
+        p.z >= frame.car.z - MAX_AHEAD - 1e-6 && p.z <= frame.car.z + MAX_BEHIND + 1e-6,
+        "hors bornes : {p}"
+    );
     assert!(p.y <= frame.ground() + MAX_HEIGHT + 1e-6, "trop haut : {p}");
 }
 
@@ -175,11 +190,16 @@ fn dix_minutes_coupes_sur_la_grille_et_aucune_pose_dans_un_mur() {
                 assert!(stats.last_on_beat, "coupe hors temps à t={}", frame.time);
                 let grid = u32::from(frame.show.grid_for(frame.section));
                 let beat_in_phrase = frame.beat.count % crate::cues::PHRASE_BEATS;
-                assert_eq!(beat_in_phrase % grid, 0, "coupe hors grille ({grid} temps) à t={}", frame.time);
+                assert_eq!(
+                    beat_in_phrase % grid,
+                    0,
+                    "coupe hors grille ({grid} temps) à t={}",
+                    frame.time
+                );
                 assert_eq!(stats.last_beat_no % grid, 0);
                 on_grid += 1;
             }
-            other => panic!("tirage inattendu {other:?} à t={}", frame.time),
+            other => unreachable!("tirage inattendu {other:?} à t={}", frame.time),
         }
     }
     // ~600 s à des plans de 7 à 21 s : plusieurs dizaines de coupes, un drop par sommet après la garde de 6 s.
@@ -312,6 +332,10 @@ fn le_degagement_sauve_une_pose_au_bord_d_un_toit() {
     director.out.position = DVec3::new(-inner - 0.5, 2.0, row as f64 * ROW + ROW / 2.0);
     assert!(frame.collides(director.out.position, CAMERA_RADIUS));
     director.avoid_walls(&frame);
-    assert!(!frame.collides(director.out.position, CAMERA_RADIUS), "{}", director.out.position);
+    assert!(
+        !frame.collides(director.out.position, CAMERA_RADIUS),
+        "{}",
+        director.out.position
+    );
     assert_eq!(director.stats().wall_saves, 1);
 }
