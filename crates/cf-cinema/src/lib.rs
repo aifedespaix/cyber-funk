@@ -11,7 +11,7 @@
 //! - [`cues`], [`pacing`], [`cutter`] : repères musicaux et grille de coupe ;
 //! - [`editor`] : tirage des plans (provisoire, le vrai éditeur arrive avec J6-02) ;
 //! - [`car_sync`], [`kit`], [`subjects`], [`pose`], [`transition`], [`rng`], [`screen_time`] : outils des plans ;
-//! - [`shots`] : le catalogue (un seul plan pour l'instant, `chase`) ;
+//! - [`shots`] : le catalogue (plans voiture, lot A de J6-03 ; plans sujets déjà portables) ;
 //! - [`plugin`] : la couche Bevy.
 //!
 //! # Sécurité du public
@@ -34,6 +34,8 @@ pub mod screen_time;
 pub mod shot;
 pub mod shots;
 pub mod subjects;
+#[cfg(test)]
+mod testkit;
 pub mod transition;
 pub mod types;
 pub mod world;

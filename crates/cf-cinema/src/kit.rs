@@ -4,6 +4,7 @@ use bevy::math::{DVec3, Vec3};
 use cf_render::CameraPose;
 
 use crate::pose::{aim, follow, smoothstep};
+use crate::rng::CinemaRng;
 use crate::world::CinemaFrame;
 
 /// Bornes du champ de vision que la caméra accepte (degrés).
@@ -67,6 +68,8 @@ pub struct RigGoal {
     pub up: Vec3,
     /// Aucune inertie (coupe franche).
     pub snap: bool,
+    /// Raideur de ce pas seulement (1/s) ; `None` : celle du rig (un plan qui veut un suivi plus lâche le précise).
+    pub rate: Option<f32>,
 }
 
 impl RigGoal {
@@ -80,8 +83,44 @@ impl RigGoal {
             roll: 0.0,
             up: Vec3::Y,
             snap: false,
+            rate: None,
         }
     }
+
+    /// Même consigne, avec le haut `up` (vue en plongée, plan incliné).
+    #[must_use]
+    pub fn with_up(mut self, up: Vec3) -> Self {
+        self.up = up;
+        self
+    }
+
+    /// Même consigne, avec le roulis `roll` (rad).
+    #[must_use]
+    pub fn with_roll(mut self, roll: f32) -> Self {
+        self.roll = roll;
+        self
+    }
+
+    /// Même consigne, sans inertie (coupe franche).
+    #[must_use]
+    pub fn snapped(mut self, snap: bool) -> Self {
+        self.snap = snap;
+        self
+    }
+
+    /// Même consigne, avec une raideur propre à ce pas (1/s).
+    #[must_use]
+    pub fn with_rate(mut self, rate: f32) -> Self {
+        self.rate = Some(rate);
+        self
+    }
+}
+
+/// Un générateur fils, graine tirée du parent : un plan garde son propre aléatoire pour les tirages qu'il fait en
+/// cours de route (la place d'une caméra, un sens qui s'inverse), sans toucher à la suite du réalisateur.
+#[must_use]
+pub fn fork(rng: &mut CinemaRng) -> CinemaRng {
+    CinemaRng::new((rng.next_f64() * f64::from(u32::MAX)) as u32)
 }
 
 impl CarRig {
@@ -106,8 +145,9 @@ impl CarRig {
         keep_clear(frame, &mut abs, CLEAR_RADIUS);
         let want = (abs - car).as_vec3();
         let hard = goal.snap || !self.ready;
-        let k = if hard { 1.0 } else { follow(frame.dt, self.rate) };
-        let k_look = if hard { 1.0 } else { follow(frame.dt, self.rate * 1.4) };
+        let rate = goal.rate.unwrap_or(self.rate);
+        let k = if hard { 1.0 } else { follow(frame.dt, rate) };
+        let k_look = if hard { 1.0 } else { follow(frame.dt, rate * 1.4) };
         self.ready = true;
         self.rel = self.rel.lerp(want, k);
         self.rel_look = self.rel_look.lerp(goal.look, k_look);

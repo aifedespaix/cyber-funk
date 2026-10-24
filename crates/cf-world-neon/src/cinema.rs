@@ -112,6 +112,7 @@ pub fn fill_cinema_world(world: &mut CinemaWorld, input: &CinemaInput<'_>) {
         count: f.count,
         bpm: f.bpm,
         pulse: f.pulse,
+        bass: f.bass,
     };
     world.section = section;
     world.intensity = f.intensity;
