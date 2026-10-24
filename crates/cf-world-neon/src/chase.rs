@@ -46,13 +46,14 @@ impl Default for RunnerConfig {
 pub fn chase_pose(car: DVec3, pulse: f32, intensity: f32) -> CameraPose {
     // La caméra est en (0,55 x, 2,3 + pouls, z + 6,2) et regarde (0,35 x, 1, z − 8), x et z étant ceux de la voiture. Le
     // regard se calcule relativement à la caméra, en `f32` : exact quel que soit l'éloignement ; seule la position
-    // finale est absolue (`f64`).
+    // finale est absolue (`f64`). En vol, la caméra monte avec la voiture (son altitude `car.y`) : le regard suit, il
+    // est relatif.
     let height = 2.3 + pulse * 0.1;
     let x = car.x as f32;
     let to_look = Vec3::new(x * (0.35 - 0.55), 1.0 - height, -8.0 - 6.2);
     let rotation = Transform::IDENTITY.looking_to(to_look, Vec3::Y).rotation;
     CameraPose {
-        position: DVec3::new(car.x * 0.55, f64::from(height), car.z + 6.2),
+        position: DVec3::new(car.x * 0.55, car.y + f64::from(height), car.z + 6.2),
         rotation,
         fov_deg: 75.0 + intensity * 6.0 + pulse * 3.0,
         ..CameraPose::default()
@@ -69,9 +70,20 @@ pub struct ChasePlugin {
 impl Plugin for ChasePlugin {
     fn build(&self, app: &mut App) {
         app.insert_resource(self.config)
-            .init_resource::<CameraPose>()
+            .add_plugins(ChaseCameraPlugin)
             .add_systems(Startup, spawn_runner)
-            .add_systems(Update, advance_runner.in_set(CfSet::Simulate).before(WorldSet::Gates))
+            .add_systems(Update, advance_runner.in_set(CfSet::Simulate).before(WorldSet::Gates));
+    }
+}
+
+/// Installe la seule caméra de poursuite : elle suit l'entité qui porte [`StreamFocus`], point suivi provisoire ou
+/// voiture du pilote ([`crate::PilotPlugin`]).
+#[derive(Debug, Default, Clone, Copy)]
+pub struct ChaseCameraPlugin;
+
+impl Plugin for ChaseCameraPlugin {
+    fn build(&self, app: &mut App) {
+        app.init_resource::<CameraPose>()
             .add_systems(Update, chase_camera.in_set(CfSet::Direct));
     }
 }
@@ -105,15 +117,21 @@ fn advance_runner(time: Res<Time>, config: Res<RunnerConfig>, mut runner: Query<
     }
 }
 
-/// `CfSet::Direct` : la caméra suit le point suivi.
+/// `CfSet::Direct` : la caméra suit l'entité suivie (point suivi provisoire ou voiture).
 fn chase_camera(
     features: Option<Res<AudioFeatures>>,
-    runner: Query<&AbsolutePosition, With<Runner>>,
+    runner: Query<(&AbsolutePosition, Has<crate::pilot::PilotCar>), With<StreamFocus>>,
     mut pose: ResMut<CameraPose>,
 ) {
-    let Ok(car) = runner.single() else { return };
+    let Ok((car, piloted)) = runner.single() else { return };
     let (pulse, intensity) = features.as_deref().map_or((0.0, 0.4), |f| (f.0.pulse, f.0.intensity));
-    let next = chase_pose(car.0, pulse, intensity);
+    // La voiture du pilote vole : la caméra monte avec elle. Le pavé provisoire, lui, est posé par son centre (0,65 m).
+    let at = if piloted {
+        car.0
+    } else {
+        DVec3::new(car.0.x, 0.0, car.0.z)
+    };
+    let next = chase_pose(at, pulse, intensity);
     if *pose != next {
         *pose = next;
     }

@@ -2437,6 +2437,7 @@ dependencies = [
 name = "cf-world-neon"
 version = "0.1.0"
 dependencies = [
+ "assert_no_alloc",
  "bevy",
  "cf-analysis",
  "cf-cinema",

@@ -1,7 +1,7 @@
 //! Neon City, le monde repris de Sillage : route infinie, immeubles néon, ciel et planètes, voiture en pilote
 //! automatique, trafic, cascades, enseignes et événements. Implémente le trait `World` de `cf-render`.
 //!
-//! Contenu actuel (J5-01, J5-02, J5-03, J5-05) :
+//! Contenu actuel (J5-01, J5-02, J5-03, J5-05, J5-06) :
 //!
 //! - [`road`] : la route (plan unique, shader WESL, réaction au pouls et aux basses, teinte d'ambiance) ;
 //! - [`route`] : le plan de route (ponts, planificateur du pilote), pur et déterministe ;
@@ -9,7 +9,9 @@
 //! - [`sky`] : le ciel (voûte, étoiles, aurores, astres, géante à anneau, étoiles filantes), couche arrière-plan ;
 //! - [`facade`] : le matériau de façade (fenêtres, néons, pulsation sur les temps) et son shader ;
 //! - [`world`] : [`NeonWorld`], l'implémentation du trait `World` (streaming) ;
-//! - [`chase`] : point suivi et caméra de poursuite provisoires, en attendant le pilote (J5-06) et le réalisateur (J6) ;
+//! - [`chase`] : caméra de poursuite provisoire, en attendant le réalisateur (J6), et point suivi provisoire pour les
+//!   exemples sans pilote ;
+//! - [`pilot`] (J5-06) : le pilote automatique (allure, chorégraphie, vol, esquives) et [`CarAnimation`] ;
 //! - [`car`] (J5-05) : la voiture (`CyberCar` de Sillage), ses lumières, sa traînée, la fumée de ses pneus. Elle prend la
 //!   place du pavé du point suivi provisoire.
 //!
@@ -23,6 +25,7 @@
 pub mod car;
 pub mod chase;
 pub mod facade;
+pub mod pilot;
 pub mod rng;
 pub mod road;
 pub mod route;
@@ -34,8 +37,9 @@ use bevy::prelude::*;
 use cf_render::WorldPlugin;
 
 pub use car::{Car, CarControls, CarPlugin};
-pub use chase::{ChasePlugin, Runner, RunnerConfig, chase_pose};
+pub use chase::{ChaseCameraPlugin, ChasePlugin, Runner, RunnerConfig, chase_pose};
 pub use facade::{FacadeLook, FacadeMaterial, FacadePlugin};
+pub use pilot::{CarAnimation, Pilot, PilotPlugin, PilotSettings, PilotTraffic};
 pub use road::{Road, RoadLook, RoadMaterial, RoadPalette, RoadPlugin};
 pub use route::{RoutePlan, RoutePlanner};
 pub use scenery::{Clearing, SceneryConfig, SpotAnchor};
@@ -44,13 +48,14 @@ pub use world::NeonWorld;
 
 /// Plugin du monde Neon City : le monde streamé, la route et le plan de route.
 ///
-/// Par défaut il ajoute aussi le point suivi et la caméra de poursuite provisoires ([`ChasePlugin`]) : de quoi voir le
-/// monde seul. Quand la voiture et le réalisateur existent, [`NeonWorldPlugin::embedded`] les retire.
+/// Par défaut il ajoute aussi la caméra de poursuite provisoire, la voiture et son pilote automatique ([`PilotPlugin`]) :
+/// de quoi voir le monde seul. Quand le réalisateur existe, [`NeonWorldPlugin::embedded`] retire la caméra, la voiture
+/// et le pilote : l'application les ajoute (le pilote crée la voiture).
 ///
 /// À ajouter après `CorePlugin` et les plugins de rendu de Bevy.
 #[derive(Debug, Clone, Copy)]
 pub struct NeonWorldPlugin {
-    /// Ajoute [`ChasePlugin`] (point suivi et caméra provisoires).
+    /// Ajoute la caméra de poursuite provisoire, la voiture et son pilote ([`ChaseCameraPlugin`], [`PilotPlugin`]).
     pub standalone: bool,
     /// Affiche la ville (immeubles et arches). Faux : la route seule ([`NeonWorld::without_city`]).
     pub city: bool,
@@ -111,7 +116,8 @@ impl Plugin for NeonWorldPlugin {
                 .run_if(resource_exists::<scenery::arches::ArchPool>),
         );
         if self.standalone {
-            app.add_plugins((ChasePlugin::default(), CarPlugin::default()));
+            // Le pilote crée la voiture (elle porte `StreamFocus`) : pas de point suivi provisoire avec lui.
+            app.add_plugins((ChaseCameraPlugin, PilotPlugin::default(), CarPlugin::default()));
         }
     }
 }
