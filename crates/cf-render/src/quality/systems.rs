@@ -7,8 +7,9 @@ use super::logic::{MAX_LEVEL, Quality};
 use crate::{DiagnosticsSnapshot, PostFxSettings, RenderScale};
 
 /// Durée (s) de l'estompage du bloom avant son retrait (ou de son retour) : un palier de qualité ne doit jamais se
-/// voir comme un saut de luminance (règle 7).
-pub const BLOOM_FADE_S: f32 = 0.6;
+/// voir comme un saut de luminance (règle 7). Le bloom d'une scène de néons pèse jusqu'à 30 % de la luminance moyenne ;
+/// étalé sur 1,5 s, cela fait moins de 0,3 % par image.
+pub const BLOOM_FADE_S: f32 = 1.5;
 
 /// Qui décide du niveau.
 #[derive(Resource, Debug, Clone, Copy, PartialEq, Eq, Default)]

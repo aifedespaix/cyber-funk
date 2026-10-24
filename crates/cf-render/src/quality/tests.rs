@@ -413,7 +413,7 @@ fn le_bloom_s_estompe_avant_d_etre_retire_et_revient_sans_a_coup() {
 
     // Chaque image ne retire qu'une petite part de l'intensité (pas de saut).
     let mut previous = fading.intensity;
-    for _ in 0..60 {
+    for _ in 0..120 {
         app.update();
         if let Some(bloom) = bloom_of_compositor(&mut app) {
             assert!(previous - bloom.intensity < 0.1 * full.intensity, "saut de bloom");
@@ -428,7 +428,7 @@ fn le_bloom_s_estompe_avant_d_etre_retire_et_revient_sans_a_coup() {
     run(&mut app, 2);
     let back = bloom_of_compositor(&mut app).expect("bloom de retour");
     assert!(back.intensity < 0.2 * full.intensity, "retour sans à-coup : {}", back.intensity);
-    run(&mut app, 60);
+    run(&mut app, 120);
     let settled = bloom_of_compositor(&mut app).expect("bloom");
     assert!(settled.intensity > 0.9 * full.intensity);
 }
