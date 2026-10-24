@@ -34,6 +34,7 @@
 //! - les matériaux : écrits par le seul `update_materials` (`CfSet::Present`).
 
 mod material;
+mod params;
 mod shooting;
 mod spec;
 mod stars;
@@ -48,10 +49,11 @@ pub use material::{
     AuroraMaterial, AuroraParams, DomeMaterial, DomeParams, PlanetMaterial, PlanetParams, RingMaterial, RingParams,
     SkyParams, StarsMaterial, StarsParams, StreakMaterial, StreakParams,
 };
+pub use params::{SkyFrame, build_dome, build_planet, build_stars, build_streak};
 pub use shooting::{MAX_PER_SECOND, MIN_GAP_S, POOL, ShootingStars, Streak};
 pub use spec::{PLANETS, PlanetSpec, RADIUS_M, RING_PLANET_TEXTURE, RingSpec, STAR_LAYERS, StarLayer, galaxy_axis};
 pub use stars::{Star, star_field, star_mesh};
-pub use systems::{SkyFrame, SkyState, build_dome, build_planet, build_stars, build_streak};
+pub use systems::SkyState;
 
 /// Tout ce qui fait partie du ciel : à interroger pour le compter ou le cacher en bloc.
 #[derive(Component, Debug, Default, Clone, Copy)]
@@ -121,7 +123,8 @@ impl RingPlanet {
         let ring = spec.ring?;
         // Normale du disque (+Z), pivotée comme sa géométrie (basculement autour de x) puis comme l'astre (inclinaison
         // autour de z).
-        let ring_normal = (Quat::from_rotation_z(spec.tilt_rad) * Quat::from_rotation_x(spec::RING_TILT_X_RAD)) * Vec3::Z;
+        let ring_normal =
+            (Quat::from_rotation_z(spec.tilt_rad) * Quat::from_rotation_x(spec::RING_TILT_X_RAD)) * Vec3::Z;
         Some(Self {
             center: spec.center(),
             radius: spec.radius_m,

@@ -54,10 +54,7 @@ const BASE: Scene = Scene {
 };
 
 const SCENES: [Scene; 10] = [
-    Scene {
-        name: "1-face",
-        ..BASE
-    },
+    Scene { name: "1-face", ..BASE },
     Scene {
         name: "2-geante",
         at_giant: true,
@@ -239,7 +236,10 @@ fn evaluate(check: &Check) -> AppExit {
     }
     if let Some(giant) = shot("2-geante") {
         let lit = giant.count_in(CENTER, |p| luma(p) > 25.0);
-        verdict(lit > 800, format!("la géante à anneau est au centre ({lit} pixels lumineux)"));
+        verdict(
+            lit > 800,
+            format!("la géante à anneau est au centre ({lit} pixels lumineux)"),
+        );
         if let Some(trip) = shot("3-voyage") {
             let near = trip.count_in(CENTER, |p| luma(p) > 25.0);
             verdict(

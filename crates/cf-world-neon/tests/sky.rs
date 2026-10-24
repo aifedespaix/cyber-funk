@@ -15,8 +15,8 @@ use cf_render::{
     ShowFxInput, aabb_encloses_mesh, mesh_aabb,
 };
 use cf_world_neon::sky::{
-    DomeMaterial, PLANETS, PlanetMaterial, PlanetTextures, POOL, RADIUS_M, RING_PLANET_TEXTURE, RingPlanet,
-    SkyPart, SkyPlanet, SkyState, SkyStreak, StarsMaterial, StreakMaterial,
+    DomeMaterial, PLANETS, POOL, PlanetMaterial, PlanetTextures, RADIUS_M, RING_PLANET_TEXTURE, RingPlanet, SkyPart,
+    SkyPlanet, SkyState, SkyStreak, StarsMaterial, StreakMaterial,
 };
 use cf_world_neon::{ChasePlugin, NeonWorldPlugin, RunnerConfig, ShootingStarRequest, SkyLook};
 
@@ -58,7 +58,10 @@ fn tout_le_ciel_est_dans_la_couche_arriere_plan() {
     let mut app = app(0.0, 0.0);
     app.update();
     let mut query = app.world_mut().query::<(&SkyPart, &RenderLayers, Option<&Mesh3d>)>();
-    let parts: Vec<_> = query.iter(app.world()).map(|(_, l, m)| (l.clone(), m.is_some())).collect();
+    let parts: Vec<_> = query
+        .iter(app.world())
+        .map(|(_, l, m)| (l.clone(), m.is_some()))
+        .collect();
     // Dôme, étoiles, deux aurores, sept astres, deux anneaux, cinq traits.
     assert_eq!(parts.len(), 1 + 1 + 2 + 7 + 2 + POOL);
     for (layers, has_mesh) in parts {
@@ -72,7 +75,9 @@ fn le_ciel_reste_a_l_infini_quand_la_camera_voyage_a_400_km() {
     let mut app = app(-400_000.0, 40.0);
     app.update();
     let snapshot = |app: &mut App| -> Vec<(Entity, Vec3)> {
-        let mut query = app.world_mut().query_filtered::<(Entity, &Transform), (With<SkyPart>, Without<SkyStreak>)>();
+        let mut query = app
+            .world_mut()
+            .query_filtered::<(Entity, &Transform), (With<SkyPart>, Without<SkyStreak>)>();
         let mut out: Vec<_> = query.iter(app.world()).map(|(e, t)| (e, t.translation)).collect();
         out.sort_by_key(|(e, _)| *e);
         out
@@ -102,7 +107,9 @@ fn la_camera_de_fond_se_place_avec_sky_drift_et_jamais_avec_la_position() {
         // « voyage » vers les astres.
         assert_eq!(view.translation, drift, "z = {z}");
     }
-    let at_rest = CameraPose::default().view_for(Layer::Background, DVec3::ZERO).expect("fond");
+    let at_rest = CameraPose::default()
+        .view_for(Layer::Background, DVec3::ZERO)
+        .expect("fond");
     assert_eq!(at_rest.translation, Vec3::ZERO);
 }
 
@@ -110,10 +117,18 @@ fn la_camera_de_fond_se_place_avec_sky_drift_et_jamais_avec_la_position() {
 fn les_aabb_sont_justes_et_aucun_mesh_du_ciel_n_evite_le_culling() {
     let mut app = app(0.0, 0.0);
     app.update();
-    let mut forced = app.world_mut().query_filtered::<Entity, (With<SkyPart>, With<NoFrustumCulling>)>();
-    assert_eq!(forced.iter(app.world()).count(), 0, "pas de NoFrustumCulling dans le ciel");
+    let mut forced = app
+        .world_mut()
+        .query_filtered::<Entity, (With<SkyPart>, With<NoFrustumCulling>)>();
+    assert_eq!(
+        forced.iter(app.world()).count(),
+        0,
+        "pas de NoFrustumCulling dans le ciel"
+    );
 
-    let mut query = app.world_mut().query_filtered::<(&Name, &Mesh3d, &Transform), With<SkyPart>>();
+    let mut query = app
+        .world_mut()
+        .query_filtered::<(&Name, &Mesh3d, &Transform), With<SkyPart>>();
     let rows: Vec<_> = query
         .iter(app.world())
         .map(|(n, m, t)| (n.to_string(), m.0.clone(), *t))
@@ -180,10 +195,17 @@ fn les_astres_tournent_sur_leur_axe() {
         let expected = spec.spin_step_rad(seconds);
         let spin = state.spin_rad(index);
         // Une seconde environ de rotation (la première image n'a pas de delta).
-        assert!((spin - expected).abs() < expected * 0.05, "{} : {spin} contre {expected}", spec.texture);
+        assert!(
+            (spin - expected).abs() < expected * 0.05,
+            "{} : {spin} contre {expected}",
+            spec.texture
+        );
         assert!(transform.rotation.angle_between(spec.rotation(spin)) < 1e-3);
         assert!((transform.scale.x - spec.radius_m).abs() < f32::EPSILON);
-        assert!(transform.translation.distance(spec.center()) < 1e-3, "l'astre ne se déplace pas");
+        assert!(
+            transform.translation.distance(spec.center()) < 1e-3,
+            "l'astre ne se déplace pas"
+        );
     }
 }
 
@@ -208,7 +230,10 @@ fn les_etoiles_filantes_partent_vite_se_cachent_et_respectent_la_cadence() {
     assert!(seen >= 1, "au moins une étoile en 30 s");
     assert!(starts.len() >= 3, "{starts:?}");
     for window in starts.windows(4) {
-        assert!(window[3] - window[0] >= 1.0, "plus de 3 départs en une seconde : {window:?}");
+        assert!(
+            window[3] - window[0] >= 1.0,
+            "plus de 3 départs en une seconde : {window:?}"
+        );
     }
     for pair in starts.windows(2) {
         assert!(pair[1] - pair[0] >= 0.25, "départs trop rapprochés : {pair:?}");
@@ -296,7 +321,11 @@ fn les_materiaux_suivent_le_pouls_la_palette_et_le_fondu() {
     // Un trait libre est invisible : opacité nulle, mais le fondu lui arrive aussi.
     let streaks = app.world().resource::<Assets<StreakMaterial>>();
     assert_eq!(streaks.iter().count(), POOL);
-    assert!(streaks.iter().all(|(_, s)| s.params.frame.x == 0.0 && (s.params.frame.y - 0.25).abs() < 1e-6));
+    assert!(
+        streaks
+            .iter()
+            .all(|(_, s)| s.params.frame.x == 0.0 && (s.params.frame.y - 0.25).abs() < 1e-6)
+    );
 }
 
 #[test]

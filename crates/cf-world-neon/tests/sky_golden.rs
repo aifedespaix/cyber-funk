@@ -52,7 +52,12 @@ fn les_etoiles_sont_celles_de_sillage() {
             let i = usize::try_from(sample["i"].as_u64().expect("indice")).expect("indice");
             let star = stars[start + i];
             for (axis, value) in star.position.to_array().iter().enumerate() {
-                near(*value, num(&sample["position"][axis]), TOL_M, &format!("étoile {i} position"));
+                near(
+                    *value,
+                    num(&sample["position"][axis]),
+                    TOL_M,
+                    &format!("étoile {i} position"),
+                );
             }
             near(star.size_px, num(&sample["size"]), 1e-3, "taille");
             near(star.phase, num(&sample["phase"]), 1e-3, "phase");

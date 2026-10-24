@@ -120,9 +120,8 @@ fn keys(
     mut reveal: Local<Option<f32>>,
 ) {
     let dt = time.delta_secs();
-    let axis = |plus: KeyCode, minus: KeyCode| {
-        f32::from(i8::from(keyboard.pressed(plus)) - i8::from(keyboard.pressed(minus)))
-    };
+    let axis =
+        |plus: KeyCode, minus: KeyCode| f32::from(i8::from(keyboard.pressed(plus)) - i8::from(keyboard.pressed(minus)));
     view.yaw -= axis(KeyCode::ArrowRight, KeyCode::ArrowLeft) * TURN_RAD_S * dt;
     view.pitch = (view.pitch + axis(KeyCode::ArrowUp, KeyCode::ArrowDown) * TURN_RAD_S * dt).clamp(-1.4, 1.4);
     if keyboard.just_pressed(KeyCode::KeyG)
@@ -164,6 +163,10 @@ fn beat(time: Res<Time>, mut features: ResMut<AudioFeatures>) {
 
 /// Écrit la pose du ciel d'après l'orientation de la démo.
 fn apply_view(view: Res<View>, giant: Option<Res<RingPlanet>>, mut pose: ResMut<CameraPose>) {
-    let z = if std::env::var_os("CF_FAR").is_some() { -400_000.0 } else { 0.0 };
+    let z = if std::env::var_os("CF_FAR").is_some() {
+        -400_000.0
+    } else {
+        0.0
+    };
     *pose = pose_for(view.yaw, view.pitch, z, view.drift, giant.as_deref());
 }

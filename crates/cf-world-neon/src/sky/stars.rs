@@ -40,36 +40,37 @@ pub fn star_field() -> Vec<Star> {
     let total: u32 = STAR_LAYERS.iter().map(|l| l.count).sum();
     let mut stars = Vec::with_capacity(total as usize);
     for (layer_index, layer) in STAR_LAYERS.iter().enumerate() {
-        stars.extend((0..layer.count).map(|i| star(layer, layer_index, i)));
+        stars.extend((0..layer.count).map(|index| star(layer, layer_index, index)));
     }
     stars
 }
 
-fn star(layer: &StarLayer, layer_index: usize, i: u32) -> Star {
+fn star(layer: &StarLayer, layer_index: usize, index: u32) -> Star {
     let axis = galaxy_axis();
-    let seed = f64::from(i);
+    let seed = f64::from(index);
     let salt = layer_index as f64 * 100.0;
-    let h = |n: u8| hash(seed, salt + f64::from(n)) as f32;
+    // Le `n`-ième tirage de l'étoile : `hash(i, salt + n)` de `random.ts`.
+    let draw = |n: u8| hash(seed, salt + f64::from(n)) as f32;
 
     // Direction uniforme sur la sphère…
-    let z = h(1) * 2.0 - 1.0;
-    let a = h(2) * std::f32::consts::TAU;
-    let r = (1.0 - z * z).sqrt();
-    let mut dir = Vec3::new(r * a.cos(), z, r * a.sin());
+    let height = draw(1) * 2.0 - 1.0;
+    let angle = draw(2) * std::f32::consts::TAU;
+    let ring = (1.0 - height * height).sqrt();
+    let mut dir = Vec3::new(ring * angle.cos(), height, ring * angle.sin());
     // …puis une partie est ramenée vers le plan de la Voie lactée.
-    if h(3) < layer.galactic {
-        let k = dir.dot(axis);
-        let squash = 0.82 + h(4) * 0.12;
-        dir -= axis * (k * squash);
+    if draw(3) < layer.galactic {
+        let along = dir.dot(axis);
+        let squash = 0.82 + draw(4) * 0.12;
+        dir -= axis * (along * squash);
         let norm = dir.length();
         dir /= if norm > 0.0 { norm } else { 1.0 };
     }
-    let radius = RADIUS_M * (0.78 + h(5) * 0.15);
+    let radius = RADIUS_M * (0.78 + draw(5) * 0.15);
     Star {
         position: dir * radius,
-        size_px: layer.size_px[0] + (layer.size_px[1] - layer.size_px[0]) * h(6).powf(layer.power),
-        phase: h(7),
-        tint: ((h(8) * TINT_COUNT as f32).floor() as usize).min(TINT_COUNT - 1) as u8,
+        size_px: layer.size_px[0] + (layer.size_px[1] - layer.size_px[0]) * draw(6).powf(layer.power),
+        phase: draw(7),
+        tint: ((draw(8) * TINT_COUNT as f32).floor() as usize).min(TINT_COUNT - 1) as u8,
         dim: if layer_index == 0 { 0.9 } else { 1.0 },
     }
 }
