@@ -5,6 +5,7 @@
 
 mod cli;
 mod logging;
+mod preload;
 mod projector;
 mod show_setup;
 mod test_scene;
@@ -18,12 +19,15 @@ use bevy::prelude::*;
 use bevy::winit::WinitSettings;
 use cf_cinema::CinemaPlugin;
 use cf_operator::{OperatorPlugin, QuitGuardPlugin};
-use cf_render::{AudioConfig, CfAudioPlugin, ControlsPlugin, CorePlugin, DiagnosticsPlugin, OutputChoice, ShowPlugin};
+use cf_render::{
+    AudioConfig, CfAudioPlugin, ControlsPlugin, CorePlugin, DiagnosticsPlugin, OutputChoice, ShowPlugin, WarmupPlugin,
+};
 use cf_world_neon::NeonWorldPlugin;
 use clap::Parser as _;
 
 use crate::cli::Cli;
 use crate::logging::LogConfig;
+use crate::preload::PreloadPlan;
 use crate::projector::{ProjectorConfig, ProjectorPlugin};
 use crate::test_scene::TestScenePlugin;
 
@@ -51,14 +55,15 @@ fn main() -> anyhow::Result<ExitCode> {
     }
     let show = show_setup::show_plugin(&cli)?;
     let controls = show_setup::controls_plugin(&cli)?;
+    let preload = PreloadPlan::new(&cli, show.show.as_ref());
 
-    let exit = build_app(&cli, controls, show).run();
+    let exit = build_app(&cli, controls, show, preload).run();
     tracing::info!(?exit, "cyber-funk s'arrête");
     Ok(exit_code(&exit))
 }
 
 /// Assemble l'application : les plugins de cyber-funk, les fenêtres et la scène de test.
-fn build_app(cli: &Cli, controls: ControlsPlugin, show: ShowPlugin) -> App {
+fn build_app(cli: &Cli, controls: ControlsPlugin, show: ShowPlugin, preload: PreloadPlan) -> App {
     let projector = ProjectorConfig {
         monitor: cli.projector_monitor.clone().unwrap_or_default(),
         windowed: cli.windowed,
@@ -76,8 +81,11 @@ fn build_app(cli: &Cli, controls: ControlsPlugin, show: ShowPlugin) -> App {
     .insert_resource(WinitSettings::game())
     .insert_resource(ClearColor(Color::BLACK))
     .insert_resource(ShowRequest(cli.show.clone()))
+    .insert_resource(preload)
     .add_plugins((
         CorePlugin,
+        // Avant les mondes : états `Loading` → `Ready`, préchauffe des pipelines, détecteur de compilations tardives.
+        WarmupPlugin,
         DiagnosticsPlugin::default(),
         CfAudioPlugin::new(audio_config(cli)),
         // Après l'audio (`AudioPump`), avant le spectacle : les actions de l'image sont prêtes quand le chef les lit.
@@ -88,6 +96,8 @@ fn build_app(cli: &Cli, controls: ControlsPlugin, show: ShowPlugin) -> App {
         NeonWorldPlugin::default(),
         TestScenePlugin,
     ));
+
+    app.add_systems(Startup, preload::start_preload);
 
     if cli.no_operator {
         // Sans fenêtre opérateur, pas d'interface pour confirmer : double fermeture à la place du dialogue.

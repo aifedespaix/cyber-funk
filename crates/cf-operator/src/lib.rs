@@ -7,6 +7,7 @@
 mod audio_panel;
 mod controls_panel;
 mod diagnostics;
+mod loading;
 mod quit;
 mod ui;
 mod window;

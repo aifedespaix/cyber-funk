@@ -40,7 +40,7 @@ pub mod trail;
 use bevy::pbr::PbrPlugin;
 use bevy::prelude::*;
 use bevy::shader::Shader;
-use cf_render::{CfSet, ScenePalette, ThemeLibrary, WorldSet};
+use cf_render::{CfSet, ScenePalette, ThemeLibrary, WarmupAppExt, WorldSet};
 
 pub use glb::{CarModelError, Gltf};
 pub use materials::{CarLightMaterial, CarPaintMaterial};
@@ -87,7 +87,10 @@ impl Plugin for CarPlugin {
             app.add_plugins((
                 MaterialPlugin::<CarLightMaterial>::default(),
                 MaterialPlugin::<CarPaintMaterial>::default(),
-            ));
+            ))
+            // Les `StandardMaterial` de la carrosserie sont couverts par la préchauffe générale de `cf-render`.
+            .warm_material::<CarLightMaterial>("voiture : lumières, fumée, traînée")
+            .warm_material::<CarPaintMaterial>("voiture : peinture");
             if let Some(mut shaders) = app.world_mut().get_resource_mut::<Assets<Shader>>() {
                 materials::embed_shaders(&mut shaders);
             }
