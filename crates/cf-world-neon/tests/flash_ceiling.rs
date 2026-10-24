@@ -42,7 +42,9 @@ fn app() -> App {
         .init_resource::<ButtonInput<KeyCode>>()
         .add_message::<KeyboardInput>()
         .add_message::<WindowFocused>()
-        .insert_resource(TimeUpdateStrategy::ManualDuration(Duration::from_secs_f64(f64::from(FRAME_S))))
+        .insert_resource(TimeUpdateStrategy::ManualDuration(Duration::from_secs_f64(f64::from(
+            FRAME_S,
+        ))))
         .add_plugins((
             ControlsPlugin::new(ControlsConfig {
                 midi: MidiChoice::Off,
@@ -146,7 +148,10 @@ fn max_starts_per_second(levels: &[Vec<f32>]) -> usize {
 /// Variation maximale d'une image à l'autre, ramenée à la pleine échelle `span` : pas plus vite que `MIN_FADE`.
 fn max_step(levels: impl Iterator<Item = f32>, span: f32) -> f32 {
     let levels: Vec<f32> = levels.collect();
-    levels.windows(2).map(|w| (w[1] - w[0]).abs() / span).fold(0.0, f32::max)
+    levels
+        .windows(2)
+        .map(|w| (w[1] - w[0]).abs() / span)
+        .fold(0.0, f32::max)
 }
 
 #[test]
@@ -158,29 +163,60 @@ fn la_sortie_finale_tient_le_plafond_sous_une_charge_hostile() {
     let blink: Vec<f32> = outputs.iter().map(|o| o.car_blink).collect();
 
     // Pas vide : des flashs ont bien eu lieu, sinon le plafond ne prouverait rien.
-    assert!(flash.iter().copied().fold(0.0, f32::max) > 0.05, "aucun flash de post-process");
-    assert!(kick.iter().copied().fold(0.0, f32::max) > 0.05, "aucun pouls de la voiture");
+    assert!(
+        flash.iter().copied().fold(0.0, f32::max) > 0.05,
+        "aucun flash de post-process"
+    );
+    assert!(
+        kick.iter().copied().fold(0.0, f32::max) > 0.05,
+        "aucun pouls de la voiture"
+    );
 
     // Amplitude.
-    assert!(flash.iter().all(|&v| v <= MAX_FLASH_PEAK + EPS), "flash au-dessus du plafond");
-    assert!(sweep.iter().all(|&v| v <= MAX_SWEEP_PEAK + EPS), "vague au-dessus du plafond");
-    assert!(kick.iter().chain(&blink).all(|&v| v <= 1.0 + EPS), "voiture au-dessus de son plafond");
+    assert!(
+        flash.iter().all(|&v| v <= MAX_FLASH_PEAK + EPS),
+        "flash au-dessus du plafond"
+    );
+    assert!(
+        sweep.iter().all(|&v| v <= MAX_SWEEP_PEAK + EPS),
+        "vague au-dessus du plafond"
+    );
+    assert!(
+        kick.iter().chain(&blink).all(|&v| v <= 1.0 + EPS),
+        "voiture au-dessus de son plafond"
+    );
 
     // Vitesse : jamais plus vite que `MIN_FADE` pour la pleine échelle de la voie.
     let limit = FRAME_S / MIN_FADE + EPS;
-    assert!(max_step(flash.iter().copied(), MAX_FLASH_PEAK) <= limit, "flash trop brusque");
-    assert!(max_step(sweep.iter().copied(), MAX_SWEEP_PEAK) <= limit, "vague trop brusque");
-    assert!(max_step(kick.iter().copied(), 1.0) <= limit, "pouls de la voiture trop brusque");
+    assert!(
+        max_step(flash.iter().copied(), MAX_FLASH_PEAK) <= limit,
+        "flash trop brusque"
+    );
+    assert!(
+        max_step(sweep.iter().copied(), MAX_SWEEP_PEAK) <= limit,
+        "vague trop brusque"
+    );
+    assert!(
+        max_step(kick.iter().copied(), 1.0) <= limit,
+        "pouls de la voiture trop brusque"
+    );
     assert!(max_step(blink.iter().copied(), 1.0) <= limit, "clignotant trop brusque");
 
     // Cadence : au plus 3 départs par seconde glissante (flash et vague du post-process ensemble ; chaque limiteur de la
     // voiture à part, voir `car::safety`).
     assert!(
         max_starts_per_second(&[flash.clone(), sweep.clone()]) <= MAX_FLASHES_PER_SECOND,
-        "{} : plus de {MAX_FLASHES_PER_SECOND} flashs par seconde sur le post-process", max_starts_per_second(&[flash.clone(), sweep.clone()])
+        "{} : plus de {MAX_FLASHES_PER_SECOND} flashs par seconde sur le post-process",
+        max_starts_per_second(&[flash.clone(), sweep.clone()])
     );
-    assert!(max_starts_per_second(&[kick]) <= MAX_FLASHES_PER_SECOND, "pouls de la voiture trop rapide");
-    assert!(max_starts_per_second(&[blink]) <= MAX_FLASHES_PER_SECOND, "clignotant trop rapide");
+    assert!(
+        max_starts_per_second(&[kick]) <= MAX_FLASHES_PER_SECOND,
+        "pouls de la voiture trop rapide"
+    );
+    assert!(
+        max_starts_per_second(&[blink]) <= MAX_FLASHES_PER_SECOND,
+        "clignotant trop rapide"
+    );
 }
 
 #[test]
@@ -193,7 +229,11 @@ fn flash_kill_eteint_tout_en_un_fondu_et_le_garde_eteint() {
         assert!(
             out.flash < EPS && out.sweep < EPS && out.car_kick < EPS && out.car_blink < EPS,
             "lumière après FlashKill à l'image {i} ({} s) : {} {} {} {}",
-            i as f32 * FRAME_S, out.flash, out.sweep, out.car_kick, out.car_blink
+            i as f32 * FRAME_S,
+            out.flash,
+            out.sweep,
+            out.car_kick,
+            out.car_blink
         );
     }
     // Et avant le `FlashKill`, il y avait bien des flashs.

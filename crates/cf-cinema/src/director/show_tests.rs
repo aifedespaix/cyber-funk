@@ -115,21 +115,16 @@ fn play(kill_flashes: bool) -> Report {
         if !state.flashes && director.shot_id().is_some_and(is_strobing) {
             report.strobe_without_flashes += 1;
         }
-        match stats.last_mode {
-            Some(PickMode::Normal) => {
-                report.routine += 1;
-                let grid = u32::from(frame.show.grid_for(frame.section));
-                if stats.last_on_beat && (frame.beat.count % crate::cues::PHRASE_BEATS) % grid == 0 {
-                    report.on_grid += 1;
-                } else if !stats.last_on_beat {
-                    // Seules les réactions à un événement (atterrissage) partent hors temps ; préparation du drop et
-                    // salves partent sur un temps, mais pas forcément sur la grille.
-                    if director.shot_id() != Some("touchdown") {
-                        report.off_beat += 1;
-                    }
-                }
+        if stats.last_mode == Some(PickMode::Normal) {
+            report.routine += 1;
+            let grid = u32::from(frame.show.grid_for(frame.section));
+            if stats.last_on_beat && (frame.beat.count % crate::cues::PHRASE_BEATS).is_multiple_of(grid) {
+                report.on_grid += 1;
+            } else if !stats.last_on_beat && director.shot_id() != Some("touchdown") {
+                // Seules les réactions à un événement (atterrissage) partent hors temps ; préparation du drop et
+                // salves partent sur un temps, mais pas forcément sur la grille.
+                report.off_beat += 1;
             }
-            _ => {}
         }
     }
     report
@@ -176,6 +171,9 @@ fn le_drop_prepare_du_chef_est_visible_du_realisateur() {
 fn strobe_n_est_jamais_choisi_quand_les_flashs_sont_coupes() {
     let report = play(true);
     assert!(report.shots >= 20, "{} plans seulement", report.shots);
-    assert!(report.frames_without_flashes > 30_000, "les flashs n'ont pas été coupés");
+    assert!(
+        report.frames_without_flashes > 30_000,
+        "les flashs n'ont pas été coupés"
+    );
     assert_eq!(report.strobe_without_flashes, 0, "plan strobe avec les flashs coupés");
 }

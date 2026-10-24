@@ -21,8 +21,8 @@ use bevy::winit::WinitSettings;
 use cf_cinema::CinemaPlugin;
 use cf_operator::{OperatorPlugin, QuitGuardPlugin};
 use cf_render::{
-    AudioConfig, CfAudioPlugin, ControlsPlugin, CorePlugin, CullingPlugin, DiagnosticsPlugin, LayersPlugin, OutputChoice,
-    PalettePlugin, PostFxPlugin, QualityPlugin, ShowPlugin, WarmupPlugin,
+    AudioConfig, CfAudioPlugin, ControlsPlugin, CorePlugin, CullingPlugin, DiagnosticsPlugin, LayersPlugin,
+    OutputChoice, PalettePlugin, PostFxPlugin, QualityPlugin, ShowPlugin, WarmupPlugin,
 };
 use cf_world_neon::{CarPlugin, NeonCinemaPlugin, NeonWorldPlugin, PilotPlugin};
 use clap::Parser as _;

@@ -49,7 +49,9 @@ mod tests {
         let mut app = app();
         app.update();
         assert!(app.world().resource::<QualityIdle>().0, "Loading : au repos");
-        app.world_mut().resource_mut::<NextState<AppState>>().set(AppState::Ready);
+        app.world_mut()
+            .resource_mut::<NextState<AppState>>()
+            .set(AppState::Ready);
         app.update();
         app.update();
         assert!(!app.world().resource::<QualityIdle>().0, "Ready : la mesure décide");
