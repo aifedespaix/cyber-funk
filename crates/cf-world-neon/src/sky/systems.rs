@@ -155,6 +155,13 @@ impl Default for SkyState {
 }
 
 impl SkyState {
+    /// Remet le ciel animé à son état de départ : astres à leur angle initial, pool vide, minuteur d'étoile filante
+    /// relancé. À appeler à l'ouverture d'un show ; les captures scriptées s'en servent pour que chaque scène parte du
+    /// même instant.
+    pub fn reset(&mut self) {
+        *self = Self::default();
+    }
+
     /// Les étoiles filantes.
     #[must_use]
     pub fn shooting(&self) -> &ShootingStars {
