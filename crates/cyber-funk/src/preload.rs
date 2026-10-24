@@ -102,6 +102,6 @@ mod tests {
     #[test]
     fn un_dossier_de_musiques_absent_ne_donne_rien_a_charger() {
         let cli = Cli::try_parse_from(["cyber-funk", "--music-dir", "/nulle/part"]).expect("arguments");
-        assert!(PreloadPlan::new(&cli, None).music.is_empty());
+        assert_eq!(PreloadPlan::new(&cli, None).music.len(), 0);
     }
 }

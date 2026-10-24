@@ -73,6 +73,7 @@ pub struct WarmupProgress {
     pub timed_out: bool,
     /// Durée totale du chargement, connue à `Ready`.
     pub ready_after_s: Option<f32>,
+    compile_elapsed_s: f32,
     last_total: usize,
 }
 
@@ -86,6 +87,7 @@ struct WarmEntities(Vec<Entity>);
 
 /// Condition d'exécution : le spectacle peut avancer. Vraie sans `WarmupPlugin` (tests, exemples), sinon seulement à
 /// `Ready` : l'horloge d'un show ne doit pas courir pendant le chargement.
+#[must_use]
 pub fn show_may_run(state: Option<Res<State<AppState>>>) -> bool {
     state.is_none_or(|state| *state.get() == AppState::Ready)
 }
@@ -154,35 +156,43 @@ fn drive_loading(world: &mut World) {
             }
         }
         WarmupPhase::Compiling => {
-            let mut progress = world.resource_mut::<WarmupProgress>();
-            progress.compile_frames += 1;
-            let total = watch.total();
-            let quiet = watch.waiting() == 0 && total == progress.last_total;
-            progress.last_total = total;
-            progress.stable_frames = if quiet { progress.stable_frames + 1 } else { 0 };
-            // Sans monde de rendu (tests, serveur sans écran) il n'y a rien à compiler : seul le délai minimal compte.
-            let compiled = if watch.attached() {
-                progress.compile_frames >= MIN_COMPILE_FRAMES && progress.stable_frames >= STABLE_FRAMES
-            } else {
-                progress.compile_frames >= MIN_COMPILE_FRAMES
-            };
-            let timed_out = elapsed_s > ASSET_TIMEOUT_S + COMPILE_TIMEOUT_S && !compiled;
-            if timed_out {
-                tracing::warn!(
-                    waiting = watch.waiting(),
-                    "préchauffe : délai dépassé, ouverture sans attendre la fin de la compilation"
-                );
-                progress.timed_out = true;
-            }
-            if compiled || timed_out {
-                progress.phase = WarmupPhase::Done;
-                progress.ready_after_s = Some(elapsed_s);
-                drop(progress);
+            let finished = advance_compiling(&mut world.resource_mut::<WarmupProgress>(), &watch, dt);
+            if finished {
                 world.resource_mut::<NextState<AppState>>().set(AppState::Ready);
             }
         }
         WarmupPhase::Done => {}
     }
+}
+
+/// Une image de compilation. Rend vrai quand on peut ouvrir : cache de pipelines calme, ou délai dépassé.
+fn advance_compiling(progress: &mut WarmupProgress, watch: &PipelineWatch, dt: f32) -> bool {
+    progress.compile_frames += 1;
+    progress.compile_elapsed_s += dt;
+    let total = watch.total();
+    let quiet = watch.waiting() == 0 && total == progress.last_total;
+    progress.last_total = total;
+    progress.stable_frames = if quiet { progress.stable_frames + 1 } else { 0 };
+    // Sans monde de rendu (tests, serveur sans écran) il n'y a rien à compiler : seul le délai minimal compte.
+    let compiled = if watch.attached() {
+        progress.compile_frames >= MIN_COMPILE_FRAMES && progress.stable_frames >= STABLE_FRAMES
+    } else {
+        progress.compile_frames >= MIN_COMPILE_FRAMES
+    };
+    let timed_out = !compiled && progress.compile_elapsed_s > COMPILE_TIMEOUT_S;
+    if timed_out {
+        tracing::warn!(
+            waiting = watch.waiting(),
+            "préchauffe : délai dépassé, ouverture sans attendre la fin de la compilation"
+        );
+        progress.timed_out = true;
+    }
+    if compiled || timed_out {
+        progress.phase = WarmupPhase::Done;
+        progress.ready_after_s = Some(progress.elapsed_s);
+        return true;
+    }
+    false
 }
 
 /// Fin du chargement des assets : exécute les préchauffes déclarées et passe à la compilation.

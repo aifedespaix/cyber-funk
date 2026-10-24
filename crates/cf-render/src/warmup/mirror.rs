@@ -86,7 +86,7 @@ fn view_distance(projection: &Projection) -> f32 {
         (near * far).sqrt()
     } else {
         // Caméra orthographique à plans symétriques (la 2D) : le milieu.
-        (near + far) * 0.5
+        f32::midpoint(near, far)
     }
 }
 
