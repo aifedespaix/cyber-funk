@@ -10,6 +10,7 @@ mod cuts;
 mod cuts_tests;
 mod guard;
 mod kind;
+mod launch;
 mod stats;
 #[cfg(test)]
 mod tests;
@@ -74,6 +75,8 @@ pub struct CinemaDirector {
     limiter: CutLimiter,
     /// Le plan courant a produit une pose invalide : il est remplacé à l'image suivante.
     poisoned: bool,
+    /// Un plan demande un astre au monde (`launchMeteor`).
+    meteor_launch: bool,
 }
 
 impl std::fmt::Debug for CinemaDirector {
@@ -112,6 +115,7 @@ impl CinemaDirector {
             stats: DirectorStats::default(),
             limiter: CutLimiter::default(),
             poisoned: false,
+            meteor_launch: false,
         }
     }
 
@@ -322,6 +326,7 @@ impl CinemaDirector {
         if let Some((scale, seconds)) = shot.take_time_scale() {
             show.request_time_scale(scale, seconds);
         }
+        self.meteor_launch |= shot.take_meteor_launch();
         shot.update(frame, &mut self.incoming.pose);
         self.incoming.shot = Some(shot);
         self.incoming.spec = Some(index);

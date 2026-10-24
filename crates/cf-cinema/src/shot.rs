@@ -29,6 +29,14 @@ pub trait Shot: Send + Sync {
         None
     }
 
+    /// Le plan demande au monde de lancer un astre (`launchMeteor` de Sillage) : lu une seule fois par le réalisateur
+    /// juste après la fabrication du plan, qui le transmet par [`crate::director::CinemaDirector::take_meteor_launch`]
+    /// (message [`crate::world::LaunchMeteor`] côté Bevy). Sillage recevait l'identifiant de l'astre sur le champ ; ici
+    /// l'astre apparaît quelques images plus tard dans les sujets et le plan l'y retrouve.
+    fn take_meteor_launch(&mut self) -> bool {
+        false
+    }
+
     /// Réaction aux temps musicaux : un plan peut changer de côté, de rotation, d'angle sur une mesure.
     fn cue(&mut self, _cue: &Cue, _frame: &CinemaFrame<'_>) {}
 }

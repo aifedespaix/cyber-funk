@@ -8,7 +8,7 @@
 use std::ops::Deref;
 
 use bevy::math::{DVec3, Quat, Vec3};
-use bevy::prelude::Resource;
+use bevy::prelude::{Message, Resource};
 use cf_render::Subject;
 
 use crate::types::{BeatView, Cabin, CarAnimation, MeteorBlast, RingPlanet, Section, ShowView, Stunt, Trick};
@@ -88,6 +88,12 @@ impl Default for CinemaWorld {
         }
     }
 }
+
+/// Ordre au monde de lancer un astre (`launchMeteor` de Sillage), émis par le réalisateur quand le plan `meteor-ride`
+/// n'a aucun astre en vol à filmer. Le monde (J7) le lit en `CfSet::Simulate` et fait apparaître un astre dans les
+/// [`Subjects`](cf_render::Subjects) ; tant que personne ne le lit, le plan se termine seul après son délai de grâce.
+#[derive(Message, Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub struct LaunchMeteor;
 
 /// Le décor que la caméra ne doit jamais traverser.
 pub trait Obstacles {

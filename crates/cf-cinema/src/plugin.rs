@@ -15,7 +15,7 @@ use cf_render::{CameraPose, CfSet, Subjects};
 
 use crate::director::CinemaDirector;
 use crate::shots;
-use crate::world::{CinemaFrame, CinemaWorld, Obstacles};
+use crate::world::{CinemaFrame, CinemaWorld, LaunchMeteor, Obstacles};
 
 /// Graine par défaut du réalisateur (rejouable) ; l'application peut en tirer une autre par soirée.
 pub const DEFAULT_SEED: u32 = 0x5111_a6e0;
@@ -48,6 +48,7 @@ impl Plugin for CinemaPlugin {
         app.insert_resource(CinemaDirector::new(shots::catalog(), self.calm, self.seed))
             .init_resource::<CinemaWorld>()
             .init_resource::<CameraPose>()
+            .add_message::<LaunchMeteor>()
             .configure_sets(Update, CinemaSet.in_set(CfSet::Direct));
     }
 }
@@ -67,6 +68,7 @@ impl<W: Obstacles + Resource> Plugin for CinemaWorldPlugin<W> {
     fn build(&self, app: &mut App) {
         app.init_resource::<CinemaWorld>()
             .init_resource::<CameraPose>()
+            .add_message::<LaunchMeteor>()
             .add_systems(Update, direct::<W>.in_set(CinemaSet).in_set(CfSet::Direct));
     }
 }
@@ -78,6 +80,7 @@ fn direct<W: Obstacles + Resource>(
     subjects: Option<Res<Subjects>>,
     director: Option<ResMut<CinemaDirector>>,
     mut pose: ResMut<CameraPose>,
+    mut launches: MessageWriter<LaunchMeteor>,
 ) {
     let (Some(obstacles), Some(mut director)) = (obstacles, director) else {
         return;
@@ -89,6 +92,9 @@ fn direct<W: Obstacles + Resource>(
         director.start(&from, &frame);
     }
     let next = *director.update(&frame);
+    if director.take_meteor_launch() {
+        launches.write(LaunchMeteor);
+    }
     if *pose != next {
         *pose = next;
     }
