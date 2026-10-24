@@ -80,8 +80,8 @@ impl Plugin for CarPlugin {
             path: self.assets_dir.join(self.quality.path()),
         })
         .init_resource::<CarControls>()
-            .init_resource::<CarSettings>()
-            .init_resource::<crate::RoadLook>();
+        .init_resource::<CarSettings>()
+        .init_resource::<crate::RoadLook>();
         if app.is_plugin_added::<PbrPlugin>() {
             app.add_plugins((
                 MaterialPlugin::<CarLightMaterial>::default(),

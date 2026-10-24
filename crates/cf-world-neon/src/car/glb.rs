@@ -9,9 +9,7 @@
 //! `KHR_mesh_quantization` : positions en `i16` normalisés, normales en `i8`, UV en `u16`) ; le reste est refusé par une
 //! erreur claire plutôt que mal interprété.
 
-use super::doc::{
-    AccessorDef, Document, ImageDef, MaterialDef, MeshDef, MeshoptDef, NodeDef, SamplerDef, TextureDef,
-};
+use super::doc::{AccessorDef, Document, ImageDef, MaterialDef, MeshDef, MeshoptDef, NodeDef, SamplerDef, TextureDef};
 
 /// Erreurs de lecture du modèle de la voiture.
 #[derive(Debug, thiserror::Error)]
@@ -63,7 +61,9 @@ pub struct Gltf {
 /// Sépare les deux morceaux (JSON, binaire) d'un GLB.
 fn split_glb(bytes: &[u8]) -> Result<(&[u8], &[u8])> {
     let word = |at: usize| -> Result<usize> {
-        let raw = bytes.get(at..at + 4).ok_or(CarModelError::Container("fichier tronqué"))?;
+        let raw = bytes
+            .get(at..at + 4)
+            .ok_or(CarModelError::Container("fichier tronqué"))?;
         Ok(u32::from_le_bytes([raw[0], raw[1], raw[2], raw[3]]) as usize)
     };
     if bytes.get(..4) != Some(b"glTF") {
@@ -186,7 +186,10 @@ impl Gltf {
         let def = self.accessor(accessor)?;
         let size = component_size(def.component_type)?;
         if def.kind != "SCALAR" || !matches!(def.component_type, 5121 | 5123 | 5125) {
-            return Err(CarModelError::Unsupported(format!("indices de type {} {}", def.kind, def.component_type)));
+            return Err(CarModelError::Unsupported(format!(
+                "indices de type {} {}",
+                def.kind, def.component_type
+            )));
         }
         let (bytes, stride) = self.accessor_bytes(def, size)?;
         (0..def.count)
@@ -317,7 +320,9 @@ fn decode_view(def: &MeshoptDef, compressed: &[u8]) -> Result<Vec<u8>> {
             let indices: Vec<u32> = meshopt::decode_index_buffer(compressed, def.count).map_err(meshopt_error)?;
             Ok(indices.iter().flat_map(|i| i.to_le_bytes()).collect())
         }
-        (mode, stride) => Err(CarModelError::Unsupported(format!("meshopt {mode} avec un pas de {stride} octets"))),
+        (mode, stride) => Err(CarModelError::Unsupported(format!(
+            "meshopt {mode} avec un pas de {stride} octets"
+        ))),
     }
 }
 
@@ -340,7 +345,10 @@ fn decode_attributes<const N: usize>(def: &MeshoptDef, compressed: &[u8]) -> Res
         ("NONE", _) => {}
         // Normales en octaèdre : quatre composantes de 8 ou de 16 bits.
         ("OCTAHEDRAL", 4) => {
-            let mut typed: Vec<[i8; 4]> = elements.iter().map(|e| [0, 1, 2, 3].map(|i| i8::from_le_bytes([e[i]]))).collect();
+            let mut typed: Vec<[i8; 4]> = elements
+                .iter()
+                .map(|e| [0, 1, 2, 3].map(|i| i8::from_le_bytes([e[i]])))
+                .collect();
             meshopt::decode_filter_oct(&mut typed);
             for (element, value) in elements.iter_mut().zip(&typed) {
                 for (byte, component) in element.iter_mut().zip(value) {
@@ -362,7 +370,9 @@ fn decode_attributes<const N: usize>(def: &MeshoptDef, compressed: &[u8]) -> Res
             }
         }
         (filter, stride) => {
-            return Err(CarModelError::Unsupported(format!("filtre meshopt {filter} sur {stride} octets")));
+            return Err(CarModelError::Unsupported(format!(
+                "filtre meshopt {filter} sur {stride} octets"
+            )));
         }
     }
     Ok(elements.iter().flatten().copied().collect())
@@ -377,7 +387,9 @@ mod tests {
     use super::*;
 
     fn glb(name: &str) -> Gltf {
-        let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../assets/models/car").join(name);
+        let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("../../assets/models/car")
+            .join(name);
         let bytes = std::fs::read(&path).expect("fichier du modèle");
         Gltf::from_glb(&bytes).expect("GLB lisible")
     }
@@ -396,26 +408,41 @@ mod tests {
                     let position = gltf.floats(primitive.attributes["POSITION"]).expect("positions");
                     let normal = gltf.floats(primitive.attributes["NORMAL"]).expect("normales");
                     assert_eq!(position.len(), normal.len());
-                    assert!(position.iter().all(|v| (-1.0..=1.0).contains(v)), "{name} : positions quantifiées");
+                    assert!(
+                        position.iter().all(|v| (-1.0..=1.0).contains(v)),
+                        "{name} : positions quantifiées"
+                    );
                     for n in normal.as_chunks::<3>().0 {
                         let length = (n[0] * n[0] + n[1] * n[1] + n[2] * n[2]).sqrt();
                         assert!((length - 1.0).abs() < 0.03, "{name} : normale de longueur {length}");
                     }
-                    let indices = gltf.indices(primitive.indices.expect("indices")).expect("indices lisibles");
+                    let indices = gltf
+                        .indices(primitive.indices.expect("indices"))
+                        .expect("indices lisibles");
                     assert_eq!(indices.len() % 3, 0);
-                    assert!(indices.iter().all(|&i| (i as usize) < position.len() / 3), "{name} : indices en bornes");
+                    assert!(
+                        indices.iter().all(|&i| (i as usize) < position.len() / 3),
+                        "{name} : indices en bornes"
+                    );
                     triangles += indices.len() / 3;
                 }
             }
             // ~85 000 triangles en haute définition, ~40 000 en basse (CYBERCAR.md §1).
-            let expected = if name.contains("high") { 70_000..100_000 } else { 30_000..50_000 };
+            let expected = if name.contains("high") {
+                70_000..100_000
+            } else {
+                30_000..50_000
+            };
             assert!(expected.contains(&triangles), "{name} : {triangles} triangles");
         }
     }
 
     #[test]
     fn un_fichier_qui_n_est_pas_un_glb_est_refuse() {
-        assert!(matches!(Gltf::from_glb(b"pas un glb"), Err(CarModelError::Container(_))));
+        assert!(matches!(
+            Gltf::from_glb(b"pas un glb"),
+            Err(CarModelError::Container(_))
+        ));
         assert!(matches!(Gltf::from_glb(&[]), Err(CarModelError::Container(_))));
     }
 }

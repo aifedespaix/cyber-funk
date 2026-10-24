@@ -134,7 +134,13 @@ mod tests {
 
     #[test]
     fn les_lumieres_ont_les_quatre_attributs_du_shader() {
-        for mesh in [beam(), pool(7.0, 22.0, -1.0), pool(7.0, 6.0, 1.0), ground_quad(), halo_quad()] {
+        for mesh in [
+            beam(),
+            pool(7.0, 22.0, -1.0),
+            pool(7.0, 6.0, 1.0),
+            ground_quad(),
+            halo_quad(),
+        ] {
             for attribute in [
                 Mesh::ATTRIBUTE_POSITION,
                 Mesh::ATTRIBUTE_NORMAL,

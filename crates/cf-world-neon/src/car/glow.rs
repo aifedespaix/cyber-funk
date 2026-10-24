@@ -369,7 +369,10 @@ mod tests {
         let mut fade = GlowFade::new(palette().violet);
         fade.set_target(palette().rose);
         let half = fade.update(GLOW_SECONDS / 2.0);
-        assert!(half.red > palette().violet.red && half.red < palette().rose.red, "à mi-chemin");
+        assert!(
+            half.red > palette().violet.red && half.red < palette().rose.red,
+            "à mi-chemin"
+        );
         let done = fade.update(GLOW_SECONDS);
         assert_eq!(done, palette().rose);
         // Redemander la même cible ne relance pas le fondu.
@@ -418,7 +421,11 @@ mod tests {
         let mut logo = RearLogo::default();
         logo.update(1.0 / 60.0, true, 0.0, 1.0);
         // Le kick vaut 1, décroît de 5 par seconde dans l'image même, puis pousse le logo à 90 % de ce reste.
-        assert!(logo.level() >= 0.8, "un kick pousse le logo vers 0,9 : {}", logo.level());
+        assert!(
+            logo.level() >= 0.8,
+            "un kick pousse le logo vers 0,9 : {}",
+            logo.level()
+        );
         let peak = logo.emissive_strength();
         for _ in 0..30 {
             logo.update(1.0 / 60.0, true, 0.0, 0.0);
@@ -436,7 +443,9 @@ mod tests {
             logo.update(1.0 / 60.0, false, 0.0, 0.0);
             levels.push(logo.level());
         }
-        let (min, max) = levels.iter().fold((1.0_f32, 0.0_f32), |(lo, hi), &l| (lo.min(l), hi.max(l)));
+        let (min, max) = levels
+            .iter()
+            .fold((1.0_f32, 0.0_f32), |(lo, hi), &l| (lo.min(l), hi.max(l)));
         assert!(max > 0.18 && max <= 0.23, "crête {max}");
         assert!(min < max - 0.05, "il respire : {min}..{max}");
     }

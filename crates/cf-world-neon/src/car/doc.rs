@@ -195,7 +195,10 @@ impl MaterialDef {
     /// Force de l'émissif (`KHR_materials_emissive_strength`, 1 par défaut).
     #[must_use]
     pub fn emissive_strength(&self) -> f32 {
-        self.extensions.emissive_strength.as_ref().map_or(1.0, |e| e.emissive_strength)
+        self.extensions
+            .emissive_strength
+            .as_ref()
+            .map_or(1.0, |e| e.emissive_strength)
     }
 }
 

@@ -75,10 +75,7 @@ fn main() {
                 speed_mps: if check { 0.0 } else { CRUISE_SPEED_MPS },
             },
         },
-        cf_world_neon::car::CarPlugin {
-            quality,
-            ..default()
-        },
+        cf_world_neon::car::CarPlugin { quality, ..default() },
     ))
     .init_resource::<View>()
     .insert_resource(AudioFeatures(cf_analysis::AudioFeatures::NEUTRAL))
@@ -132,7 +129,9 @@ fn camera_view(
     let Ok(car) = car.single() else { return };
     let eye = car.0 + offset.as_dvec3();
     let target = car.0 + bevy::math::DVec3::new(0.0, 0.55, 0.0);
-    let rotation = Transform::IDENTITY.looking_to((target - eye).as_vec3(), Vec3::Y).rotation;
+    let rotation = Transform::IDENTITY
+        .looking_to((target - eye).as_vec3(), Vec3::Y)
+        .rotation;
     *pose = CameraPose {
         position: eye,
         rotation,

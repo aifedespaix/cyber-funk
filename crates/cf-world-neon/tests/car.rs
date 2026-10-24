@@ -100,22 +100,31 @@ fn tout_ce_que_la_voiture_dessine_est_dans_la_couche_monde_sans_no_frustum_culli
     let mut checked = 0;
     for entity in tree(&app, root) {
         let has_mesh = app.world().get::<Mesh3d>(entity).is_some();
-        let is_light = app.world().get::<SpotLight>(entity).is_some() || app.world().get::<PointLight>(entity).is_some();
+        let is_light =
+            app.world().get::<SpotLight>(entity).is_some() || app.world().get::<PointLight>(entity).is_some();
         if has_mesh || is_light {
             let layers = app.world().get::<RenderLayers>(entity).expect("RenderLayers");
             assert_eq!(*layers, world_layers, "{:?}", app.world().get::<Name>(entity));
             checked += 1;
         }
+        // Règle 6 : chaque pièce garde l'`Aabb` que Bevy calcule de son maillage ; on vérifie qu'aucune ne s'en est
+        // affranchie (les halos, la traînée et la fumée posent le leur, juste, à la main).
+        let culling_off = app.world().get::<bevy::camera::visibility::NoFrustumCulling>(entity);
         assert!(
-            app.world().get::<bevy::camera::visibility::NoFrustumCulling>(entity).is_none(),
-            "pas de NoFrustumCulling : {:?}",
+            culling_off.is_none(),
+            "frustum culling désactivé : {:?}",
             app.world().get::<Name>(entity)
         );
     }
     // 62 primitives du GLB (moins la pluie sur le pare-brise), ~20 pièces de lumière, 2 projecteurs, 2 lumières néon.
     assert!(checked > 60, "{checked} entités dessinées ou éclairantes");
     // Traînée et fumée : roots à part, dans la couche monde aussi.
-    for entity in app.world_mut().query_filtered::<Entity, Or<(With<CarTrail>, With<CarSmoke>)>>().iter(app.world()).collect::<Vec<_>>() {
+    for entity in app
+        .world_mut()
+        .query_filtered::<Entity, Or<(With<CarTrail>, With<CarSmoke>)>>()
+        .iter(app.world())
+        .collect::<Vec<_>>()
+    {
         assert_eq!(*app.world().get::<RenderLayers>(entity).expect("couche"), world_layers);
     }
     // Aucune lumière n'est restée à la couche 0 (le fond) : la caméra du monde ne les verrait pas.
@@ -123,6 +132,36 @@ fn tout_ce_que_la_voiture_dessine_est_dans_la_couche_monde_sans_no_frustum_culli
         .world_mut()
         .query_filtered::<Entity, (Or<(With<SpotLight>, With<PointLight>)>, Without<RenderLayers>)>();
     assert_eq!(bare.iter(app.world()).count(), 0);
+}
+
+/// Budget de la voiture : entités qui dessinent et lumières de Bevy. Les maillages du modèle sont distincts (un par
+/// pièce, un draw call chacun) ; les lumières additives sont ~20 petits quadrilatères. Quatre lumières de Bevy au plus.
+#[test]
+fn la_voiture_reste_dans_son_budget_d_entites() {
+    let mut app = built(0.0, 40.0);
+    let root = car(&mut app);
+    let in_car = tree(&app, root)
+        .into_iter()
+        .filter(|&e| app.world().get::<Mesh3d>(e).is_some())
+        .count();
+    // Et ses deux effets, hors de sa hiérarchie : la traînée et la fumée.
+    let meshes = in_car + 2;
+    let spots = app
+        .world_mut()
+        .query_filtered::<Entity, With<SpotLight>>()
+        .iter(app.world())
+        .count();
+    let points = app
+        .world_mut()
+        .query_filtered::<Entity, With<PointLight>>()
+        .iter(app.world())
+        .count();
+    eprintln!(
+        "voiture : {meshes} entités à maillage (dont traînée et fumée), {spots} projecteurs, {points} lumières ponctuelles"
+    );
+    assert!((70..100).contains(&meshes), "{meshes} entités à maillage");
+    assert_eq!(spots, 2, "deux phares");
+    assert_eq!(points, 2, "sous la caisse et logo arrière");
 }
 
 #[test]
@@ -139,11 +178,19 @@ fn la_traine_et_la_fumee_ont_un_aabb_qui_enveloppe_leur_maillage() {
     // Les sommets restants (non posés) sont repliés sur le plus ancien : l'Aabb pose enveloppe tout.
     assert!(aabb_encloses_mesh(aabb, mesh, 1e-3), "{aabb:?} / {exact:?}");
     // À 400 km, la bande est rendue près de l'origine flottante (précision du millimètre), pas à 400 000 m.
-    assert!(exact.center.length() < 16_000.0, "rendue à {} m de l'origine", exact.center.length());
+    assert!(
+        exact.center.length() < 16_000.0,
+        "rendue à {} m de l'origine",
+        exact.center.length()
+    );
 }
 
 fn clone_material<A: Asset + Clone>(app: &App, handle: &Handle<A>) -> A {
-    app.world().resource::<Assets<A>>().get(handle).expect("matériau").clone()
+    app.world()
+        .resource::<Assets<A>>()
+        .get(handle)
+        .expect("matériau")
+        .clone()
 }
 
 /// Critère de la tâche : le glow pulse sur les kicks. Au pic du kick, les halos des phares, les volumes de lumière, la
@@ -183,7 +230,11 @@ fn le_glow_pulse_sur_les_kicks() {
                 let m = clone_material(app, &logo);
                 m.emissive.red + m.emissive.green + m.emissive.blue
             },
-            clone_material::<CarPaintMaterial>(app, &paint).extension.params.finish.w,
+            clone_material::<CarPaintMaterial>(app, &paint)
+                .extension
+                .params
+                .finish
+                .w,
         )
     };
     let calm = sample(&mut app, 0.0, 0.0);
@@ -231,7 +282,18 @@ fn le_volant_allume_le_clignotant_de_son_cote_et_jamais_les_deux() {
                 lit[usize::from(signal.side == cf_world_neon::car::model::Side::Right)] = true;
             }
         }
-        assert!(!(lit[0] && lit[1]), "jamais les deux côtés à la fois : {:?}", rig.signals.iter().map(|s| (s.side, app.world().get::<Visibility>(s.halo_entity).copied(), app.world().get::<Name>(s.halo_entity).map(ToString::to_string))).collect::<Vec<_>>());
+        assert!(
+            !(lit[0] && lit[1]),
+            "jamais les deux côtés à la fois : {:?}",
+            rig.signals
+                .iter()
+                .map(|s| (
+                    s.side,
+                    app.world().get::<Visibility>(s.halo_entity).copied(),
+                    app.world().get::<Name>(s.halo_entity).map(ToString::to_string)
+                ))
+                .collect::<Vec<_>>()
+        );
         seen[0] |= lit[0];
         seen[1] |= lit[1];
     }
@@ -256,7 +318,11 @@ fn les_roues_tournent_et_la_caisse_plonge_au_freinage() {
     let after = app.world().get::<Transform>(spin).expect("roue").rotation;
     assert!(before.angle_between(after) > 1e-3, "la roue a tourné");
     let state = app.world().get::<CarState>(root).expect("état");
-    assert!((state.speed_mps - 40.0).abs() < 0.5, "vitesse mesurée : {}", state.speed_mps);
+    assert!(
+        (state.speed_mps - 40.0).abs() < 0.5,
+        "vitesse mesurée : {}",
+        state.speed_mps
+    );
 }
 
 #[test]
@@ -287,7 +353,10 @@ fn la_lueur_de_la_voiture_suit_le_faisceau_traverse() {
         app.update();
     }
     let glow = app.world().resource::<cf_world_neon::RoadLook>().glow;
-    assert!((glow.blue - mint.blue).abs() < 1e-3 && glow.green > violet.green + 0.3, "{violet:?} → {glow:?}");
+    assert!(
+        (glow.blue - mint.blue).abs() < 1e-3 && glow.green > violet.green + 0.3,
+        "{violet:?} → {glow:?}"
+    );
 }
 
 #[test]

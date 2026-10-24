@@ -4,13 +4,15 @@
 
 use bevy::asset::{Asset, Assets, Handle, uuid_handle};
 use bevy::image::Image;
+use bevy::material::AlphaMode;
 use bevy::math::Vec4;
 use bevy::mesh::MeshVertexBufferLayoutRef;
-use bevy::pbr::{ExtendedMaterial, Material, MaterialExtension, MaterialPipeline, MaterialPipelineKey, StandardMaterial};
+use bevy::pbr::{
+    ExtendedMaterial, Material, MaterialExtension, MaterialPipeline, MaterialPipelineKey, StandardMaterial,
+};
 use bevy::reflect::TypePath;
 use bevy::render::render_resource::{AsBindGroup, RenderPipelineDescriptor, ShaderType, SpecializedMeshPipelineError};
 use bevy::shader::{Shader, ShaderRef};
-use bevy::material::AlphaMode;
 
 /// Shader des lumières additives, embarqué.
 const LIGHT_SHADER: Handle<Shader> = uuid_handle!("3b7e5a14-6c2d-4f08-b9a1-2e4d8c7f1a60");

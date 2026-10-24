@@ -12,8 +12,8 @@ use bevy::math::DVec3;
 use bevy::prelude::*;
 use bevy::render::view::screenshot::{Screenshot, ScreenshotCaptured, save_to_disk};
 use cf_render::{AbsolutePosition, AudioFeatures};
-use cf_world_neon::car::{Car, CarControls, CarState};
 use cf_world_neon::RoadLook;
+use cf_world_neon::car::{Car, CarControls, CarState};
 
 use crate::shots::{Rect, Shot, luma};
 use crate::{SIZE, View};
@@ -53,15 +53,56 @@ const BASE: Scene = Scene {
 };
 
 const SCENES: [Scene; 9] = [
-    Scene { name: "1-roulage", ..BASE },
-    Scene { name: "2-kick", pulse: 1.0, bass: 0.8, ..BASE },
-    Scene { name: "3-freinage", brake: 1.0, ..BASE },
-    Scene { name: "4-clignotant", steer: 0.8, settle: 3, ..BASE },
-    Scene { name: "5-glissade", drive: Some((40.0, 14.0)), settle: 50, ..BASE },
-    Scene { name: "6-avant-calme", view: View::FrontThreeQuarter, ..BASE },
-    Scene { name: "7-avant-kick", view: View::FrontThreeQuarter, pulse: 1.0, bass: 0.8, ..BASE },
-    Scene { name: "8-arriere-calme", view: View::RearThreeQuarter, ..BASE },
-    Scene { name: "9-arriere-freinage", view: View::RearThreeQuarter, brake: 1.0, ..BASE },
+    Scene {
+        name: "1-roulage",
+        ..BASE
+    },
+    Scene {
+        name: "2-kick",
+        pulse: 1.0,
+        bass: 0.8,
+        ..BASE
+    },
+    Scene {
+        name: "3-freinage",
+        brake: 1.0,
+        ..BASE
+    },
+    Scene {
+        name: "4-clignotant",
+        steer: 0.8,
+        settle: 3,
+        ..BASE
+    },
+    Scene {
+        name: "5-glissade",
+        drive: Some((40.0, 14.0)),
+        settle: 50,
+        ..BASE
+    },
+    Scene {
+        name: "6-avant-calme",
+        view: View::FrontThreeQuarter,
+        ..BASE
+    },
+    Scene {
+        name: "7-avant-kick",
+        view: View::FrontThreeQuarter,
+        pulse: 1.0,
+        bass: 0.8,
+        ..BASE
+    },
+    Scene {
+        name: "8-arriere-calme",
+        view: View::RearThreeQuarter,
+        ..BASE
+    },
+    Scene {
+        name: "9-arriere-freinage",
+        view: View::RearThreeQuarter,
+        brake: 1.0,
+        ..BASE
+    },
 ];
 
 #[derive(Clone, Copy, PartialEq, Eq, Default)]
@@ -137,7 +178,13 @@ pub(crate) fn run_check(
                 if let Ok(image) = captured.image.clone().try_into_dynamic() {
                     let rgba = image.to_rgba8();
                     let width = rgba.width();
-                    check.shots.insert(name, Shot { width, rgba: rgba.into_raw() });
+                    check.shots.insert(
+                        name,
+                        Shot {
+                            width,
+                            rgba: rgba.into_raw(),
+                        },
+                    );
                 }
                 check.index += 1;
                 check.stage = Stage::Enter;
@@ -169,9 +216,12 @@ fn evaluate(check: &Check) -> AppExit {
         }
     };
     let shot = |name: &str| check.shots.get(name);
-    let (Some(roll), Some(kick), Some(brake), Some(blink)) =
-        (shot("1-roulage"), shot("2-kick"), shot("3-freinage"), shot("4-clignotant"))
-    else {
+    let (Some(roll), Some(kick), Some(brake), Some(blink)) = (
+        shot("1-roulage"),
+        shot("2-kick"),
+        shot("3-freinage"),
+        shot("4-clignotant"),
+    ) else {
         error!("captures de la poursuite absentes");
         return AppExit::error();
     };
@@ -181,7 +231,10 @@ fn evaluate(check: &Check) -> AppExit {
     );
     let bright = |p: [f32; 3]| luma(p) > 90.0;
     let seen = roll.count_in(CAR_CHASE, bright);
-    verdict(seen > 300, format!("la voiture est dessinée ({seen} pixels lumineux au centre)"));
+    verdict(
+        seen > 300,
+        format!("la voiture est dessinée ({seen} pixels lumineux au centre)"),
+    );
     // Un feu stop plein : rouge franc (corail / rouge d'alarme), peu de vert et de bleu.
     let red = |p: [f32; 3]| p[0] > 170.0 && p[1] < 110.0 && p[2] < 110.0;
     let (rolling_red, braking_red) = (roll.count_in(CAR_CHASE, red), brake.count_in(CAR_CHASE, red));
@@ -203,13 +256,22 @@ fn evaluate(check: &Check) -> AppExit {
     );
     if let (Some(calm), Some(pulse)) = (shot("6-avant-calme"), shot("7-avant-kick")) {
         let (a, b) = (calm.mean_luma(CAR_CLOSE), pulse.mean_luma(CAR_CLOSE));
-        verdict(b > a + 0.5, format!("vue trois quarts avant : le kick éclaire la voiture ({a:.2} → {b:.2})"));
+        verdict(
+            b > a + 0.5,
+            format!("vue trois quarts avant : le kick éclaire la voiture ({a:.2} → {b:.2})"),
+        );
         let lit = calm.count_in(CAR_CLOSE, bright);
-        verdict(lit > 600, format!("vue trois quarts avant : la voiture se voit ({lit} pixels lumineux)"));
+        verdict(
+            lit > 600,
+            format!("vue trois quarts avant : la voiture se voit ({lit} pixels lumineux)"),
+        );
     }
     if let (Some(calm), Some(braking)) = (shot("8-arriere-calme"), shot("9-arriere-freinage")) {
         let (a, b) = (calm.count_in(CAR_CLOSE, red), braking.count_in(CAR_CLOSE, red));
-        verdict(b > a + 100, format!("vue trois quarts arrière : feux stop et flaque rouge ({a} → {b} pixels rouges)"));
+        verdict(
+            b > a + 100,
+            format!("vue trois quarts arrière : feux stop et flaque rouge ({a} → {b} pixels rouges)"),
+        );
     }
     if ok {
         info!("vérification : tout est bon");

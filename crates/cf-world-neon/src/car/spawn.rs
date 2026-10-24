@@ -53,7 +53,11 @@ fn standard_material(def: &MaterialData, images: &[Handle<Image>]) -> StandardMa
         metallic_roughness_texture: image(def.metallic_roughness_image),
         normal_map_texture: image(def.normal_image),
         double_sided: def.double_sided,
-        cull_mode: if def.double_sided { None } else { Some(bevy::render::render_resource::Face::Back) },
+        cull_mode: if def.double_sided {
+            None
+        } else {
+            Some(bevy::render::render_resource::Face::Back)
+        },
         alpha_mode: match def.alpha {
             Alpha::Opaque => AlphaMode::Opaque,
             Alpha::Mask(cutoff) => AlphaMode::Mask(cutoff),
@@ -101,21 +105,13 @@ enum Built {
     Skip,
 }
 
-/// Pose la voiture sous `root` : retourne le [`CarRig`] à poser sur l'entité racine.
-///
-/// `model` est consommé : ses maillages et images passent dans les `Assets`, sans copie.
-pub fn spawn_car(
-    commands: &mut Commands,
-    root: Entity,
-    mut model: CarModelAsset,
+/// Les matériaux du modèle : un par définition du GLB, plus les poignées que les systèmes repeignent ou allument.
+fn build_materials(
+    model: &CarModelAsset,
     assets: &mut CarAssets,
+    images: &[Handle<Image>],
     palette: &CarPalette,
-    glow: LinearRgba,
-) -> CarRig {
-    let frame = model.frame();
-    let lamps = Lamps::measure(&model, &frame);
-    let images: Vec<Handle<Image>> = model.images.drain(..).map(|i| assets.images.add(i)).collect();
-    let meshes: Vec<Handle<Mesh>> = model.meshes.drain(..).map(|m| assets.meshes.add(m)).collect();
+) -> (Vec<Built>, ModelMaterials, Vec<(Side, Fore, Emissive)>) {
     let mut handles = ModelMaterials::default();
     let mut signal_mats: Vec<(Side, Fore, Emissive)> = Vec::new();
     let built: Vec<Built> = model
@@ -124,14 +120,14 @@ pub fn spawn_car(
         .map(|def| match def.role {
             MaterialRole::RainGlass => Built::Skip,
             MaterialRole::BodyPaint => {
-                let handle = assets.paint.add(paint_material(def, &images, palette));
+                let handle = assets.paint.add(paint_material(def, images, palette));
                 handles.paint = Some(handle.clone());
                 Built::Paint(handle)
             }
             role => {
                 let mut material = match role {
                     MaterialRole::Glass => glass(def),
-                    _ => standard_material(def, &images),
+                    _ => standard_material(def, images),
                 };
                 if role == MaterialRole::Screen {
                     // Écrans éteints : Sillage y dessine compteur et autoradio (jeu), pas repris en mode cinéma.
@@ -157,11 +153,36 @@ pub fn spawn_car(
             }
         })
         .collect();
+    (built, handles, signal_mats)
+}
+
+/// Pose la voiture sous `root` : retourne le [`CarRig`] à poser sur l'entité racine.
+///
+/// `model` est consommé : ses maillages et images passent dans les `Assets`, sans copie.
+pub fn spawn_car(
+    commands: &mut Commands,
+    root: Entity,
+    mut model: CarModelAsset,
+    assets: &mut CarAssets,
+    palette: &CarPalette,
+    glow: LinearRgba,
+) -> CarRig {
+    let frame = model.frame();
+    let lamps = Lamps::measure(&model, &frame);
+    let images: Vec<Handle<Image>> = model.images.drain(..).map(|i| assets.images.add(i)).collect();
+    let meshes: Vec<Handle<Mesh>> = model.meshes.drain(..).map(|m| assets.meshes.add(m)).collect();
+    let (built, handles, signal_mats) = build_materials(&model, assets, &images, palette);
 
     let layer = WorldLayer;
     let group = |name: &str, transform: Transform, parent: Entity, commands: &mut Commands| {
         commands
-            .spawn((Name::new(name.to_owned()), transform, Visibility::default(), layer, ChildOf(parent)))
+            .spawn((
+                Name::new(name.to_owned()),
+                transform,
+                Visibility::default(),
+                layer,
+                ChildOf(parent),
+            ))
             .id()
     };
     let body = group("carrosserie", Transform::IDENTITY, root, commands);
@@ -174,7 +195,16 @@ pub fn spawn_car(
     let mut stack: Vec<(usize, Entity)> = model
         .roots
         .iter()
-        .map(|&r| (r, if wheel_roots.contains(&model.nodes[r].name.as_str()) { holder } else { chassis }))
+        .map(|&r| {
+            (
+                r,
+                if wheel_roots.contains(&model.nodes[r].name.as_str()) {
+                    holder
+                } else {
+                    chassis
+                },
+            )
+        })
         .collect();
     while let Some((index, parent)) = stack.pop() {
         let node = &model.nodes[index];
@@ -207,9 +237,14 @@ pub fn spawn_car(
         stack.extend(node.children.iter().map(|&c| (c, entity)));
     }
     let named = |name: &str| model.node(name).and_then(|i| entities[i]);
-    let spin: Vec<Entity> = ["spin_FL", "spin_FR", "spin_RL", "spin_RR"].into_iter().filter_map(named).collect();
+    let spin: Vec<Entity> = ["spin_FL", "spin_FR", "spin_RL", "spin_RR"]
+        .into_iter()
+        .filter_map(named)
+        .collect();
     let steer: Vec<Entity> = ["steer_FL", "steer_FR"].into_iter().filter_map(named).collect();
-    let logo = model.node("logo_rear").and_then(|i| entities[i].map(|e| (e, model.nodes[i].transform.scale)));
+    let logo = model
+        .node("logo_rear")
+        .and_then(|i| entities[i].map(|e| (e, model.nodes[i].transform.scale)));
 
     let scene = LightScene {
         frame: &frame,

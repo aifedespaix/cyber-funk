@@ -40,7 +40,9 @@ pub fn indices() -> Vec<u32> {
 /// Les UV des sommets (constants).
 #[must_use]
 pub fn uvs() -> Vec<[f32; 2]> {
-    (0..SMOKE_COUNT).flat_map(|_| [[0.0, 0.0], [1.0, 0.0], [0.0, 1.0], [1.0, 1.0]]).collect()
+    (0..SMOKE_COUNT)
+        .flat_map(|_| [[0.0, 0.0], [1.0, 0.0], [0.0, 1.0], [1.0, 1.0]])
+        .collect()
 }
 
 /// Ce que fait la conduite, 0 à 1 (`DriveFeel`).
@@ -173,9 +175,19 @@ impl Smoke {
                 let outer = -(if side == 0.0 { 1.0 } else { side.signum() });
                 self.emit(at(outer * WHEEL_X, 0.15, REAR_Z), outer * 1.8, drift, 0.5 + slide * 0.5);
             } else if brake >= launch {
-                self.emit(at(wheel * WHEEL_X, 0.15, FRONT_Z), wheel * 0.8, drift, 0.45 + brake * 0.55);
+                self.emit(
+                    at(wheel * WHEEL_X, 0.15, FRONT_Z),
+                    wheel * 0.8,
+                    drift,
+                    0.45 + brake * 0.55,
+                );
             } else {
-                self.emit(at(wheel * WHEEL_X * 0.8, 0.2, REAR_Z + 0.3), wheel * 0.6, drift - 1.5, 0.45 + launch * 0.55);
+                self.emit(
+                    at(wheel * WHEEL_X * 0.8, 0.2, REAR_Z + 0.3),
+                    wheel * 0.6,
+                    drift - 1.5,
+                    0.45 + launch * 0.55,
+                );
             }
         }
     }
@@ -216,7 +228,11 @@ impl Smoke {
             let t = self.ages[i].clamp(0.0, 1.0);
             let alive = self.ages[i] < 1.0;
             let center = anchor + self.positions[i];
-            let half = if alive { self.sizes[i] * (0.5 + t * 2.6) * 0.5 } else { 0.0 };
+            let half = if alive {
+                self.sizes[i] * (0.5 + t * 2.6) * 0.5
+            } else {
+                0.0
+            };
             let alpha = if alive {
                 (1.0 - t).powf(1.6) * smoothstep(0.0, 0.08, t) * self.strengths[i] * 0.5
             } else {
@@ -270,7 +286,14 @@ mod tests {
         run(&mut smoke, 2.0, &DriveFeel::NONE);
         assert_eq!(smoke.alive(), 0);
         // Un freinage à l'arrêt ne fume pas non plus.
-        run(&mut smoke, 2.0, &DriveFeel { brake: 1.0, ..DriveFeel::NONE });
+        run(
+            &mut smoke,
+            2.0,
+            &DriveFeel {
+                brake: 1.0,
+                ..DriveFeel::NONE
+            },
+        );
         assert_eq!(smoke.alive(), 0);
     }
 
@@ -283,7 +306,10 @@ mod tests {
         // Les particules montent, et sortent des roues avant : devant le centre de la voiture (z = −1000 → < −1001).
         for (p, _) in smoke.positions.iter().zip(&smoke.ages).filter(|(_, a)| **a < 1.0) {
             assert!(p.y > 0.0, "la fumée monte : {p}");
-            assert!(smoke.base.z + f64::from(p.z) < -1000.0 + f64::from(FRONT_Z) + 1.0, "devant la voiture : {p}");
+            assert!(
+                smoke.base.z + f64::from(p.z) < -1000.0 + f64::from(FRONT_Z) + 1.0,
+                "devant la voiture : {p}"
+            );
         }
         // Sans plus de freinage, tout s'éteint en moins de 2 s (vie max 1,3 × 1,2).
         run(&mut smoke, 2.0, &DriveFeel::NONE);
@@ -328,7 +354,10 @@ mod tests {
         smoke.emit(DVec3::new(0.0, 0.0, -2100.0), 0.0, 0.0, 1.0);
         let after = smoke.base + smoke.positions[0].as_dvec3();
         assert!((before - after).length() < 1e-3, "{before} vs {after}");
-        assert!(smoke.positions[1].length() < 1.0, "la nouvelle est près de la référence");
+        assert!(
+            smoke.positions[1].length() < 1.0,
+            "la nouvelle est près de la référence"
+        );
     }
 
     #[test]
@@ -347,7 +376,12 @@ mod tests {
         }
         let bounds = smoke.write(DVec3::new(0.0, 0.0, -50.0), axes, tint, &mut positions, &mut colors);
         assert!(bounds.is_some());
-        assert!(width(&positions) > young.0 * 2.0, "s'élargit : {} → {}", young.0, width(&positions));
+        assert!(
+            width(&positions) > young.0 * 2.0,
+            "s'élargit : {} → {}",
+            young.0,
+            width(&positions)
+        );
         assert!(colors[0][3] < young.1 + 0.5 && colors[0][3] > 0.0);
         // Une particule éteinte est un point sans opacité.
         assert!(width(&positions[4..]).abs() < 1e-6 && colors[4][3] == 0.0);

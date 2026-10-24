@@ -45,13 +45,22 @@ impl Lamps {
             (Side::Left, Fore::Rear),
             (Side::Right, Fore::Rear),
         ] {
-            for center in model.lamp_centers(frame, MaterialRole::Signal(side, fore)).into_values() {
+            for center in model
+                .lamp_centers(frame, MaterialRole::Signal(side, fore))
+                .into_values()
+            {
                 signals.push((side, fore, center));
             }
         }
         Self {
-            heads: model.lamp_centers(frame, MaterialRole::LightHead).into_values().collect(),
-            tails: model.lamp_centers(frame, MaterialRole::LightBrake).into_values().collect(),
+            heads: model
+                .lamp_centers(frame, MaterialRole::LightHead)
+                .into_values()
+                .collect(),
+            tails: model
+                .lamp_centers(frame, MaterialRole::LightBrake)
+                .into_values()
+                .collect(),
             signals,
         }
     }
@@ -156,10 +165,26 @@ pub(super) fn spawn_lights(
     // Flaques sur la route : devant (phares), derrière (feux rouges), sous la caisse (lueur néon).
     let front_pool = light_material(assets, LightKind::Pool, POOL_DEPTH_BIAS);
     let rear_pool = light_material(assets, LightKind::Pool, POOL_DEPTH_BIAS);
-    let front_mesh = assets.meshes.add(shapes::pool(shapes::POOL_WIDTH_M, shapes::POOL_DEPTH_M, -1.0));
-    let rear_mesh = assets.meshes.add(shapes::pool(shapes::POOL_WIDTH_M, shapes::POOL_DEPTH_M * 0.28, 1.0));
-    ground_light(commands, scene, front_mesh, &front_pool, (Vec3::new(0.0, 0.04, front + 1.2), Vec3::ONE, "flaque des phares"));
-    ground_light(commands, scene, rear_mesh, &rear_pool, (Vec3::new(0.0, 0.04, back - 0.6), Vec3::ONE, "flaque des feux"));
+    let front_mesh = assets
+        .meshes
+        .add(shapes::pool(shapes::POOL_WIDTH_M, shapes::POOL_DEPTH_M, -1.0));
+    let rear_mesh = assets
+        .meshes
+        .add(shapes::pool(shapes::POOL_WIDTH_M, shapes::POOL_DEPTH_M * 0.28, 1.0));
+    ground_light(
+        commands,
+        scene,
+        front_mesh,
+        &front_pool,
+        (Vec3::new(0.0, 0.04, front + 1.2), Vec3::ONE, "flaque des phares"),
+    );
+    ground_light(
+        commands,
+        scene,
+        rear_mesh,
+        &rear_pool,
+        (Vec3::new(0.0, 0.04, back - 0.6), Vec3::ONE, "flaque des feux"),
+    );
     let ground_quad = assets.meshes.add(shapes::ground_quad());
     let under_material = light_material(assets, LightKind::Glow, POOL_DEPTH_BIAS);
     let under_entity = ground_light(
@@ -167,7 +192,11 @@ pub(super) fn spawn_lights(
         scene,
         ground_quad.clone(),
         &under_material,
-        (Vec3::new(0.0, 0.05, 0.0), Vec3::new(3.2, 1.0, 5.0), "lueur sous la caisse"),
+        (
+            Vec3::new(0.0, 0.05, 0.0),
+            Vec3::new(3.2, 1.0, 5.0),
+            "lueur sous la caisse",
+        ),
     );
 
     // Halos : les phares à l'avant (la route va vers −Z), les feux stop à l'arrière.
@@ -235,8 +264,18 @@ fn spawn_signals(
         let sign = if side == Side::Left { -1.0 } else { 1.0 };
         let pool = light_material(assets, LightKind::Glow, POOL_DEPTH_BIAS);
         let scale = if is_front { 2.6 } else { 3.2 };
-        let at = Vec3::new(center.x + sign * 0.9, 0.05, center.z + if is_front { -0.4 } else { 0.4 });
-        let pool_entity = ground_light(commands, scene, ground_quad.clone(), &pool, (at, Vec3::new(scale, 1.0, scale), "flaque de clignotant"));
+        let at = Vec3::new(
+            center.x + sign * 0.9,
+            0.05,
+            center.z + if is_front { -0.4 } else { 0.4 },
+        );
+        let pool_entity = ground_light(
+            commands,
+            scene,
+            ground_quad.clone(),
+            &pool,
+            (at, Vec3::new(scale, 1.0, scale), "flaque de clignotant"),
+        );
         signals.push(SignalRig {
             side,
             material: material.clone(),
@@ -306,7 +345,12 @@ fn spawn_projectors(
                 .id(),
         )
     };
-    let under = point("anchor_underglow", 1.6 * NEON_INTENSITY / 0.45, 5.0, "lumière sous la caisse");
+    let under = point(
+        "anchor_underglow",
+        1.6 * NEON_INTENSITY / 0.45,
+        5.0,
+        "lumière sous la caisse",
+    );
     let logo = point("anchor_rear_logo_light", 0.7, 2.5, "lumière du logo arrière");
     (spots, under, logo)
 }

@@ -10,11 +10,11 @@ use bevy::tasks::{AsyncComputeTaskPool, Task, futures_lite::future};
 use cf_render::{AbsolutePosition, AudioFeatures, SceneColor, ScenePalette};
 
 use super::effects;
+use super::glb::CarModelError;
 use super::glow::{
     CarPalette, HEADLIGHT_LEVEL, HIGH_BEAMS_LEVEL, HIGH_BEAMS_RATIO, LightInputs, LightLevels, NEON_INTENSITY, Tinted,
 };
 use super::materials::{CarLightMaterial, CarPaintMaterial};
-use super::glb::CarModelError;
 use super::model::{CarModelAsset, Side};
 use super::motion::{MotionInput, MotionPose};
 use super::paint::paint_scales;
@@ -174,7 +174,12 @@ pub(super) fn build_car(
     effects::spawn_effects(&mut commands, &mut assets.meshes, &mut assets.lights);
 }
 
-fn set_if_different<A: Asset>(assets: &mut Assets<A>, handle: &Handle<A>, differs: impl Fn(&A) -> bool, set: impl FnOnce(&mut A)) {
+fn set_if_different<A: Asset>(
+    assets: &mut Assets<A>,
+    handle: &Handle<A>,
+    differs: impl Fn(&A) -> bool,
+    set: impl FnOnce(&mut A),
+) {
     if assets.get(handle).is_some_and(differs)
         && let Some(mut asset) = assets.get_mut(handle)
     {
@@ -228,7 +233,12 @@ fn measure(state: &mut CarState, position: DVec3, dt: f32) {
     state.previous = Some(position);
 }
 
-fn apply_pose(pose: &MotionPose, rig: &CarRig, root: &mut Transform, transforms: &mut Query<&mut Transform, Without<Car>>) {
+fn apply_pose(
+    pose: &MotionPose,
+    rig: &CarRig,
+    root: &mut Transform,
+    transforms: &mut Query<&mut Transform, Without<Car>>,
+) {
     root.rotation = Quat::from_rotation_y(pose.yaw_rad);
     if let Ok(mut chassis) = transforms.get_mut(rig.chassis) {
         chassis.rotation = pose.chassis_rotation;
@@ -255,15 +265,25 @@ fn neon(assets: &mut Assets<StandardMaterial>, neon: Option<&Emissive>, glow: Li
         glow.blue * neon.strength * NEON_INTENSITY,
     );
     let base = Color::LinearRgba(LinearRgba::rgb(glow.red * 0.25, glow.green * 0.25, glow.blue * 0.25));
-    set_if_different(assets, &neon.handle, |m| m.emissive != emissive, |m| {
-        m.emissive = emissive;
-        m.base_color = base;
-    });
+    set_if_different(
+        assets,
+        &neon.handle,
+        |m| m.emissive != emissive,
+        |m| {
+            m.emissive = emissive;
+            m.base_color = base;
+        },
+    );
 }
 
 fn emit(assets: &mut Assets<StandardMaterial>, emissive: &Emissive, level: f32) {
     let value = emissive.at(level);
-    set_if_different(assets, &emissive.handle, |m| m.emissive != value, |m| m.emissive = value);
+    set_if_different(
+        assets,
+        &emissive.handle,
+        |m| m.emissive != value,
+        |m| m.emissive = value,
+    );
 }
 
 /// Allume ou éteint un halo ou une flaque : teinte et visibilité (`sprite.visible = level > 0.02`).
@@ -362,7 +382,11 @@ pub(super) fn apply_model_lights(
             let mine = (signal.side == Side::Left && side < 0) || (signal.side == Side::Right && side > 0);
             let on = lit && mine;
             emit(&mut standard, &signal.material, if on { 1.0 } else { 0.03 });
-            let (halo, pool) = if on { (scale(2.2), scale(0.9)) } else { (LinearRgba::BLACK, LinearRgba::BLACK) };
+            let (halo, pool) = if on {
+                (scale(2.2), scale(0.9))
+            } else {
+                (LinearRgba::BLACK, LinearRgba::BLACK)
+            };
             glow_material(&mut lights, &mut visibility, &signal.halo, signal.halo_entity, halo);
             glow_material(&mut lights, &mut visibility, &signal.pool, signal.pool_entity, pool);
         }
@@ -384,10 +408,15 @@ fn apply_logo(
         let k = state.logo.emissive_strength();
         let emissive = LinearRgba::rgb(glow.red * k, glow.green * k, glow.blue * k);
         let base = Color::LinearRgba(LinearRgba::rgb(glow.red * 0.25, glow.green * 0.25, glow.blue * 0.25));
-        set_if_different(standard, &logo.handle, |x| x.emissive != emissive, |x| {
-            x.emissive = emissive;
-            x.base_color = base;
-        });
+        set_if_different(
+            standard,
+            &logo.handle,
+            |x| x.emissive != emissive,
+            |x| {
+                x.emissive = emissive;
+                x.base_color = base;
+            },
+        );
     }
     if let Some((entity, rest)) = rig.logo
         && let Ok(mut transform) = transforms.get_mut(entity)
@@ -436,16 +465,39 @@ pub(super) fn apply_rig_lights(
             (&rig.lights.front_pool, tinted(&levels.front_pool)),
             (&rig.lights.rear_pool, tinted(&levels.rear_pool)),
         ] {
-            set_if_different(&mut lights, handle, |x| x.params.color != value, |x| x.params.color = value);
+            set_if_different(
+                &mut lights,
+                handle,
+                |x| x.params.color != value,
+                |x| x.params.color = value,
+            );
         }
         for halo in &rig.lights.heads {
-            glow_material(&mut lights, &mut visibility, &halo.material, halo.entity, levels.head_halo);
+            glow_material(
+                &mut lights,
+                &mut visibility,
+                &halo.material,
+                halo.entity,
+                levels.head_halo,
+            );
         }
         for halo in &rig.lights.tails {
-            glow_material(&mut lights, &mut visibility, &halo.material, halo.entity, levels.tail_halo);
+            glow_material(
+                &mut lights,
+                &mut visibility,
+                &halo.material,
+                halo.entity,
+                levels.tail_halo,
+            );
         }
         let under = &rig.lights.under;
-        glow_material(&mut lights, &mut visibility, &under.material, under.entity, levels.under);
+        glow_material(
+            &mut lights,
+            &mut visibility,
+            &under.material,
+            under.entity,
+            levels.under,
+        );
         if let Ok(mut transform) = transforms.get_mut(under.entity) {
             transform.scale = Vec3::new(3.2, 1.0, levels.under_length_m);
         }
@@ -453,7 +505,11 @@ pub(super) fn apply_rig_lights(
         // Projecteurs de Bevy : feux de croisement ou de route.
         for &entity in &rig.lights.spots {
             let Ok(mut spot) = spots.get_mut(entity) else { continue };
-            let (cd, angle, range) = if look.high_beams { (150.0, 0.3, 100.0) } else { (60.0, 0.5, 55.0) };
+            let (cd, angle, range) = if look.high_beams {
+                (150.0, 0.3, 100.0)
+            } else {
+                (60.0, 0.5, 55.0)
+            };
             let wanted = cd * 4.0 * std::f32::consts::PI;
             if (spot.intensity - wanted).abs() > f32::EPSILON {
                 spot.intensity = wanted;

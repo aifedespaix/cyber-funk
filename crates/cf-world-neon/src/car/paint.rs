@@ -39,7 +39,11 @@ pub fn paint_scales(color: LinearRgba) -> (f32, f32, f32) {
     // Sillage convertit en sRGB (`convertLinearToSRGB`) avant de lire la teinte : le shader travaille en « gamma ».
     let srgb = Srgba::from(color);
     let [h, s, v] = rgb_to_hsv([srgb.red, srgb.green, srgb.blue]);
-    (h, (s / PAINT_REF_SAT).clamp(0.0, 2.2), (v / PAINT_REF_VAL).clamp(0.0, 2.2))
+    (
+        h,
+        (s / PAINT_REF_SAT).clamp(0.0, 2.2),
+        (v / PAINT_REF_VAL).clamp(0.0, 2.2),
+    )
 }
 
 #[cfg(test)]

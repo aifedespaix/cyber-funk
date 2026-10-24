@@ -226,7 +226,11 @@ mod tests {
         assert!((one_second - expected).abs() < 0.05, "{one_second} vs {expected}");
         let right = motion.update(&MotionInput { steer: 1.0, ..input() });
         let left = motion.update(&MotionInput { steer: -1.0, ..input() });
-        assert!((right.wheel_steer_rad + MAX_WHEEL_STEER).abs() < 1e-6, "{}", right.wheel_steer_rad);
+        assert!(
+            (right.wheel_steer_rad + MAX_WHEEL_STEER).abs() < 1e-6,
+            "{}",
+            right.wheel_steer_rad
+        );
         assert!((left.wheel_steer_rad - MAX_WHEEL_STEER).abs() < 1e-6);
     }
 
@@ -241,6 +245,9 @@ mod tests {
         let pose = motion.update(&jolt);
         assert!(pose.chassis_translation.is_finite() && pose.chassis_rotation.is_finite());
         let pose = run(&mut motion, 600, &input());
-        assert!(pose.chassis_rotation.angle_between(Quat::IDENTITY) < 1e-3, "retour au calme");
+        assert!(
+            pose.chassis_rotation.angle_between(Quat::IDENTITY) < 1e-3,
+            "retour au calme"
+        );
     }
 }

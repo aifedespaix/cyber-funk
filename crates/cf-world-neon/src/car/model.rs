@@ -178,7 +178,9 @@ impl CarModelAsset {
             let mut mine = Vec::new();
             for primitive in &mesh.primitives {
                 if primitive.mode.unwrap_or(4) != 4 {
-                    return Err(CarModelError::Unsupported("primitive qui n'est pas en triangles".into()));
+                    return Err(CarModelError::Unsupported(
+                        "primitive qui n'est pas en triangles".into(),
+                    ));
                 }
                 let material = primitive
                     .material
@@ -225,7 +227,9 @@ impl CarModelAsset {
 fn transform(node: &NodeDef) -> Transform {
     Transform {
         translation: node.translation.map_or(Vec3::ZERO, Vec3::from),
-        rotation: node.rotation.map_or(Quat::IDENTITY, |[x, y, z, w]| Quat::from_xyzw(x, y, z, w)),
+        rotation: node
+            .rotation
+            .map_or(Quat::IDENTITY, |[x, y, z, w]| Quat::from_xyzw(x, y, z, w)),
         scale: node.scale.map_or(Vec3::ONE, Vec3::from),
     }
 }
@@ -363,7 +367,9 @@ mod tests {
     use super::*;
 
     fn load(name: &str) -> CarModelAsset {
-        let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../assets/models/car").join(name);
+        let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("../../assets/models/car")
+            .join(name);
         let bytes = std::fs::read(&path).expect("fichier du modèle");
         CarModelAsset::from_glb(&bytes).expect("modèle lisible")
     }
@@ -390,11 +396,19 @@ mod tests {
         assert!(has(MaterialRole::BodyPaint) && has(MaterialRole::NeonPrimary) && has(MaterialRole::LogoRear));
         assert!(has(MaterialRole::Signal(Side::Left, Fore::Rear)) && has(MaterialRole::LightBrake));
         // La peinture a ses quatre images : couleur, métal/rugosité, normales et masque.
-        let paint = car.materials.iter().find(|m| m.role == MaterialRole::BodyPaint).expect("peinture");
+        let paint = car
+            .materials
+            .iter()
+            .find(|m| m.role == MaterialRole::BodyPaint)
+            .expect("peinture");
         assert!(paint.base_color_image.is_some() && paint.mask_image.is_some() && paint.normal_image.is_some());
         assert!(paint.metallic_roughness_image.is_some());
         // Les néons sont des émissifs forts : c'est ce que le bloom reprend.
-        let neon = car.materials.iter().find(|m| m.role == MaterialRole::NeonPrimary).expect("néon");
+        let neon = car
+            .materials
+            .iter()
+            .find(|m| m.role == MaterialRole::NeonPrimary)
+            .expect("néon");
         assert!((neon.emissive_strength - 4.0).abs() < 1e-6);
     }
 
@@ -402,7 +416,11 @@ mod tests {
     fn le_masque_de_peinture_est_decode_en_non_srgb_et_la_couleur_en_srgb() {
         use bevy::render::render_resource::TextureFormat;
         let car = load("car-low.glb");
-        let paint = car.materials.iter().find(|m| m.role == MaterialRole::BodyPaint).expect("peinture");
+        let paint = car
+            .materials
+            .iter()
+            .find(|m| m.role == MaterialRole::BodyPaint)
+            .expect("peinture");
         let color = &car.images[paint.base_color_image.expect("couleur")];
         let mask = &car.images[paint.mask_image.expect("masque")];
         assert_eq!(color.texture_descriptor.format, TextureFormat::Rgba8UnormSrgb);

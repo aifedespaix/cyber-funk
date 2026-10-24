@@ -92,7 +92,12 @@ impl CarModelAsset {
                 let positions = self.meshes[mesh]
                     .attribute(Mesh::ATTRIBUTE_POSITION)
                     .and_then(|a| a.as_float3());
-                out.extend(positions.into_iter().flatten().map(|&p| matrix.transform_point3(Vec3::from(p))));
+                out.extend(
+                    positions
+                        .into_iter()
+                        .flatten()
+                        .map(|&p| matrix.transform_point3(Vec3::from(p))),
+                );
             }
         }
         out
@@ -183,7 +188,10 @@ mod tests {
             assert!(tails[side].z > 0.0, "feu {side:?} derrière : {}", tails[side]);
             assert!(head.y > 0.2 && head.y < 1.0, "phare à hauteur de capot : {head}");
         }
-        assert!(heads[&Side::Left].x < 0.0 && heads[&Side::Right].x > 0.0, "gauche à −x, droite à +x");
+        assert!(
+            heads[&Side::Left].x < 0.0 && heads[&Side::Right].x > 0.0,
+            "gauche à −x, droite à +x"
+        );
     }
 
     #[test]

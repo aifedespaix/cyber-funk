@@ -184,7 +184,12 @@ mod tests {
             }
             trail.len()
         };
-        assert!(count(3000).abs_diff(count(300)) <= 1, "{} vs {}", count(3000), count(300));
+        assert!(
+            count(3000).abs_diff(count(300)) <= 1,
+            "{} vs {}",
+            count(3000),
+            count(300)
+        );
     }
 
     #[test]
@@ -213,7 +218,11 @@ mod tests {
         assert!(brightness(0) > brightness(40) && brightness(40) > brightness(100));
         assert!(brightness(POINTS - 1) < 1e-3, "le plus ancien est éteint");
         let width = |i: usize| positions[i * 2 + 1][0] - positions[i * 2][0];
-        assert!((width(0) - 2.0 * 0.55).abs() < 1e-5, "pleine largeur à la source : {}", width(0));
+        assert!(
+            (width(0) - 2.0 * 0.55).abs() < 1e-5,
+            "pleine largeur à la source : {}",
+            width(0)
+        );
         assert!(width(100) < width(0));
         // L'alpha reste à 1 : en lumière additive, la couleur porte l'opacité.
         assert!((colors[0][3] - 1.0).abs() < f32::EPSILON);

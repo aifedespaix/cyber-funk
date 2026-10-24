@@ -62,7 +62,11 @@ pub(super) fn spawn_effects(
 ) {
     let mut ribbon = CarLightMaterial::new(LightKind::Ribbon, 0.0);
     ribbon.set(LinearRgba::WHITE, 1.0);
-    let mesh = meshes.add(dynamic_mesh(trail::VERTICES, vec![[0.0; 2]; trail::VERTICES], trail::indices()));
+    let mesh = meshes.add(dynamic_mesh(
+        trail::VERTICES,
+        vec![[0.0; 2]; trail::VERTICES],
+        trail::indices(),
+    ));
     commands.spawn((
         Name::new("traînée"),
         CarTrail {
@@ -128,12 +132,7 @@ pub(super) fn update_trail(
         return;
     };
     let speed_ratio = (state.speed_mps / CRUISE_SPEED_MPS).max(0.0);
-    let rear = position.0
-        + DVec3::new(
-            0.0,
-            TRAIL_HEIGHT_M,
-            f64::from(rig.frame.half_length() - TRAIL_INSET_M),
-        );
+    let rear = position.0 + DVec3::new(0.0, TRAIL_HEIGHT_M, f64::from(rig.frame.half_length() - TRAIL_INSET_M));
     let tint = state.glow.current();
     line.trail.push(rear, tint);
     line.trail
@@ -162,10 +161,18 @@ pub(super) fn update_smoke(
     };
     let dt = time.delta_secs();
     let speed_ratio = (state.speed_mps / CRUISE_SPEED_MPS).max(0.0);
-    let feel = DriveFeel::measure(state.speed_mps, speed_ratio, state.lateral_mps, state.accel_mps2, controls.brake);
+    let feel = DriveFeel::measure(
+        state.speed_mps,
+        speed_ratio,
+        state.lateral_mps,
+        state.accel_mps2,
+        controls.brake,
+    );
     // Centre de la voiture au sol.
     let ground = DVec3::new(position.0.x, 0.0, position.0.z);
-    cloud.smoke.emit_for(dt, ground, state.speed_mps, &feel, settings.smoke_density);
+    cloud
+        .smoke
+        .emit_for(dt, ground, state.speed_mps, &feel, settings.smoke_density);
     cloud.smoke.update(dt);
     if cloud.smoke.alive() == 0 && !cloud.drawn {
         return;
