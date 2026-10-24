@@ -43,7 +43,7 @@ mod textures;
 
 use bevy::prelude::*;
 use bevy::shader::Shader;
-use cf_render::{BackgroundLayer, CfSet, WorldSet};
+use cf_render::{BackgroundLayer, CfSet, WarmupAppExt, WorldSet};
 
 pub use material::{
     AuroraMaterial, AuroraParams, DomeMaterial, DomeParams, PlanetMaterial, PlanetParams, RingMaterial, RingParams,
@@ -156,7 +156,15 @@ impl Plugin for SkyPlugin {
                 MaterialPlugin::<PlanetMaterial>::default(),
                 MaterialPlugin::<RingMaterial>::default(),
                 MaterialPlugin::<StreakMaterial>::default(),
-            ));
+            ))
+            // Aurores, géante à anneau, étoiles filantes : cachées au repos, elles ne compileraient qu'à leur premier
+            // passage en plein show sans cette préchauffe.
+            .warm_material::<DomeMaterial>("ciel : voûte")
+            .warm_material::<StarsMaterial>("ciel : étoiles")
+            .warm_material::<AuroraMaterial>("ciel : aurores")
+            .warm_material::<PlanetMaterial>("ciel : planètes")
+            .warm_material::<RingMaterial>("ciel : anneau")
+            .warm_material::<StreakMaterial>("ciel : étoiles filantes");
             if let Some(mut shaders) = app.world_mut().get_resource_mut::<Assets<Shader>>() {
                 material::embed_shaders(&mut shaders);
             }

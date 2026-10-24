@@ -17,6 +17,7 @@ dev = ["bevy/dynamic_linking", "bevy/file_watcher"]
 [dependencies]
 anyhow.workspace = true
 bevy.workspace = true
+cf-audio.workspace = true
 cf-cinema.workspace = true
 cf-operator.workspace = true
 cf-render.workspace = true

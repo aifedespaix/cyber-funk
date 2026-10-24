@@ -16,7 +16,7 @@ use super::curtain::{lift_curtain, spawn_curtain};
 use super::files::{FileJobs, poll_file_jobs};
 use super::mirror::{WarmEntity, place_warm_entities};
 use super::pipelines::{PipelineWatch, install};
-use super::registry::WarmupRegistry;
+use super::registry::{WarmupAppExt, WarmupRegistry};
 use super::tracker::LoadTracker;
 use crate::layers::LayerWarmup;
 
@@ -28,7 +28,7 @@ pub const ASSET_TIMEOUT_S: f32 = 120.0;
 /// Images minimales de compilation : le temps que les copies soient extraites et spécialisées par le monde de rendu.
 const MIN_COMPILE_FRAMES: u32 = 12;
 /// Images consécutives sans pipeline en attente ni nouveau pipeline avant de déclarer la compilation finie.
-const STABLE_FRAMES: u32 = 12;
+pub const STABLE_FRAMES: u32 = 12;
 /// Délai (s) au-delà duquel on ouvre sans attendre plus (un pipeline qui ne finit pas ne doit pas bloquer le show).
 pub const COMPILE_TIMEOUT_S: f32 = 90.0;
 
@@ -113,7 +113,12 @@ impl Plugin for WarmupPlugin {
             // Toutes les couches rendent pendant le chargement, quel que soit le look : c'est ce qui compile le
             // pipeline de l'avant-plan ou de la surcouche avant qu'un look les allume en plein show.
             .insert_resource(LayerWarmup(true))
-            .add_systems(Startup, spawn_curtain)
+            .add_systems(Startup, spawn_curtain);
+        if app.is_plugin_added::<bevy::pbr::PbrPlugin>() {
+            // Les matériaux standard du monde (carrosserie, quads des couches…) : toutes leurs variantes de pipeline.
+            app.warm_material::<StandardMaterial>("matériaux standard");
+        }
+        app
             .add_systems(
                 Update,
                 (poll_file_jobs, drive_loading, place_warm_entities)

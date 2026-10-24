@@ -7,7 +7,8 @@ use bevy::math::{DVec3, Quat, Vec3, Vec4};
 use bevy::pbr::StandardMaterial;
 use bevy::prelude::*;
 use bevy::tasks::{AsyncComputeTaskPool, Task, futures_lite::future};
-use cf_render::{AbsolutePosition, AudioFeatures, CurrentShowFx, SceneColor, ScenePalette};
+use cf_render::warmup::StepId;
+use cf_render::{AbsolutePosition, AudioFeatures, CurrentShowFx, LoadTracker, SceneColor, ScenePalette};
 
 use super::effects;
 use super::glb::CarModelError;
@@ -99,10 +100,18 @@ pub(super) struct CarModelSource {
 
 /// Le décodage en cours, dans une tâche de fond : retiré quand la voiture est construite (ou que le modèle est refusé).
 #[derive(Resource)]
-pub(super) struct CarModelTask(Task<Result<CarModelAsset, CarModelError>>);
+pub(super) struct CarModelTask {
+    task: Task<Result<CarModelAsset, CarModelError>>,
+    /// Étape du carnet de chargement (J4-07) : close quand la voiture est posée, ou en échec si le modèle est refusé.
+    step: Option<StepId>,
+}
 
 /// `Startup` : lance la lecture et le décodage du modèle (hors du fil principal).
-pub(super) fn load_model(mut commands: Commands, source: Res<CarModelSource>) {
+pub(super) fn load_model(
+    mut commands: Commands,
+    source: Res<CarModelSource>,
+    tracker: Option<ResMut<LoadTracker>>,
+) {
     let path = source.path.clone();
     let task = AsyncComputeTaskPool::get().spawn(async move {
         let bytes = std::fs::read(&path).map_err(|source| CarModelError::Read {
@@ -111,7 +120,8 @@ pub(super) fn load_model(mut commands: Commands, source: Res<CarModelSource>) {
         })?;
         CarModelAsset::from_glb(&bytes)
     });
-    commands.insert_resource(CarModelTask(task));
+    let step = tracker.map(|mut tracker| tracker.register("Voiture (modèle GLB)"));
+    commands.insert_resource(CarModelTask { task, step });
 }
 
 fn color(c: cf_render::palette::LinearRgb) -> LinearRgba {
@@ -143,17 +153,22 @@ pub(super) fn build_car(
     targets: Query<Entity, (With<Car>, Without<CarRig>)>,
     runner: Query<Entity, (With<Runner>, Without<Car>)>,
     mut positions: Query<&mut AbsolutePosition>,
+    tracker: Option<ResMut<LoadTracker>>,
 ) {
     let Some(mut task) = task else { return };
-    let Some(result) = future::block_on(future::poll_once(&mut task.0)) else {
+    let Some(result) = future::block_on(future::poll_once(&mut task.task)) else {
         return;
     };
     let target = targets.iter().next().or_else(|| runner.iter().next());
     let Some(root) = target else { return };
     commands.remove_resource::<CarModelTask>();
+    let (step, mut tracker) = (task.step, tracker);
     let model = match result {
         Ok(model) => model,
         Err(error) => {
+            if let (Some(step), Some(tracker)) = (step, tracker.as_mut()) {
+                tracker.fail(step, format!("voiture : {error}"));
+            }
             // Pas de voiture : le point suivi provisoire reste à l'écran, le show continue (replis de `live-safety`).
             tracing::error!(%error, "voiture : modèle illisible, le point suivi provisoire reste");
             return;
@@ -172,6 +187,9 @@ pub(super) fn build_car(
         position.0.y = 0.0;
     }
     effects::spawn_effects(&mut commands, &mut assets.meshes, &mut assets.lights);
+    if let (Some(step), Some(tracker)) = (step, tracker.as_mut()) {
+        tracker.finish(step);
+    }
 }
 
 fn set_if_different<A: Asset>(

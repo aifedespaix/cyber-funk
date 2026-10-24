@@ -20,7 +20,7 @@ mod systems;
 
 use bevy::prelude::*;
 use bevy::shader::Shader;
-use cf_render::{CfSet, WorldLayer, WorldSet};
+use cf_render::{CfSet, WarmupAppExt, WorldLayer, WorldSet};
 
 pub use look::{RoadLook, RoadPalette};
 pub use material::{RoadMaterial, RoadParams};
@@ -47,7 +47,8 @@ pub struct RoadPlugin;
 impl Plugin for RoadPlugin {
     fn build(&self, app: &mut App) {
         if app.is_plugin_added::<bevy::pbr::PbrPlugin>() {
-            app.add_plugins(MaterialPlugin::<RoadMaterial>::default());
+            app.add_plugins(MaterialPlugin::<RoadMaterial>::default())
+                .warm_material::<RoadMaterial>("route");
             if let Some(mut shaders) = app.world_mut().get_resource_mut::<Assets<Shader>>() {
                 material::embed_shader(&mut shaders);
             }

@@ -7,6 +7,7 @@ use cf_render::audio::{AudioCommand, AudioFeatures, AudioStatus, VisualLatency};
 use cf_render::{ControlsStatus, CurrentShow};
 
 use crate::quit::{QuitDecision, QuitPrompt, QuitSource};
+use crate::loading::{self, LoadingView};
 use crate::{audio_panel, controls_panel};
 
 /// Largeur initiale du panneau audio (points egui) : assez pour les vumètres et la ligne des compteurs.
@@ -23,6 +24,7 @@ pub(crate) fn main_panel(
     mut commands: MessageWriter<AudioCommand>,
     show: Option<Res<CurrentShow>>,
     controls: Option<Res<ControlsStatus>>,
+    loading: LoadingView,
 ) {
     // Depuis egui 0.36 les panneaux se posent dans un `Ui` racine, pas directement sur le contexte.
     let ctx = context.get_mut();
@@ -50,7 +52,13 @@ pub(crate) fn main_panel(
             });
         });
     egui::CentralPanel::default().show(&mut root, |ui| {
+        // Pendant le chargement, la progression remplace le pupitre : rien à piloter tant que le show n'est pas prêt.
+        if loading.is_loading() {
+            loading::draw(ui, &loading);
+            return;
+        }
         ui.heading("cyber-funk");
+        loading::draw_late_warning(ui, loading.late_pipelines());
         egui::ScrollArea::vertical().show(ui, |ui| match (controls, features_copy) {
             (Some(controls), Some(features)) => {
                 controls_panel::draw(ui, show.as_deref().map(|s| &s.0), &controls, &features);

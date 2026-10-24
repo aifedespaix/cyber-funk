@@ -15,7 +15,7 @@ mod systems;
 
 use bevy::prelude::*;
 use bevy::shader::Shader;
-use cf_render::{CfSet, ScenePalette, ThemeLibrary};
+use cf_render::{CfSet, ScenePalette, ThemeLibrary, WarmupAppExt};
 
 pub use material::{FacadeMaterial, FacadeParams};
 pub use systems::{FrameInputs, build_params};
@@ -55,7 +55,8 @@ pub struct FacadePlugin;
 impl Plugin for FacadePlugin {
     fn build(&self, app: &mut App) {
         if app.is_plugin_added::<bevy::pbr::PbrPlugin>() {
-            app.add_plugins(MaterialPlugin::<FacadeMaterial>::default());
+            app.add_plugins(MaterialPlugin::<FacadeMaterial>::default())
+                .warm_material::<FacadeMaterial>("façades");
             if let Some(mut shaders) = app.world_mut().get_resource_mut::<Assets<Shader>>() {
                 material::embed_shaders(&mut shaders);
             }
