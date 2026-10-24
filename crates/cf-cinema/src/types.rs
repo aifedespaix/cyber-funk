@@ -186,6 +186,8 @@ pub struct BeatView {
     pub bpm: Option<f32>,
     /// Impulsion décroissante après chaque kick, 1 → 0.
     pub pulse: f32,
+    /// Énergie des basses, lissée 0 → 1 (le `beat.bass` de Sillage).
+    pub bass: f32,
 }
 
 /// Le spectacle vu par le réalisateur (ce qu'il lit du `ShowState`). Recopié à chaque image : `Copy`, sans allocation.
@@ -198,6 +200,9 @@ pub struct ShowView {
     pub breathing: bool,
     /// Vrai pendant une seule image : le drop frappe maintenant.
     pub drop_now: bool,
+    /// Un drop est préparé (`show.drop !== null` de Sillage) : le plan `dolly-zoom` s'y cale. Pas encore lu depuis le
+    /// `ShowState` (voir la PR, « Écarts ») : faux tant que le monde ne le fournit pas.
+    pub drop_planned: bool,
     /// Flashs permis (lu par J6-02 pour le plan `strobe`).
     pub flashes: bool,
     /// Grille de coupe du look courant, en temps musicaux par section.
@@ -210,6 +215,7 @@ impl Default for ShowView {
             active: false,
             breathing: false,
             drop_now: false,
+            drop_planned: false,
             flashes: true,
             cut_grid: CutGrid {
                 calm: 16,
@@ -228,6 +234,8 @@ impl ShowView {
             active: true,
             breathing: state.breathing,
             drop_now: state.drop_now,
+            // Le drop préparé vit dans le `ShowDirector` (`drop_plan()`), pas dans le `ShowState` : non lu ici.
+            drop_planned: false,
             flashes: state.flashes,
             cut_grid: state.gates().cut_grid,
         }
