@@ -3,12 +3,13 @@
 //! Le binaire ne fait qu'assembler les plugins : il lit la ligne de commande, installe les journaux, puis règle les
 //! deux fenêtres (projecteur et opérateur).
 
+mod assets;
 mod cli;
 mod logging;
 mod preload;
 mod projector;
 mod show_setup;
-mod test_scene;
+mod wiring;
 
 use std::path::PathBuf;
 use std::process::ExitCode;
@@ -20,7 +21,8 @@ use bevy::winit::WinitSettings;
 use cf_cinema::CinemaPlugin;
 use cf_operator::{OperatorPlugin, QuitGuardPlugin};
 use cf_render::{
-    AudioConfig, CfAudioPlugin, ControlsPlugin, CorePlugin, DiagnosticsPlugin, OutputChoice, ShowPlugin, WarmupPlugin,
+    AudioConfig, CfAudioPlugin, ControlsPlugin, CorePlugin, CullingPlugin, DiagnosticsPlugin, LayersPlugin,
+    OutputChoice, PalettePlugin, PostFxPlugin, QualityPlugin, ShowPlugin, WarmupPlugin,
 };
 use cf_world_neon::{CarPlugin, NeonCinemaPlugin, NeonWorldPlugin, PilotPlugin};
 use clap::Parser as _;
@@ -29,7 +31,6 @@ use crate::cli::Cli;
 use crate::logging::LogConfig;
 use crate::preload::PreloadPlan;
 use crate::projector::{ProjectorConfig, ProjectorPlugin};
-use crate::test_scene::TestScenePlugin;
 
 /// Show demandé par `--show`. Le chargement arrive avec `cf-show` (J2) ; en attendant la ressource porte le chemin.
 #[derive(Resource, Debug, Clone)]
@@ -86,6 +87,16 @@ fn build_app(cli: &Cli, controls: ControlsPlugin, show: ShowPlugin, preload: Pre
         CorePlugin,
         // Avant les mondes : états `Loading` → `Ready`, préchauffe des pipelines, détecteur de compilations tardives.
         WarmupPlugin,
+        // Rendu : les couches et leur compositeur, le culling, puis le post-process (qui équipe le compositeur), les
+        // palettes et la qualité adaptative (qui règle l'échelle de rendu et le bloom). Tous en `CfSet::Present`
+        // ou `Simulate` : l'ordre d'ajout ne change pas celui de l'image.
+        LayersPlugin::default(),
+        CullingPlugin::default(),
+        PostFxPlugin,
+        PalettePlugin,
+        QualityPlugin,
+    ))
+    .add_plugins((
         DiagnosticsPlugin::default(),
         CfAudioPlugin::new(audio_config(cli)),
         // Après l'audio (`AudioPump`), avant le spectacle : les actions de l'image sont prêtes quand le chef les lit.
@@ -96,10 +107,14 @@ fn build_app(cli: &Cli, controls: ControlsPlugin, show: ShowPlugin, preload: Pre
         // Le monde seul, puis la voiture et son pilote, puis le branchement sur le réalisateur (qui remplace la caméra
         // de poursuite provisoire : un seul écrivain de `CameraPose`).
         NeonWorldPlugin::embedded(),
-        CarPlugin::default(),
+        // La voiture se lit dans le dossier des ressources résolu, pas dans `assets/` du dossier de travail.
+        CarPlugin {
+            assets_dir: cli.assets_dir.clone(),
+            ..CarPlugin::default()
+        },
         PilotPlugin::default(),
         NeonCinemaPlugin,
-        TestScenePlugin,
+        wiring::WiringPlugin,
     ));
 
     app.add_systems(Startup, preload::start_preload);

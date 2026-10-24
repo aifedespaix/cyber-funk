@@ -26,6 +26,7 @@ tracing.workspace = true
 
 [dev-dependencies]
 assert_no_alloc.workspace = true
+cf-control.workspace = true
 
 [features]
 # Exemples fenêtrés (`road_demo`), pour juger à l'œil : hors CI, ils lient un binaire Bevy complet.

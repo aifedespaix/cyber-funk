@@ -27,6 +27,7 @@ use rand_pcg::Pcg32;
 use crate::CfSet;
 use crate::audio::AudioFeatures;
 use crate::controls::ControlAction;
+use crate::postfx::{CurrentShowFx, ShowFxInput};
 
 /// Secondes dans un jour.
 const DAY_S: u64 = 86_400;
@@ -143,7 +144,13 @@ impl Plugin for ShowPlugin {
         };
         match ShowDirector::<Pcg32>::new(show, self.titles.clone(), self.seed) {
             Ok(director) => {
-                app.insert_resource(CurrentShow(director.state().clone()))
+                // Avant la première image du show (chargement), aucun flash ni vague : état sûr (règle 7).
+                let quiet = ShowFxInput {
+                    flashes: false,
+                    ..ShowFxInput::from_show(director.state(), None)
+                };
+                app.insert_resource(CurrentShowFx(quiet))
+                    .insert_resource(CurrentShow(director.state().clone()))
                     .insert_resource(ShowControls::from_show(show))
                     .insert_resource(ShowSheet::from_show(show))
                     .insert_resource(ShowRuntime {
@@ -155,7 +162,7 @@ impl Plugin for ShowPlugin {
                     Update,
                     // L'horloge du show ne court pas pendant le chargement (J4-07).
                     (
-                        run_show.run_if(crate::warmup::show_may_run),
+                        (run_show, publish_show_fx).chain().run_if(crate::warmup::show_may_run),
                         crate::controls::apply_slot_profiles,
                     )
                         .chain()
@@ -200,6 +207,17 @@ fn run_show(
     current.0.clone_from(runtime.director.update(&input));
     for event in runtime.director.drain_events() {
         events.write(ShowEventMessage(event));
+    }
+}
+
+/// Recopie de l'état du show ce que lisent les effets (post-process, voiture, ciel) : flashs permis, respiration, chaleur,
+/// drop qui frappe. Seul écrivain de [`CurrentShowFx`] ; chaque flash demandé passe ensuite par le `FlashLimiter` du
+/// post-process, qui plafonne la sortie finale (règle 7).
+fn publish_show_fx(runtime: Res<ShowRuntime>, current: Res<CurrentShow>, mut fx: ResMut<CurrentShowFx>) {
+    let next = ShowFxInput::from_show(&current.0, runtime.director.drop_plan());
+    // Écriture conditionnelle : pas de détection de changement déclenchée à vide.
+    if fx.0 != next {
+        fx.0 = next;
     }
 }
 
