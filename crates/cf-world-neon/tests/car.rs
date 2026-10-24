@@ -12,12 +12,28 @@ use bevy::camera::visibility::RenderLayers;
 use bevy::color::LinearRgba;
 use bevy::prelude::*;
 use bevy::time::TimeUpdateStrategy;
-use cf_render::{AbsolutePosition, AudioFeatures, CorePlugin, Layer, aabb_encloses_mesh, mesh_aabb};
+use cf_render::{
+    AbsolutePosition, AudioFeatures, CorePlugin, CurrentShowFx, Layer, ShowFxInput, aabb_encloses_mesh, mesh_aabb,
+};
 use cf_world_neon::car::effects::{CarSmoke, CarTrail};
 use cf_world_neon::car::{Car, CarControls, CarPaintMaterial, CarPlugin, CarRig, CarState, ModelQuality};
 use cf_world_neon::{ChasePlugin, NeonWorldPlugin, RunnerConfig};
 
 const FRAME: Duration = Duration::from_micros(16_667);
+
+/// Un spectacle qui permet les flashs (`flashes`) ou non : la politique que lit le limiteur de la voiture.
+fn show(flashes: bool, breathing: bool) -> CurrentShowFx {
+    CurrentShowFx(ShowFxInput {
+        flashes,
+        breathing,
+        heat: 0.0,
+        time_scale: 1.0,
+        cue_seq: 0,
+        fx_rgb_split: 0.0,
+        fx_flash: 0.0,
+        drop: None,
+    })
+}
 
 fn app(start_z_m: f64, speed_mps: f64) -> App {
     let mut app = App::new();
@@ -40,6 +56,7 @@ fn app(start_z_m: f64, speed_mps: f64) -> App {
     .init_asset::<Mesh>()
     .init_asset::<StandardMaterial>()
     .insert_resource(AudioFeatures(cf_analysis::AudioFeatures::NEUTRAL))
+    .insert_resource(show(true, false))
     .insert_resource(TimeUpdateStrategy::ManualDuration(FRAME));
     app
 }
@@ -193,57 +210,170 @@ fn clone_material<A: Asset + Clone>(app: &App, handle: &Handle<A>) -> A {
         .clone()
 }
 
+/// Ce que montrent les lumières à cet instant : halo de phare, volume de phare, lueur sous la caisse, logo arrière,
+/// liseré de la peinture.
+fn glow_metrics(app: &App, root: Entity) -> [f32; 5] {
+    let rig = app.world().get::<CarRig>(root).expect("rig");
+    let sum = |c: Vec4| c.x + c.y + c.z;
+    let logo = clone_material(app, &rig.materials.logo.clone().expect("logo").handle);
+    [
+        sum(clone_material(app, &rig.lights.heads[0].material).params.color),
+        clone_material(app, &rig.lights.beam).params.color.w,
+        sum(clone_material(app, &rig.lights.under.material).params.color),
+        logo.emissive.red + logo.emissive.green + logo.emissive.blue,
+        clone_material::<CarPaintMaterial>(app, rig.materials.paint.as_ref().expect("peinture"))
+            .extension
+            .params
+            .finish
+            .w,
+    ]
+}
+
+/// Joue `seconds` secondes de kicks à `bpm` (pouls à 1 à l'image du kick, puis ~0,12 s de retombée) et rend la série
+/// des `glow_metrics` image par image.
+fn play_kicks(app: &mut App, root: Entity, bpm: f64, seconds: f64) -> Vec<[f32; 5]> {
+    let period = 60.0 / bpm;
+    let mut series = Vec::new();
+    let mut next_kick = 0.0;
+    let mut last_kick = f64::NEG_INFINITY;
+    for i in 0..(seconds * 60.0) as usize {
+        let t = i as f64 / 60.0;
+        let pulse = if t >= next_kick {
+            last_kick = t;
+            next_kick += period;
+            1.0
+        } else {
+            (-((t - last_kick) as f32) / 0.12).exp()
+        };
+        {
+            let mut features = app.world_mut().resource_mut::<AudioFeatures>();
+            features.0.live = true;
+            features.0.pulse = pulse;
+            features.0.bass = 0.5 * pulse;
+        }
+        app.update();
+        series.push(glow_metrics(app, root));
+    }
+    series
+}
+
+fn column(series: &[[f32; 5]], i: usize) -> Vec<f32> {
+    series.iter().map(|m| m[i]).collect()
+}
+
+/// Les montées d'une série : (image de départ, nombre d'images). Une montée est une suite d'images où la valeur croît.
+fn rises(series: &[f32]) -> Vec<(usize, usize)> {
+    let mut out = Vec::new();
+    let mut start = None;
+    for i in 1..series.len() {
+        let up = series[i] > series[i - 1] + 1e-5;
+        match (up, start) {
+            (true, None) => start = Some(i - 1),
+            (false, Some(s)) => {
+                out.push((s, i - 1 - s));
+                start = None;
+            }
+            _ => {}
+        }
+    }
+    out
+}
+
 /// Critère de la tâche : le glow pulse sur les kicks. Au pic du kick, les halos des phares, les volumes de lumière, la
 /// lueur sous la caisse, le logo arrière et le liseré de la peinture sont plus forts qu'au creux.
 #[test]
 fn le_glow_pulse_sur_les_kicks() {
     let mut app = built(0.0, 40.0);
     let root = car(&mut app);
-    let rig_of = |app: &App| {
-        let rig = app.world().get::<CarRig>(root).expect("rig");
-        (
-            rig.lights.heads[0].material.clone(),
-            rig.lights.beam.clone(),
-            rig.lights.under.material.clone(),
-            rig.materials.logo.clone().expect("logo").handle,
-            rig.materials.paint.clone().expect("peinture"),
-        )
-    };
-    let (head, beam, under, logo, paint) = rig_of(&app);
-    let sample = |app: &mut App, pulse: f32, bass: f32| {
-        {
-            let mut features = app.world_mut().resource_mut::<AudioFeatures>();
-            features.0.live = true;
-            features.0.pulse = pulse;
-            features.0.bass = bass;
+    // 128 BPM : un kick toutes les 0,47 s, donc des creux franchement distincts des pics.
+    let series = play_kicks(&mut app, root, 128.0, 4.0);
+    for (i, what) in [
+        "halo des phares",
+        "volume des phares",
+        "lueur sous la caisse",
+        "logo arrière",
+        "liseré de la peinture",
+    ]
+    .into_iter()
+    .enumerate()
+    {
+        let values = column(&series, i);
+        let (low, high) = values
+            .iter()
+            .fold((f32::MAX, 0.0_f32), |(lo, hi), &v| (lo.min(v), hi.max(v)));
+        let factor = [1.2, 1.2, 1.5, 2.0, 2.0][i];
+        assert!(high > low * factor, "{what} : {low} → {high}");
+    }
+}
+
+/// Règle 7 : à 174 BPM, ce que montrent vraiment les matériaux ne monte pas plus de 3 fois par seconde sur une fenêtre
+/// glissante, et aucune montée ne dure moins de 5 images.
+#[test]
+fn a_174_bpm_le_glow_des_materiaux_respecte_le_limiteur() {
+    let mut app = built(0.0, 40.0);
+    let root = car(&mut app);
+    let series = play_kicks(&mut app, root, 174.0, 12.0);
+    // Colonnes qui ne battent que sur les kicks : halo, volume, lueur sous la caisse, liseré de la peinture.
+    for i in [0, 1, 2, 4] {
+        let values = column(&series, i);
+        let found = rises(&values);
+        assert!(found.len() > 10, "colonne {i} : il bat bien ({} montées)", found.len());
+        for &(start, frames) in &found {
+            let n = found.iter().filter(|&&(t, _)| t >= start && t < start + 60).count();
+            assert!(
+                n <= 3,
+                "colonne {i} : {n} montées dans la seconde qui suit l'image {start}"
+            );
+            let rise = values[start + frames] - values[start];
+            let swing =
+                values.iter().copied().fold(0.0_f32, f32::max) - values.iter().copied().fold(f32::MAX, f32::min);
+            if rise > 0.9 * swing {
+                assert!(
+                    frames >= 5,
+                    "colonne {i} : montée complète en {frames} images (image {start})"
+                );
+            }
         }
-        // Quelques images : le logo a une attaque instantanée mais un relâchement de 0,25 s.
-        for _ in 0..40 {
+    }
+}
+
+/// Règle 7 : flashs coupés par le spectacle, en respiration, ou sans spectacle : plus rien ne bat, ni sur les kicks ni au
+/// clignotant.
+#[test]
+fn rien_ne_bat_quand_les_flashs_sont_coupes() {
+    for policy in [Some(show(false, false)), Some(show(true, true)), None] {
+        let mut app = built(0.0, 40.0);
+        let root = car(&mut app);
+        match policy {
+            Some(p) => {
+                app.insert_resource(p);
+            }
+            None => {
+                app.world_mut().remove_resource::<CurrentShowFx>();
+            }
+        }
+        app.world_mut().resource_mut::<CarControls>().steer = 0.8;
+        // Quelques images pour que l'extinction (en `MIN_FADE` au plus) soit faite.
+        for _ in 0..10 {
             app.update();
         }
-        let sum = |c: Vec4| c.x + c.y + c.z;
-        (
-            sum(clone_material(app, &head).params.color),
-            clone_material(app, &beam).params.color.w,
-            sum(clone_material(app, &under).params.color),
-            {
-                let m = clone_material(app, &logo);
-                m.emissive.red + m.emissive.green + m.emissive.blue
-            },
-            clone_material::<CarPaintMaterial>(app, &paint)
-                .extension
-                .params
-                .finish
-                .w,
-        )
-    };
-    let calm = sample(&mut app, 0.0, 0.0);
-    let kick = sample(&mut app, 1.0, 0.9);
-    assert!(kick.0 > calm.0 * 1.2, "halo des phares : {} → {}", calm.0, kick.0);
-    assert!(kick.1 > calm.1 * 1.2, "volume des phares : {} → {}", calm.1, kick.1);
-    assert!(kick.2 > calm.2 * 1.5, "lueur sous la caisse : {} → {}", calm.2, kick.2);
-    assert!(kick.3 > calm.3 * 2.0, "logo arrière : {} → {}", calm.3, kick.3);
-    assert!(kick.4 > calm.4 * 2.0, "liseré de la peinture : {} → {}", calm.4, kick.4);
+        let series = play_kicks(&mut app, root, 174.0, 4.0);
+        for i in 0..5 {
+            let values = column(&series, i);
+            let (low, high) = values
+                .iter()
+                .fold((f32::MAX, 0.0_f32), |(lo, hi), &v| (lo.min(v), hi.max(v)));
+            assert!((high - low).abs() < 1e-5, "flashs coupés, colonne {i} : {low}..{high}");
+        }
+        let rig = app.world().get::<CarRig>(root).expect("rig");
+        for signal in &rig.signals {
+            let m = clone_material(&app, &signal.material.handle);
+            assert!(
+                m.emissive.red < signal.material.strength * 0.05,
+                "clignotant allumé sans flashs permis"
+            );
+        }
+    }
 }
 
 #[test]
@@ -258,7 +388,8 @@ fn le_freinage_allume_les_feux_stop_et_la_route() {
     };
     let rolling = brake(&app);
     app.world_mut().resource_mut::<CarControls>().brake = 1.0;
-    for _ in 0..3 {
+    // Le freinage est lissé (jamais plus vite que 0,1 s) : quelques images de plus.
+    for _ in 0..15 {
         app.update();
     }
     assert!(brake(&app) > rolling * 4.0, "{rolling} → {}", brake(&app));

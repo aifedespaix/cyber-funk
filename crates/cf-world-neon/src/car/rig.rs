@@ -11,6 +11,7 @@ use super::glow::{Blinker, CarPalette, GlowFade, LightLevels, RearLogo};
 use super::materials::{CarLightMaterial, CarPaintMaterial};
 use super::model::Side;
 use super::motion::Motion;
+use super::safety::{CarFlash, Slew};
 
 /// Marqueur de la voiture : l'entité racine, qui porte aussi sa position absolue (`AbsolutePosition`) et l'origine
 /// flottante la suit (`StreamFocus`) : sans elle, le monde ne sait pas où se tenir.
@@ -141,8 +142,10 @@ pub struct Look {
     pub levels: LightLevels,
     /// Feux de route (au-delà de la croisière).
     pub high_beams: bool,
-    /// Pouls du kick, 0 à 1.
+    /// Pouls du kick que montrent les lumières, 0 à 1 : **le niveau du limiteur**, pas le pouls brut.
     pub pulse: f32,
+    /// Battement du clignotant, 0 à 1 : le niveau du limiteur.
+    pub blink: f32,
     /// Freinage, 0 à 1.
     pub brake: f32,
 }
@@ -159,6 +162,12 @@ pub struct CarState {
     pub blinker: Blinker,
     /// Logo arrière.
     pub logo: RearLogo,
+    /// Limiteurs de flashs (règle 7) : kicks et clignotants.
+    pub flash: CarFlash,
+    /// Freinage lissé : une hausse brusque du frein n'est jamais une hausse brusque de lumière.
+    pub brake: Slew,
+    /// Niveau des phares lissé (feux de route).
+    pub level: Slew,
     /// Dernière position absolue (m) : de la différence, la vitesse, l'accélération et la vitesse latérale.
     pub previous: Option<bevy::math::DVec3>,
     /// La lumière de la dernière image (`None` avant la première).
@@ -182,6 +191,9 @@ impl CarState {
             glow: GlowFade::new(glow),
             blinker: Blinker::default(),
             logo: RearLogo::default(),
+            flash: CarFlash::default(),
+            brake: Slew::default(),
+            level: Slew::new(super::glow::HEADLIGHT_LEVEL),
             previous: None,
             look: None,
             warm: false,
