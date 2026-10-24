@@ -6,6 +6,7 @@
 //! lit le rig de `cf-render`.
 
 mod guard;
+mod kind;
 #[cfg(test)]
 mod tests;
 
@@ -16,17 +17,13 @@ use crate::cues::{CueList, CueTracker};
 use crate::cutter::{Cutter, Decision, OnAir};
 use crate::editor::{Editor, PickMode};
 use crate::kit::{FOV_MAX, FOV_MIN};
-use crate::pacing::grid_beats;
 use crate::rng::CinemaRng;
 use crate::shot::{Shot, ShotSpec};
-use crate::transition::{SWOOP_DISTANCE, Transition, transition_seconds};
+use crate::transition::{Transition, transition_seconds};
 use crate::types::{CueKind, TransitionKind};
 use crate::world::CinemaFrame;
 
 pub use guard::{CAMERA_RADIUS, MAX_AHEAD, MAX_BEHIND, MAX_HEIGHT};
-
-/// Une coupe franche « waouh » au plus toutes les 45 s : le reste du temps, la caméra voyage.
-const WOW_GAP: f64 = 45.0;
 
 /// Plafond de cadence des coupes, en coupes par seconde glissante. **Pas appliqué ici** : une coupe de caméra n'est
 /// pas une variation de luminance au sens de WCAG 2.3.1 (elle ne passe pas par le limiteur photosensible), mais un
@@ -349,59 +346,6 @@ impl CinemaDirector {
         self.transition.begin(kind, seconds, distance);
         self.run_transition(frame, true);
         true
-    }
-
-    /// La caméra voyage : fondu en arc, envolée pour les longs trajets. La coupe franche est un effet réservé : un
-    /// drop, l'astre qui tombe, la plongée vers l'habitacle ou une figure, et pas plus d'une toutes les 45 s (sauf
-    /// l'astre).
-    fn choose_kind(
-        &self,
-        frame: &CinemaFrame<'_>,
-        index: usize,
-        mode: PickMode,
-        distance: f64,
-        cabin: bool,
-    ) -> TransitionKind {
-        let Some(spec) = self.catalog.get(index) else {
-            return TransitionKind::Blend;
-        };
-        let show = frame.show;
-        // Respiration : jamais de coupe ni de panoramique éclair, la caméra glisse.
-        if show.active && show.breathing {
-            return if distance > SWOOP_DISTANCE {
-                TransitionKind::Swoop
-            } else {
-                TransitionKind::Blend
-            };
-        }
-        // Une animation de la voiture n'attend pas : panoramique éclair.
-        if spec.reactive() {
-            return TransitionKind::Whip;
-        }
-        // En spectacle, la grille serre le rythme : les coupes franches reviennent plus souvent, les fondus raccourcissent.
-        let grid = grid_beats(frame);
-        let wow_gap = if grid > 0 {
-            WOW_GAP * (f64::from(grid) / 16.0).min(1.0)
-        } else {
-            WOW_GAP
-        };
-        let wow = frame.time - self.last_cut >= wow_gap && !self.calm;
-        let tight = grid > 0 && grid <= 4;
-        let wanted = spec.entry() == TransitionKind::Cut || cabin || mode == PickMode::Drop || tight;
-        if spec.id() == "meteor-impact-watch" || (wow && wanted && matches!(mode, PickMode::Drop | PickMode::Normal)) {
-            return TransitionKind::Cut;
-        }
-        if tight && !spec.scripted() {
-            return TransitionKind::Whip;
-        }
-        if distance > SWOOP_DISTANCE || (mode == PickMode::Ended && distance > 20.0 && self.editor.after_special) {
-            return TransitionKind::Swoop;
-        }
-        if spec.entry() == TransitionKind::Swoop {
-            TransitionKind::Swoop
-        } else {
-            TransitionKind::Blend
-        }
     }
 
     /// Met à jour les deux plans (ils restent vivants) et mélange ; `fresh` : le plan entrant vient d'être mis à jour.
