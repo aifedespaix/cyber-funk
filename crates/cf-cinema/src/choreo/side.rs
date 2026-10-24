@@ -25,6 +25,9 @@ pub trait ShowSide {
     fn take(&mut self, order: Order) -> bool;
     /// Fraîcheur commune (`shot:`, `stunt:`, `event:`, `landmark:`), en lecture.
     fn freshness(&self) -> &Freshness;
+    /// Demande un ralenti du monde `scale` (0.1 → 1) tenu `seconds` (s) : le bullet-time. Sans effet par défaut (pas de
+    /// spectacle, faux spectacle des tests).
+    fn request_time_scale(&mut self, _scale: f32, _seconds: f32) {}
     /// Fraîcheur commune, en écriture : `mark` quand un plan est joué.
     fn freshness_mut(&mut self) -> &mut Freshness;
 }
@@ -92,5 +95,9 @@ impl<R: Rng> ShowSide for ShowDirector<R> {
 
     fn freshness_mut(&mut self) -> &mut Freshness {
         ShowDirector::freshness_mut(self)
+    }
+
+    fn request_time_scale(&mut self, scale: f32, seconds: f32) {
+        ShowDirector::request_time_scale(self, scale, seconds);
     }
 }

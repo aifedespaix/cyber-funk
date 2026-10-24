@@ -22,6 +22,13 @@ pub trait Shot: Send + Sync {
         false
     }
 
+    /// Ralenti du monde demandé par ce plan, `(facteur 0.1..=1, durée en s)` : lu une seule fois par le réalisateur
+    /// juste après la fabrication du plan (`requestTimeScale` du bullet-time de Sillage), qui le transmet au chef du
+    /// spectacle ([`crate::choreo::ShowSide::request_time_scale`]). La caméra, elle, garde le temps réel.
+    fn take_time_scale(&mut self) -> Option<(f32, f32)> {
+        None
+    }
+
     /// Réaction aux temps musicaux : un plan peut changer de côté, de rotation, d'angle sur une mesure.
     fn cue(&mut self, _cue: &Cue, _frame: &CinemaFrame<'_>) {}
 }

@@ -42,6 +42,7 @@ fn dix_minutes_dans_neon_city_sans_pose_dans_un_mur() {
     let settings = PilotSettings::default();
     let traffic = PilotTraffic::default();
     let mut pilot = Pilot::new(settings.seed, 0.0);
+    let specs = shots::catalog();
     let mut director = CinemaDirector::new(shots::catalog(), false, 0xC1_7E);
     let mut world = CinemaWorld::default();
     let mut time = 0.0;
@@ -117,7 +118,15 @@ fn dix_minutes_dans_neon_city_sans_pose_dans_un_mur() {
         let stats = director.stats();
         if stats.shots != shots_seen {
             shots_seen = stats.shots;
-            if stats.last_mode == Some(cf_cinema::editor::PickMode::Normal) {
+            // Un plan réactif (décollage, atterrissage, esquive) bascule dès le début de l'animation de la voiture, et un
+            // plan d'occasion (figure, cascade) dès le prochain temps : ni l'un ni l'autre n'attend la grille (J6-04).
+            let on_the_spot = specs
+                .iter()
+                .find(|spec| Some(spec.id()) == director.shot_id())
+                .is_some_and(|spec| {
+                    spec.reactive() || spec.opportunity(&view) > cf_cinema::editor::OPPORTUNITY_THRESHOLD
+                });
+            if stats.last_mode == Some(cf_cinema::editor::PickMode::Normal) && !on_the_spot {
                 let grid = u32::from(world.show.grid_for(world.section));
                 assert!(stats.last_on_beat, "coupe hors temps à t={time}");
                 assert_eq!((f.count % 16) % grid, 0, "coupe hors grille ({grid} temps) à t={time}");
