@@ -75,6 +75,7 @@ pub(super) fn spawn_effects(
         MeshMaterial3d(materials.add(ribbon)),
         Transform::IDENTITY,
         Aabb::from_min_max(Vec3::splat(-0.5), Vec3::splat(0.5)),
+        Visibility::default(),
         WorldLayer,
     ));
 
@@ -94,6 +95,7 @@ pub(super) fn spawn_effects(
         MeshMaterial3d(materials.add(cloud)),
         Transform::IDENTITY,
         Aabb::from_min_max(Vec3::splat(-0.5), Vec3::splat(0.5)),
+        Visibility::default(),
         WorldLayer,
     ));
 }

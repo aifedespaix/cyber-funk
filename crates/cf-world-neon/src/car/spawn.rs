@@ -104,6 +104,35 @@ fn paint_material(def: &MaterialData, images: &[Handle<Image>], palette: &CarPal
     }
 }
 
+/// Position des optiques dans le repère de la voiture, mesurée sur les sommets du modèle **avant** que ses maillages
+/// ne passent dans les `Assets`.
+struct Lamps {
+    heads: Vec<Vec3>,
+    tails: Vec<Vec3>,
+    signals: Vec<(Side, Fore, Vec3)>,
+}
+
+impl Lamps {
+    fn measure(model: &CarModelAsset, frame: &CarFrame) -> Self {
+        let mut signals = Vec::new();
+        for (side, fore) in [
+            (Side::Left, Fore::Front),
+            (Side::Right, Fore::Front),
+            (Side::Left, Fore::Rear),
+            (Side::Right, Fore::Rear),
+        ] {
+            for center in model.lamp_centers(frame, MaterialRole::Signal(side, fore)).into_values() {
+                signals.push((side, fore, center));
+            }
+        }
+        Self {
+            heads: model.lamp_centers(frame, MaterialRole::LightHead).into_values().collect(),
+            tails: model.lamp_centers(frame, MaterialRole::LightBrake).into_values().collect(),
+            signals,
+        }
+    }
+}
+
 /// Un matériau construit : standard, peinture ou « à ne pas dessiner ».
 enum Built {
     Standard(Handle<StandardMaterial>),
@@ -123,6 +152,7 @@ pub fn spawn_car(
     glow: LinearRgba,
 ) -> CarRig {
     let frame = model.frame();
+    let lamps = Lamps::measure(&model, &frame);
     let images: Vec<Handle<Image>> = model.images.drain(..).map(|i| assets.images.add(i)).collect();
     let meshes: Vec<Handle<Mesh>> = model.meshes.drain(..).map(|m| assets.meshes.add(m)).collect();
     let mut handles = ModelMaterials::default();
@@ -199,6 +229,7 @@ pub fn spawn_car(
                 Name::new(format!("{} · {}", node.name, model.materials[material].name)),
                 Mesh3d(meshes[mesh].clone()),
                 Transform::IDENTITY,
+                Visibility::default(),
                 layer,
                 ChildOf(entity),
             ));
@@ -219,7 +250,7 @@ pub fn spawn_car(
     let steer: Vec<Entity> = ["steer_FL", "steer_FR"].into_iter().filter_map(named).collect();
     let logo = model.node("logo_rear").and_then(|i| entities[i].map(|e| (e, model.nodes[i].transform.scale)));
 
-    let (lights, signals) = spawn_lights(commands, assets, &model, &frame, [root, body, chassis], &signal_mats, glow, layer);
+    let (lights, signals) = spawn_lights(commands, assets, &model, &frame, &lamps, [root, body, chassis], &signal_mats, glow, layer);
     CarRig {
         frame,
         chassis,
@@ -243,6 +274,7 @@ fn spawn_lights(
     assets: &mut CarAssets,
     model: &CarModelAsset,
     frame: &CarFrame,
+    lamps: &Lamps,
     [root, body, chassis]: [Entity; 3],
     signal_mats: &[(Side, Fore, Emissive)],
     glow: LinearRgba,
@@ -260,6 +292,7 @@ fn spawn_lights(
                 Mesh3d(mesh),
                 MeshMaterial3d(material.clone()),
                 Transform::from_translation(at).with_scale(scale),
+                Visibility::default(),
                 layer,
                 ChildOf(root),
             ))
@@ -276,6 +309,7 @@ fn spawn_lights(
             Mesh3d(beam_mesh.clone()),
             MeshMaterial3d(beam.clone()),
             Transform::from_xyz(sign * lamp_x, lamp_y, front - 0.04),
+            Visibility::default(),
             layer,
             ChildOf(body),
         ));
@@ -304,6 +338,7 @@ fn spawn_lights(
                 Mesh3d(halo_mesh.clone()),
                 MeshMaterial3d(material.clone()),
                 Transform::from_translation(local).with_scale(Vec3::splat(size)),
+                Visibility::default(),
                 halo_aabb(),
                 layer,
                 ChildOf(chassis),
@@ -312,37 +347,44 @@ fn spawn_lights(
         HaloRig { material, entity }
     };
     // Les phares à l'avant (la route va vers −Z), les feux stop à l'arrière.
-    let heads = model
-        .lamp_centers(frame, MaterialRole::LightHead)
-        .into_values()
-        .map(|c| halo(commands, assets, c, -0.12, 1.1, "halo de phare"))
+    let heads = lamps
+        .heads
+        .iter()
+        .map(|&c| halo(commands, assets, c, -0.12, 1.1, "halo de phare"))
         .collect();
-    let tails = model
-        .lamp_centers(frame, MaterialRole::LightBrake)
-        .into_values()
-        .map(|c| halo(commands, assets, c, 0.12, 0.9, "halo de feu stop"))
+    let tails = lamps
+        .tails
+        .iter()
+        .map(|&c| halo(commands, assets, c, 0.12, 0.9, "halo de feu stop"))
         .collect();
     let mut signals = Vec::new();
-    for (side, fore, material) in signal_mats {
-        let (side, fore) = (*side, *fore);
-        for (_, center) in model.lamp_centers(frame, MaterialRole::Signal(side, fore)) {
-            let is_front = center.z < 0.0;
-            let halo_rig = halo(commands, assets, center, if is_front { -0.1 } else { 0.12 }, if is_front { 0.8 } else { 1.3 }, "halo de clignotant");
-            // La flaque déborde sur le bas-côté : elle dit de quel côté la voiture va tourner.
-            let sign = if side == Side::Left { -1.0 } else { 1.0 };
-            let pool = light_material(LightKind::Glow, -2.0, assets);
-            let scale = if is_front { 2.6 } else { 3.2 };
-            let at = Vec3::new(center.x + sign * 0.9, 0.05, center.z + if is_front { -0.4 } else { 0.4 });
-            let pool_entity = ground_pool(commands, ground_quad.clone(), &pool, at, Vec3::new(scale, 1.0, scale), "flaque de clignotant");
-            signals.push(SignalRig {
-                side,
-                material: material.clone(),
-                halo: halo_rig.material,
-                halo_entity: halo_rig.entity,
-                pool,
-                pool_entity,
-            });
-        }
+    for &(side, fore, center) in &lamps.signals {
+        let Some((_, _, material)) = signal_mats.iter().find(|(s, f, _)| *s == side && *f == fore) else {
+            continue;
+        };
+        let is_front = center.z < 0.0;
+        let halo_rig = halo(
+            commands,
+            assets,
+            center,
+            if is_front { -0.1 } else { 0.12 },
+            if is_front { 0.8 } else { 1.3 },
+            "halo de clignotant",
+        );
+        // La flaque déborde sur le bas-côté : elle dit de quel côté la voiture va tourner.
+        let sign = if side == Side::Left { -1.0 } else { 1.0 };
+        let pool = light_material(LightKind::Glow, -2.0, assets);
+        let scale = if is_front { 2.6 } else { 3.2 };
+        let at = Vec3::new(center.x + sign * 0.9, 0.05, center.z + if is_front { -0.4 } else { 0.4 });
+        let pool_entity = ground_pool(commands, ground_quad.clone(), &pool, at, Vec3::new(scale, 1.0, scale), "flaque de clignotant");
+        signals.push(SignalRig {
+            side,
+            material: material.clone(),
+            halo: halo_rig.material,
+            halo_entity: halo_rig.entity,
+            pool,
+            pool_entity,
+        });
     }
 
     // Projecteurs (lumières de Bevy) : deux phares, une lueur sous la caisse, une lumière derrière le logo. Comme dans
@@ -368,6 +410,7 @@ fn spawn_lights(
                         ..default()
                     },
                     Transform::from_translation(at).looking_at(aim, Vec3::Y),
+                    Visibility::default(),
                     world_layers.clone(),
                     ChildOf(chassis),
                 ))
@@ -389,6 +432,7 @@ fn spawn_lights(
                         ..default()
                     },
                     Transform::from_translation(model.nodes[index].transform.translation),
+                    Visibility::default(),
                     world_layers.clone(),
                     ChildOf(chassis),
                 ))
