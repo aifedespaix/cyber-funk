@@ -15,4 +15,5 @@ bevy.workspace = true
 cf-analysis.workspace = true
 cf-render.workspace = true
 cf-show.workspace = true
+rand_core.workspace = true
 tracing.workspace = true
