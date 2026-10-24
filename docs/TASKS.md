@@ -51,7 +51,7 @@ vient de la taille de la tâche et du nombre d'itérations, bien plus que du dé
 ## Statuts
 
 ⬜ à faire · 🟨 en cours · 🟦 PR ouverte · ✅ fusionnée.
-En cours au dernier point : J8-01 (PR #43 en CI).
+En cours au dernier point : J6-05.
 
 | ID | Tâche | Modèle | Effort | Dépend de | Statut |
 | --- | --- | --- | --- | --- | --- |
@@ -111,12 +111,13 @@ En cours au dernier point : J8-01 (PR #43 en CI).
 | J7-09 | [Landmarks vitrines](tasks/J7.md) | Sonnet 5.5 | `medium` | J7-08 | ⬜ |
 | J7-10 | [Météores et impacts](tasks/J7.md) | Sonnet 5.5 | `medium` | J5-02, J5-03 | ⬜ |
 | J7-11 | [Pré-intro et cartons-titres](tasks/J7.md) | Sonnet 5.5 | `medium` | J5-03, J4-01, J2-05 | ⬜ |
-| J8-01 | [Vue Live](tasks/J8.md) | Sonnet 5.5 | `high` | J2-05, J3-06, J4-05 | ⬜ |
+| J8-01 | [Vue Live](tasks/J8.md) | Sonnet 5.5 | `high` | J2-05, J3-06, J4-05 | ✅ |
 | J8-02 | [Préparation : événement, créneaux, cues](tasks/J8.md) | Sonnet 5.5 | `medium` | J8-01, J2-07 | ⬜ |
 | J8-03 | [Éditeur de looks avec aperçu](tasks/J8.md) | Sonnet 5.5 | `medium` | J8-02, J4-08 | ⬜ |
 | J8-04 | [MIDI learn et profils de contrôle](tasks/J8.md) | Sonnet 5.5 | `medium` | J3-02, J8-01 | ⬜ |
 | J8-05 | [Aperçu de la sortie dans la fenêtre opérateur](tasks/J8.md) | Sonnet 5.5 | `medium` | J8-01, J4-06 | ⬜ |
 | J8-06 | [Caméra libre de préparation](tasks/J8.md) | Haiku 5.5 | `low` | J6-01 | ⬜ |
+| J8-07 | [Raccord du binaire : assemblage des plugins et du chef du spectacle](tasks/J8.md) | Sonnet 5.5 | `high` | J8-01, J6-02, J4-06, J4-07, J4-02, J4-08 | ⬜ |
 | J9-01 | [Tests d'endurance](tasks/J9.md) | Sonnet 5.5 | `high` | J8-01, J7 terminé | ⬜ |
 | J9-02 | [Pertes de sources et replis](tasks/J9.md) | Sonnet 5.5 | `high` | J3-03, J2-05 | ⬜ |
 | J9-03 | [Paquets d'installation](tasks/J9.md) | Sonnet 5.5 | `medium` | J0-01 | ✅ |

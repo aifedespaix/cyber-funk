@@ -9,6 +9,10 @@
 //!                                              source de tempo préférée du créneau
 //! ```
 
+mod sheet;
+
+pub use sheet::{SheetCue, SheetSlot, ShowSheet};
+
 use std::fmt;
 use std::time::{SystemTime, UNIX_EPOCH};
 
@@ -88,6 +92,12 @@ impl fmt::Debug for ShowRuntime {
 }
 
 impl ShowRuntime {
+    /// Le chef du spectacle en lecture seule : drop préparé, créneaux (interface opérateur).
+    #[must_use]
+    pub fn director(&self) -> &ShowDirector<Pcg32> {
+        &self.director
+    }
+
     /// Le chef du spectacle, pour les systèmes qui prennent un ordre (`take`, `take_trigger`) ou marquent la fraîcheur.
     pub fn director_mut(&mut self) -> &mut ShowDirector<Pcg32> {
         &mut self.director
@@ -135,6 +145,7 @@ impl Plugin for ShowPlugin {
             Ok(director) => {
                 app.insert_resource(CurrentShow(director.state().clone()))
                     .insert_resource(ShowControls::from_show(show))
+                    .insert_resource(ShowSheet::from_show(show))
                     .insert_resource(ShowRuntime {
                         director,
                         actions: Vec::new(),

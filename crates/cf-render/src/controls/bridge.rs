@@ -131,6 +131,19 @@ impl Emitter<'_, '_> {
     }
 }
 
+/// Publie une action née de l'interface opérateur (bouton, raccourci propre à la vue Live) par le même chemin que le
+/// clavier et le MIDI : message `ControlAction`, dernière action du panneau, et routage des actions de tempo
+/// (`TapTempo`, `Resync`, `NudgePhase`) vers le tap et l'arbitre. Sans ce routage, un bouton TAP serait muet.
+pub fn submit_action(
+    bridge: &mut ControlBridge,
+    status: &mut ControlsStatus,
+    out: &mut MessageWriter<ControlAction>,
+    action: Action,
+) {
+    let time_s = bridge.now_s();
+    Emitter { bridge, status, out }.emit(TimedAction { time_s, action });
+}
+
 /// Vide le flux MIDI : actions, horloge, ports ; tient aussi le panneau à jour.
 pub(super) fn read_midi(
     mut bridge: ResMut<ControlBridge>,

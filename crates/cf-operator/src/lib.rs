@@ -7,11 +7,13 @@
 mod audio_panel;
 mod controls_panel;
 mod diagnostics;
+mod live;
 mod loading;
 mod quit;
 mod ui;
 mod window;
 
+pub use live::OperatorMode;
 pub use quit::{QuitConfirmation, QuitDecision, QuitGuardPlugin, QuitPrompt, QuitSource};
 pub use window::OperatorWindow;
 
@@ -39,9 +41,18 @@ impl Plugin for OperatorPlugin {
         // Quand un champ texte d'egui a le focus, le clavier n'est plus une commande (voir `cf_render::controls`).
         app.init_resource::<TextInputFocus>()
             .add_systems(Update, sync_text_focus.before(CfSet::Input));
+        live::build(app);
         app.add_systems(Startup, window::spawn_operator_window).add_systems(
             EguiPrimaryContextPass,
-            (ui::main_panel, diagnostics::diagnostics_window, ui::quit_dialog).chain(),
+            (
+                live::live_input,
+                ui::main_panel,
+                diagnostics::diagnostics_window,
+                live::mode_dialog,
+                ui::quit_dialog,
+                live::flush_orders,
+            )
+                .chain(),
         );
     }
 }
