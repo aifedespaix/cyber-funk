@@ -13,14 +13,14 @@ use crate::shots::Chase;
 use crate::types::{FlightPhase, Section, ShotTier, ShowView, TransitionKind};
 use crate::world::{CinemaFrame, CinemaWorld, NoObstacles, Obstacles};
 
-const DT: f32 = 1.0 / 60.0;
+pub(super) const DT: f32 = 1.0 / 60.0;
 const BPM: f64 = 128.0;
 const TEN_MINUTES: f64 = 600.0;
 /// Longueur d'une rangée d'immeubles (m).
 const ROW: f64 = 24.0;
 
 /// Ville de boîtes : à chaque rangée, une tour de chaque côté, de hauteur et de retrait tirés par graine.
-struct BoxCity;
+pub(super) struct BoxCity;
 
 fn hash(i: i64) -> f64 {
     let mut rng = CinemaRng::new((i as u32).wrapping_mul(0x9e37_79b9) ^ 0x1234_5678);
@@ -62,14 +62,19 @@ impl Obstacles for BoxCity {
 
 /// Une soirée simulée : la voiture file à 40 m/s en zigzag et vole parfois, les kicks tombent à 128 BPM, les
 /// sections tournent (calme → groove → sommet) toutes les 40 s avec un drop à chaque sommet.
-struct Sim {
-    world: CinemaWorld,
+pub(super) struct Sim {
+    pub(super) world: CinemaWorld,
     next_beat: f64,
+    bpm: f64,
     section_at: f64,
 }
 
 impl Sim {
-    fn new(show: bool) -> Self {
+    pub(super) fn new(show: bool) -> Self {
+        Self::with_bpm(show, BPM)
+    }
+
+    pub(super) fn with_bpm(show: bool, bpm: f64) -> Self {
         let mut world = CinemaWorld {
             live: true,
             dt: DT,
@@ -77,7 +82,7 @@ impl Sim {
             car: DVec3::new(0.0, 0.0, -10_000.0),
             ..CinemaWorld::default()
         };
-        world.beat.bpm = Some(BPM as f32);
+        world.beat.bpm = Some(bpm as f32);
         world.show = ShowView {
             active: show,
             cut_grid: CutGrid {
@@ -89,12 +94,13 @@ impl Sim {
         };
         Self {
             world,
-            next_beat: 60.0 / BPM,
+            next_beat: 60.0 / bpm,
+            bpm,
             section_at: 0.0,
         }
     }
 
-    fn step(&mut self) {
+    pub(super) fn step(&mut self) {
         let w = &mut self.world;
         w.time += f64::from(DT);
         let t = w.time;
@@ -102,7 +108,7 @@ impl Sim {
         w.show.drop_now = false;
         w.section_changed = None;
         if t >= self.next_beat {
-            self.next_beat += 60.0 / BPM;
+            self.next_beat += 60.0 / self.bpm;
             w.beat.count += 1;
             w.beat.pulse = 1.0;
         } else {

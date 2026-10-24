@@ -5,14 +5,19 @@
 //! derrière, plafond) → anti-collision → garde (dernier bon cadrage). La pose finie est écrite dans la `CameraPose` que
 //! lit le rig de `cf-render`.
 
+mod cuts;
+#[cfg(test)]
+mod cuts_tests;
 mod guard;
 mod kind;
 #[cfg(test)]
 mod tests;
 
+use bevy::math::DVec3;
 use cf_render::CameraPose;
 
 use crate::car_sync::{CarSync, SyncTarget};
+use crate::choreo::{CutLimiter, NoShow, ShowSide};
 use crate::cues::{CueList, CueTracker};
 use crate::cutter::{Cutter, Decision, OnAir};
 use crate::editor::{Editor, PickMode};
@@ -23,12 +28,8 @@ use crate::transition::{Transition, transition_seconds};
 use crate::types::{CueKind, TransitionKind};
 use crate::world::CinemaFrame;
 
+pub use crate::choreo::MAX_CUTS_PER_SECOND;
 pub use guard::{CAMERA_RADIUS, MAX_AHEAD, MAX_BEHIND, MAX_HEIGHT};
-
-/// Plafond de cadence des coupes, en coupes par seconde glissante. **Pas appliqué ici** : une coupe de caméra n'est
-/// pas une variation de luminance au sens de WCAG 2.3.1 (elle ne passe pas par le limiteur photosensible), mais un
-/// plan qui coupe à chaque temps (`strobe`, J6-02) doit être plafonné à cette cadence (décision notée par J2-04).
-pub const MAX_CUTS_PER_SECOND: u32 = 3;
 
 /// Un plan et sa pose : la pose reste attachée à son plan quand les rôles (sortant / entrant) s'échangent.
 #[derive(Default)]
@@ -37,12 +38,15 @@ struct Slot {
     spec: Option<usize>,
     pose: CameraPose,
     started_at: f64,
+    /// Pose de l'image précédente et position de la voiture : de quoi repérer le saut qu'un plan s'inflige à lui-même.
+    prev: Option<(CameraPose, DVec3)>,
 }
 
 impl Slot {
     fn clear(&mut self) {
         self.shot = None;
         self.spec = None;
+        self.prev = None;
     }
 }
 
@@ -65,6 +69,11 @@ pub struct DirectorStats {
     pub wall_saves: u32,
     /// Images où la pose a été remplacée par le dernier bon cadrage (NaN, mur indégageable).
     pub fallbacks: u32,
+    /// Coupes franches admises (transitions `Cut` et sauts de pose des plans) : plafonnées à
+    /// [`MAX_CUTS_PER_SECOND`] par seconde glissante.
+    pub cuts: u32,
+    /// Coupes refusées par le plafond : transition adoucie en fondu, ou saut de plan retardé (pose précédente tenue).
+    pub cuts_held: u32,
 }
 
 /// Le réalisateur. Ressource Bevy : un seul écrivain, le système de `CfSet::Direct`.
@@ -85,6 +94,8 @@ pub struct CinemaDirector {
     rng: CinemaRng,
     last_cut: f64,
     stats: DirectorStats,
+    /// Plafond de cadence des coupes, partagé par tous les plans et toutes les transitions.
+    limiter: CutLimiter,
     /// Le plan courant a produit une pose invalide : il est remplacé à l'image suivante.
     poisoned: bool,
 }
@@ -106,7 +117,7 @@ impl CinemaDirector {
     /// mode calme (transitions plus lentes, pas de coupe « waouh »).
     #[must_use]
     pub fn new(catalog: Vec<Box<dyn ShotSpec>>, calm: bool, seed: u32) -> Self {
-        let editor = Editor::new(catalog.len(), calm, CinemaRng::new(seed));
+        let editor = Editor::new(&catalog, calm, CinemaRng::new(seed));
         Self {
             catalog,
             calm,
@@ -119,10 +130,11 @@ impl CinemaDirector {
             sync: CarSync::default(),
             last_good: CameraPose::default(),
             editor,
-            cutter: Cutter::default(),
+            cutter: Cutter::new(CinemaRng::new(seed ^ 0x85eb_ca6b)),
             rng: CinemaRng::new(seed ^ 0x9e37_79b9),
             last_cut: f64::NEG_INFINITY,
             stats: DirectorStats::default(),
+            limiter: CutLimiter::default(),
             poisoned: false,
         }
     }
@@ -166,10 +178,16 @@ impl CinemaDirector {
 
     /// Démarre depuis la pose actuelle de la caméra : un fondu, jamais un saut.
     pub fn start(&mut self, from: &CameraPose, frame: &CinemaFrame<'_>) {
+        self.start_with(from, frame, &mut NoShow::default());
+    }
+
+    /// Comme [`Self::start`], avec le chef du spectacle (portes, fraîcheur commune, ordres).
+    pub fn start_with(&mut self, from: &CameraPose, frame: &CinemaFrame<'_>, show: &mut dyn ShowSide) {
         self.cues.reset();
         self.sync.reset();
-        self.cutter.reset();
-        self.editor.reset(frame.time);
+        self.cutter.reset(show);
+        self.editor.reset(frame.time, show);
+        self.limiter.reset();
         self.last_cut = frame.time;
         self.current.clear();
         self.current.pose = *from;
@@ -185,7 +203,13 @@ impl CinemaDirector {
             live = frame.live,
             "démarrage du réalisateur"
         );
-        self.running = self.queue(frame, Decision::of(PickMode::Start), Some(TransitionKind::Blend), false);
+        self.running = self.queue(
+            frame,
+            show,
+            Decision::of(PickMode::Start),
+            Some(TransitionKind::Blend),
+            false,
+        );
     }
 
     /// Arrête le réalisateur (la pose reste où elle est).
@@ -201,6 +225,12 @@ impl CinemaDirector {
 
     /// La pose à appliquer cette image.
     pub fn update(&mut self, frame: &CinemaFrame<'_>) -> &CameraPose {
+        self.update_with(frame, &mut NoShow::default())
+    }
+
+    /// Comme [`Self::update`], avec le chef du spectacle : il fournit les portes du look, le drop préparé et les ordres
+    /// de l'opérateur, et reçoit la fraîcheur des plans montrés.
+    pub fn update_with(&mut self, frame: &CinemaFrame<'_>, show: &mut dyn ShowSide) -> &CameraPose {
         if !self.running {
             return &self.out;
         }
@@ -231,7 +261,7 @@ impl CinemaDirector {
         if self.transition.active {
             self.run_transition(frame, false);
         } else {
-            self.run_shot(frame, &cues);
+            self.run_shot(frame, show, &cues);
         }
         let target = self.sync_target();
         self.sync.apply(frame, &mut self.out, target);
@@ -255,10 +285,11 @@ impl CinemaDirector {
         })
     }
 
-    fn run_shot(&mut self, frame: &CinemaFrame<'_>, cues: &CueList) {
+    fn run_shot(&mut self, frame: &CinemaFrame<'_>, show: &mut dyn ShowSide, cues: &CueList) {
         let Some(shot) = self.current.shot.as_mut() else { return };
         let alive = shot.update(frame, &mut self.current.pose) && !std::mem::take(&mut self.poisoned);
         let holding = shot.holding();
+        self.current.steady(&mut self.limiter, &mut self.stats, frame);
         self.out = self.current.pose;
         // À l'arrêt de la musique, on garde le plan : seule la fin naturelle d'un plan le remplace.
         let decision = if !alive {
@@ -278,13 +309,14 @@ impl CinemaDirector {
                 holding,
                 started_at: self.current.started_at,
             };
-            self.cutter.decide(frame, cues, &on_air, &self.editor, &self.catalog)
+            self.cutter
+                .decide(frame, cues, &on_air, &mut self.editor, &self.catalog, show)
         } else {
             None
         };
         if let Some(decision) = decision {
             let on_beat = cues.has(CueKind::Beat);
-            self.queue(frame, decision, None, on_beat);
+            self.queue(frame, show, decision, None, on_beat);
         }
     }
 
@@ -292,13 +324,17 @@ impl CinemaDirector {
     fn queue(
         &mut self,
         frame: &CinemaFrame<'_>,
+        show: &mut dyn ShowSide,
         decision: Decision,
         forced: Option<TransitionKind>,
         on_beat: bool,
     ) -> bool {
         let index = match decision.spec {
             Some(index) => index,
-            None => match self.editor.pick(frame, &self.catalog, decision.mode, self.current.spec) {
+            None => match self
+                .editor
+                .pick(frame, &*show, &self.catalog, decision.mode, self.current.spec)
+            {
                 Some(index) => index,
                 None => return false,
             },
@@ -310,6 +346,8 @@ impl CinemaDirector {
         shot.update(frame, &mut self.incoming.pose);
         self.incoming.shot = Some(shot);
         self.incoming.spec = Some(index);
+        self.incoming.prev = None;
+        self.incoming.steady(&mut self.limiter, &mut self.stats, frame);
 
         let distance = self.current.pose.position.distance(self.incoming.pose.position);
         let cabin = self.incoming.pose.cabin;
@@ -317,10 +355,12 @@ impl CinemaDirector {
             .kind
             .or(forced)
             .unwrap_or_else(|| self.choose_kind(frame, index, decision.mode, distance, cabin));
+        let kind = self.cap_cut(kind, frame.time, distance);
         let Some(spec) = self.catalog.get(index) else {
             return false;
         };
-        self.editor.register(index, spec.as_ref(), frame);
+        self.editor
+            .register(index, spec.as_ref(), frame, show, decision.counted);
         if kind == TransitionKind::Cut {
             self.last_cut = frame.time;
         }
@@ -353,9 +393,11 @@ impl CinemaDirector {
         if !fresh {
             if let Some(shot) = self.current.shot.as_mut() {
                 shot.update(frame, &mut self.current.pose);
+                self.current.steady(&mut self.limiter, &mut self.stats, frame);
             }
             if let Some(shot) = self.incoming.shot.as_mut() {
                 shot.update(frame, &mut self.incoming.pose);
+                self.incoming.steady(&mut self.limiter, &mut self.stats, frame);
             }
         }
         if !self
