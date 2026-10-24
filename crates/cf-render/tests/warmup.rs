@@ -44,7 +44,10 @@ fn sans_etape_le_chargement_se_termine() {
     app.add_plugins(WarmupPlugin);
     run_until_ready(&mut app, 200);
     assert!(app.world().resource::<WarmupProgress>().ready_after_s.is_some());
-    assert!(!app.world().resource::<LayerWarmup>().0, "les couches reprennent l'opacité du look");
+    assert!(
+        !app.world().resource::<LayerWarmup>().0,
+        "les couches reprennent l'opacité du look"
+    );
 }
 
 #[test]
@@ -83,7 +86,12 @@ fn le_show_ne_court_qu_en_ready() {
         .add_systems(Update, (|mut ticks: ResMut<Ticks>| ticks.0 += 1).run_if(show_may_run));
     let frames = run_until_ready(&mut app, 200);
     // La transition s'applique avant `Update` : seule la dernière image (déjà en `Ready`) a fait tourner le show.
-    assert_eq!(app.world().resource::<Ticks>().0, 1, "rien pendant les {} images de chargement", frames - 1);
+    assert_eq!(
+        app.world().resource::<Ticks>().0,
+        1,
+        "rien pendant les {} images de chargement",
+        frames - 1
+    );
     app.update();
     assert_eq!(app.world().resource::<Ticks>().0, 2);
 }
@@ -157,7 +165,11 @@ fn les_copies_de_prechauffe_sont_dedupliquees_posees_devant_la_camera_et_retiree
         .map(|(_, transform)| transform.translation)
         .collect();
     assert_eq!(copies.len(), 2, "une copie par (maillage, mode alpha, couches)");
-    let camera_position = app.world().get::<GlobalTransform>(camera).expect("caméra").translation();
+    let camera_position = app
+        .world()
+        .get::<GlobalTransform>(camera)
+        .expect("caméra")
+        .translation();
     for position in copies {
         let ahead = position - camera_position;
         assert!(ahead.z < -1.0, "devant la caméra (regard −z) : {ahead:?}");
@@ -171,7 +183,10 @@ fn les_copies_de_prechauffe_sont_dedupliquees_posees_devant_la_camera_et_retiree
         "les copies sont détruites avant le show"
     );
     // Les entités du monde, elles, n'ont pas été touchées.
-    assert_eq!(app.world_mut().query::<&Mesh3d>().iter(app.world()).count(), 3 + curtain_quads(&mut app));
+    assert_eq!(
+        app.world_mut().query::<&Mesh3d>().iter(app.world()).count(),
+        3 + curtain_quads(&mut app)
+    );
 }
 
 fn curtain_quads(app: &mut App) -> usize {
@@ -209,7 +224,10 @@ fn pendant_le_chargement_toutes_les_couches_rendent_meme_si_le_look_en_eteint() 
     assert!(active(&mut app, Layer::Overlay), "préchauffe : la surcouche rend");
     run_until_ready(&mut app, 200);
     app.update();
-    assert!(!active(&mut app, Layer::Foreground), "après Ready : le look éteint l'avant-plan");
+    assert!(
+        !active(&mut app, Layer::Foreground),
+        "après Ready : le look éteint l'avant-plan"
+    );
     assert!(!active(&mut app, Layer::Overlay));
     assert!(active(&mut app, Layer::World));
 }

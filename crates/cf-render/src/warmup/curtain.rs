@@ -71,7 +71,10 @@ pub(super) fn spawn_curtain(
 }
 
 /// `OnEnter(Ready)` : le rideau tombe. La caméra s'éteint (plus aucune passe) et l'aplat se cache.
-pub(super) fn lift_curtain(mut cameras: Query<&mut Camera, With<Curtain>>, mut quads: Query<&mut Visibility, With<Curtain>>) {
+pub(super) fn lift_curtain(
+    mut cameras: Query<&mut Camera, With<Curtain>>,
+    mut quads: Query<&mut Visibility, With<Curtain>>,
+) {
     for mut camera in &mut cameras {
         camera.is_active = false;
     }

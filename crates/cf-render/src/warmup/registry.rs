@@ -28,7 +28,9 @@ pub struct WarmupRegistry {
 
 impl std::fmt::Debug for WarmupRegistry {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_list().entries(self.entries.iter().map(|(label, _)| label)).finish()
+        f.debug_list()
+            .entries(self.entries.iter().map(|(label, _)| label))
+            .finish()
     }
 }
 

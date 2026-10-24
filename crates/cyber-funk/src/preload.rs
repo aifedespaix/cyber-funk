@@ -7,8 +7,8 @@ use std::path::PathBuf;
 
 use bevy::prelude::*;
 use cf_audio::playlist::scan_music_dir;
-use cf_render::warmup::FileJobs;
 use cf_render::LoadTracker;
+use cf_render::warmup::FileJobs;
 use cf_show::load::LoadedShow;
 
 use crate::cli::Cli;
@@ -46,7 +46,12 @@ impl PreloadPlan {
                     .filter_map(|slot| slot.dj.logo.as_ref())
                     .map(|logo| cli.assets_dir.join(logo.as_str()))
                     .collect();
-                let summary = format!("Show « {} » : {} créneau(x), {} look(s)", event.settings.name, event.slots.len(), show.looks().count());
+                let summary = format!(
+                    "Show « {} » : {} créneau(x), {} look(s)",
+                    event.settings.name,
+                    event.slots.len(),
+                    show.looks().count()
+                );
                 (logos, Some(summary))
             },
         );
@@ -59,9 +64,17 @@ pub fn start_preload(plan: Res<PreloadPlan>, mut tracker: ResMut<LoadTracker>, m
     if let Some(show) = &plan.show {
         tracker.register_done(show.clone());
     }
-    jobs.spawn(&mut tracker, format!("Musiques ({})", plan.music.len()), plan.music.clone());
+    jobs.spawn(
+        &mut tracker,
+        format!("Musiques ({})", plan.music.len()),
+        plan.music.clone(),
+    );
     if !plan.logos.is_empty() {
-        jobs.spawn(&mut tracker, format!("Logos DJ ({})", plan.logos.len()), plan.logos.clone());
+        jobs.spawn(
+            &mut tracker,
+            format!("Logos DJ ({})", plan.logos.len()),
+            plan.logos.clone(),
+        );
     }
 }
 
@@ -79,7 +92,8 @@ mod tests {
     fn le_plan_liste_les_musiques_du_depot() {
         let assets = assets();
         let music = format!("{assets}/music");
-        let cli = Cli::try_parse_from(["cyber-funk", "--music-dir", &music, "--assets-dir", &assets]).expect("arguments");
+        let cli =
+            Cli::try_parse_from(["cyber-funk", "--music-dir", &music, "--assets-dir", &assets]).expect("arguments");
         let plan = PreloadPlan::new(&cli, None);
         assert!(!plan.music.is_empty(), "les pistes libres du dépôt sont listées");
         assert!(plan.show.is_none());

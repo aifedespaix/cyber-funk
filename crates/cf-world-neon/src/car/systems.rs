@@ -107,11 +107,7 @@ pub(super) struct CarModelTask {
 }
 
 /// `Startup` : lance la lecture et le décodage du modèle (hors du fil principal).
-pub(super) fn load_model(
-    mut commands: Commands,
-    source: Res<CarModelSource>,
-    tracker: Option<ResMut<LoadTracker>>,
-) {
+pub(super) fn load_model(mut commands: Commands, source: Res<CarModelSource>, tracker: Option<ResMut<LoadTracker>>) {
     let path = source.path.clone();
     let task = AsyncComputeTaskPool::get().spawn(async move {
         let bytes = std::fs::read(&path).map_err(|source| CarModelError::Read {

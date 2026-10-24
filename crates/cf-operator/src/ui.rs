@@ -6,8 +6,8 @@ use bevy_egui::{EguiContext, PrimaryEguiContext, egui};
 use cf_render::audio::{AudioCommand, AudioFeatures, AudioStatus, VisualLatency};
 use cf_render::{ControlsStatus, CurrentShow};
 
-use crate::quit::{QuitDecision, QuitPrompt, QuitSource};
 use crate::loading::{self, LoadingView};
+use crate::quit::{QuitDecision, QuitPrompt, QuitSource};
 use crate::{audio_panel, controls_panel};
 
 /// Largeur initiale du panneau audio (points egui) : assez pour les vumètres et la ligne des compteurs.

@@ -22,8 +22,8 @@ pub use files::FileJobs;
 pub use mirror::WarmEntity;
 pub use pipelines::PipelineWatch;
 pub use plugin::{
-    ASSET_TIMEOUT_S, AppState, COMPILE_TIMEOUT_S, LatePipelines, STABLE_FRAMES, WarmupPhase, WarmupPlugin, WarmupProgress,
-    show_may_run,
+    ASSET_TIMEOUT_S, AppState, COMPILE_TIMEOUT_S, LatePipelines, STABLE_FRAMES, WarmupPhase, WarmupPlugin,
+    WarmupProgress, show_may_run,
 };
 pub use registry::{WarmupAppExt, WarmupFn, WarmupRegistry};
 pub use tracker::{LoadStep, LoadTracker, StepId, StepStatus};

@@ -22,7 +22,9 @@ pub(crate) struct LoadingView<'w> {
 impl LoadingView<'_> {
     /// Vrai pendant le chargement.
     pub(crate) fn is_loading(&self) -> bool {
-        self.state.as_ref().is_some_and(|state| *state.get() == AppState::Loading)
+        self.state
+            .as_ref()
+            .is_some_and(|state| *state.get() == AppState::Loading)
     }
 
     /// Compilations tardives constatées depuis `Ready` (0 est l'état sain).
@@ -102,7 +104,9 @@ pub(crate) fn draw_late_warning(ui: &mut egui::Ui, late: usize) {
     if late > 0 {
         ui.colored_label(
             egui::Color32::LIGHT_RED,
-            format!("{late} pipeline(s) compilé(s) pendant le show : voir le journal (« pipeline compilé après Ready »)."),
+            format!(
+                "{late} pipeline(s) compilé(s) pendant le show : voir le journal (« pipeline compilé après Ready »)."
+            ),
         );
     }
 }

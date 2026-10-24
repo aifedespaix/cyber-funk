@@ -118,15 +118,14 @@ impl Plugin for WarmupPlugin {
             // Les matériaux standard du monde (carrosserie, quads des couches…) : toutes leurs variantes de pipeline.
             app.warm_material::<StandardMaterial>("matériaux standard");
         }
-        app
-            .add_systems(
-                Update,
-                (poll_file_jobs, drive_loading, place_warm_entities)
-                    .chain()
-                    .run_if(in_state(AppState::Loading)),
-            )
-            .add_systems(OnEnter(AppState::Ready), (finish_loading, lift_curtain))
-            .add_systems(Update, report_late_pipelines.run_if(in_state(AppState::Ready)));
+        app.add_systems(
+            Update,
+            (poll_file_jobs, drive_loading, place_warm_entities)
+                .chain()
+                .run_if(in_state(AppState::Loading)),
+        )
+        .add_systems(OnEnter(AppState::Ready), (finish_loading, lift_curtain))
+        .add_systems(Update, report_late_pipelines.run_if(in_state(AppState::Ready)));
     }
 }
 
@@ -211,10 +210,7 @@ fn finish_loading(world: &mut World) {
         }
     }
     // Filet : toute copie échappée au registre (déclaration qui n'a pas rendu ses entités).
-    let strays: Vec<Entity> = world
-        .query_filtered::<Entity, With<WarmEntity>>()
-        .iter(world)
-        .collect();
+    let strays: Vec<Entity> = world.query_filtered::<Entity, With<WarmEntity>>().iter(world).collect();
     for entity in strays {
         world.entity_mut(entity).despawn();
     }

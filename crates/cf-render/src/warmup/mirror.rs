@@ -100,11 +100,7 @@ pub(super) fn place_warm_entities(
 ) {
     for (entity, layers, mut transform) in &mut warm {
         let Some((_, camera_transform, projection, _)) = cameras.iter().find(|(camera, _, _, camera_layers)| {
-            camera.is_active
-                && camera_layers
-                    .cloned()
-                    .unwrap_or_default()
-                    .intersects(layers)
+            camera.is_active && camera_layers.cloned().unwrap_or_default().intersects(layers)
         }) else {
             continue;
         };
