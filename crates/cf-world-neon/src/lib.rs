@@ -1,14 +1,16 @@
 //! Neon City, le monde repris de Sillage : route infinie, immeubles néon, ciel et planètes, voiture en pilote
 //! automatique, trafic, cascades, enseignes et événements. Implémente le trait `World` de `cf-render`.
 //!
-//! Contenu actuel (J5-01, J5-02) :
+//! Contenu actuel (J5-01, J5-02, J5-05) :
 //!
 //! - [`road`] : la route (plan unique, shader WESL, réaction au pouls et aux basses, teinte d'ambiance) ;
 //! - [`route`] : le plan de route (ponts, planificateur du pilote), pur et déterministe ;
 //! - [`scenery`] : la ville (immeubles par tronçon, arches, collisions) ;
 //! - [`facade`] : le matériau de façade (fenêtres, néons, pulsation sur les temps) et son shader ;
 //! - [`world`] : [`NeonWorld`], l'implémentation du trait `World` (streaming) ;
-//! - [`chase`] : point suivi et caméra de poursuite provisoires, en attendant la voiture (J5-05) et le réalisateur (J6).
+//! - [`chase`] : point suivi et caméra de poursuite provisoires, en attendant le pilote (J5-06) et le réalisateur (J6) ;
+//! - [`car`] (J5-05) : la voiture (`CyberCar` de Sillage), ses lumières, sa traînée, la fumée de ses pneus. Elle prend la
+//!   place du pavé du point suivi provisoire.
 //!
 //! # Couches de rendu
 //!
@@ -17,6 +19,7 @@
 //! invisible pour la caméra du monde. Les pièces que les tronçons créent (J5-02) en héritent par le bundle qu'on
 //! déclare à `PieceRegistry::add` : y mettre `WorldLayer`.
 
+pub mod car;
 pub mod chase;
 pub mod facade;
 pub mod rng;
@@ -28,6 +31,7 @@ pub mod world;
 use bevy::prelude::*;
 use cf_render::WorldPlugin;
 
+pub use car::{Car, CarControls, CarPlugin};
 pub use chase::{ChasePlugin, Runner, RunnerConfig, chase_pose};
 pub use facade::{FacadeLook, FacadeMaterial, FacadePlugin};
 pub use road::{Road, RoadLook, RoadMaterial, RoadPalette, RoadPlugin};
@@ -103,7 +107,7 @@ impl Plugin for NeonWorldPlugin {
                 .run_if(resource_exists::<scenery::arches::ArchPool>),
         );
         if self.standalone {
-            app.add_plugins(ChasePlugin::default());
+            app.add_plugins((ChasePlugin::default(), CarPlugin::default()));
         }
     }
 }

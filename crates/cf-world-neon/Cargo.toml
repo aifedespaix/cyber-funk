@@ -15,11 +15,16 @@ bevy.workspace = true
 cf-cinema.workspace = true
 cf-render.workspace = true
 cf-show.workspace = true
+meshopt.workspace = true
+rand_core.workspace = true
+rand_pcg.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+thiserror.workspace = true
 tracing.workspace = true
 
 [dev-dependencies]
 cf-analysis.workspace = true
-serde_json.workspace = true
 
 [features]
 # Exemples fenêtrés (`road_demo`), pour juger à l'œil : hors CI, ils lient un binaire Bevy complet.
@@ -28,6 +33,11 @@ demo = []
 [[example]]
 name = "road_demo"
 path = "examples/road_demo/main.rs"
+required-features = ["demo"]
+
+[[example]]
+name = "car_demo"
+path = "examples/car_demo/main.rs"
 required-features = ["demo"]
 
 [[example]]

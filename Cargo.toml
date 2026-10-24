@@ -22,7 +22,7 @@ cf-world-neon = { path = "crates/cf-world-neon" }
 cf-operator = { path = "crates/cf-operator" }
 
 # Moteur. Pas de feature `audio` : bevy_audio tirerait sa propre version de cpal/alsa, en conflit avec cf-audio.
-bevy = { version = "0.20", default-features = false, features = ["3d", "jpeg"] }
+bevy = { version = "0.20", default-features = false, features = ["3d", "jpeg", "webp"] }
 bevy_egui = { version = "0.43", default-features = false, features = ["render", "default_fonts"] }
 
 # Audio
@@ -37,6 +37,9 @@ triple_buffer = "9.0"
 midir = "0.11"
 rosc = "0.11"
 rusty_link = "0.4"
+
+# Voiture (J5-05) : décodage des GLB `EXT_meshopt_compression` + `EXT_texture_webp`, que `bevy_gltf` ne lit pas.
+meshopt = { version = "0.7", default-features = false }
 
 # Données, erreurs, journaux, utilitaires
 serde = { version = "1.0", features = ["derive"] }
