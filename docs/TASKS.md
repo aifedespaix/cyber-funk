@@ -85,7 +85,7 @@ En cours au dernier point : aucune.
 | J4-03 | [Streaming du monde, pools, origine flottante, trait `World`](tasks/J4.md) | Opus 5.5 | `xhigh` | J0-01 | ✅ |
 | J4-04 | [Culling : frustum, occlusion, simulation, LOD](tasks/J4.md) | Sonnet 5.5 | `high` | J4-03, J4-05 | ✅ |
 | J4-05 | [Surcouche de diagnostic](tasks/J4.md) | Sonnet 5.5 | `medium` | J0-02 | ✅ |
-| J4-06 | [Qualité adaptative](tasks/J4.md) | Sonnet 5.5 | `medium` | J4-02, J4-05 | ⬜ |
+| J4-06 | [Qualité adaptative](tasks/J4.md) | Sonnet 5.5 | `medium` | J4-02, J4-05 | ✅ |
 | J4-07 | [Préchauffage des pipelines et préchargement](tasks/J4.md) | Sonnet 5.5 | `high` | J4-02, J2-05 | ✅ |
 | J4-08 | [Palettes et fondu de thème](tasks/J4.md) | Sonnet 5.5 | `medium` | J4-01, J0-03 | ✅ |
 | J5-01 | [Route et plan de route](tasks/J5.md) | Sonnet 5.5 | `high` | J4-03, J1-06 | ✅ |
@@ -95,7 +95,7 @@ En cours au dernier point : aucune.
 | J5-05 | [Voiture, lumières, traînée](tasks/J5.md) | Sonnet 5.5 | `high` | J5-01, J0-03 | ✅ |
 | J5-06 | [Pilote automatique, allure, chorégraphie, vol](tasks/J5.md) | Sonnet 5.5 | `high` | J5-05, J2-05 | ✅ |
 | J5-07 | [Faisceaux et effets du monde](tasks/J5.md) | Sonnet 5.5 | `medium` | J5-02, J4-02 | ⬜ |
-| J6-01 | [Cœur du réalisateur](tasks/J6.md) | Opus 5.5 | `high` | J5-06, J4-01, J2-05 | ⬜ |
+| J6-01 | [Cœur du réalisateur](tasks/J6.md) | Opus 5.5 | `high` | J5-06, J4-01, J2-05 | ✅ |
 | J6-02 | [Éditeur et chorégraphie](tasks/J6.md) | Sonnet 5.5 | `high` | J6-01, J2-04 | ⬜ |
 | J6-03 | [Plans, lot A : voiture](tasks/J6.md) | Haiku 5.5 | `medium` | J6-01 | ⬜ |
 | J6-04 | [Plans, lot B : vol, cascades, vitesse](tasks/J6.md) | Sonnet 5.5 | `medium` | J6-01, J5-06 | ⬜ |
