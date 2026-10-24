@@ -51,7 +51,7 @@ vient de la taille de la tâche et du nombre d'itérations, bien plus que du dé
 ## Statuts
 
 ⬜ à faire · 🟨 en cours · 🟦 PR ouverte · ✅ fusionnée.
-En cours au dernier point : aucune.
+En cours au dernier point : J8-01 (PR #43 en CI).
 
 | ID | Tâche | Modèle | Effort | Dépend de | Statut |
 | --- | --- | --- | --- | --- | --- |
@@ -98,7 +98,7 @@ En cours au dernier point : aucune.
 | J6-01 | [Cœur du réalisateur](tasks/J6.md) | Opus 5.5 | `high` | J5-06, J4-01, J2-05 | ✅ |
 | J6-02 | [Éditeur et chorégraphie](tasks/J6.md) | Sonnet 5.5 | `high` | J6-01, J2-04 | ✅ |
 | J6-03 | [Plans, lot A : voiture](tasks/J6.md) | Haiku 5.5 | `medium` | J6-01 | ✅ |
-| J6-04 | [Plans, lot B : vol, cascades, vitesse](tasks/J6.md) | Sonnet 5.5 | `medium` | J6-01, J5-06 | ⬜ |
+| J6-04 | [Plans, lot B : vol, cascades, vitesse](tasks/J6.md) | Sonnet 5.5 | `medium` | J6-01, J5-06 | ✅ |
 | J6-05 | [Plans, lot C : sujets du monde](tasks/J6.md) | Sonnet 5.5 | `medium` | J6-01 | ⬜ |
 | J7-01 | [Système d'enseignes et textures 2D procédurales](tasks/J7.md) | Sonnet 5.5 | `high` | J5-02, J4-07 | ⬜ |
 | J7-02 | [Enseigne géante du DJ](tasks/J7.md) | Sonnet 5.5 | `high` | J7-01, J2-05 | ⬜ |
