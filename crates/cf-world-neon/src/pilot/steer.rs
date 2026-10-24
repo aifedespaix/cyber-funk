@@ -15,6 +15,13 @@ const STEP: f64 = 0.2;
 const POSITIONS: usize = 47;
 /// Écart d'altitude (m) au-delà duquel un objet n'est ni attrapé ni évité.
 pub const PICKUP_HEIGHT: f64 = 2.2;
+/// Part de l'inertie (position visée et position réelle) gardée quand le pilote suit la ligne de course.
+///
+/// Écart avec Sillage (voir « Écarts » de la PR) : là-bas l'inertie pèse `0,12 + 0,03` contre `0,1` pour la ligne ; une
+/// voiture visant déjà sa position réelle (donc toujours, sans obstacle) y reste, et la ligne ne fait que départager.
+/// La ligne est déjà lissée par son propre ressort, plus vif que le volant jamais : l'inertie y est redondante. Mettre
+/// 1 pour retrouver les poids de Sillage.
+const LINE_INERTIA: f64 = 0.1;
 /// Marge autour d'une voiture au sol à dépasser, et distance (équivalente, voir `GroundTraffic.views`) où l'on commence à
 /// s'en écarter.
 const GROUND_DANGER: f64 = 2.7;
@@ -101,7 +108,8 @@ impl Autopilot {
     }
 
     fn cost(&self, x: f64, s: &SteerInput<'_>, line: Option<f64>) -> f64 {
-        let mut cost = (x - self.target).abs() * 0.12 + (x - s.car_x).abs() * 0.03;
+        let inertia = if line.is_some() { LINE_INERTIA } else { 1.0 };
+        let mut cost = ((x - self.target).abs() * 0.12 + (x - s.car_x).abs() * 0.03) * inertia;
         cost += match (line, s.preferred) {
             (Some(line), _) => (x - line).abs() * 0.1,
             (None, None) => x.abs() * 0.03,

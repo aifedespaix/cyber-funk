@@ -138,7 +138,7 @@ impl AutoFlight {
         let roll = self.rand.unit();
         let tricks = c.show.is_none_or(|s| s.gates.tricks);
         if roll < 0.34 && tricks {
-            Some(self.trick(flight))
+            Some(self.trick(flight, ceiling))
         } else if roll < 0.74 {
             let down = (self.rand.coin() && flight.floor() > 1) || flight.floor() >= ceiling;
             Some(if down { FlightCommand::Down } else { FlightCommand::Up })
@@ -147,15 +147,20 @@ impl AutoFlight {
         }
     }
 
-    fn trick(&mut self, flight: &Flight) -> FlightCommand {
+    /// Une figure. Un salto change d'étage : arrière monte, avant descend ; on choisit celui qui reste dans les limites.
+    ///
+    /// Écart avec Sillage (voir « Écarts » de la PR) : les limites sont celles du plafond du moment, pas seulement du
+    /// dernier étage. Là-bas un salto arrière au plafond le dépasse d'un étage, ce que la porte `max_floor` interdit.
+    fn trick(&mut self, flight: &Flight, ceiling: i32) -> FlightCommand {
+        let roll = if self.rand.coin() { -1 } else { 1 };
         if self.rand.unit() < 0.5 {
-            return FlightCommand::Roll(if self.rand.coin() { -1 } else { 1 });
+            return FlightCommand::Roll(roll);
         }
-        // Un salto change d'étage : arrière monte, avant descend ; on choisit celui qui reste dans les limites.
-        let top = i32::try_from(FLOOR_COUNT).unwrap_or(6);
-        if flight.floor() >= top {
-            FlightCommand::Flip(-1)
-        } else if flight.floor() <= 1 {
+        let floor = flight.floor();
+        if floor >= ceiling {
+            // Au plafond : salto avant pour descendre, ou tonneau s'il n'y a pas d'étage dessous.
+            if floor > 1 { FlightCommand::Flip(-1) } else { FlightCommand::Roll(roll) }
+        } else if floor <= 1 {
             FlightCommand::Flip(1)
         } else {
             FlightCommand::Flip(if self.rand.coin() { 1 } else { -1 })
