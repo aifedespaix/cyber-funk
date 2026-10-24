@@ -9,6 +9,7 @@ pub mod layers;
 pub mod origin;
 pub mod palette;
 pub mod postfx;
+pub mod quality;
 mod schedule;
 pub mod show;
 pub mod streaming;
@@ -41,6 +42,10 @@ pub use palette::{
     SceneMood, ScenePalette, ThemeLibrary,
 };
 pub use postfx::{CurrentShowFx, LensWeather, PostFxPlugin, PostFxSettings, PostFxState, ShowFxInput};
+pub use quality::{
+    BLOOM_FADE_S, MAX_LEVEL, PIXEL_SCALE, Quality, QualityChanged, QualityIdle, QualityLevers, QualityMode, QualityPlugin,
+    levers_for,
+};
 pub use schedule::{CfSet, CorePlugin};
 pub use show::{CurrentShow, ShowControls, ShowEventMessage, ShowPlugin, ShowRuntime};
 pub use streaming::{ChunkInfo, ChunkPlan, ChunkStream, EntityPool, PieceRegistry, StreamLayout, StreamStats};

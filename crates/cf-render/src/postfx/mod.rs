@@ -55,7 +55,7 @@ pub use show_fx::{FlashPalette, ShowFx, ShowFxInput};
 use crate::CfSet;
 
 /// Réglages du post-process, écrits par la qualité adaptative (J4-06) ou l'opérateur.
-#[derive(Resource, Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Resource, Debug, Clone, Copy, PartialEq)]
 pub struct PostFxSettings {
     /// Niveau de qualité adaptative, 0 = plein. Le flou radial du bullet-time se coupe dès le cran 2.
     pub quality: u8,
@@ -63,6 +63,9 @@ pub struct PostFxSettings {
     pub bloom: bool,
     /// Le bloom se calcule à 1/`bloom_divisor` de la hauteur de l'image : plus grand, moins cher et plus flou.
     pub bloom_divisor: u32,
+    /// Gain du bloom, 0 → 1, appliqué à son intensité. La qualité adaptative l'estompe avant de retirer le bloom (et le
+    /// rétablit après l'avoir remis) pour qu'aucun palier ne soit un saut de luminance.
+    pub bloom_gain: f32,
 }
 
 impl Default for PostFxSettings {
@@ -71,6 +74,7 @@ impl Default for PostFxSettings {
             quality: 0,
             bloom: true,
             bloom_divisor: DEFAULT_BLOOM_DIVISOR,
+            bloom_gain: 1.0,
         }
     }
 }
