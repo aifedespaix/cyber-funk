@@ -49,6 +49,8 @@ fn dix_minutes_dans_neon_city_sans_pose_dans_un_mur() {
     let mut previous_section = Section::Calm;
     let (mut flights, mut shots_seen, mut on_grid) = (0_u32, 0_u32, 0_u32);
     let mut was_flying = false;
+    // Le plan à l'antenne avant le dernier changement : son id et l'instant où il est arrivé.
+    let mut on_air: Option<(&'static str, f64)> = None;
     let mut started = false;
     while time < 600.0 {
         time += DT;
@@ -126,7 +128,16 @@ fn dix_minutes_dans_neon_city_sans_pose_dans_un_mur() {
                 .is_some_and(|spec| {
                     spec.reactive() || spec.opportunity(&view) > cf_cinema::editor::OPPORTUNITY_THRESHOLD
                 });
-            if stats.last_mode == Some(cf_cinema::editor::PickMode::Normal) && !on_the_spot {
+            // Un plan écrit à la seconde près (décollage, atterrissage, astre, lune, anneau…) n'est pas étiré par la grille :
+            // passé sa durée maximale, il cède la place au prochain début de mesure, grille ou pas (J6-05).
+            let overran = on_air.is_some_and(|(id, since)| {
+                specs
+                    .iter()
+                    .find(|spec| spec.id() == id)
+                    .is_some_and(|spec| spec.scripted() && time - since >= f64::from(spec.max_seconds()))
+            });
+            on_air = director.shot_id().map(|id| (id, time));
+            if stats.last_mode == Some(cf_cinema::editor::PickMode::Normal) && !on_the_spot && !overran {
                 let grid = u32::from(world.show.grid_for(world.section));
                 assert!(stats.last_on_beat, "coupe hors temps à t={time}");
                 assert_eq!((f.count % 16) % grid, 0, "coupe hors grille ({grid} temps) à t={time}");

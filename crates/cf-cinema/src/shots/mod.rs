@@ -23,11 +23,24 @@ mod fpv_dive;
 mod sky_trip;
 mod stunt;
 // --- fin du lot B ---
+// --- Lot C (J6-05) : sujets du monde ---
+mod ad;
+mod bikers;
+mod dj_sign;
+mod impact;
+mod landmark;
+mod meteor;
+mod moon;
+mod pursuit;
+mod ringworld;
+// --- fin du lot C ---
 
 #[cfg(test)]
 mod tests;
 #[cfg(test)]
 mod tests_flight;
+#[cfg(test)]
+mod tests_world;
 
 pub use car_cut::Flyby;
 pub use car_follow::{Bumper, Cockpit, SideTrack, Wheel};
@@ -47,6 +60,18 @@ pub use city_wide::CityWide;
 pub use fpv_dive::FpvDive;
 pub use stunt::StuntCam;
 // --- fin du lot B ---
+
+// --- Lot C (J6-05) ---
+pub use ad::AdGlance;
+pub use bikers::Bikers;
+pub use dj_sign::DjSign;
+pub use impact::MeteorImpactWatch;
+pub use landmark::LandmarkReveal;
+pub use meteor::MeteorRide;
+pub use moon::MoonPass;
+pub use pursuit::Pursuit;
+pub use ringworld::Ringworld;
+// --- fin du lot C ---
 
 use crate::shot::ShotSpec;
 
@@ -83,5 +108,16 @@ pub fn catalog() -> Vec<Box<dyn ShotSpec>> {
         Box::new(FpvDive),
         Box::new(CityWide),
         // --- fin du lot B ---
+        // --- Lot C (J6-05) : sujets du monde (disponibles quand le monde les fournit, J7) ---
+        Box::new(AdGlance),
+        Box::new(Pursuit),
+        Box::new(Bikers),
+        Box::new(LandmarkReveal),
+        Box::new(MeteorRide),
+        Box::new(Ringworld),
+        Box::new(MoonPass),
+        Box::new(MeteorImpactWatch),
+        Box::new(DjSign),
+        // --- fin du lot C ---
     ]
 }

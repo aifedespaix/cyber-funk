@@ -231,6 +231,8 @@ pub struct ShowView {
     pub flashes: bool,
     /// Grille de coupe du look courant, en temps musicaux par section.
     pub cut_grid: CutGrid,
+    /// L'enseigne du DJ est affichée (`show.djSign` de Sillage) : le plan `dj-sign` ne joue que dans ce cas.
+    pub dj_sign: bool,
 }
 
 impl Default for ShowView {
@@ -247,6 +249,7 @@ impl Default for ShowView {
                 groove: 8,
                 peak: 4,
             },
+            dj_sign: false,
         }
     }
 }
@@ -264,6 +267,8 @@ impl ShowView {
             level: state.level,
             flashes: state.flashes,
             cut_grid: state.gates().cut_grid,
+            // Pas dans le `ShowState` : l'enseigne est une décision du monde (J7), comme `drop_planned`.
+            dj_sign: false,
         }
     }
 
