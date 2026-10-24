@@ -12,6 +12,7 @@ workspace = true
 
 [dependencies]
 bevy.workspace = true
+cf-analysis.workspace = true
 cf-cinema.workspace = true
 cf-render.workspace = true
 cf-show.workspace = true
@@ -22,9 +23,6 @@ serde.workspace = true
 serde_json.workspace = true
 thiserror.workspace = true
 tracing.workspace = true
-
-[dev-dependencies]
-cf-analysis.workspace = true
 
 [features]
 # Exemples fenêtrés (`road_demo`), pour juger à l'œil : hors CI, ils lient un binaire Bevy complet.
