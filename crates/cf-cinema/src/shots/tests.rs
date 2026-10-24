@@ -18,6 +18,21 @@ use crate::shots::catalog;
 use crate::testkit::{BoxCity, DT, Sim, check_pose};
 use crate::world::{CinemaFrame, CinemaWorld};
 
+/// Plans qui ne jouent que sur une soirée scénarisée : leurs tests vivent avec leur lot (`tests_flight.rs` pour le
+/// lot B, J6-04). Les lots suivants ajoutent leurs identifiants ici.
+const SCENARIO_SHOTS: &[&str] = &[
+    // Lot B (J6-04)
+    "takeoff",
+    "touchdown",
+    "dodge-pass",
+    "barrel",
+    "stunt-cam",
+    "ascension-cam",
+    "bullet-time",
+    "fpv-dive",
+    "city-wide",
+];
+
 /// Trente secondes simulées, à la cadence de la soirée de test.
 const FRAMES: usize = (30.0 / DT as f64) as usize;
 
@@ -48,19 +63,19 @@ fn single(id: &str) -> Box<dyn ShotSpec> {
 }
 
 #[test]
-fn le_catalogue_a_17_plans_aux_identifiants_uniques() {
+fn le_catalogue_a_des_identifiants_uniques() {
     let specs = catalog();
-    assert_eq!(specs.len(), 17);
+    assert!(specs.len() >= 17, "le lot A compte 17 plans");
     let mut ids: Vec<&str> = specs.iter().map(|s| s.id()).collect();
     ids.sort_unstable();
     ids.dedup();
-    assert_eq!(ids.len(), 17, "identifiants en double");
+    assert_eq!(ids.len(), specs.len(), "identifiants en double");
     assert!(!ids.contains(&"strobe"), "le strobe est hors périmètre de J6-03");
 }
 
 #[test]
 fn chaque_plan_brut_reste_fini_pendant_30_s() {
-    for spec in catalog() {
+    for spec in catalog().into_iter().filter(|s| !SCENARIO_SHOTS.contains(&s.id())) {
         let id = spec.id();
         let mut sim = scene();
         let mut rng = CinemaRng::new(11);
@@ -93,7 +108,7 @@ fn chaque_plan_brut_reste_fini_pendant_30_s() {
 
 #[test]
 fn chaque_plan_par_le_realisateur_reste_dans_les_bornes_pendant_30_s() {
-    for spec in catalog() {
+    for spec in catalog().into_iter().filter(|s| !SCENARIO_SHOTS.contains(&s.id())) {
         let id = spec.id();
         let mut director = CinemaDirector::new(vec![spec], false, 7);
         let mut sim = scene();

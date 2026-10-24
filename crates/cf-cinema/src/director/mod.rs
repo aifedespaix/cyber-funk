@@ -319,6 +319,9 @@ impl CinemaDirector {
             return false;
         };
         let mut shot = spec.create(frame, &mut self.rng);
+        if let Some((scale, seconds)) = shot.take_time_scale() {
+            show.request_time_scale(scale, seconds);
+        }
         shot.update(frame, &mut self.incoming.pose);
         self.incoming.shot = Some(shot);
         self.incoming.spec = Some(index);

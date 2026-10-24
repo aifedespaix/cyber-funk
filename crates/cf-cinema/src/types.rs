@@ -225,6 +225,8 @@ pub struct ShowView {
     /// Un drop est préparé (`show.drop !== null` de Sillage) : le plan `dolly-zoom` s'y cale. Pas encore lu depuis le
     /// `ShowState` (voir la PR, « Écarts ») : faux tant que le monde ne le fournit pas.
     pub drop_planned: bool,
+    /// Niveau du spectacle (rang du look courant, 1 → 5) : le bullet-time est réservé aux niveaux 4 et 5.
+    pub level: u8,
     /// Flashs permis (lu par J6-02 pour le plan `strobe`).
     pub flashes: bool,
     /// Grille de coupe du look courant, en temps musicaux par section.
@@ -238,6 +240,7 @@ impl Default for ShowView {
             breathing: false,
             drop_now: false,
             drop_planned: false,
+            level: 5,
             flashes: true,
             cut_grid: CutGrid {
                 calm: 16,
@@ -258,6 +261,7 @@ impl ShowView {
             drop_now: state.drop_now,
             // Le drop préparé vit dans le `ShowDirector` (`drop_plan()`), pas dans le `ShowState` : non lu ici.
             drop_planned: false,
+            level: state.level,
             flashes: state.flashes,
             cut_grid: state.gates().cut_grid,
         }
