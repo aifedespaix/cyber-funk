@@ -126,9 +126,11 @@ mod tests {
         }
         let pose = *app.world().resource::<CameraPose>();
         assert!(app.world().resource::<CinemaDirector>().active());
-        assert_eq!(app.world().resource::<CinemaDirector>().shot_id(), Some("chase"));
-        // Fondu fini (≤ 5,5 s à 0,016 s l'image) : la caméra est derrière la voiture.
+        // Le catalogue complet tourne : on vérifie le câblage (un plan est à l'antenne, la pose est saine et écartée de la
+        // voiture), pas le plan tiré, qui dépend du tirage. Les bornes par plan sont dans `shots::tests`.
+        assert!(app.world().resource::<CinemaDirector>().shot_id().is_some());
         let rel = pose.position - DVec3::new(0.0, 0.0, -1000.0);
-        assert!(rel.z > 2.0 && rel.z < 14.0, "{rel}");
+        assert!(crate::pose::is_finite(&pose));
+        assert!(rel.length() > 1.0, "{rel}");
     }
 }

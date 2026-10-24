@@ -6,10 +6,10 @@
 use bevy::math::DVec3;
 use cf_render::CameraPose;
 
-use super::tests::Sim;
 use super::*;
 use crate::choreo::{MAX_CUTS_PER_SECOND, WINDOW_SECONDS, is_jump};
 use crate::editor::testkit::{Jumpy, MockSpec, sillage_specs};
+use crate::testkit::Sim;
 use crate::world::NoObstacles;
 
 /// Rejoue `seconds` de soirée et renvoie l'instant de chaque coupe vue sur la pose finale.
