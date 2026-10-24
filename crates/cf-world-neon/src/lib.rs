@@ -32,6 +32,7 @@ pub mod rng;
 pub mod road;
 pub mod route;
 pub mod scenery;
+pub mod signs;
 pub mod sky;
 pub mod world;
 
