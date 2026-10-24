@@ -15,6 +15,7 @@ use cf_render::{
 };
 use cf_world_neon::road::{AHEAD_M, LENGTH_M};
 use cf_world_neon::route::{BridgeWindow, bridge_z};
+use cf_world_neon::sky::SkyPart;
 use cf_world_neon::{
     ChasePlugin, NeonWorld, NeonWorldPlugin, Road, RoadLook, RoadMaterial, RoutePlan, Runner, RunnerConfig,
 };
@@ -50,7 +51,10 @@ fn tout_ce_que_le_monde_dessine_est_dans_la_couche_monde() {
     let mut app = app(0.0, 40.0);
     app.update();
     let world_layers = Layer::World.render_layers();
-    let mut meshes = app.world_mut().query::<(&Name, &RenderLayers, &Mesh3d)>();
+    // Le ciel est dans la couche arrière-plan (testé dans `sky.rs`) : ici, tout le reste.
+    let mut meshes = app
+        .world_mut()
+        .query_filtered::<(&Name, &RenderLayers, &Mesh3d), Without<SkyPart>>();
     let found: Vec<_> = meshes
         .iter(app.world())
         .map(|(n, l, _)| (n.to_string(), l.clone()))
