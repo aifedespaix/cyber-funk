@@ -54,14 +54,16 @@ pub fn glint_mesh() -> Mesh {
 pub fn write_glints(mesh: &mut Mesh, glints: &[Glint], previous: usize) -> usize {
     let n = glints.len().min(GLINT_CAPACITY);
     let touched = n.max(previous.min(GLINT_CAPACITY));
-    if let Some(VertexAttributeValues::Float32x3(positions)) = mesh.try_attribute_mut(Mesh::ATTRIBUTE_POSITION).ok() {
+    if let Ok(VertexAttributeValues::Float32x3(positions)) = mesh.try_attribute_mut(Mesh::ATTRIBUTE_POSITION) {
         for (i, glint) in glints.iter().take(n).enumerate() {
             positions[i * 4..i * 4 + 4].fill(glint.offset.to_array());
         }
     }
-    if let Some(VertexAttributeValues::Float32x4(colors)) = mesh.try_attribute_mut(Mesh::ATTRIBUTE_COLOR).ok() {
+    if let Ok(VertexAttributeValues::Float32x4(colors)) = mesh.try_attribute_mut(Mesh::ATTRIBUTE_COLOR) {
         for i in 0..touched {
-            let value = glints.get(i).map_or([0.0; 4], |g| [g.color[0], g.color[1], g.color[2], g.size]);
+            let value = glints
+                .get(i)
+                .map_or([0.0; 4], |g| [g.color[0], g.color[1], g.color[2], g.size]);
             colors[i * 4..i * 4 + 4].fill(value);
         }
     }
@@ -104,7 +106,10 @@ mod tests {
     #[test]
     fn la_traine_va_de_zero_a_un_en_z_sur_deux_plans() {
         let mesh = trail_mesh();
-        let positions = mesh.attribute(Mesh::ATTRIBUTE_POSITION).and_then(|a| a.as_float3()).expect("positions");
+        let positions = mesh
+            .attribute(Mesh::ATTRIBUTE_POSITION)
+            .and_then(|a| a.as_float3())
+            .expect("positions");
         assert_eq!(positions.len(), 8);
         assert!(positions.iter().all(|p| (0.0..=1.0).contains(&p[2])));
         assert_eq!(mesh.indices().map(Indices::len), Some(12));
@@ -114,8 +119,16 @@ mod tests {
     fn les_points_s_ecrivent_sur_place_et_les_anciens_s_eteignent() {
         let mut mesh = glint_mesh();
         let glints = [
-            Glint { offset: Vec3::new(1.0, 2.0, 3.0), color: [1.0, 0.5, 0.0], size: 0.8 },
-            Glint { offset: Vec3::new(4.0, 5.0, 6.0), color: [0.0, 1.0, 0.0], size: 1.2 },
+            Glint {
+                offset: Vec3::new(1.0, 2.0, 3.0),
+                color: [1.0, 0.5, 0.0],
+                size: 0.8,
+            },
+            Glint {
+                offset: Vec3::new(4.0, 5.0, 6.0),
+                color: [0.0, 1.0, 0.0],
+                size: 1.2,
+            },
         ];
         assert_eq!(write_glints(&mut mesh, &glints, 0), 2);
         let colors = |mesh: &Mesh| match mesh.attribute(Mesh::ATTRIBUTE_COLOR) {
@@ -127,7 +140,10 @@ mod tests {
         // L'image suivante n'a plus qu'un point : le second est éteint.
         assert_eq!(write_glints(&mut mesh, &glints[..1], 2), 1);
         assert_eq!(colors(&mesh)[4][3], 0.0, "taille nulle : rien à dessiner");
-        let positions = mesh.attribute(Mesh::ATTRIBUTE_POSITION).and_then(|a| a.as_float3()).expect("positions");
+        let positions = mesh
+            .attribute(Mesh::ATTRIBUTE_POSITION)
+            .and_then(|a| a.as_float3())
+            .expect("positions");
         assert_eq!(positions[3], [1.0, 2.0, 3.0]);
     }
 

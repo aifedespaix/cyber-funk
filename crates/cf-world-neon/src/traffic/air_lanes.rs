@@ -28,10 +28,26 @@ pub struct Lane {
 
 /// Les couloirs sont posés sur des étages de vol (voir `route::floors`) : la voiture sait ainsi lesquels éviter.
 pub const LANES: [Lane; 4] = [
-    Lane { x: -6.5, y: 15.0, dir: -1 },
-    Lane { x: 6.0, y: 21.0, dir: 1 },
-    Lane { x: -1.5, y: 29.5, dir: -1 },
-    Lane { x: 4.0, y: 38.5, dir: 1 },
+    Lane {
+        x: -6.5,
+        y: 15.0,
+        dir: -1,
+    },
+    Lane {
+        x: 6.0,
+        y: 21.0,
+        dir: 1,
+    },
+    Lane {
+        x: -1.5,
+        y: 29.5,
+        dir: -1,
+    },
+    Lane {
+        x: 4.0,
+        y: 38.5,
+        dir: 1,
+    },
 ];
 
 /// Distance (m) devant la voiture où naît un véhicule à contresens, et derrière elle pour les autres (`AHEAD`, `BEHIND`).
@@ -206,7 +222,10 @@ mod tests {
         rig.run(&TrafficFrame::default(), 6.0);
         rig.fleet.for_each_active(|c| {
             // Contresens : vitesse vers −z (positive en dir 1 → −? la vitesse z = dir × v).
-            let lane = LANES.iter().find(|l| (l.y - c.position.y as f32).abs() < 3.0).expect("couloir");
+            let lane = LANES
+                .iter()
+                .find(|l| (l.y - c.position.y as f32).abs() < 3.0)
+                .expect("couloir");
             assert_eq!(c.velocity.z.signum() as i8, lane.dir);
         });
     }
@@ -229,7 +248,13 @@ mod tests {
     fn une_qualite_degradee_espace_les_naissances() {
         let count = |density: f32| {
             let mut rig = Rig::new();
-            rig.run(&TrafficFrame { density, ..TrafficFrame::default() }, 120.0);
+            rig.run(
+                &TrafficFrame {
+                    density,
+                    ..TrafficFrame::default()
+                },
+                120.0,
+            );
             rig.fleet.stats().stepped_total
         };
         assert!(count(0.4) < count(1.0));

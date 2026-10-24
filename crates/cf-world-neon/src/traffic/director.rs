@@ -251,7 +251,13 @@ impl TrafficDirector {
                     ended.event.end(&mut ctx);
                 }
             }
-            Self::publish(&self.active, &mut self.claims, &mut self.obstructions, &mut self.flyby, &ctx);
+            Self::publish(
+                &self.active,
+                &mut self.claims,
+                &mut self.obstructions,
+                &mut self.flyby,
+                &ctx,
+            );
         }
         self.publish_clearings();
 
@@ -464,9 +470,20 @@ mod tests {
     fn sans_evenement_inscrit_seul_le_trafic_de_fond_vit() {
         let mut director = TrafficDirector::new(1);
         let mut registry = EventRegistry::default();
-        step(&mut director, &mut registry, &TrafficFrame { dt: 0.1, ..TrafficFrame::default() }, 60.0);
+        step(
+            &mut director,
+            &mut registry,
+            &TrafficFrame {
+                dt: 0.1,
+                ..TrafficFrame::default()
+            },
+            60.0,
+        );
         assert_eq!(director.active_count(), 0);
-        assert!(director.fleet.stats().active > 0, "le trafic de fond ne s'arrête jamais");
+        assert!(
+            director.fleet.stats().active > 0,
+            "le trafic de fond ne s'arrête jamais"
+        );
     }
 
     #[test]
@@ -497,7 +514,10 @@ mod tests {
                 })
             }),
         );
-        let frame = TrafficFrame { dt: 0.1, ..TrafficFrame::default() };
+        let frame = TrafficFrame {
+            dt: 0.1,
+            ..TrafficFrame::default()
+        };
         let before = {
             step(&mut director, &mut registry, &frame, 0.1);
             director.fleet.stats().active
@@ -515,7 +535,11 @@ mod tests {
         let mut director = TrafficDirector::new(3);
         let mut registry = EventRegistry::default();
         registry.register(EventName::Tower, Box::new(|_| probe(true)));
-        let frame = TrafficFrame { dt: 0.1, car: at(0.0, 0.0, 5000.0), ..TrafficFrame::default() };
+        let frame = TrafficFrame {
+            dt: 0.1,
+            car: at(0.0, 0.0, 5000.0),
+            ..TrafficFrame::default()
+        };
         director.force(EventName::Tower);
         step(&mut director, &mut registry, &frame, 0.1);
         if director.structure_busy() {
@@ -531,14 +555,26 @@ mod tests {
         let mut director = TrafficDirector::new(4);
         let mut rng = Rand::new(1);
         for variant in [POLICE, BIKE, HEAVY[0], SLEEK[0]] {
-            director.fleet.spawn(variant, at(0.0, 5.0, -80.0), Vec3::new(0.0, 0.0, -30.0), LinearRgba::WHITE, 2.0, &mut rng);
+            director.fleet.spawn(
+                variant,
+                at(0.0, 5.0, -80.0),
+                Vec3::new(0.0, 0.0, -30.0),
+                LinearRgba::WHITE,
+                2.0,
+                &mut rng,
+            );
         }
         let mut subjects = Vec::new();
         director.collect_subjects(|s| subjects.push(s));
         let kinds: Vec<_> = subjects.iter().map(|s| s.kind).collect();
         assert_eq!(
             kinds,
-            vec![SubjectKind::Police, SubjectKind::Bike, SubjectKind::Heavy, SubjectKind::Craft]
+            vec![
+                SubjectKind::Police,
+                SubjectKind::Bike,
+                SubjectKind::Heavy,
+                SubjectKind::Craft
+            ]
         );
         assert!((subjects[0].size - 2.0 * CRAFT_LENGTH).abs() < 1e-6);
     }
@@ -548,8 +584,15 @@ mod tests {
         let mut director = TrafficDirector::new(5);
         let mut rng = Rand::new(1);
         // Dans la fenêtre, trop bas, trop loin sur le côté, trop loin devant.
-        for pos in [at(0.0, 20.0, -20.0), at(0.0, 1.0, -20.0), at(30.0, 20.0, -20.0), at(0.0, 20.0, -400.0)] {
-            director.fleet.spawn(SLEEK[0], pos, Vec3::ZERO, LinearRgba::WHITE, 1.9, &mut rng);
+        for pos in [
+            at(0.0, 20.0, -20.0),
+            at(0.0, 1.0, -20.0),
+            at(30.0, 20.0, -20.0),
+            at(0.0, 20.0, -400.0),
+        ] {
+            director
+                .fleet
+                .spawn(SLEEK[0], pos, Vec3::ZERO, LinearRgba::WHITE, 1.9, &mut rng);
         }
         let mut bands = Vec::new();
         director.airspace(&mut bands, 0.0);

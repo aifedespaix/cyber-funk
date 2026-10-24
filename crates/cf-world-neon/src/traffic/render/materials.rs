@@ -8,9 +8,7 @@ use bevy::math::Vec4;
 use bevy::mesh::MeshVertexBufferLayoutRef;
 use bevy::pbr::{Material, MaterialPipeline, MaterialPipelineKey};
 use bevy::reflect::TypePath;
-use bevy::render::render_resource::{
-    AsBindGroup, RenderPipelineDescriptor, ShaderType, SpecializedMeshPipelineError,
-};
+use bevy::render::render_resource::{AsBindGroup, RenderPipelineDescriptor, ShaderType, SpecializedMeshPipelineError};
 use bevy::shader::{Shader, ShaderRef};
 use cf_render::ScenePalette;
 use cf_render::palette::{LinearRgb, SceneColor};
@@ -206,7 +204,14 @@ mod tests {
     #[test]
     fn les_uniformes_derivent_de_la_palette_comme_sillage() {
         let mut palette = ScenePalette::default();
-        palette.set(SceneColor::Ice, LinearRgb { r: 1.0, g: 0.5, b: 0.25 });
+        palette.set(
+            SceneColor::Ice,
+            LinearRgb {
+                r: 1.0,
+                g: 0.5,
+                b: 0.25,
+            },
+        );
         palette.set(SceneColor::Ink, LinearRgb { r: 0.0, g: 0.0, b: 0.0 });
         let params = VehicleParams::from_palette(&palette, Vec4::new(0.1, 0.2, 0.3, 0.0));
         // `uHull` = glace × 0,08 ; `uHullDark` = encre → glace à 4 %.

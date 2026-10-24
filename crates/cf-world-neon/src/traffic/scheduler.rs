@@ -5,10 +5,10 @@
 //! répète jamais les deux derniers tirés, et les événements peuvent se chevaucher (deux à la fois, jamais deux
 //! structures).
 
+use super::air_lanes::range;
 use super::event::EventRegistry;
 use super::frame::TrafficFrame;
 use super::names::{EVENT_COUNT, EventName, MAX_PARALLEL, TITLE_WINDOW_S};
-use super::air_lanes::range;
 use crate::pilot::rand::Rand;
 
 /// Mémoire des derniers événements tirés (`history`) : on n'en répète aucun des deux derniers.
@@ -204,6 +204,39 @@ impl Scheduler {
         self.countdown = 4.0;
     }
 
+    /// Ce que la situation écarte : les portes, le mode calme, la répétition, les voisins en cours et la hauteur de la
+    /// voiture (`high` : sa plus haute altitude, actuelle ou visée).
+    fn excluded(
+        name: EventName,
+        frame: &TrafficFrame<'_>,
+        running: &[Running],
+        recent: &[EventName],
+        high: f32,
+    ) -> bool {
+        let with = |other: EventName| running.iter().any(|r| r.name == other);
+        if !Self::allows(name, frame) || recent.contains(&name) || with(name) {
+            return true;
+        }
+        if frame.calm && !name.is_calm_ok() {
+            return true;
+        }
+        // La voiture vole : l'escorte (au ras de la route), la nuée et le vaisseau publicitaire occupent des hauteurs
+        // qui sont les siennes.
+        if name.max_car_altitude().is_some_and(|max| high > max) {
+            return true;
+        }
+        // Une structure ne se pose pas sur une autre ; un seul événement de ciel à la fois.
+        if name.is_structure_kind() && running.iter().any(|r| r.structure) {
+            return true;
+        }
+        if name.is_sky() && running.iter().any(|r| r.name.is_sky()) {
+            return true;
+        }
+        // Le titre holographique et l'aurore se disputent le haut du ciel.
+        (name == EventName::HoloTitle && with(EventName::Aurora))
+            || (name == EventName::Aurora && with(EventName::HoloTitle))
+    }
+
     /// Tire un événement parmi ceux que la situation permet, au poids de tirage (`choose`).
     #[must_use]
     pub fn choose(
@@ -217,23 +250,12 @@ impl Scheduler {
         if running.len() >= MAX_PARALLEL {
             return None;
         }
-        let structure_busy = running.iter().any(|r| r.structure);
         let recent = &self.history[self.history.len().saturating_sub(2)..];
         let high = frame.altitude.max(frame.target);
         let mut weights = [0.0_f64; EVENT_COUNT];
         let mut total = 0.0;
         for name in EventName::ALL {
-            let allowed = registry.contains(name)
-                && Self::allows(name, frame)
-                && !(frame.calm && !name.is_calm_ok())
-                && !recent.contains(&name)
-                && !running.iter().any(|r| r.name == name)
-                && !name.max_car_altitude().is_some_and(|max| high > max)
-                && !(structure_busy && name.is_structure_kind())
-                && !(name.is_sky() && running.iter().any(|r| r.name.is_sky()))
-                // Le titre holographique et l'aurore se disputent le haut du ciel.
-                && !(name == EventName::HoloTitle && running.iter().any(|r| r.name == EventName::Aurora))
-                && !(name == EventName::Aurora && running.iter().any(|r| r.name == EventName::HoloTitle));
+            let allowed = registry.contains(name) && !Self::excluded(name, frame, running, recent, high);
             if !allowed {
                 continue;
             }
@@ -242,7 +264,11 @@ impl Scheduler {
                 weight *= link.freshness_weight(name.freshness_id(), frame.time);
                 // Le titre du DJ passe de préférence peu après un changement de DJ ou de niveau.
                 if name == EventName::HoloTitle {
-                    weight *= if frame.time - self.title_since < TITLE_WINDOW_S { 6.0 } else { 0.4 };
+                    weight *= if frame.time - self.title_since < TITLE_WINDOW_S {
+                        6.0
+                    } else {
+                        0.4
+                    };
                 }
             }
             weights[name.index()] = weight;
@@ -293,7 +319,7 @@ mod tests {
         registry
     }
 
-    fn show<'a>(events: &'a [ShowEventName]) -> TrafficShow<'a> {
+    fn show(events: &[ShowEventName]) -> TrafficShow<'_> {
         TrafficShow {
             level: 3,
             breathing: false,
@@ -309,7 +335,10 @@ mod tests {
     }
 
     fn slugs(names: &[EventName]) -> Vec<ShowEventName> {
-        names.iter().map(|n| ShowEventName::new(n.as_str()).expect("slug")).collect()
+        names
+            .iter()
+            .map(|n| ShowEventName::new(n.as_str()).expect("slug"))
+            .collect()
     }
 
     #[test]
@@ -325,17 +354,26 @@ mod tests {
     fn les_portes_du_look_font_la_liste_blanche() {
         let events = slugs(&[EventName::Chase, EventName::Fish, EventName::CityPulse]);
         let mut s = show(&events);
-        let frame = TrafficFrame { show: Some(s), ..TrafficFrame::default() };
+        let frame = TrafficFrame {
+            show: Some(s),
+            ..TrafficFrame::default()
+        };
         assert!(Scheduler::allows(EventName::Chase, &frame));
         assert!(!Scheduler::allows(EventName::Storm, &frame));
         // La pulsation de la ville a sa propre porte.
         s.city_pulse = 0.2;
-        let frame = TrafficFrame { show: Some(s), ..TrafficFrame::default() };
+        let frame = TrafficFrame {
+            show: Some(s),
+            ..TrafficFrame::default()
+        };
         assert!(!Scheduler::allows(EventName::CityPulse, &frame));
         // La respiration ne garde que le doux.
         s.city_pulse = 0.6;
         s.breathing = true;
-        let frame = TrafficFrame { show: Some(s), ..TrafficFrame::default() };
+        let frame = TrafficFrame {
+            show: Some(s),
+            ..TrafficFrame::default()
+        };
         assert!(!Scheduler::allows(EventName::Chase, &frame));
         assert!(Scheduler::allows(EventName::Fish, &frame));
         assert!((Scheduler::rate(&frame) - 0.3).abs() < 1e-6);
@@ -346,23 +384,42 @@ mod tests {
         let scheduler = Scheduler::default();
         let mut rng = Rand::new(1);
         let frame = TrafficFrame::default();
-        assert_eq!(scheduler.choose(&frame, &[], &EventRegistry::default(), &NoShow, &mut rng), None);
+        assert_eq!(
+            scheduler.choose(&frame, &[], &EventRegistry::default(), &NoShow, &mut rng),
+            None
+        );
     }
 
     #[test]
     fn jamais_trois_a_la_fois_ni_le_meme_deux_fois_ni_deux_structures() {
         let scheduler = Scheduler::default();
-        let registry = registry_of(&[EventName::Chase, EventName::Tower, EventName::Crossroad, EventName::Fish]);
+        let registry = registry_of(&[
+            EventName::Chase,
+            EventName::Tower,
+            EventName::Crossroad,
+            EventName::Fish,
+        ]);
         let mut rng = Rand::new(2);
         let frame = TrafficFrame::default();
         let full = [
-            Running { name: EventName::Chase, structure: false },
-            Running { name: EventName::Fish, structure: false },
+            Running {
+                name: EventName::Chase,
+                structure: false,
+            },
+            Running {
+                name: EventName::Fish,
+                structure: false,
+            },
         ];
         assert_eq!(scheduler.choose(&frame, &full, &registry, &NoShow, &mut rng), None);
-        let one = [Running { name: EventName::Tower, structure: true }];
+        let one = [Running {
+            name: EventName::Tower,
+            structure: true,
+        }];
         for _ in 0..200 {
-            let pick = scheduler.choose(&frame, &one, &registry, &NoShow, &mut rng).expect("un choix");
+            let pick = scheduler
+                .choose(&frame, &one, &registry, &NoShow, &mut rng)
+                .expect("un choix");
             assert!(!pick.is_structure_kind(), "{pick:?} avec une structure en cours");
             assert_ne!(pick, EventName::Tower);
         }
@@ -373,9 +430,16 @@ mod tests {
         let scheduler = Scheduler::default();
         let registry = registry_of(&[EventName::Escort, EventName::Race, EventName::Swarm, EventName::Fish]);
         let mut rng = Rand::new(3);
-        let frame = TrafficFrame { altitude: 21.0, target: 21.0, ..TrafficFrame::default() };
+        let frame = TrafficFrame {
+            altitude: 21.0,
+            target: 21.0,
+            ..TrafficFrame::default()
+        };
         for _ in 0..200 {
-            assert_eq!(scheduler.choose(&frame, &[], &registry, &NoShow, &mut rng), Some(EventName::Fish));
+            assert_eq!(
+                scheduler.choose(&frame, &[], &registry, &NoShow, &mut rng),
+                Some(EventName::Fish)
+            );
         }
     }
 
@@ -385,7 +449,10 @@ mod tests {
         let registry = registry_of(&[EventName::Fish]);
         let mut rng = Rand::new(4);
         let mut link = NoShow;
-        let frame = TrafficFrame { dt: 1.0, ..TrafficFrame::default() };
+        let frame = TrafficFrame {
+            dt: 1.0,
+            ..TrafficFrame::default()
+        };
         // 8 s de délai, à une vitesse de ~0,75 : tiré au bout de 11 images d'une seconde.
         let mut started = None;
         for i in 0..40 {
@@ -407,12 +474,18 @@ mod tests {
         let mut scheduler = Scheduler::default();
         let registry = registry_of(&[EventName::Fish]);
         let mut rng = Rand::new(5);
-        let frame = TrafficFrame { dt: 1.0, ..TrafficFrame::default() };
+        let frame = TrafficFrame {
+            dt: 1.0,
+            ..TrafficFrame::default()
+        };
         for _ in 0..12 {
             scheduler.next(&frame, &[], &registry, &mut NoShow, false, &mut rng);
         }
         assert_eq!(scheduler.pending(), Some(EventName::Fish));
-        assert_eq!(scheduler.next(&frame, &[], &registry, &mut NoShow, true, &mut rng), Some(EventName::Fish));
+        assert_eq!(
+            scheduler.next(&frame, &[], &registry, &mut NoShow, true, &mut rng),
+            Some(EventName::Fish)
+        );
     }
 
     #[test]
@@ -422,7 +495,11 @@ mod tests {
         let events = slugs(&[EventName::HoloTitle, EventName::Fish]);
         let mut s = show(&events);
         s.dj_seq = 1;
-        let frame = TrafficFrame { show: Some(s), time: 100.0, ..TrafficFrame::default() };
+        let frame = TrafficFrame {
+            show: Some(s),
+            time: 100.0,
+            ..TrafficFrame::default()
+        };
         scheduler.track_show(&frame, &mut rng);
         assert!(scheduler.countdown() <= 7.0);
         assert!((scheduler.title_since() - 100.0).abs() < f64::EPSILON);
@@ -450,10 +527,16 @@ mod tests {
         let mut scheduler = Scheduler::default();
         let registry = registry_of(&[EventName::Fish]);
         let events = slugs(&[EventName::Fish]);
-        let frame = TrafficFrame { show: Some(show(&events)), ..TrafficFrame::default() };
+        let frame = TrafficFrame {
+            show: Some(show(&events)),
+            ..TrafficFrame::default()
+        };
         let mut rng = Rand::new(7);
         let mut link = Operator(true);
-        assert_eq!(scheduler.next(&frame, &[], &registry, &mut link, false, &mut rng), Some(EventName::Fish));
+        assert_eq!(
+            scheduler.next(&frame, &[], &registry, &mut link, false, &mut rng),
+            Some(EventName::Fish)
+        );
         assert_eq!(scheduler.next(&frame, &[], &registry, &mut link, false, &mut rng), None);
     }
 }

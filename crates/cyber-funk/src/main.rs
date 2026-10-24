@@ -24,7 +24,7 @@ use cf_render::{
     AudioConfig, CfAudioPlugin, ControlsPlugin, CorePlugin, CullingPlugin, DiagnosticsPlugin, LayersPlugin,
     OutputChoice, PalettePlugin, PostFxPlugin, QualityPlugin, ShowPlugin, WarmupPlugin,
 };
-use cf_world_neon::{CarPlugin, NeonCinemaPlugin, NeonWorldPlugin, PilotPlugin};
+use cf_world_neon::{CarPlugin, NeonCinemaPlugin, NeonWorldPlugin, PilotPlugin, TrafficPlugin};
 use clap::Parser as _;
 
 use crate::cli::Cli;
@@ -113,6 +113,11 @@ fn build_app(cli: &Cli, controls: ControlsPlugin, show: ShowPlugin, preload: Pre
             ..CarPlugin::default()
         },
         PilotPlugin::default(),
+        // Le trafic : lit ses modèles dans le même dossier des ressources, écrit ce que le pilote doit voir avant lui.
+        TrafficPlugin {
+            assets_dir: cli.assets_dir.clone(),
+            ..TrafficPlugin::default()
+        },
         NeonCinemaPlugin,
         wiring::WiringPlugin,
     ));

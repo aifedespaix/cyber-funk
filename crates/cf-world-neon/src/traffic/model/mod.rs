@@ -103,9 +103,11 @@ mod tests {
             .attribute(Mesh::ATTRIBUTE_POSITION)
             .and_then(|a| a.as_float3())
             .expect("positions");
-        positions.iter().fold((Vec3::splat(f32::MAX), Vec3::splat(f32::MIN)), |(lo, hi), p| {
-            (lo.min(Vec3::from(*p)), hi.max(Vec3::from(*p)))
-        })
+        positions
+            .iter()
+            .fold((Vec3::splat(f32::MAX), Vec3::splat(f32::MIN)), |(lo, hi), p| {
+                (lo.min(Vec3::from(*p)), hi.max(Vec3::from(*p)))
+            })
     }
 
     #[test]
@@ -116,9 +118,18 @@ mod tests {
             let (lo, hi) = bounds(&model);
             // Le sol à y = 0 (les phares et bandes dépassent de quelques centimètres), centré en x, de la bonne longueur.
             assert!(lo.y.abs() < 0.02, "{name} : bas à {}", lo.y);
-            assert!((hi.z - lo.z - CRAFT_LENGTH).abs() < 0.1, "{name} : longueur {}", hi.z - lo.z);
+            assert!(
+                (hi.z - lo.z - CRAFT_LENGTH).abs() < 0.1,
+                "{name} : longueur {}",
+                hi.z - lo.z
+            );
             assert!(lo.x < 0.0 && hi.x > 0.0, "{name}");
-            assert!(model.half_width > 0.05 && model.rear > 0.5, "{name} : {} {}", model.half_width, model.rear);
+            assert!(
+                model.half_width > 0.05 && model.rear > 0.5,
+                "{name} : {} {}",
+                model.half_width,
+                model.rear
+            );
             assert!(model.mesh.count_vertices() > 100, "variante {i}");
         }
     }
@@ -126,15 +137,11 @@ mod tests {
     #[test]
     fn la_police_porte_ses_gyrophares_et_pas_les_autres() {
         let bytes = std::fs::read(crafts_dir().join("craft_racer.glb")).expect("fichier");
-        let count_kind = |model: &CraftModel, k: f32| {
-            model
-                .mesh
-                .attribute(Mesh::ATTRIBUTE_COLOR)
-                .map(|a| match a {
-                    bevy::mesh::VertexAttributeValues::Float32x4(v) => v.iter().filter(|c| c[0] == k).count(),
-                    _ => 0,
-                })
-                .unwrap_or(0)
+        let count_kind = |model: &CraftModel, k: f32| match model.mesh.attribute(Mesh::ATTRIBUTE_COLOR) {
+            Some(bevy::mesh::VertexAttributeValues::Float32x4(v)) => {
+                v.iter().filter(|c| (c[0] - k).abs() < 1e-6).count()
+            }
+            _ => 0,
         };
         let civilian = crafts::build_craft(&bytes, false).expect("racer");
         let police = crafts::build_craft(&bytes, true).expect("police");

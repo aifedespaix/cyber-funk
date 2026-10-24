@@ -202,8 +202,14 @@ pub fn wall_indices() -> Vec<u32> {
 mod tests {
     use super::*;
 
-    fn buffers() -> (Vec<[f32; 3]>, Vec<[f32; 4]>, Vec<[f32; 2]>) {
-        (vec![[0.0; 3]; VERTEX_COUNT], vec![[0.0; 4]; VERTEX_COUNT], vec![[0.0; 2]; VERTEX_COUNT])
+    type Buffers = (Vec<[f32; 3]>, Vec<[f32; 4]>, Vec<[f32; 2]>);
+
+    fn buffers() -> Buffers {
+        (
+            vec![[0.0; 3]; VERTEX_COUNT],
+            vec![[0.0; 4]; VERTEX_COUNT],
+            vec![[0.0; 2]; VERTEX_COUNT],
+        )
     }
 
     #[test]
@@ -250,7 +256,15 @@ mod tests {
         let origin = DVec3::new(0.0, 0.0, -1000.0);
         walls.push(id, 1.0, -1005.0, 0.0);
         let (mut p, mut c, mut f) = buffers();
-        walls.write(origin, 0.1, &mut WallVertices { positions: &mut p, colors: &mut c, fades: &mut f });
+        walls.write(
+            origin,
+            0.1,
+            &mut WallVertices {
+                positions: &mut p,
+                colors: &mut c,
+                fades: &mut f,
+            },
+        );
         // Tête vivante : opaque, au pied puis en haut du mur.
         assert_eq!(p[0], [1.0, FOOT_M, -5.0]);
         assert_eq!(p[1], [1.0, HEIGHT_M, -5.0]);

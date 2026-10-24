@@ -242,7 +242,14 @@ impl GroundTraffic {
         let tint = frame.tint(self.tint);
         self.tint += 1;
         let variant = Fleet::sleek(rng.unit());
-        let Some(id) = fleet.spawn(variant, DVec3::new(f64::from(x), 0.3, z), Vec3::ZERO, tint, BASE_SCALE, rng) else {
+        let Some(id) = fleet.spawn(
+            variant,
+            DVec3::new(f64::from(x), 0.3, z),
+            Vec3::ZERO,
+            tint,
+            BASE_SCALE,
+            rng,
+        ) else {
             return;
         };
         if let Some(craft) = fleet.get_mut(id) {

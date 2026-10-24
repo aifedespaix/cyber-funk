@@ -43,8 +43,8 @@ pub mod air_lanes;
 pub mod bike_patterns;
 pub mod director;
 pub mod event;
-pub mod fleet;
 pub mod flash;
+pub mod fleet;
 pub mod frame;
 pub mod glints;
 pub mod ground;
@@ -62,15 +62,18 @@ use std::path::PathBuf;
 use bevy::pbr::PbrPlugin;
 use bevy::prelude::*;
 use bevy::shader::Shader;
-use cf_render::{CfSet, CullingSet, WarmupAppExt, WorldSet};
+use cf_render::{CfSet, CullingSet, ScenePalette, ThemeLibrary, WarmupAppExt, WorldSet};
 
 pub use director::TrafficDirector;
 pub use event::{EventCtx, EventFactory, EventRegistry, Focus, TrafficAppExt, TrafficEvent};
-pub use fleet::{Craft, CraftId, Fleet, FleetStats};
 pub use flash::TrafficFlash;
+pub use fleet::{Craft, CraftId, Fleet, FleetStats};
 pub use frame::{TrafficBeat, TrafficDrive, TrafficFrame, TrafficShow};
 pub use names::EventName;
-pub use render::{GlintMaterial, TrailMaterial, TrafficEntities, TrafficSource, VehicleMaterial, WallMaterial};
+pub use render::{
+    GlintMaterial, TrafficBody, TrafficEntities, TrafficSource, TrafficTrail, TrailMaterial, VehicleMaterial,
+    WallMaterial,
+};
 pub use systems::{TrafficSettings, TrafficStats};
 
 use crate::pilot::PilotSet;
@@ -144,6 +147,13 @@ impl Plugin for TrafficPlugin {
                 .init_asset::<TrailMaterial>()
                 .init_asset::<GlintMaterial>()
                 .init_asset::<WallMaterial>();
+        }
+        // Sans `PalettePlugin`, le thème de départ de Sillage (« Void Velvet ») : les véhicules ont besoin de ses couleurs.
+        if !app.world().contains_resource::<ScenePalette>() {
+            let velvet = ThemeLibrary::builtin()
+                .map(|library| *library.preset(cf_show::model::PresetTheme::Velvet))
+                .unwrap_or_default();
+            app.insert_resource(velvet);
         }
         app.configure_sets(
             Update,

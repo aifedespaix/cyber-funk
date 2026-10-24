@@ -48,20 +48,18 @@ pub(crate) fn sync_fleet(
     for craft in director.fleet.crafts() {
         let id = craft.id;
         let index = usize::from(id);
-        let Some(&shown) = entities.shown.get(index) else { continue };
-        let body = craft
-            .active
-            .then(|| entities.body(craft.variant, craft.slot))
-            .flatten();
+        let Some(&shown) = entities.shown.get(index) else {
+            continue;
+        };
+        let body = craft.active.then(|| entities.body(craft.variant, craft.slot)).flatten();
         let trail = entities.trail(id);
 
         // L'emplacement a changé (ou le véhicule est parti) : l'ancien corps se cache.
-        if shown.body.is_some() && shown.body != body {
-            if let Some(old) = shown.body
-                && let Ok((_, _, mut visibility, _)) = bodies.get_mut(old)
-            {
-                visibility.set_if_neq(Visibility::Hidden);
-            }
+        if shown.body != body
+            && let Some(old) = shown.body
+            && let Ok((_, _, mut visibility, _)) = bodies.get_mut(old)
+        {
+            visibility.set_if_neq(Visibility::Hidden);
         }
         let Some(body) = body else {
             if shown.trail_visible
@@ -102,7 +100,11 @@ pub(crate) fn sync_fleet(
                     *trail_tag = tag;
                 }
             }
-            visibility.set_if_neq(if trail_visible { Visibility::Inherited } else { Visibility::Hidden });
+            visibility.set_if_neq(if trail_visible {
+                Visibility::Inherited
+            } else {
+                Visibility::Hidden
+            });
         }
         entities.shown[index] = super::Shown {
             generation: craft.generation,
@@ -132,7 +134,11 @@ pub(crate) fn sync_dynamic(
     }
     if let Ok((mut position, mut visibility)) = places.get_mut(entities.glints) {
         position.set_if_neq(AbsolutePosition(origin));
-        visibility.set_if_neq(if glints.is_empty() { Visibility::Hidden } else { Visibility::Inherited });
+        visibility.set_if_neq(if glints.is_empty() {
+            Visibility::Hidden
+        } else {
+            Visibility::Inherited
+        });
     }
 
     let walls_active = director.walls.active() > 0;
@@ -144,7 +150,11 @@ pub(crate) fn sync_dynamic(
     }
     if let Ok((mut position, mut visibility)) = places.get_mut(entities.walls) {
         position.set_if_neq(AbsolutePosition(origin));
-        visibility.set_if_neq(if walls_active { Visibility::Inherited } else { Visibility::Hidden });
+        visibility.set_if_neq(if walls_active {
+            Visibility::Inherited
+        } else {
+            Visibility::Hidden
+        });
     }
 }
 
@@ -158,7 +168,10 @@ pub(crate) fn update_materials(
 ) {
     let anim = Vec4::new(flash.pulse(), flash.beacon_left(), flash.beacon_right(), 0.0);
     let params = VehicleParams::from_palette(&palette, anim);
-    if materials.get(&entities.vehicle_material).is_some_and(|m| m.params == params) {
+    if materials
+        .get(&entities.vehicle_material)
+        .is_some_and(|m| m.params == params)
+    {
         return;
     }
     if let Some(mut material) = materials.get_mut(&entities.vehicle_material) {

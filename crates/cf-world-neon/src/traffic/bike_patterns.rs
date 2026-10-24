@@ -88,14 +88,14 @@ mod tests {
     #[test]
     fn deux_motos_ne_se_posent_jamais_au_meme_point() {
         for (p, pattern) in PATTERNS.iter().enumerate() {
-            let n = 5;
+            let count = 5;
             for step in 0..2000 {
-                let t = step as f32 * 0.02;
-                for i in 0..n {
-                    for j in (i + 1)..n {
-                        let (a, b) = (pattern(t, i, n), pattern(t, j, n));
-                        let d = (a.x - b.x).hypot(a.z - b.z);
-                        assert!(d > 1.2, "figure {p}, motos {i} et {j} à {d} m, t={t}");
+                let time = step as f32 * 0.02;
+                for i in 0..count {
+                    for j in (i + 1)..count {
+                        let (first, second) = (pattern(time, i, count), pattern(time, j, count));
+                        let gap = (first.x - second.x).hypot(first.z - second.z);
+                        assert!(gap > 1.2, "figure {p}, motos {i} et {j} à {gap} m, t={time}");
                     }
                 }
             }

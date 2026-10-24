@@ -330,7 +330,11 @@ impl Fleet {
         }
 
         let speed = craft.velocity.length();
-        let forward = if speed > 0.01 { craft.velocity / speed } else { craft.heading };
+        let forward = if speed > 0.01 {
+            craft.velocity / speed
+        } else {
+            craft.heading
+        };
 
         // Le roulis suit le taux de virage : le véhicule se couche dans ses courbes.
         if dt > 0.0 {
@@ -356,6 +360,7 @@ impl Fleet {
     }
 }
 
+#[allow(clippy::many_single_char_names)] // x, y, z, s, c : les axes et le sinus-cosinus, comme dans `fleet.ts`.
 /// Les trois axes du véhicule (x à droite, y en haut, z vers l'arrière) pour un cap, un haut, un roulis et un cabrage.
 #[must_use]
 pub fn basis(forward: Vec3, up: Vec3, roll: f32, pitch: f32) -> [Vec3; 3] {
@@ -401,12 +406,22 @@ mod tests {
     fn les_emplacements_d_un_modele_s_epuisent_puis_reviennent() {
         let mut fleet = Fleet::new();
         let mut rng = Rand::new(1);
-        let ids: Vec<_> = (0..6).map(|_| spawn_at(&mut fleet, &mut rng, 6, -100.0, -50.0)).collect();
+        let ids: Vec<_> = (0..6)
+            .map(|_| spawn_at(&mut fleet, &mut rng, 6, -100.0, -50.0))
+            .collect();
         // Le septième cargo n'a plus d'emplacement.
-        assert!(fleet.spawn(6, DVec3::ZERO, Vec3::ZERO, LinearRgba::WHITE, 1.0, &mut rng).is_none());
+        assert!(
+            fleet
+                .spawn(6, DVec3::ZERO, Vec3::ZERO, LinearRgba::WHITE, 1.0, &mut rng)
+                .is_none()
+        );
         fleet.release(ids[2]);
         fleet.release(ids[2]);
-        assert!(fleet.spawn(6, DVec3::ZERO, Vec3::ZERO, LinearRgba::WHITE, 1.0, &mut rng).is_some());
+        assert!(
+            fleet
+                .spawn(6, DVec3::ZERO, Vec3::ZERO, LinearRgba::WHITE, 1.0, &mut rng)
+                .is_some()
+        );
     }
 
     #[test]
@@ -416,7 +431,10 @@ mod tests {
         let mut n = 0;
         'fill: for variant in 0..VARIANT_COUNT as u8 {
             for _ in 0..CAPACITY[usize::from(variant)] {
-                if fleet.spawn(variant, DVec3::ZERO, Vec3::ZERO, LinearRgba::WHITE, 1.0, &mut rng).is_none() {
+                if fleet
+                    .spawn(variant, DVec3::ZERO, Vec3::ZERO, LinearRgba::WHITE, 1.0, &mut rng)
+                    .is_none()
+                {
                     break 'fill;
                 }
                 n += 1;
@@ -481,7 +499,13 @@ mod tests {
     #[test]
     fn une_traine_eteinte_est_de_taille_nulle() {
         let mut fleet = Fleet::new();
-        fleet.set_dims(0, ModelDims { half_width: 0.5, rear: 1.2 });
+        fleet.set_dims(
+            0,
+            ModelDims {
+                half_width: 0.5,
+                rear: 1.2,
+            },
+        );
         let mut rng = Rand::new(8);
         let id = spawn_at(&mut fleet, &mut rng, 0, -50.0, -60.0);
         fleet.update(1.0 / 60.0, 0.0, |_| true);

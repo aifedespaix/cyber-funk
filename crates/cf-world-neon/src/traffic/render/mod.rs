@@ -19,8 +19,8 @@ use bevy::mesh::MeshTag;
 use bevy::prelude::*;
 use cf_render::{AbsolutePosition, EntityPool, LodBands, SimulationLod, WorldLayer, follow_camera_bounds};
 
-pub use materials::{GlintMaterial, TrailMaterial, VehicleMaterial, VehicleParams, WallMaterial};
 pub(crate) use materials::embed_shaders;
+pub use materials::{GlintMaterial, TrailMaterial, VehicleMaterial, VehicleParams, WallMaterial};
 pub(crate) use sync::{sync_dynamic, sync_fleet, update_materials};
 
 use super::director::TrafficDirector;
@@ -92,7 +92,11 @@ impl TrafficEntities {
     /// Le corps du véhicule de ce modèle et de cet emplacement.
     #[must_use]
     pub fn body(&self, variant: u8, slot: u16) -> Option<Entity> {
-        self.bodies.get(usize::from(variant))?.entities().get(usize::from(slot)).copied()
+        self.bodies
+            .get(usize::from(variant))?
+            .entities()
+            .get(usize::from(slot))
+            .copied()
     }
 
     /// La traînée du véhicule `id`.

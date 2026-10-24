@@ -14,8 +14,8 @@ use cf_show::model::ShowGates;
 
 use crate::facade::FacadeMaterial;
 use crate::scenery::arches::ArchPool;
-use crate::traffic::TrafficDirector;
 use crate::scenery::{self, Clearing, MAX_PARTS, Row, SceneryAssets, SceneryConfig, SpotAnchor};
+use crate::traffic::TrafficDirector;
 
 /// Longueur d'un tronçon : l'écart entre deux rangées d'immeubles (`SPACING` de `scenery.ts`), en m.
 pub const CHUNK_LENGTH_M: f32 = 26.0;

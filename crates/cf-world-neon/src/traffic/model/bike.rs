@@ -26,15 +26,23 @@ pub fn bike_model() -> CraftModel {
 
     for z in [0.0, -BASE] {
         let at = Mat4::from_translation(Vec3::new(0.0, 0.0, z)) * lie_down;
-        b.add_mesh(&Cylinder::new(WHEEL, 0.16).mesh().resolution(24).build(), at, kind::HULL_DARK);
+        b.add_mesh(
+            &Cylinder::new(WHEEL, 0.16).mesh().resolution(24).build(),
+            at,
+            kind::HULL_DARK,
+        );
         let (major, tube) = (WHEEL * 0.96, 0.035);
-        let rim = Torus::new(major - tube, major + tube).mesh().minor_resolution(6).major_resolution(28);
+        let rim = Torus::new(major - tube, major + tube)
+            .mesh()
+            .minor_resolution(6)
+            .major_resolution(28);
         b.add_mesh(&rim.build(), at, kind::NEON);
         b.add_mesh(&Cylinder::new(0.1, 0.19).mesh().resolution(10).build(), at, kind::NEON);
     }
 
     // Coque effilée, pilote couché, casque.
-    let ellipsoid = |sx: f32, sy: f32, sz: f32, at: Vec3| Mat4::from_translation(at) * Mat4::from_scale(Vec3::new(sx, sy, sz));
+    let ellipsoid =
+        |sx: f32, sy: f32, sz: f32, at: Vec3| Mat4::from_translation(at) * Mat4::from_scale(Vec3::new(sx, sy, sz));
     let unit_sphere = |sectors: u32, stacks: u32| Sphere::new(1.0).mesh().uv(sectors, stacks);
     b.add_mesh(
         &unit_sphere(14, 10),
@@ -51,14 +59,26 @@ pub fn bike_model() -> CraftModel {
         ellipsoid(0.12, 0.12, 0.12, Vec3::new(0.0, 0.6, -BASE * 0.68)),
         kind::GLASS,
     );
-    b.add_box(Vec3::new(0.22, 0.5, 0.08), Vec3::new(0.0, 0.0, -BASE + 0.14), kind::HULL_DARK);
+    b.add_box(
+        Vec3::new(0.22, 0.5, 0.08),
+        Vec3::new(0.0, 0.0, -BASE + 0.14),
+        kind::HULL_DARK,
+    );
 
     // Lignes de lumière le long de la coque, et signature à l'arrière.
     for side in [-1.0, 1.0] {
-        b.add_box(Vec3::new(0.03, 0.03, BASE * 0.85), Vec3::new(side * 0.2, 0.2, -BASE / 2.0), kind::NEON);
+        b.add_box(
+            Vec3::new(0.03, 0.03, BASE * 0.85),
+            Vec3::new(side * 0.2, 0.2, -BASE / 2.0),
+            kind::NEON,
+        );
     }
     b.add_box(Vec3::new(0.34, 0.05, 0.04), Vec3::new(0.0, 0.3, 0.22), kind::NEON);
-    b.add_box(Vec3::new(0.15, 0.06, 0.04), Vec3::new(0.0, 0.2, -BASE - 0.1), kind::HEAD);
+    b.add_box(
+        Vec3::new(0.15, 0.06, 0.04),
+        Vec3::new(0.0, 0.2, -BASE - 0.1),
+        kind::HEAD,
+    );
 
     CraftModel {
         mesh: b.finish(),

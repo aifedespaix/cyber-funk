@@ -238,7 +238,10 @@ mod tests {
     fn l_indice_de_teinte_boucle_dans_les_deux_sens() {
         let mut cycle = [LinearRgba::BLACK; 6];
         cycle[1] = LinearRgba::WHITE;
-        let frame = TrafficFrame { cycle, ..TrafficFrame::default() };
+        let frame = TrafficFrame {
+            cycle,
+            ..TrafficFrame::default()
+        };
         assert_eq!(frame.tint(1), LinearRgba::WHITE);
         assert_eq!(frame.tint(7), LinearRgba::WHITE);
         assert_eq!(frame.tint(-1), LinearRgba::WHITE);
@@ -247,7 +250,10 @@ mod tests {
 
     #[test]
     fn la_liste_blanche_se_lit_par_slug() {
-        let events = [ShowEventName::new("chase").expect("slug"), ShowEventName::new("city-pulse").expect("slug")];
+        let events = [
+            ShowEventName::new("chase").expect("slug"),
+            ShowEventName::new("city-pulse").expect("slug"),
+        ];
         let show = TrafficShow {
             level: 3,
             breathing: false,

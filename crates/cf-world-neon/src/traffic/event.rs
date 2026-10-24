@@ -111,7 +111,9 @@ impl fmt::Debug for EventRegistry {
             .filter(|name| self.contains(*name))
             .map(EventName::as_str)
             .collect();
-        f.debug_struct("EventRegistry").field("registered", &registered).finish()
+        f.debug_struct("EventRegistry")
+            .field("registered", &registered)
+            .finish()
     }
 }
 

@@ -106,7 +106,12 @@ mod tests {
         let mut glints = Glints::new();
         let car = DVec3::new(0.0, 0.0, -400_000.0);
         glints.begin(car);
-        glints.add(car + DVec3::new(1.0, 2.0, -3.25), 1.0, LinearRgba::rgb(0.5, 1.0, 0.0), 2.0);
+        glints.add(
+            car + DVec3::new(1.0, 2.0, -3.25),
+            1.0,
+            LinearRgba::rgb(0.5, 1.0, 0.0),
+            2.0,
+        );
         let g = glints.points()[0];
         assert_eq!(g.offset, Vec3::new(1.0, 2.0, -3.25));
         assert_eq!(g.color, [1.0, 2.0, 0.0]);

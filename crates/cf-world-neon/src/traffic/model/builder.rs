@@ -41,7 +41,8 @@ impl MeshBuilder {
         let normal_matrix = Mat3::from_mat4(transform).inverse().transpose();
         let mut push = |i: usize| {
             let p = transform.transform_point3(Vec3::from(positions[i]));
-            let n = (normal_matrix * Vec3::from(normals.get(i).copied().unwrap_or([0.0, 1.0, 0.0]))).normalize_or_zero();
+            let n =
+                (normal_matrix * Vec3::from(normals.get(i).copied().unwrap_or([0.0, 1.0, 0.0]))).normalize_or_zero();
             self.positions.push(p.to_array());
             self.normals.push(n.to_array());
             self.kinds.push(kind);
@@ -74,10 +75,12 @@ impl MeshBuilder {
     /// Les coins min et max de la boîte englobante.
     #[must_use]
     pub fn bounds(&self) -> (Vec3, Vec3) {
-        self.positions.iter().fold((Vec3::splat(f32::MAX), Vec3::splat(f32::MIN)), |(lo, hi), p| {
-            let p = Vec3::from(*p);
-            (lo.min(p), hi.max(p))
-        })
+        self.positions
+            .iter()
+            .fold((Vec3::splat(f32::MAX), Vec3::splat(f32::MIN)), |(lo, hi), p| {
+                let p = Vec3::from(*p);
+                (lo.min(p), hi.max(p))
+            })
     }
 
     /// Applique `transform` (translation et échelle) à tout ce qu'il y a déjà : normales conservées.
@@ -127,8 +130,8 @@ mod tests {
             })
             .expect("couleurs");
         assert_eq!(colors.len(), 72);
-        assert!(colors[..36].iter().all(|c| c[0] == 5.0));
-        assert!(colors[36..].iter().all(|c| c[0] == 7.0));
+        assert!(colors[..36].iter().all(|c| (c[0] - 5.0).abs() < 1e-6));
+        assert!(colors[36..].iter().all(|c| (c[0] - 7.0).abs() < 1e-6));
     }
 
     #[test]
@@ -138,7 +141,10 @@ mod tests {
         builder.add_mesh(&sphere, Mat4::from_scale(Vec3::new(0.2, 0.24, 1.15)), 1.0);
         assert!(builder.len() > 100);
         let mesh = builder.finish();
-        let normals = mesh.attribute(Mesh::ATTRIBUTE_NORMAL).and_then(|a| a.as_float3()).expect("normales");
+        let normals = mesh
+            .attribute(Mesh::ATTRIBUTE_NORMAL)
+            .and_then(|a| a.as_float3())
+            .expect("normales");
         assert!(normals.iter().all(|n| (Vec3::from(*n).length() - 1.0).abs() < 1e-4));
     }
 }

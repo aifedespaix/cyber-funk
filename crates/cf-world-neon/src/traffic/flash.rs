@@ -116,7 +116,13 @@ mod tests {
         let frames = (seconds / DT) as usize;
         for i in 0..frames {
             let now = f64::from(DT) * i as f64;
-            let pulse = if i % 15 == 0 { 1.0 } else if i % 15 < 3 { 0.9 } else { 0.0 };
+            let pulse = if i % 15 == 0 {
+                1.0
+            } else if i % 15 < 3 {
+                0.9
+            } else {
+                0.0
+            };
             flash.update(DT, now, policy, pulse);
             out.push((flash.pulse(), flash.beacon_left(), flash.beacon_right()));
         }
@@ -133,7 +139,12 @@ mod tests {
     #[test]
     fn flashs_coupes_ou_respiration_eteignent_tout() {
         for policy in [Some((false, false)), Some((true, true))] {
-            assert!(run(policy, 5.0).iter().all(|&(k, l, r)| k == 0.0 && l == 0.0 && r == 0.0), "{policy:?}");
+            assert!(
+                run(policy, 5.0)
+                    .iter()
+                    .all(|&(k, l, r)| k == 0.0 && l == 0.0 && r == 0.0),
+                "{policy:?}"
+            );
         }
     }
 
@@ -142,7 +153,10 @@ mod tests {
         let frames = run(Some((true, false)), 10.0);
         let left_peak = frames.iter().map(|f| f.1).fold(0.0, f32::max);
         let right_peak = frames.iter().map(|f| f.2).fold(0.0, f32::max);
-        assert!(left_peak > 0.9 && right_peak > 0.9, "les deux côtés s'allument ({left_peak}, {right_peak})");
+        assert!(
+            left_peak > 0.9 && right_peak > 0.9,
+            "les deux côtés s'allument ({left_peak}, {right_peak})"
+        );
         // Départs : franchissements de 0,5 vers le haut, gauche et droite ensemble, sur chaque seconde glissante.
         let mut starts = Vec::new();
         for i in 1..frames.len() {
@@ -155,7 +169,10 @@ mod tests {
         let window = (1.0 / DT) as usize;
         for &s in &starts {
             let in_second = starts.iter().filter(|&&t| t >= s && t < s + window).count();
-            assert!(in_second <= MAX_FLASHES_PER_SECOND, "{in_second} départs en 1 s à l'image {s}");
+            assert!(
+                in_second <= MAX_FLASHES_PER_SECOND,
+                "{in_second} départs en 1 s à l'image {s}"
+            );
         }
     }
 

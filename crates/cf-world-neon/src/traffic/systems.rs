@@ -12,8 +12,8 @@ use cf_show::director::Order;
 
 use super::director::TrafficDirector;
 use super::event::EventRegistry;
-use super::fleet::FleetStats;
 use super::flash::TrafficFlash;
+use super::fleet::FleetStats;
 use super::frame::{TrafficBeat, TrafficDrive, TrafficFrame, TrafficShow};
 use super::render::TrafficEntities;
 use super::scheduler::{NoShow, ShowLink};
@@ -146,7 +146,9 @@ pub(crate) fn drive_traffic(
     }
     state.last_z = Some(car.z);
 
-    let beat = features.as_deref().map_or(TrafficBeat::SILENT, |f| TrafficBeat::from(&f.0));
+    let beat = features
+        .as_deref()
+        .map_or(TrafficBeat::SILENT, |f| TrafficBeat::from(&f.0));
     let drive = match (features.as_deref(), show.as_deref()) {
         (Some(f), s) => TrafficDrive {
             drop: s.is_some_and(|s| s.0.drop_now),
@@ -161,7 +163,11 @@ pub(crate) fn drive_traffic(
         state.level_seq = state.level_seq.wrapping_add(1);
     }
     let altitude = animation.altitude;
-    let target = if animation.airborne() { floor_altitude(i32::from(animation.floor)) as f32 } else { 0.0 };
+    let target = if animation.airborne() {
+        floor_altitude(i32::from(animation.floor)) as f32
+    } else {
+        0.0
+    };
     let cycle = palette
         .as_deref()
         .map_or([LinearRgba::WHITE; 6], |p| p.prismatic_cycle().map(linear));
@@ -215,8 +221,12 @@ pub(crate) fn apply_clearings(
     world: Option<ResMut<NeonWorld>>,
     stream: Option<ResMut<ChunkStream<NeonWorld>>>,
 ) {
-    let Some(clearings) = director.take_clearings() else { return };
-    let (Some(mut world), Some(mut stream)) = (world, stream) else { return };
+    let Some(clearings) = director.take_clearings() else {
+        return;
+    };
+    let (Some(mut world), Some(mut stream)) = (world, stream) else {
+        return;
+    };
     if world.set_clearings(clearings) {
         stream.replan_all();
     }
