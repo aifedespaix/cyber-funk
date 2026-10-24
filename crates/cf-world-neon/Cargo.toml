@@ -15,6 +15,7 @@ bevy.workspace = true
 cf-cinema.workspace = true
 cf-render.workspace = true
 cf-show.workspace = true
+thiserror.workspace = true
 tracing.workspace = true
 
 [dev-dependencies]
