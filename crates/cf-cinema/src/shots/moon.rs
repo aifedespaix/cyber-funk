@@ -131,11 +131,7 @@ impl MoonPassShot {
         let car = frame.car;
         let e = f64::from(smootherstep((u4 - 0.05) / 0.85));
         let eye = DVec3::new(car.x * 0.4, car.y + CEILING, car.z + 24.0);
-        let low = DVec3::new(
-            car.x * 0.55,
-            2.3 + f64::from(frame.altitude) * 1.04,
-            car.z + 6.2,
-        );
+        let low = DVec3::new(car.x * 0.55, 2.3 + f64::from(frame.altitude) * 1.04, car.z + 6.2);
         goal.pos = low.lerp(eye, 1.0 - e);
         let end = self.sky.orbit(SWING * self.dir, ORBIT, 14.0);
         goal.drift = end * (1.0 - smootherstep(u4 * 1.05));

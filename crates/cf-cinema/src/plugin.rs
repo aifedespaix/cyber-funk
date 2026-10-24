@@ -139,4 +139,26 @@ mod tests {
         assert!(crate::pose::is_finite(&pose));
         assert!(rel.length() > 1.0, "{rel}");
     }
+
+    #[test]
+    fn la_chevauchee_d_un_astre_emet_l_ordre_lance_un_astre() {
+        let mut app = App::new();
+        app.add_plugins((
+            cf_render::CorePlugin,
+            CinemaPlugin::default(),
+            CinemaWorldPlugin::<Empty>::default(),
+        ))
+        .init_resource::<Empty>();
+        // Un catalogue d'un seul plan : la chevauchée, qui lance son astre faute d'en trouver un en vol.
+        app.insert_resource(CinemaDirector::new(vec![Box::new(crate::shots::MeteorRide)], false, 1));
+        app.world_mut().resource_mut::<CinemaWorld>().car = DVec3::new(0.0, 0.0, -1000.0);
+        app.world_mut().resource_mut::<CinemaWorld>().dt = 0.016;
+        app.update();
+        let launches = app.world().resource::<Messages<LaunchMeteor>>().len();
+        assert_eq!(launches, 1, "un seul ordre par plan fabriqué");
+        app.update();
+        app.update();
+        // Le message se lit sur deux images : on s'assure surtout qu'aucun second ordre n'est parti.
+        assert!(app.world().resource::<Messages<LaunchMeteor>>().len() <= 1);
+    }
 }

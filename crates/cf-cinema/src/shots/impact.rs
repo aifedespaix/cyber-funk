@@ -175,8 +175,7 @@ impl Shot for ImpactShot {
             return false;
         }
         let rates = RigRates { pos: 4.0, look: 2.5 };
-        self.rig
-            .track(frame.dt, self.spot, gaze, self.fov, rates, 0.0, Vec3::Y);
+        self.rig.track(frame.dt, self.spot, gaze, self.fov, rates, 0.0, Vec3::Y);
         self.rig.write(out);
         true
     }
