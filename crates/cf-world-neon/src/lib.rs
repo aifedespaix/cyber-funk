@@ -1,11 +1,12 @@
 //! Neon City, le monde repris de Sillage : route infinie, immeubles néon, ciel et planètes, voiture en pilote
 //! automatique, trafic, cascades, enseignes et événements. Implémente le trait `World` de `cf-render`.
 //!
-//! Contenu actuel (J5-01, J5-02, J5-05) :
+//! Contenu actuel (J5-01, J5-02, J5-03, J5-05) :
 //!
 //! - [`road`] : la route (plan unique, shader WESL, réaction au pouls et aux basses, teinte d'ambiance) ;
 //! - [`route`] : le plan de route (ponts, planificateur du pilote), pur et déterministe ;
 //! - [`scenery`] : la ville (immeubles par tronçon, arches, collisions) ;
+//! - [`sky`] : le ciel (voûte, étoiles, aurores, astres, géante à anneau, étoiles filantes), couche arrière-plan ;
 //! - [`facade`] : le matériau de façade (fenêtres, néons, pulsation sur les temps) et son shader ;
 //! - [`world`] : [`NeonWorld`], l'implémentation du trait `World` (streaming) ;
 //! - [`chase`] : point suivi et caméra de poursuite provisoires, en attendant le pilote (J5-06) et le réalisateur (J6) ;
@@ -26,6 +27,7 @@ pub mod rng;
 pub mod road;
 pub mod route;
 pub mod scenery;
+pub mod sky;
 pub mod world;
 
 use bevy::prelude::*;
@@ -37,6 +39,7 @@ pub use facade::{FacadeLook, FacadeMaterial, FacadePlugin};
 pub use road::{Road, RoadLook, RoadMaterial, RoadPalette, RoadPlugin};
 pub use route::{RoutePlan, RoutePlanner};
 pub use scenery::{Clearing, SceneryConfig, SpotAnchor};
+pub use sky::{RingPlanet, ShootingStarRequest, SkyLook, SkyPlugin};
 pub use world::NeonWorld;
 
 /// Plugin du monde Neon City : le monde streamé, la route et le plan de route.
@@ -90,6 +93,7 @@ impl Plugin for NeonWorldPlugin {
             }),
             RoadPlugin,
             FacadePlugin,
+            SkyPlugin,
         ))
         .init_resource::<RoutePlan>()
         .init_resource::<RoutePlanner>()
