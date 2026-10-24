@@ -159,19 +159,17 @@ impl Pace {
 
         // Ambiance : moitié forme du morceau (sections), moitié niveau sonore du moment.
         let level = ((self.fast - 0.06) / 0.34).clamp(0.0, 1.0);
-        self.mood = approach(
-            self.mood,
-            (b.intensity * 0.55 + level * 0.45).clamp(0.0, 1.0),
-            dt,
-            1.2,
-        );
+        self.mood = approach(self.mood, (b.intensity * 0.55 + level * 0.45).clamp(0.0, 1.0), dt, 1.2);
         self.trend = approach(self.trend, (rise / 0.12).clamp(-1.0, 1.0), dt, 1.5);
 
         let base = CALM_SPEED + (PEAK_SPEED - CALM_SPEED) * self.mood.powf(1.15);
-        let crescendo = if self.trend > 0.0 { self.trend * 9.0 } else { self.trend * 5.0 };
-        let drive = (base + crescendo) * self.tempo
-            + b.bass * 5.0 * (0.4 + self.mood)
-            + self.boost * self.boost * 46.0 * gain;
+        let crescendo = if self.trend > 0.0 {
+            self.trend * 9.0
+        } else {
+            self.trend * 5.0
+        };
+        let drive =
+            (base + crescendo) * self.tempo + b.bass * 5.0 * (0.4 + self.mood) + self.boost * self.boost * 46.0 * gain;
         self.state.speed = (drive * (1.0 - self.break_amount * 0.12) + self.push * self.push * OVERTAKE_PUSH)
             * self.cruise
             * (1.0 - self.hush * 0.55);

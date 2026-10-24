@@ -139,7 +139,11 @@ mod tests {
         for _ in 0..7200 {
             beat += 2.0 / 60.0;
             let x = line.update(1.0 / 60.0, beat, 1.0, 5.0);
-            assert!(((x - previous) * 60.0).abs() < 12.0, "vitesse latérale {}", (x - previous) * 60.0);
+            assert!(
+                ((x - previous) * 60.0).abs() < 12.0,
+                "vitesse latérale {}",
+                (x - previous) * 60.0
+            );
             previous = x;
         }
     }

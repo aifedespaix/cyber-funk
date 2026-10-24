@@ -59,11 +59,18 @@ fn les_commandes_et_l_animation_sont_publiees_et_la_voiture_decolle() {
         assert!(app.world().resource::<CarControls>().steer.abs() <= 1.0);
         assert!(animation.altitude >= 0.0 && animation.altitude < 63.0);
     }
-    assert!(took_off, "sans spectacle les portes sont ouvertes : elle finit par voler");
+    assert!(
+        took_off,
+        "sans spectacle les portes sont ouvertes : elle finit par voler"
+    );
     // L'altitude de l'animation est celle de la position absolue : la voiture, la traînée et la caméra la suivent.
     let animation = *app.world().resource::<CarAnimation>();
     let world = app.world_mut();
     let mut positions = world.query_filtered::<&AbsolutePosition, With<PilotCar>>();
     let y = positions.single(world).expect("la voiture").0.y;
-    assert!((y - f64::from(animation.altitude)).abs() < 1e-3, "{y} {}", animation.altitude);
+    assert!(
+        (y - f64::from(animation.altitude)).abs() < 1e-3,
+        "{y} {}",
+        animation.altitude
+    );
 }

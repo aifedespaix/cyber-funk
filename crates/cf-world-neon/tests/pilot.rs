@@ -165,7 +165,12 @@ fn la_simulation_est_rejouable_et_la_graine_compte() {
 fn la_porte_cruise_change_l_allure() {
     let slow = simulate(1, 3, 0.5, 120.0, |_, s| s.gates.cruise = 0.7);
     let fast = simulate(1, 3, 0.5, 120.0, |_, s| s.gates.cruise = 1.15);
-    assert!(fast.distance > slow.distance * 1.3, "{} {}", slow.distance, fast.distance);
+    assert!(
+        fast.distance > slow.distance * 1.3,
+        "{} {}",
+        slow.distance,
+        fast.distance
+    );
 }
 
 #[test]

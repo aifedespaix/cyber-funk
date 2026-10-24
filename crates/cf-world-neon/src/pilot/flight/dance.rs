@@ -163,7 +163,11 @@ mod tests {
         let mut dance = DanceFlight::default();
         let flight = Flight::default();
         for _ in 0..60 {
-            assert_eq!(dance.think(&flight, &ctx(false, 1, 0.0)), None, "pas de temps fort, pas de décollage");
+            assert_eq!(
+                dance.think(&flight, &ctx(false, 1, 0.0)),
+                None,
+                "pas de temps fort, pas de décollage"
+            );
         }
         assert_eq!(dance.think(&flight, &ctx(true, 5, 0.0)), None, "kick hors temps fort");
         assert_eq!(dance.think(&flight, &ctx(true, 4, 0.0)), Some(FlightCommand::Up));

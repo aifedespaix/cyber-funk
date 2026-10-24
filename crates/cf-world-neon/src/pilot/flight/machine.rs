@@ -306,7 +306,11 @@ impl Flight {
         self.bounce = self.bounce.clamp(-0.2, 1.1);
 
         let altitude = (self.altitude + self.dodge_offset + hop).max(0.0);
-        let rate = if dt > 0.0 { (altitude - self.last_altitude) / dt } else { 0.0 };
+        let rate = if dt > 0.0 {
+            (altitude - self.last_altitude) / dt
+        } else {
+            0.0
+        };
         self.last_altitude = altitude;
         self.climb += (rate - self.climb) * (1.0 - (-dt * 7.0).exp());
         // Le nez suit la montée ; la caisse se couche dans l'esquive.
@@ -324,7 +328,11 @@ impl Flight {
             trick_roll,
             trick_pitch,
             bounce: self.bounce,
-            dodge: if self.dodge_busy { self.dodge_side } else { DodgeSide::None },
+            dodge: if self.dodge_busy {
+                self.dodge_side
+            } else {
+                DodgeSide::None
+            },
             floor: u8::try_from(self.floor).unwrap_or(0),
             trick: self.trick.map(|t| t.kind),
         }

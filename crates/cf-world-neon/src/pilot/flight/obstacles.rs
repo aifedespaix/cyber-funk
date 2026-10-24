@@ -207,7 +207,10 @@ mod tests {
         assert!(at(-800.0) < f64::EPSILON, "trop loin");
         assert!(at(-950.0) > 0.0 && at(-950.0) < 1.0, "en approche");
         assert!((at(-1000.0) - 1.0).abs() < f64::EPSILON, "sous le tablier");
-        assert!(at(-1000.0 - 8.0 - 13.0) > 0.0 && at(-1000.0 - 8.0 - 13.0) < 1.0, "dégagement");
+        assert!(
+            at(-1000.0 - 8.0 - 13.0) > 0.0 && at(-1000.0 - 8.0 - 13.0) < 1.0,
+            "dégagement"
+        );
         assert!(at(-1100.0) < f64::EPSILON, "passée");
     }
 

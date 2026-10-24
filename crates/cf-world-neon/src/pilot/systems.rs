@@ -58,7 +58,7 @@ pub(super) fn drive_pilot(
     let frame = brain.0.update(&PilotTick {
         dt: time.delta_secs_f64(),
         beat,
-        show: show.map(|s| ShowInput::of(&s.0)),
+        show: settings.show.or_else(|| show.map(|s| ShowInput::of(&s.0))),
         settings: &settings,
         traffic: &traffic,
         overtakes,

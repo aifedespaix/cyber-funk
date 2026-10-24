@@ -34,10 +34,24 @@ impl FlightCommand {
                 flight.down(env);
             }
             Self::Roll(direction) => {
-                flight.do_trick(if direction < 0 { TrickKind::RollLeft } else { TrickKind::RollRight }, env);
+                flight.do_trick(
+                    if direction < 0 {
+                        TrickKind::RollLeft
+                    } else {
+                        TrickKind::RollRight
+                    },
+                    env,
+                );
             }
             Self::Flip(direction) => {
-                flight.do_trick(if direction > 0 { TrickKind::Backflip } else { TrickKind::Frontflip }, env);
+                flight.do_trick(
+                    if direction > 0 {
+                        TrickKind::Backflip
+                    } else {
+                        TrickKind::Frontflip
+                    },
+                    env,
+                );
             }
         }
     }
@@ -159,7 +173,11 @@ impl AutoFlight {
         let floor = flight.floor();
         if floor >= ceiling {
             // Au plafond : salto avant pour descendre, ou tonneau s'il n'y a pas d'étage dessous.
-            if floor > 1 { FlightCommand::Flip(-1) } else { FlightCommand::Roll(roll) }
+            if floor > 1 {
+                FlightCommand::Flip(-1)
+            } else {
+                FlightCommand::Roll(roll)
+            }
         } else if floor <= 1 {
             FlightCommand::Flip(1)
         } else {

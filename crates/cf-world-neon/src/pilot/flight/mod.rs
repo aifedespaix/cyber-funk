@@ -14,9 +14,7 @@ pub mod obstacles;
 
 pub use auto::{AutoContext, AutoFlight, FlightCommand, ceiling};
 pub use dance::{DanceContext, DanceFlight};
-pub use machine::{
-    Flight, FlightEnv, FlightEvents, FlightFrame, FlightPhase, HOVER_SECONDS, Refusal, TrickKind,
-};
+pub use machine::{Flight, FlightEnv, FlightEvents, FlightFrame, FlightPhase, HOVER_SECONDS, Refusal, TrickKind};
 pub use obstacles::{
     Band, CAR_ABOVE, CAR_BELOW, CLEARANCE, Dodge, DodgeSide, Obstruction, bridge_obstructions, overlaps, resolve_dodge,
 };

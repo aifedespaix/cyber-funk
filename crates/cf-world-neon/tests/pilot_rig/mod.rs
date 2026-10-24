@@ -50,7 +50,11 @@ pub fn music(frame: u64, intensity: f64) -> BeatInput {
         bass: 0.5,
         bpm: Some(128.0),
         intensity,
-        section: if intensity > 0.7 { Section::Peak } else { Section::Groove },
+        section: if intensity > 0.7 {
+            Section::Peak
+        } else {
+            Section::Groove
+        },
         count: (t / period).floor() as u32,
     }
 }

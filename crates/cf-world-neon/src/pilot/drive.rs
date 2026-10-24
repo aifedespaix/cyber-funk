@@ -42,6 +42,9 @@ pub struct PilotSettings {
     pub seed: u64,
     /// Profondeur de départ (z absolu, m) : 0 au départ du set, −400 000 pour vérifier la précision en fin de set.
     pub start_z_m: f64,
+    /// Spectacle imposé (démos, captures, tests) : remplace celui de `CurrentShow`. `None` : celui du spectacle en
+    /// cours, ou tout permis sans spectacle.
+    pub show: Option<ShowInput>,
 }
 
 impl Default for PilotSettings {
@@ -52,6 +55,7 @@ impl Default for PilotSettings {
             calm: false,
             seed: 0x5111_A6E,
             start_z_m: 0.0,
+            show: None,
         }
     }
 }
@@ -246,7 +250,14 @@ impl Pilot {
         FULL_RATE * grip * grip * (3.0 - 2.0 * grip) * understeer
     }
 
-    fn steer(&mut self, t: &PilotTick<'_>, show: Option<&ShowInput>, beat: f64, preferred: Option<f64>, dt: f64) -> f64 {
+    fn steer(
+        &mut self,
+        t: &PilotTick<'_>,
+        show: Option<&ShowInput>,
+        beat: f64,
+        preferred: Option<f64>,
+        dt: f64,
+    ) -> f64 {
         // Niveau 0 (pré-intro) : la voiture file droit.
         if show.is_some_and(|s| s.level == 0) {
             return 0.0;
