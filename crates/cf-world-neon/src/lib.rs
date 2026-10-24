@@ -105,6 +105,13 @@ impl Plugin for NeonWorldPlugin {
         ))
         .init_resource::<RoutePlan>()
         .init_resource::<RoutePlanner>()
+        .add_message::<cf_render::QualityChanged>()
+        .add_systems(
+            Update,
+            apply_quality
+                .in_set(cf_render::CfSet::Simulate)
+                .before(cf_render::WorldSet::Chunks),
+        )
         .add_systems(
             Update,
             route::update_route_plan
@@ -122,5 +129,19 @@ impl Plugin for NeonWorldPlugin {
             // Le pilote crée la voiture (elle porte `StreamFocus`) : pas de point suivi provisoire avec lui.
             app.add_plugins((ChaseCameraPlugin, PilotPlugin::default(), CarPlugin::default()));
         }
+    }
+}
+
+/// `CfSet::Simulate`, avant les tronçons : un nouveau niveau de qualité retire (ou rend) les couronnes lointaines de la
+/// ville, puis les tronçons vivants sont re-tirés. Les tronçons à venir entrent de toute façon au loin, dans la brume.
+fn apply_quality(
+    mut changes: MessageReader<cf_render::QualityChanged>,
+    mut world: ResMut<NeonWorld>,
+    mut stream: ResMut<cf_render::ChunkStream<NeonWorld>>,
+) {
+    // Seul le dernier niveau compte si plusieurs changements tombent dans la même image.
+    let Some(last) = changes.read().last() else { return };
+    if world.set_quality(last.to) {
+        stream.replan_all();
     }
 }

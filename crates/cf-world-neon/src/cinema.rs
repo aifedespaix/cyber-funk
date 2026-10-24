@@ -14,7 +14,7 @@ use cf_cinema::{
     BeatView, Cabin, CinemaWorld, CinemaWorldPlugin, FlightPhase as CinemaPhase, MAX_DT, Obstacles,
     RingPlanet as CinemaRing, ShowView, Trick, TrickKind as CinemaTrick,
 };
-use cf_render::{AbsolutePosition, AudioFeatures, CfSet, CurrentShow, StreamFocus, WorldSet};
+use cf_render::{AbsolutePosition, AudioFeatures, CfSet, CurrentShow, ShowRuntime, StreamFocus, WorldSet};
 use cf_show::director::ShowState;
 
 use crate::pilot::{CarAnimation, DodgeSide, FlightPhase, PilotBrain, PilotSet, TrickKind};
@@ -154,6 +154,7 @@ fn build_cinema_world(
     time: Res<Time>,
     features: Option<Res<AudioFeatures>>,
     show: Option<Res<CurrentShow>>,
+    runtime: Option<Res<ShowRuntime>>,
     brain: Option<Res<PilotBrain>>,
     animation: Option<Res<CarAnimation>>,
     ring: Option<Res<RingPlanet>>,
@@ -177,6 +178,9 @@ fn build_cinema_world(
             ring: ring.as_deref(),
         },
     );
+    // Le drop préparé vit dans le chef du spectacle, pas dans `ShowState` : sans cette lecture, le plan `dolly-zoom`
+    // (qui se cale sur un drop annoncé) ne serait jamais jouable.
+    world.show.drop_planned = runtime.is_some_and(|runtime| runtime.director().drop_plan().is_some());
 }
 
 #[cfg(test)]

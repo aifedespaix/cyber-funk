@@ -11,8 +11,9 @@
 use std::marker::PhantomData;
 
 use bevy::prelude::*;
-use cf_render::{CameraPose, CfSet, Subjects};
+use cf_render::{CameraPose, CfSet, ShowRuntime, Subjects};
 
+use crate::choreo::{NoShow, ShowSide};
 use crate::director::CinemaDirector;
 use crate::shots;
 use crate::world::{CinemaFrame, CinemaWorld, Obstacles};
@@ -77,18 +78,26 @@ fn direct<W: Obstacles + Resource>(
     obstacles: Option<Res<W>>,
     subjects: Option<Res<Subjects>>,
     director: Option<ResMut<CinemaDirector>>,
+    mut runtime: Option<ResMut<ShowRuntime>>,
     mut pose: ResMut<CameraPose>,
+    mut no_show: Local<NoShow>,
 ) {
     let (Some(obstacles), Some(mut director)) = (obstacles, director) else {
         return;
     };
     let list = subjects.as_deref().map_or(&[][..], Subjects::as_slice);
     let frame = CinemaFrame::new(&world, &*obstacles, list);
+    // Le vrai chef du spectacle quand un show est chargé (portes de rang, ordres, drop préparé, `strobe` selon les
+    // flashs) ; sinon un spectacle vide : tout est permis, aucun ordre.
+    let show: &mut dyn ShowSide = match runtime.as_mut() {
+        Some(runtime) => runtime.director_mut(),
+        None => &mut *no_show,
+    };
     if !director.active() {
         let from = *pose;
-        director.start(&from, &frame);
+        director.start_with(&from, &frame, show);
     }
-    let next = *director.update(&frame);
+    let next = *director.update_with(&frame, show);
     if *pose != next {
         *pose = next;
     }

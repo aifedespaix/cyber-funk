@@ -114,7 +114,7 @@ pub struct Cli {
     pub audio_source: AudioSourceArg,
 
     /// Dossier des pistes de démo (le sous-dossier `local/` est lu aussi).
-    #[arg(long, value_name = "DOSSIER", default_value = "assets/music")]
+    #[arg(long, value_name = "DOSSIER", default_value_os_t = crate::assets::default_music_dir())]
     pub music_dir: PathBuf,
 
     /// Décalage visuel initial en millisecondes (0 à 500), réglable ensuite dans le panneau opérateur.
@@ -125,8 +125,9 @@ pub struct Cli {
     #[arg(long)]
     pub null_audio_output: bool,
 
-    /// Dossier des ressources du show : profils de contrôle (`controllers/`), looks (`looks/`), titres (`titles/`).
-    #[arg(long, value_name = "DOSSIER", default_value = "assets")]
+    /// Dossier des ressources : profils de contrôle (`controllers/`), looks (`looks/`), titres (`titles/`), voiture.
+    /// Par défaut à côté de l'exécutable (`Contents/Resources` sur macOS), pas relatif au dossier de travail.
+    #[arg(long, value_name = "DOSSIER", default_value_os_t = crate::assets::default_assets_dir())]
     pub assets_dir: PathBuf,
 
     /// N'ouvre aucun port MIDI (le clavier reste actif).
@@ -150,9 +151,9 @@ mod tests {
         assert!(!cli.windowed && !cli.no_operator);
         assert_eq!(cli.log, None);
         assert_eq!(cli.audio_source, AudioSourceArg::Demo);
-        assert_eq!(cli.music_dir, PathBuf::from("assets/music"));
+        assert_eq!(cli.music_dir, crate::assets::default_music_dir());
         assert!(!cli.null_audio_output);
-        assert_eq!(cli.assets_dir, PathBuf::from("assets"));
+        assert_eq!(cli.assets_dir, crate::assets::default_assets_dir());
         assert!(!cli.no_midi);
     }
 
