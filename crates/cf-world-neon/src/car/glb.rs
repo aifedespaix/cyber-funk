@@ -20,8 +20,14 @@ pub enum CarModelError {
     #[error("GLB invalide : {0}")]
     Container(&'static str),
     /// Le fichier n'a pas pu être lu.
-    #[error("lecture du fichier : {0}")]
-    Io(#[from] std::io::Error),
+    #[error("lecture de {path} : {source}")]
+    Read {
+        /// Chemin du fichier.
+        path: String,
+        /// Erreur du système de fichiers.
+        #[source]
+        source: std::io::Error,
+    },
     /// Le JSON glTF est illisible.
     #[error("JSON glTF illisible : {0}")]
     Json(#[from] serde_json::Error),
@@ -349,8 +355,9 @@ fn decode_attributes<const N: usize>(def: &MeshoptDef, compressed: &[u8]) -> Res
                 .collect();
             meshopt::decode_filter_oct(&mut typed);
             for (element, value) in elements.iter_mut().zip(&typed) {
-                for (bytes, component) in element.chunks_exact_mut(2).zip(value) {
-                    bytes.copy_from_slice(&component.to_le_bytes());
+                let (pairs, _) = element.as_chunks_mut::<2>();
+                for (bytes, component) in pairs.iter_mut().zip(value) {
+                    *bytes = component.to_le_bytes();
                 }
             }
         }
@@ -371,8 +378,8 @@ mod tests {
 
     fn glb(name: &str) -> Gltf {
         let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../assets/models/car").join(name);
-        let bytes = std::fs::read(&path).unwrap_or_else(|e| panic!("{} : {e}", path.display()));
-        Gltf::from_glb(&bytes).unwrap_or_else(|e| panic!("{name} : {e}"))
+        let bytes = std::fs::read(&path).expect("fichier du modèle");
+        Gltf::from_glb(&bytes).expect("GLB lisible")
     }
 
     /// Les deux fichiers livrés se décompressent, et leurs accesseurs ont du sens : positions quantifiées dans
@@ -390,7 +397,7 @@ mod tests {
                     let normal = gltf.floats(primitive.attributes["NORMAL"]).expect("normales");
                     assert_eq!(position.len(), normal.len());
                     assert!(position.iter().all(|v| (-1.0..=1.0).contains(v)), "{name} : positions quantifiées");
-                    for n in normal.chunks_exact(3) {
+                    for n in normal.as_chunks::<3>().0 {
                         let length = (n[0] * n[0] + n[1] * n[1] + n[2] * n[2]).sqrt();
                         assert!((length - 1.0).abs() < 0.03, "{name} : normale de longueur {length}");
                     }

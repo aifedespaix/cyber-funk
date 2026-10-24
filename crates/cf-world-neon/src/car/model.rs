@@ -1,17 +1,16 @@
 //! Le modèle de la voiture côté processeur : maillages, images et arbre de nœuds prêts à être posés dans le monde.
 //!
-//! Construit à partir d'un [`Gltf`](super::glb::Gltf) décompressé, hors du fil principal (voir `loader.rs`). Rien n'est
-//! envoyé au GPU ici : [`CarModelAsset`] est un `Asset` que le système de création de la voiture (`scene.rs`) transforme
-//! en entités quand il est prêt, à l'ouverture du show (règle 8 de `CLAUDE.md` : rien ne se charge pendant un show).
+//! Construit à partir d'un [`Gltf`](super::glb::Gltf) décompressé, hors du fil principal (tâche de fond du plugin). Rien
+//! n'est envoyé au GPU ici : [`CarModelAsset`] est transformé en entités par `spawn.rs` quand il est prêt, à l'ouverture du
+//! show (règle 8 de `CLAUDE.md` : rien ne se charge pendant un show).
 
-use bevy::asset::{Asset, RenderAssetUsages};
+use bevy::asset::RenderAssetUsages;
 use bevy::color::LinearRgba;
 use bevy::image::{
     CompressedImageFormats, Image, ImageAddressMode, ImageFilterMode, ImageSampler, ImageSamplerDescriptor, ImageType,
 };
 use bevy::math::{Quat, Vec3};
 use bevy::mesh::{Indices, Mesh, PrimitiveTopology};
-use bevy::reflect::TypePath;
 use bevy::transform::components::Transform;
 use std::collections::HashMap;
 
@@ -144,8 +143,8 @@ pub struct NodeData {
     pub pieces: Vec<(usize, usize)>,
 }
 
-/// Le modèle décodé : un `Asset` du monde de rendu, rempli hors du fil principal.
-#[derive(Asset, TypePath, Debug)]
+/// Le modèle décodé, rempli hors du fil principal (tâche de fond du plugin).
+#[derive(Debug)]
 pub struct CarModelAsset {
     /// Un maillage par primitive du GLB.
     pub meshes: Vec<Mesh>,
@@ -239,7 +238,7 @@ fn build_mesh(gltf: &Gltf, primitive: &super::doc::PrimitiveDef) -> Result<Mesh>
             .copied()
             .ok_or_else(|| CarModelError::Invalid(format!("attribut {name} absent")))
     };
-    let triples = |values: Vec<f32>| values.chunks_exact(3).map(|c| [c[0], c[1], c[2]]).collect::<Vec<_>>();
+    let triples = |values: Vec<f32>| values.as_chunks::<3>().0.to_vec();
     let positions = triples(gltf.floats(attribute("POSITION")?)?);
     let normals = triples(gltf.floats(attribute("NORMAL")?)?);
     // Les maillages gardent leur copie du monde principal : le culling (`Aabb`) et les mesures la relisent.
@@ -248,7 +247,7 @@ fn build_mesh(gltf: &Gltf, primitive: &super::doc::PrimitiveDef) -> Result<Mesh>
     mesh.insert_attribute(Mesh::ATTRIBUTE_POSITION, positions);
     mesh.insert_attribute(Mesh::ATTRIBUTE_NORMAL, normals);
     if let Ok(uv) = attribute("TEXCOORD_0") {
-        let uvs: Vec<[f32; 2]> = gltf.floats(uv)?.chunks_exact(2).map(|c| [c[0], c[1]]).collect();
+        let uvs: Vec<[f32; 2]> = gltf.floats(uv)?.as_chunks::<2>().0.to_vec();
         mesh.insert_attribute(Mesh::ATTRIBUTE_UV_0, uvs);
     }
     let indices = gltf.indices(
@@ -365,8 +364,8 @@ mod tests {
 
     fn load(name: &str) -> CarModelAsset {
         let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../assets/models/car").join(name);
-        let bytes = std::fs::read(&path).unwrap_or_else(|e| panic!("{} : {e}", path.display()));
-        CarModelAsset::from_glb(&bytes).unwrap_or_else(|e| panic!("{name} : {e}"))
+        let bytes = std::fs::read(&path).expect("fichier du modèle");
+        CarModelAsset::from_glb(&bytes).expect("modèle lisible")
     }
 
     #[test]

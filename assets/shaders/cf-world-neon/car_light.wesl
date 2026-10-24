@@ -74,6 +74,13 @@ fn radial(d: f32) -> f32 {
     return mix(0.45, 0.0, clamp((d - 0.25) / 0.75, 0.0, 1.0));
 }
 
+// `AlphaMode::Add` de Bevy : le mélange est `src + (1 - src.a) × dst` (alpha prémultiplié). Pour une lumière additive
+// (`src.rgb × alpha + dst`), le fragment rend donc `rgb × alpha` avec un alpha de 0 : comme `premultiply_alpha` de
+// `pbr_functions.wesl` pour les matériaux standards.
+fn additive(rgb: vec3<f32>, alpha: f32) -> vec4<f32> {
+    return vec4<f32>(rgb * alpha, 0.0);
+}
+
 @fragment
 fn fragment(in: VertexOut) -> @location(0) vec4<f32> {
     let kind = light.params.x;
@@ -83,8 +90,9 @@ fn fragment(in: VertexOut) -> @location(0) vec4<f32> {
         // du faisceau, 1 au bout.
         let edge = pow(abs(dot(normalize(in.world_normal), normalize(in.view_dir))), 1.6);
         let along = in.uv.y;
-        let fade = pow(1.0 - along, 1.7) * smoothstep(0.0, 0.05, along);
-        return vec4<f32>(light.color.rgb, edge * fade * k);
+        // `max(…, 0)` : l'interpolation peut dépasser 1 d'un ulp, et `pow` d'un négatif donne NaN, que le bloom étale en taches noires.
+        let fade = pow(max(1.0 - along, 0.0), 1.7) * smoothstep(0.0, 0.05, along);
+        return additive(light.color.rgb, edge * fade * k);
     }
     if kind == KIND_POOL {
         // Deux flaques de lumière côte à côte (une par optique) qui s'étirent et s'éteignent loin de la voiture.
@@ -93,19 +101,19 @@ fn fragment(in: VertexOut) -> @location(0) vec4<f32> {
         let f = in.uv.y;
         let split = (abs(u) - light.params.y) * 3.4;
         let lobe = exp(-split * split);
-        let reach = pow(1.0 - f, 1.5) * smoothstep(0.0, 0.06, f);
-        return vec4<f32>(light.color.rgb, lobe * reach * k);
+        let reach = pow(max(1.0 - f, 0.0), 1.5) * smoothstep(0.0, 0.06, f);
+        return additive(light.color.rgb, lobe * reach * k);
     }
     if kind == KIND_HALO || kind == KIND_GLOW {
         let d = length(in.uv - vec2<f32>(0.5)) * 2.0;
-        return vec4<f32>(light.color.rgb, radial(d) * k);
+        return additive(light.color.rgb, radial(d) * k);
     }
     if kind == KIND_SMOKE {
         // Disque flou : couleur et opacité de chaque particule viennent de la couleur du sommet.
         let d = length(in.uv - vec2<f32>(0.5)) * 2.0;
-        let soft = pow(1.0 - smoothstep(0.0, 1.0, d), 1.5);
-        return vec4<f32>(in.color.rgb, in.color.a * soft);
+        let soft = pow(max(1.0 - smoothstep(0.0, 1.0, d), 0.0), 1.5);
+        return additive(in.color.rgb, in.color.a * soft);
     }
     // KIND_RIBBON : la traînée. La couleur du sommet porte déjà l'opacité (lumière additive).
-    return vec4<f32>(in.color.rgb * light.color.rgb, 1.0);
+    return additive(in.color.rgb * light.color.rgb, 1.0);
 }

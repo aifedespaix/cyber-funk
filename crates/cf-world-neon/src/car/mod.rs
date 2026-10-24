@@ -1,4 +1,4 @@
-//! La voiture de Neon City (J5-05) : la CyberCar de Sillage, ses lumières, sa traînée, la fumée de ses pneus.
+//! La voiture de Neon City (J5-05) : la `CyberCar` de Sillage, ses lumières, sa traînée, la fumée de ses pneus.
 //!
 //! # Contenu
 //!
@@ -17,14 +17,13 @@
 //!
 //! # Licence du modèle
 //!
-//! La licence de la CyberCar est **inconnue** : ne pas redistribuer `assets/models/car/` hors du dépôt.
+//! La licence de la `CyberCar` est **inconnue** : ne pas redistribuer `assets/models/car/` hors du dépôt.
 
 mod doc;
 pub mod effects;
 pub mod frame;
 pub mod glb;
 pub mod glow;
-pub mod loader;
 pub mod materials;
 pub mod model;
 pub mod motion;
@@ -33,29 +32,43 @@ pub mod rig;
 pub mod shapes;
 pub mod smoke;
 pub mod spawn;
+mod spawn_lights;
 pub mod systems;
 pub mod trail;
 
-use bevy::asset::AssetApp;
 use bevy::pbr::PbrPlugin;
 use bevy::prelude::*;
 use bevy::shader::Shader;
 use cf_render::{CfSet, ScenePalette, ThemeLibrary, WorldSet};
 
 pub use glb::{CarModelError, Gltf};
-pub use loader::CarModelLoader;
 pub use materials::{CarLightMaterial, CarPaintMaterial};
 pub use model::CarModelAsset;
 pub use rig::{Car, CarRig, CarState};
-pub use systems::{CarControls, CarModelHandle, CarSettings, ModelQuality};
+pub use systems::{CarControls, CarSettings, ModelQuality};
 
 /// Installe la voiture. À ajouter après les plugins de rendu de Bevy, `CorePlugin` et le monde.
 ///
 /// Sans `AssetPlugin` (tests de pure logique) le plugin ne fait rien.
-#[derive(Debug, Default, Clone, Copy)]
+///
+/// Le modèle est lu dans `assets_dir` comme la musique (`assets/music`) : par un chemin relatif au dossier de travail,
+/// pas par l'`AssetServer` (dont la racine, le dossier du binaire ou `CARGO_MANIFEST_DIR`, n'est pas celle du dépôt),
+/// dans une tâche de fond : le décodage de ~85 000 triangles et de quatre textures de 2 048² ne bloque pas l'image.
+#[derive(Debug, Clone)]
 pub struct CarPlugin {
     /// Version du modèle à charger.
     pub quality: ModelQuality,
+    /// Dossier `assets/` du dépôt.
+    pub assets_dir: std::path::PathBuf,
+}
+
+impl Default for CarPlugin {
+    fn default() -> Self {
+        Self {
+            quality: ModelQuality::default(),
+            assets_dir: "assets".into(),
+        }
+    }
 }
 
 impl Plugin for CarPlugin {
@@ -63,10 +76,10 @@ impl Plugin for CarPlugin {
         if !app.is_plugin_added::<AssetPlugin>() {
             return;
         }
-        app.init_asset::<CarModelAsset>()
-            .register_asset_loader(CarModelLoader)
-            .insert_resource(systems::CarQuality(self.quality))
-            .init_resource::<CarControls>()
+        app.insert_resource(systems::CarModelSource {
+            path: self.assets_dir.join(self.quality.path()),
+        })
+        .init_resource::<CarControls>()
             .init_resource::<CarSettings>()
             .init_resource::<crate::RoadLook>();
         if app.is_plugin_added::<PbrPlugin>() {
@@ -90,7 +103,13 @@ impl Plugin for CarPlugin {
         app.add_systems(Startup, systems::load_model)
             .add_systems(
                 Update,
-                (systems::build_car, systems::drive_car, systems::light_car)
+                (
+                    systems::build_car,
+                    systems::drive_car,
+                    systems::advance_look,
+                    systems::apply_model_lights,
+                    systems::apply_rig_lights,
+                )
                     .chain()
                     .in_set(CfSet::Simulate)
                     .after(WorldSet::Gates),

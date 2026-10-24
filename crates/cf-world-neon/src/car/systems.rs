@@ -1,22 +1,24 @@
 //! Les systèmes de la voiture : création à l'arrivée du modèle, mouvement de la caisse et des roues, lumière.
 
-use bevy::asset::{AssetServer, Assets, Handle};
+use bevy::asset::{Assets, Handle};
 use bevy::color::{LinearRgba, Mix};
 use bevy::light::{PointLight, SpotLight};
-use bevy::math::{DVec3, Quat, Vec3};
+use bevy::math::{DVec3, Quat, Vec3, Vec4};
 use bevy::pbr::StandardMaterial;
 use bevy::prelude::*;
+use bevy::tasks::{AsyncComputeTaskPool, Task, futures_lite::future};
 use cf_render::{AbsolutePosition, AudioFeatures, SceneColor, ScenePalette};
 
 use super::effects;
 use super::glow::{
-    CarPalette, HEADLIGHT_LEVEL, HIGH_BEAMS_LEVEL, HIGH_BEAMS_RATIO, LightInputs, LightLevels, NEON_INTENSITY,
+    CarPalette, HEADLIGHT_LEVEL, HIGH_BEAMS_LEVEL, HIGH_BEAMS_RATIO, LightInputs, LightLevels, NEON_INTENSITY, Tinted,
 };
 use super::materials::{CarLightMaterial, CarPaintMaterial};
+use super::glb::CarModelError;
 use super::model::{CarModelAsset, Side};
 use super::motion::{MotionInput, MotionPose};
 use super::paint::paint_scales;
-use super::rig::{Car, CarRig, CarState, Emissive};
+use super::rig::{Car, CarRig, CarState, Emissive, Look};
 use super::spawn::{CarAssets, spawn_car};
 use crate::RoadLook;
 use crate::chase::Runner;
@@ -60,10 +62,6 @@ impl Default for CarSettings {
     }
 }
 
-/// Le modèle en cours de chargement : posé au démarrage, retiré quand la voiture est construite.
-#[derive(Resource, Debug)]
-pub struct CarModelHandle(pub Handle<CarModelAsset>);
-
 /// Version du modèle à charger (`pickQuality` de Sillage : la légère pour les machines modestes).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum ModelQuality {
@@ -93,13 +91,27 @@ impl ModelQuality {
     }
 }
 
-/// Réglage du plugin, gardé en ressource jusqu'au chargement.
-#[derive(Resource, Debug, Clone, Copy)]
-pub(super) struct CarQuality(pub ModelQuality);
+/// Où lire le modèle : posé par le plugin.
+#[derive(Resource, Debug, Clone)]
+pub(super) struct CarModelSource {
+    pub(super) path: std::path::PathBuf,
+}
 
-/// `Startup` : lance le chargement du modèle (hors du fil principal).
-pub(super) fn load_model(mut commands: Commands, server: Res<AssetServer>, quality: Res<CarQuality>) {
-    commands.insert_resource(CarModelHandle(server.load(quality.0.path())));
+/// Le décodage en cours, dans une tâche de fond : retiré quand la voiture est construite (ou que le modèle est refusé).
+#[derive(Resource)]
+pub(super) struct CarModelTask(Task<Result<CarModelAsset, CarModelError>>);
+
+/// `Startup` : lance la lecture et le décodage du modèle (hors du fil principal).
+pub(super) fn load_model(mut commands: Commands, source: Res<CarModelSource>) {
+    let path = source.path.clone();
+    let task = AsyncComputeTaskPool::get().spawn(async move {
+        let bytes = std::fs::read(&path).map_err(|source| CarModelError::Read {
+            path: path.display().to_string(),
+            source,
+        })?;
+        CarModelAsset::from_glb(&bytes)
+    });
+    commands.insert_resource(CarModelTask(task));
 }
 
 fn color(c: cf_render::palette::LinearRgb) -> LinearRgba {
@@ -125,22 +137,28 @@ pub(super) fn car_palette(scene: &ScenePalette) -> CarPalette {
 #[allow(clippy::too_many_arguments)] // Les paramètres d'un système Bevy : ressources, requêtes et collections d'assets.
 pub(super) fn build_car(
     mut commands: Commands,
-    handle: Option<Res<CarModelHandle>>,
-    mut models: ResMut<Assets<CarModelAsset>>,
+    task: Option<ResMut<CarModelTask>>,
     mut assets: CarAssets,
     scene: Res<ScenePalette>,
     targets: Query<Entity, (With<Car>, Without<CarRig>)>,
     runner: Query<Entity, (With<Runner>, Without<Car>)>,
     mut positions: Query<&mut AbsolutePosition>,
 ) {
-    let Some(handle) = handle else { return };
-    if !models.contains(handle.0.id()) {
+    let Some(mut task) = task else { return };
+    let Some(result) = future::block_on(future::poll_once(&mut task.0)) else {
         return;
-    }
+    };
     let target = targets.iter().next().or_else(|| runner.iter().next());
     let Some(root) = target else { return };
-    let Some(model) = models.remove(handle.0.id()) else { return };
-    commands.remove_resource::<CarModelHandle>();
+    commands.remove_resource::<CarModelTask>();
+    let model = match result {
+        Ok(model) => model,
+        Err(error) => {
+            // Pas de voiture : le point suivi provisoire reste à l'écran, le show continue (replis de `live-safety`).
+            tracing::error!(%error, "voiture : modèle illisible, le point suivi provisoire reste");
+            return;
+        }
+    };
 
     let palette = car_palette(&scene);
     let rig = spawn_car(&mut commands, root, model, &mut assets, &palette, palette.violet);
@@ -229,7 +247,7 @@ fn apply_pose(pose: &MotionPose, rig: &CarRig, root: &mut Transform, transforms:
 }
 
 /// Règle un néon : couleur de base au quart, émission pleine (`paintNeon` de `CyberCar.ts`).
-fn neon(assets: &mut Assets<StandardMaterial>, neon: &Option<Emissive>, glow: LinearRgba) {
+fn neon(assets: &mut Assets<StandardMaterial>, neon: Option<&Emissive>, glow: LinearRgba) {
     let Some(neon) = neon else { return };
     let emissive = LinearRgba::rgb(
         glow.red * neon.strength * NEON_INTENSITY,
@@ -255,38 +273,29 @@ fn glow_material(
     handle: &Handle<CarLightMaterial>,
     entity: Entity,
     color: LinearRgba,
-    k: f32,
 ) {
-    let on = color.red + color.green + color.blue > 0.02 && k > 0.0;
-    let value = Vec4::new(color.red, color.green, color.blue, k);
+    let on = color.red + color.green + color.blue > 0.02;
+    let value = Vec4::new(color.red, color.green, color.blue, 1.0);
     set_if_different(lights, handle, |m| m.params.color != value, |m| m.params.color = value);
     if let Ok(mut v) = visibility.get_mut(entity) {
         v.set_if_neq(if on { Visibility::Inherited } else { Visibility::Hidden });
     }
 }
 
-/// `CfSet::Simulate` : la lumière de la voiture. Teinte du moment, néons, optiques, clignotants, halos, flaques,
-/// logo arrière, peinture, projecteurs ; écrit aussi la lueur et le freinage que lit la route (`RoadLook`).
-#[allow(clippy::too_many_arguments)] // Les paramètres d'un système Bevy : ressources, requêtes et collections d'assets.
-pub(super) fn light_car(
+/// `CfSet::Simulate` : décide de la lumière de l'image (teinte du moment, clignotant, logo, niveaux des optiques) et la
+/// range dans [`CarState::look`] ; écrit aussi la lueur et le freinage que lit la route (`RoadLook`).
+pub(super) fn advance_look(
     time: Res<Time>,
     features: Option<Res<AudioFeatures>>,
     scene: Res<ScenePalette>,
     controls: Res<CarControls>,
     mut look: ResMut<RoadLook>,
-    mut cars: Query<(&CarRig, &mut CarState)>,
-    mut standard: ResMut<Assets<StandardMaterial>>,
-    mut paint: ResMut<Assets<CarPaintMaterial>>,
-    mut lights: ResMut<Assets<CarLightMaterial>>,
-    mut visibility: Query<&mut Visibility>,
-    mut transforms: Query<&mut Transform, Without<Car>>,
-    mut spots: Query<&mut SpotLight>,
-    mut points: Query<&mut PointLight, Without<SpotLight>>,
+    mut cars: Query<&mut CarState>,
 ) {
     let dt = time.delta_secs();
     let palette = car_palette(&scene);
     let (live, bass, pulse) = features.map_or((false, 0.0, 0.0), |f| (f.0.live, f.0.bass, f.0.pulse));
-    for (rig, mut state) in &mut cars {
+    for mut state in &mut cars {
         let speed_ratio = (state.speed_mps / CRUISE_SPEED_MPS).max(0.0);
         let brake = controls.brake.clamp(0.0, 1.0);
         state.glow.set_target(controls.lit.unwrap_or(palette.violet));
@@ -295,135 +304,175 @@ pub(super) fn light_car(
         state.logo.update(dt, live, bass, pulse);
         let high_beams = speed_ratio > HIGH_BEAMS_RATIO;
         let level = if high_beams { HIGH_BEAMS_LEVEL } else { HEADLIGHT_LEVEL };
-        let levels = LightLevels::compute(
-            &palette,
-            &LightInputs {
-                glow,
-                pulse,
-                brake,
-                speed_ratio,
-                level,
-            },
-        );
-        let secondary = glow.mix(&palette.rose, 0.7);
-
-        // Néons : la lueur du moment, et la même mêlée de corail pour les accents.
-        let m = &rig.materials;
-        neon(&mut standard, &m.neon_primary, glow);
-        neon(&mut standard, &m.neon_secondary, secondary);
-        // Optiques du modèle : phares allumés (plus fort en feux de route), feux stop au freinage.
-        if let Some(head) = &m.head {
-            emit(&mut standard, head, if high_beams { 1.35 } else { 1.0 });
-        }
-        if let Some(tail) = &m.brake {
-            emit(&mut standard, tail, LightLevels::brake_light_factor(brake, true));
-        }
-        // Clignotants : un seul côté, celui où le volant tourne. La lentille, son halo et sa flaque battent ensemble.
-        let side = state.blinker.side;
-        let lit = state.blinker.lit();
-        for signal in &rig.signals {
-            let mine = (signal.side == Side::Left && side < 0) || (signal.side == Side::Right && side > 0);
-            let on = lit && mine;
-            emit(&mut standard, &signal.material, if on { 1.0 } else { 0.03 });
-            let amber = palette.amber;
-            let scale = |k: f32| LinearRgba::rgb(amber.red * k, amber.green * k, amber.blue * k);
-            let (halo, pool) = if on { (scale(2.2), scale(0.9)) } else { (LinearRgba::BLACK, LinearRgba::BLACK) };
-            glow_material(&mut lights, &mut visibility, &signal.halo, signal.halo_entity, halo, 1.0);
-            glow_material(&mut lights, &mut visibility, &signal.pool, signal.pool_entity, pool, 1.0);
-        }
-
-        // Logo arrière : plus lumineux que les néons, il pulse avec les basses et les kicks.
-        if let Some(logo) = &m.logo {
-            let emissive = LinearRgba::rgb(
-                glow.red * state.logo.emissive_strength(),
-                glow.green * state.logo.emissive_strength(),
-                glow.blue * state.logo.emissive_strength(),
-            );
-            let base = Color::LinearRgba(LinearRgba::rgb(glow.red * 0.25, glow.green * 0.25, glow.blue * 0.25));
-            set_if_different(&mut standard, &logo.handle, |x| x.emissive != emissive, |x| {
-                x.emissive = emissive;
-                x.base_color = base;
-            });
-        }
-        if let Some((entity, rest)) = rig.logo
-            && let Ok(mut transform) = transforms.get_mut(entity)
-        {
-            transform.scale = rest * state.logo.scale();
-        }
-
-        // Volumes de phares, flaques, halos et lueur sous la caisse.
-        let beam = Vec4::new(levels.beam.color.red, levels.beam.color.green, levels.beam.color.blue, levels.beam.k);
-        set_if_different(&mut lights, &rig.lights.beam, |x| x.params.color != beam, |x| x.params.color = beam);
-        for (handle, tinted) in [(&rig.lights.front_pool, levels.front_pool), (&rig.lights.rear_pool, levels.rear_pool)] {
-            let value = Vec4::new(tinted.color.red, tinted.color.green, tinted.color.blue, tinted.k);
-            set_if_different(&mut lights, handle, |x| x.params.color != value, |x| x.params.color = value);
-        }
-        for halo in &rig.lights.heads {
-            glow_material(&mut lights, &mut visibility, &halo.material, halo.entity, levels.head_halo, 1.0);
-        }
-        for halo in &rig.lights.tails {
-            glow_material(&mut lights, &mut visibility, &halo.material, halo.entity, levels.tail_halo, 1.0);
-        }
-        let under = &rig.lights.under;
-        glow_material(&mut lights, &mut visibility, &under.material, under.entity, levels.under, 1.0);
-        if let Ok(mut transform) = transforms.get_mut(under.entity) {
-            transform.scale = Vec3::new(3.2, 1.0, levels.under_length_m);
-        }
-
-        // Peinture : teinte du thème, liseré néon qui pulse sur les kicks.
-        if let Some(handle) = &m.paint {
-            let (hue, sat, val) = paint_scales(palette.violet);
-            let rim = Vec4::new(glow.red, glow.green, glow.blue, 1.0);
-            let rim_b = Vec4::new(secondary.red, secondary.green, secondary.blue, 1.0);
-            let strength = 0.35 * (1.0 + pulse * 1.6);
-            let wanted = Vec4::new(hue, sat, val, 0.0);
-            let differs = |x: &CarPaintMaterial| {
-                let p = &x.extension.params;
-                p.paint.truncate() != wanted.truncate()
-                    || p.rim_a != rim
-                    || p.rim_b != rim_b
-                    || (p.finish.w - strength).abs() > 1e-4
-            };
-            set_if_different(&mut paint, handle, differs, |x| {
-                let p = &mut x.extension.params;
-                p.paint = Vec4::new(hue, sat, val, p.paint.w);
-                p.rim_a = rim;
-                p.rim_b = rim_b;
-                p.finish.w = strength;
-            });
-        }
-
-        // Projecteurs de Bevy : feux de croisement ou de route.
-        for &entity in &rig.lights.spots {
-            let Ok(mut spot) = spots.get_mut(entity) else { continue };
-            let (cd, angle, range) = if high_beams { (150.0, 0.3, 100.0) } else { (60.0, 0.5, 55.0) };
-            let wanted = cd * 4.0 * std::f32::consts::PI;
-            if (spot.intensity - wanted).abs() > f32::EPSILON {
-                spot.intensity = wanted;
-                spot.outer_angle = angle;
-                spot.inner_angle = angle * if high_beams { 0.5 } else { 0.3 };
-                spot.range = range;
-            }
-        }
-        if let Some(entity) = rig.lights.under_light
-            && let Ok(mut light) = points.get_mut(entity)
-        {
-            light.color = Color::LinearRgba(glow);
-        }
-        if let Some(entity) = rig.lights.logo_light
-            && let Ok(mut light) = points.get_mut(entity)
-        {
-            light.color = Color::LinearRgba(glow);
-            // `0,7 × (0,5 + 3,2 × niveau × min(1,5 ; boost))` candelas, boost du logo à 1,6.
-            light.intensity = 0.7 * (0.5 + 3.2 * state.logo.level() * 1.5) * 4.0 * std::f32::consts::PI;
-        }
-
+        let inputs = LightInputs {
+            glow,
+            pulse,
+            brake,
+            speed_ratio,
+            level,
+        };
+        state.look = Some(Look {
+            glow,
+            secondary: glow.mix(&palette.rose, 0.7),
+            palette,
+            levels: LightLevels::compute(&palette, &inputs),
+            high_beams,
+            pulse,
+            brake,
+        });
         // La route reflète la lueur de la voiture et ses feux stop.
         if look.glow != glow {
             look.glow = glow;
         }
         if (look.brake - brake).abs() > f32::EPSILON {
             look.brake = brake;
+        }
+    }
+}
+
+/// `CfSet::Simulate` : applique la lumière de l'image aux matériaux du modèle : néons, optiques, clignotants, logo
+/// arrière, peinture.
+pub(super) fn apply_model_lights(
+    mut cars: Query<(&CarRig, &CarState)>,
+    mut standard: ResMut<Assets<StandardMaterial>>,
+    mut paint: ResMut<Assets<CarPaintMaterial>>,
+    mut lights: ResMut<Assets<CarLightMaterial>>,
+    mut visibility: Query<&mut Visibility>,
+    mut transforms: Query<&mut Transform, Without<Car>>,
+) {
+    for (rig, state) in &mut cars {
+        let Some(look) = state.look else { continue };
+        let m = &rig.materials;
+        // Néons : la lueur du moment, et la même mêlée de corail pour les accents.
+        neon(&mut standard, m.neon_primary.as_ref(), look.glow);
+        neon(&mut standard, m.neon_secondary.as_ref(), look.secondary);
+        // Optiques du modèle : phares allumés (plus fort en feux de route), feux stop au freinage.
+        if let Some(head) = &m.head {
+            emit(&mut standard, head, if look.high_beams { 1.35 } else { 1.0 });
+        }
+        if let Some(tail) = &m.brake {
+            emit(&mut standard, tail, LightLevels::brake_light_factor(look.brake, true));
+        }
+        // Clignotants : un seul côté, celui où le volant tourne. La lentille, son halo et sa flaque battent ensemble.
+        let side = state.blinker.side;
+        let lit = state.blinker.lit();
+        let amber = look.palette.amber;
+        let scale = |k: f32| LinearRgba::rgb(amber.red * k, amber.green * k, amber.blue * k);
+        for signal in &rig.signals {
+            let mine = (signal.side == Side::Left && side < 0) || (signal.side == Side::Right && side > 0);
+            let on = lit && mine;
+            emit(&mut standard, &signal.material, if on { 1.0 } else { 0.03 });
+            let (halo, pool) = if on { (scale(2.2), scale(0.9)) } else { (LinearRgba::BLACK, LinearRgba::BLACK) };
+            glow_material(&mut lights, &mut visibility, &signal.halo, signal.halo_entity, halo);
+            glow_material(&mut lights, &mut visibility, &signal.pool, signal.pool_entity, pool);
+        }
+        apply_logo(rig, state, &look, &mut standard, &mut transforms);
+        apply_paint(rig, &look, &mut paint);
+    }
+}
+
+/// Logo arrière : plus lumineux que les néons, il pulse avec les basses et les kicks.
+fn apply_logo(
+    rig: &CarRig,
+    state: &CarState,
+    look: &Look,
+    standard: &mut Assets<StandardMaterial>,
+    transforms: &mut Query<&mut Transform, Without<Car>>,
+) {
+    let glow = look.glow;
+    if let Some(logo) = &rig.materials.logo {
+        let k = state.logo.emissive_strength();
+        let emissive = LinearRgba::rgb(glow.red * k, glow.green * k, glow.blue * k);
+        let base = Color::LinearRgba(LinearRgba::rgb(glow.red * 0.25, glow.green * 0.25, glow.blue * 0.25));
+        set_if_different(standard, &logo.handle, |x| x.emissive != emissive, |x| {
+            x.emissive = emissive;
+            x.base_color = base;
+        });
+    }
+    if let Some((entity, rest)) = rig.logo
+        && let Ok(mut transform) = transforms.get_mut(entity)
+    {
+        transform.scale = rest * state.logo.scale();
+    }
+}
+
+/// Peinture : teinte du thème, liseré néon qui pulse sur les kicks.
+fn apply_paint(rig: &CarRig, look: &Look, paint: &mut Assets<CarPaintMaterial>) {
+    let Some(handle) = &rig.materials.paint else { return };
+    let (hue, sat, val) = paint_scales(look.palette.violet);
+    let rim = Vec4::new(look.glow.red, look.glow.green, look.glow.blue, 1.0);
+    let rim_b = Vec4::new(look.secondary.red, look.secondary.green, look.secondary.blue, 1.0);
+    let strength = 0.35 * (1.0 + look.pulse * 1.6);
+    let wanted = Vec3::new(hue, sat, val);
+    let differs = |x: &CarPaintMaterial| {
+        let p = &x.extension.params;
+        p.paint.truncate() != wanted || p.rim_a != rim || p.rim_b != rim_b || (p.finish.w - strength).abs() > 1e-4
+    };
+    set_if_different(paint, handle, differs, |x| {
+        let p = &mut x.extension.params;
+        p.paint = Vec4::new(hue, sat, val, p.paint.w);
+        p.rim_a = rim;
+        p.rim_b = rim_b;
+        p.finish.w = strength;
+    });
+}
+
+/// `CfSet::Simulate` : applique la lumière de l'image à ce que le code a ajouté : volumes de phares, flaques, halos,
+/// lueur sous la caisse, projecteurs.
+pub(super) fn apply_rig_lights(
+    mut cars: Query<(&CarRig, &CarState)>,
+    mut lights: ResMut<Assets<CarLightMaterial>>,
+    mut visibility: Query<&mut Visibility>,
+    mut transforms: Query<&mut Transform, Without<Car>>,
+    mut spots: Query<&mut SpotLight>,
+    mut points: Query<&mut PointLight, Without<SpotLight>>,
+) {
+    for (rig, state) in &mut cars {
+        let Some(look) = state.look else { continue };
+        let levels = &look.levels;
+        let tinted = |t: &Tinted| Vec4::new(t.color.red, t.color.green, t.color.blue, t.k);
+        for (handle, value) in [
+            (&rig.lights.beam, tinted(&levels.beam)),
+            (&rig.lights.front_pool, tinted(&levels.front_pool)),
+            (&rig.lights.rear_pool, tinted(&levels.rear_pool)),
+        ] {
+            set_if_different(&mut lights, handle, |x| x.params.color != value, |x| x.params.color = value);
+        }
+        for halo in &rig.lights.heads {
+            glow_material(&mut lights, &mut visibility, &halo.material, halo.entity, levels.head_halo);
+        }
+        for halo in &rig.lights.tails {
+            glow_material(&mut lights, &mut visibility, &halo.material, halo.entity, levels.tail_halo);
+        }
+        let under = &rig.lights.under;
+        glow_material(&mut lights, &mut visibility, &under.material, under.entity, levels.under);
+        if let Ok(mut transform) = transforms.get_mut(under.entity) {
+            transform.scale = Vec3::new(3.2, 1.0, levels.under_length_m);
+        }
+
+        // Projecteurs de Bevy : feux de croisement ou de route.
+        for &entity in &rig.lights.spots {
+            let Ok(mut spot) = spots.get_mut(entity) else { continue };
+            let (cd, angle, range) = if look.high_beams { (150.0, 0.3, 100.0) } else { (60.0, 0.5, 55.0) };
+            let wanted = cd * 4.0 * std::f32::consts::PI;
+            if (spot.intensity - wanted).abs() > f32::EPSILON {
+                spot.intensity = wanted;
+                spot.outer_angle = angle;
+                spot.inner_angle = angle * if look.high_beams { 0.5 } else { 0.3 };
+                spot.range = range;
+            }
+        }
+        if let Some(entity) = rig.lights.under_light
+            && let Ok(mut light) = points.get_mut(entity)
+        {
+            light.color = Color::LinearRgba(look.glow);
+        }
+        if let Some(entity) = rig.lights.logo_light
+            && let Ok(mut light) = points.get_mut(entity)
+        {
+            light.color = Color::LinearRgba(look.glow);
+            // `0,7 × (0,5 + 3,2 × niveau × min(1,5 ; boost))` candelas, boost du logo à 1,6.
+            light.intensity = 0.7 * (0.5 + 3.2 * state.logo.level() * 1.5) * 4.0 * std::f32::consts::PI;
         }
     }
 }

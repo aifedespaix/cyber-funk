@@ -15,21 +15,21 @@ pub const PAINT_REF_SAT: f32 = 0.44;
 pub const PAINT_REF_VAL: f32 = 0.49;
 
 /// Teinte (0 à 1), saturation et valeur (0 à 1) d'un RVB.
-fn rgb_to_hsv([r, g, b]: [f32; 3]) -> [f32; 3] {
-    let max = r.max(g).max(b);
-    let d = max - r.min(g).min(b);
-    let mut h = 0.0;
-    if d > 1e-6 {
-        h = if (max - r).abs() < f32::EPSILON {
-            ((g - b) / d + 6.0) % 6.0
-        } else if (max - g).abs() < f32::EPSILON {
-            (b - r) / d + 2.0
+fn rgb_to_hsv([red, green, blue]: [f32; 3]) -> [f32; 3] {
+    let max = red.max(green).max(blue);
+    let spread = max - red.min(green).min(blue);
+    let mut hue = 0.0;
+    if spread > 1e-6 {
+        hue = if (max - red).abs() < f32::EPSILON {
+            ((green - blue) / spread + 6.0) % 6.0
+        } else if (max - green).abs() < f32::EPSILON {
+            (blue - red) / spread + 2.0
         } else {
-            (r - g) / d + 4.0
+            (red - green) / spread + 4.0
         };
-        h /= 6.0;
+        hue /= 6.0;
     }
-    [h, if max == 0.0 { 0.0 } else { d / max }, max]
+    [hue, if max == 0.0 { 0.0 } else { spread / max }, max]
 }
 
 /// Réglage du shader pour peindre à `color` (lumière linéaire) : `(teinte visée, échelle de saturation, échelle de

@@ -34,3 +34,8 @@ demo = []
 name = "road_demo"
 path = "examples/road_demo/main.rs"
 required-features = ["demo"]
+
+[[example]]
+name = "car_demo"
+path = "examples/car_demo/main.rs"
+required-features = ["demo"]

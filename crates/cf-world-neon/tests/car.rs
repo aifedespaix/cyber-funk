@@ -23,11 +23,7 @@ fn app(start_z_m: f64, speed_mps: f64) -> App {
     let mut app = App::new();
     app.add_plugins((
         MinimalPlugins,
-        AssetPlugin {
-            // Les tests tournent dans `crates/cf-world-neon` : les assets sont à la racine du dépôt.
-            file_path: "../../assets".into(),
-            ..default()
-        },
+        AssetPlugin::default(),
         TransformPlugin,
         CorePlugin,
         NeonWorldPlugin::embedded(),
@@ -36,6 +32,8 @@ fn app(start_z_m: f64, speed_mps: f64) -> App {
         },
         CarPlugin {
             quality: ModelQuality::Low,
+            // Les tests tournent dans `crates/cf-world-neon` : les assets sont à la racine du dépôt.
+            assets_dir: "../../assets".into(),
         },
     ))
     .init_asset::<Image>()
@@ -298,15 +296,15 @@ fn la_voiture_n_est_pas_necessaire_au_monde_sans_modele() {
     let mut app = App::new();
     app.add_plugins((
         MinimalPlugins,
-        AssetPlugin {
-            file_path: "inexistant".into(),
-            ..default()
-        },
+        AssetPlugin::default(),
         TransformPlugin,
         CorePlugin,
         NeonWorldPlugin::embedded(),
         ChasePlugin::default(),
-        CarPlugin::default(),
+        CarPlugin {
+            assets_dir: "inexistant".into(),
+            ..default()
+        },
     ))
     .init_asset::<Image>()
     .init_asset::<Mesh>()

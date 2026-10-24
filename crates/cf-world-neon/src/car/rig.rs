@@ -7,7 +7,7 @@ use bevy::pbr::StandardMaterial;
 use bevy::prelude::*;
 
 use super::frame::CarFrame;
-use super::glow::{Blinker, GlowFade, RearLogo};
+use super::glow::{Blinker, CarPalette, GlowFade, LightLevels, RearLogo};
 use super::materials::{CarLightMaterial, CarPaintMaterial};
 use super::model::Side;
 use super::motion::Motion;
@@ -128,6 +128,25 @@ pub struct CarRig {
     pub lights: LightRig,
 }
 
+/// La lumière de l'image, décidée une fois par `advance_look` puis appliquée aux matériaux et aux lumières.
+#[derive(Debug, Clone, Copy)]
+pub struct Look {
+    /// Couleurs de la scène à cet instant.
+    pub palette: CarPalette,
+    /// Teinte du moment (néons, lueur sous la caisse).
+    pub glow: LinearRgba,
+    /// La même mêlée de corail (second néon, liseré de droite).
+    pub secondary: LinearRgba,
+    /// Niveaux des optiques, volumes et flaques.
+    pub levels: LightLevels,
+    /// Feux de route (au-delà de la croisière).
+    pub high_beams: bool,
+    /// Pouls du kick, 0 à 1.
+    pub pulse: f32,
+    /// Freinage, 0 à 1.
+    pub brake: f32,
+}
+
 /// L'état animé de la voiture (suspension, teinte, clignotant, logo) : un composant à part, pour que le système qui
 /// l'avance n'emprunte pas tout le [`CarRig`].
 #[derive(Component, Debug)]
@@ -142,6 +161,8 @@ pub struct CarState {
     pub logo: RearLogo,
     /// Dernière position absolue (m) : de la différence, la vitesse, l'accélération et la vitesse latérale.
     pub previous: Option<bevy::math::DVec3>,
+    /// La lumière de la dernière image (`None` avant la première).
+    pub look: Option<Look>,
     /// Une vitesse a déjà été mesurée : l'accélération n'a de sens qu'à partir de la deuxième mesure.
     pub warm: bool,
     /// Vitesse mesurée, m/s (vers l'avant).
@@ -162,6 +183,7 @@ impl CarState {
             blinker: Blinker::default(),
             logo: RearLogo::default(),
             previous: None,
+            look: None,
             warm: false,
             speed_mps: 0.0,
             lateral_mps: 0.0,
