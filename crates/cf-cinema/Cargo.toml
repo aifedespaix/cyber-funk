@@ -12,5 +12,7 @@ workspace = true
 
 [dependencies]
 bevy.workspace = true
+cf-analysis.workspace = true
 cf-render.workspace = true
 cf-show.workspace = true
+tracing.workspace = true

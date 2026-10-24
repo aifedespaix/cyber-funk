@@ -22,7 +22,7 @@ use cf_operator::{OperatorPlugin, QuitGuardPlugin};
 use cf_render::{
     AudioConfig, CfAudioPlugin, ControlsPlugin, CorePlugin, DiagnosticsPlugin, OutputChoice, ShowPlugin, WarmupPlugin,
 };
-use cf_world_neon::NeonWorldPlugin;
+use cf_world_neon::{CarPlugin, NeonCinemaPlugin, NeonWorldPlugin, PilotPlugin};
 use clap::Parser as _;
 
 use crate::cli::Cli;
@@ -92,8 +92,13 @@ fn build_app(cli: &Cli, controls: ControlsPlugin, show: ShowPlugin, preload: Pre
         controls,
         show,
         ProjectorPlugin(projector),
-        CinemaPlugin,
-        NeonWorldPlugin::default(),
+        CinemaPlugin::default(),
+        // Le monde seul, puis la voiture et son pilote, puis le branchement sur le réalisateur (qui remplace la caméra
+        // de poursuite provisoire : un seul écrivain de `CameraPose`).
+        NeonWorldPlugin::embedded(),
+        CarPlugin::default(),
+        PilotPlugin::default(),
+        NeonCinemaPlugin,
         TestScenePlugin,
     ));
 

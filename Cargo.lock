@@ -2367,8 +2367,10 @@ name = "cf-cinema"
 version = "0.1.0"
 dependencies = [
  "bevy",
+ "cf-analysis",
  "cf-render",
  "cf-show",
+ "tracing",
 ]
 
 [[package]]
