@@ -76,6 +76,12 @@ impl SignFlash {
         self.pulse.value(Channel::Flash) / Channel::Flash.cap()
     }
 
+    /// Les flashs sont-ils permis en ce moment ?
+    #[must_use]
+    pub fn permitted(&self) -> bool {
+        self.pulse.permitted()
+    }
+
     /// Le flash d'événement, 0 → 1, même échelle.
     #[must_use]
     pub fn burst(&self) -> f32 {

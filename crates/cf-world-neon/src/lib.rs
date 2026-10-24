@@ -7,6 +7,7 @@
 //! - [`route`] : le plan de route (ponts, planificateur du pilote), pur et déterministe ;
 //! - [`scenery`] : la ville (immeubles par tronçon, arches, collisions) ;
 //! - [`sky`] : le ciel (voûte, étoiles, aurores, astres, géante à anneau, étoiles filantes), couche arrière-plan ;
+//! - [`signs`] (J7-01) : les enseignes de la route (textures 2D cuites à l'ouverture, bandeaux, néons, caméras) ;
 //! - [`facade`] : le matériau de façade (fenêtres, néons, pulsation sur les temps) et son shader ;
 //! - [`world`] : [`NeonWorld`], l'implémentation du trait `World` (streaming) ;
 //! - [`chase`] : caméra de poursuite provisoire, en attendant le réalisateur (J6), et point suivi provisoire pour les
@@ -47,6 +48,7 @@ pub use pilot::{CarAnimation, Pilot, PilotPlugin, PilotSettings, PilotTraffic};
 pub use road::{Road, RoadLook, RoadMaterial, RoadPalette, RoadPlugin};
 pub use route::{RoutePlan, RoutePlanner};
 pub use scenery::{Clearing, SceneryConfig, SpotAnchor};
+pub use signs::SignsPlugin;
 pub use sky::{RingPlanet, ShootingStarRequest, SkyLook, SkyPlugin};
 pub use world::NeonWorld;
 
@@ -103,6 +105,7 @@ impl Plugin for NeonWorldPlugin {
             RoadPlugin,
             FacadePlugin,
             SkyPlugin,
+            SignsPlugin::default(),
         ))
         .init_resource::<RoutePlan>()
         .init_resource::<RoutePlanner>()
