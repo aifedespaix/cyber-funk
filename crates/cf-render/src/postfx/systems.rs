@@ -75,6 +75,11 @@ pub(super) fn update_postfx(
     };
     let size = targets.map_or(UVec2::new(1920, 1080), |t| t.size()).max(UVec2::ONE);
     let strength = bloom_strength(pulse);
+    let gain = if settings.bloom_gain.is_finite() {
+        settings.bloom_gain.clamp(0.0, 1.0)
+    } else {
+        1.0
+    };
     let mip = bloom_mip(size.y, settings.bloom_divisor);
 
     for (entity, mut grade, bloom) in &mut compositors {
@@ -99,14 +104,16 @@ pub(super) fn update_postfx(
         };
         match (settings.bloom, bloom) {
             (true, Some(mut bloom)) => {
-                bloom.intensity = bloom_intensity(strength);
+                bloom.intensity = bloom_intensity(strength) * gain;
                 if bloom.max_mip_dimension != mip {
                     bloom.max_mip_dimension = mip;
                 }
             }
             // Bascules seulement : pas de commande en régime établi.
             (true, None) => {
-                commands.entity(entity).insert(bloom_settings(strength, mip));
+                let mut bloom = bloom_settings(strength, mip);
+                bloom.intensity *= gain;
+                commands.entity(entity).insert(bloom);
             }
             (false, Some(_)) => {
                 commands.entity(entity).remove::<Bloom>();
