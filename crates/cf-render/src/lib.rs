@@ -22,7 +22,7 @@ pub use audio::{
 };
 pub use controls::{
     ControlAction, ControlBridge, ControllerLibrary, ControlsConfig, ControlsPlugin, ControlsStatus, LastInput,
-    LibraryError, MidiChoice, TextInputFocus,
+    LibraryError, MidiChoice, TextInputFocus, submit_action,
 };
 pub use culling::{
     Cadence, CullingPlugin, CullingSet, CullingSettings, CullingView, FOG_FULL_M, LodBands, LodClock, SimulationLod,
@@ -47,7 +47,7 @@ pub use quality::{
     QualityPlugin, levers_for,
 };
 pub use schedule::{CfSet, CorePlugin};
-pub use show::{CurrentShow, ShowControls, ShowEventMessage, ShowPlugin, ShowRuntime};
+pub use show::{CurrentShow, SheetCue, SheetSlot, ShowControls, ShowEventMessage, ShowPlugin, ShowRuntime, ShowSheet};
 pub use streaming::{ChunkInfo, ChunkPlan, ChunkStream, EntityPool, PieceRegistry, StreamLayout, StreamStats};
 pub use warmup::{
     AppState, LatePipelines, LoadTracker, WarmupAppExt, WarmupPlugin, WarmupProgress, WarmupRegistry, show_may_run,

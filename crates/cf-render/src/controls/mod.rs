@@ -21,7 +21,7 @@ use std::time::Instant;
 use bevy::prelude::*;
 use cf_control::{Action, FakeMidi, MidiConfig, MidiInput, Switch, TimedAction};
 
-pub use bridge::ControlBridge;
+pub use bridge::{ControlBridge, submit_action};
 pub use keyboard::{key_code, key_event, logical_char, modifiers};
 pub use library::{ControllerLibrary, LibraryError};
 pub(crate) use profiles::apply_slot_profiles;

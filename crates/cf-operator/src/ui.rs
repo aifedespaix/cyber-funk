@@ -3,9 +3,10 @@
 use bevy::prelude::*;
 use bevy_egui::{EguiContext, PrimaryEguiContext, egui};
 
+use cf_render::ControlsStatus;
 use cf_render::audio::{AudioCommand, AudioFeatures, AudioStatus, VisualLatency};
-use cf_render::{ControlsStatus, CurrentShow};
 
+use crate::live::{self, LiveParams};
 use crate::loading::{self, LoadingView};
 use crate::quit::{QuitDecision, QuitPrompt, QuitSource};
 use crate::{audio_panel, controls_panel};
@@ -22,9 +23,9 @@ pub(crate) fn main_panel(
     features: Option<Res<AudioFeatures>>,
     latency: Option<ResMut<VisualLatency>>,
     mut commands: MessageWriter<AudioCommand>,
-    show: Option<Res<CurrentShow>>,
     controls: Option<Res<ControlsStatus>>,
     loading: LoadingView,
+    mut live: LiveParams,
 ) {
     // Depuis egui 0.36 les panneaux se posent dans un `Ui` racine, pas directement sur le contexte.
     let ctx = context.get_mut();
@@ -35,6 +36,11 @@ pub(crate) fn main_panel(
             .layer_id(egui::LayerId::background())
             .max_rect(ctx.viewport_rect()),
     );
+    // Vue Live : elle remplace tous les panneaux (édition verrouillée, rien d'autre à l'écran que le pupitre).
+    if !loading.is_loading() && live.is_live() {
+        live.draw(&mut root, features.as_deref(), controls.as_deref());
+        return;
+    }
     let features_copy = features.as_deref().copied();
     // À droite : la fenêtre flottante de diagnostic s'ouvre à gauche et ne doit pas recouvrir l'audio.
     egui::Panel::right("audio_panel")
@@ -57,11 +63,14 @@ pub(crate) fn main_panel(
             loading::draw(ui, &loading);
             return;
         }
-        ui.heading("cyber-funk");
+        ui.horizontal(|ui| {
+            ui.heading("cyber-funk");
+            live::mode_button(ui, &mut live);
+        });
         loading::draw_late_warning(ui, loading.late_pipelines());
         egui::ScrollArea::vertical().show(ui, |ui| match (controls, features_copy) {
             (Some(controls), Some(features)) => {
-                controls_panel::draw(ui, show.as_deref().map(|s| &s.0), &controls, &features);
+                controls_panel::draw(ui, live.show(), &controls, &features);
             }
             _ => {
                 ui.weak("Contrôles non branchés (ControlsPlugin absent).");

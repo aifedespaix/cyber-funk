@@ -20,6 +20,9 @@ const FRAME_BUDGET_MS: f32 = 1000.0 / 60.0;
 #[derive(Debug)]
 pub(crate) struct PanelState {
     open: bool,
+    /// Le mode Live a déjà fermé la fenêtre une fois : elle ne doit pas recouvrir la liste de cues à l'ouverture,
+    /// mais F3 la rouvre.
+    closed_for_live: bool,
     /// Résultat du dernier export, affiché sous les boutons.
     last_export: Option<String>,
 }
@@ -28,6 +31,7 @@ impl Default for PanelState {
     fn default() -> Self {
         Self {
             open: true,
+            closed_for_live: false,
             last_export: None,
         }
     }
@@ -39,12 +43,17 @@ pub(crate) fn diagnostics_window(
     snapshot: Option<Res<DiagnosticsSnapshot>>,
     session: Option<ResMut<MeasurementSession>>,
     time: Res<Time<Real>>,
+    mode: Res<crate::OperatorMode>,
     mut state: Local<PanelState>,
 ) {
     let (Some(snapshot), Some(mut session)) = (snapshot, session) else {
         return;
     };
     let ctx = context.get_mut();
+    if *mode == crate::OperatorMode::Live && !state.closed_for_live {
+        state.open = false;
+        state.closed_for_live = true;
+    }
     if ctx.input(|input| input.key_pressed(egui::Key::F3)) {
         state.open = !state.open;
     }
