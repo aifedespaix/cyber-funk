@@ -218,27 +218,22 @@ impl LightLevels {
         }
     }
 
-    /// Couleur du feu arrière en roulant, des feux stop pleins feux au freinage (matériau `light_brake`) : le facteur
-    /// d'émissif du modèle (`setBraking` : 1 au freinage, 0,18 phares allumés, 0,03 sinon).
+    /// Facteur d'émissif du feu arrière (matériau `light_brake`) : de la veilleuse (0,18 phares allumés, 0,03 sinon) aux
+    /// pleins feux (1) avec le freinage, **continu** : le freinage est lissé en amont (`Slew`), le feu ne saute pas.
     #[must_use]
     pub fn brake_light_factor(brake: f32, headlights_on: bool) -> f32 {
-        if brake > 0.05 {
-            1.0
-        } else if headlights_on {
-            0.18
-        } else {
-            0.03
-        }
+        let rest = if headlights_on { 0.18 } else { 0.03 };
+        rest + (1.0 - rest) * brake.clamp(0.0, 1.0)
     }
 }
 
 /// Le logo arrière : un néon plus lumineux que les autres, qui réagit à la musique (`updateLogo` de `CyberCar.ts`).
 ///
-/// Attaque instantanée, relâchement ~0,25 s. Les basses règlent son niveau, chaque kick le pousse à 0,9. Sans signal,
-/// il respire lentement (0,12 ± 0,1).
+/// Il ne suit plus directement les basses ni le pouls : le kick qu'il reçoit est le niveau **déjà borné par le limiteur**
+/// (`CarFlash::kick`, règle 7), si bien qu'il ne monte jamais plus vite que lui. Relâchement ~0,25 s ; au repos, il
+/// respire lentement (0,12 ± 0,1), sauf quand les flashs sont coupés : niveau fixe.
 #[derive(Debug, Clone, Copy, Default, PartialEq)]
 pub struct RearLogo {
-    kick: f32,
     level: f32,
     clock: f32,
 }
@@ -249,19 +244,17 @@ const LOGO_BASE_EMISSIVE: f32 = 10.0;
 const LOGO_BOOST: f32 = 1.6;
 
 impl RearLogo {
-    /// Avance d'une image. `live` : une source livre du signal ; `bass` et `pulse` : 0 à 1.
-    pub fn update(&mut self, dt_s: f32, live: bool, bass: f32, pulse: f32) {
+    /// Avance d'une image. `kick` : 0 à 1, borné par le limiteur ; `animated` : les flashs sont permis (la respiration
+    /// de repos ne bat que dans ce cas).
+    pub fn update(&mut self, dt_s: f32, kick: f32, animated: bool) {
         self.clock += dt_s;
-        let target = if live {
-            // Le pouls est le détecteur de kicks d'`cf-analysis` : il remplace la détection maison du logo.
-            self.kick = self.kick.max(pulse);
-            (bass.clamp(0.0, 1.0).powf(1.6) * 1.15).clamp(0.0, 1.0)
-        } else {
+        let idle = if animated {
             0.12 + 0.1 * (self.clock * 2.0).sin()
+        } else {
+            0.12
         };
-        self.kick = (self.kick - dt_s * 5.0).max(0.0);
-        let target = target.max(self.kick * 0.9);
-        // Attaque instantanée, relâchement de 4 par seconde (~0,25 s).
+        let target = idle.max(kick.clamp(0.0, 1.0) * 0.9);
+        // Montée : celle du kick limité. Relâchement de 4 par seconde (~0,25 s).
         self.level = if target > self.level {
             target
         } else {
@@ -340,7 +333,12 @@ mod tests {
         assert!(braking.tail_halo.red > rolling.tail_halo.red * 5.0);
         assert!(braking.rear_pool.k > rolling.rear_pool.k * 3.0);
         assert!((LightLevels::brake_light_factor(0.0, true) - 0.18).abs() < 1e-6);
-        assert!((LightLevels::brake_light_factor(0.5, true) - 1.0).abs() < 1e-6);
+        assert!((LightLevels::brake_light_factor(1.0, true) - 1.0).abs() < 1e-6);
+        let (a, b) = (
+            LightLevels::brake_light_factor(0.04, true),
+            LightLevels::brake_light_factor(0.06, true),
+        );
+        assert!((b - a).abs() < 0.03, "continu : pas de saut à 0,05");
         assert!((LightLevels::brake_light_factor(0.0, false) - 0.03).abs() < 1e-6);
     }
 
@@ -417,47 +415,43 @@ mod tests {
     }
 
     #[test]
-    fn le_logo_arriere_attaque_d_un_coup_et_relache_en_un_quart_de_seconde() {
+    fn le_logo_arriere_suit_le_kick_limite_et_relache_en_un_quart_de_seconde() {
         let mut logo = RearLogo::default();
-        logo.update(1.0 / 60.0, true, 0.0, 1.0);
-        // Le kick vaut 1, décroît de 5 par seconde dans l'image même, puis pousse le logo à 90 % de ce reste.
+        logo.update(1.0 / 60.0, 1.0, true);
         assert!(
-            logo.level() >= 0.8,
-            "un kick pousse le logo vers 0,9 : {}",
+            logo.level() >= 0.89,
+            "un kick plein pousse le logo à 0,9 : {}",
             logo.level()
         );
         let peak = logo.emissive_strength();
         for _ in 0..30 {
-            logo.update(1.0 / 60.0, true, 0.0, 0.0);
+            logo.update(1.0 / 60.0, 0.0, true);
         }
-        assert!(logo.level() < 0.05, "relâché en 0,5 s : {}", logo.level());
-        assert!(logo.emissive_strength() < peak * 0.5);
-        assert!(logo.scale() < 1.01);
+        assert!(logo.level() < 0.25, "relâché en 0,5 s : {}", logo.level());
+        assert!(logo.emissive_strength() < peak * 0.6);
+        assert!(logo.scale() < 1.02);
     }
 
     #[test]
-    fn le_logo_respire_sans_signal() {
-        let mut logo = RearLogo::default();
-        let mut levels = Vec::new();
-        for _ in 0..240 {
-            logo.update(1.0 / 60.0, false, 0.0, 0.0);
-            levels.push(logo.level());
-        }
-        let (min, max) = levels
-            .iter()
-            .fold((1.0_f32, 0.0_f32), |(lo, hi), &l| (lo.min(l), hi.max(l)));
-        assert!(max > 0.18 && max <= 0.23, "crête {max}");
-        assert!(min < max - 0.05, "il respire : {min}..{max}");
-    }
-
-    #[test]
-    fn les_basses_reglent_le_logo() {
-        let mut quiet = RearLogo::default();
-        let mut loud = RearLogo::default();
-        for _ in 0..30 {
-            quiet.update(1.0 / 60.0, true, 0.2, 0.0);
-            loud.update(1.0 / 60.0, true, 0.9, 0.0);
-        }
-        assert!(loud.level() > quiet.level() * 3.0);
+    fn le_logo_respire_quand_les_flashs_sont_permis_et_se_fige_sinon() {
+        let range = |animated: bool| {
+            let mut logo = RearLogo::default();
+            let mut levels = Vec::new();
+            for _ in 0..240 {
+                logo.update(1.0 / 60.0, 0.0, animated);
+                levels.push(logo.level());
+            }
+            let (min, max) = levels
+                .iter()
+                .fold((1.0_f32, 0.0_f32), |(lo, hi), &l| (lo.min(l), hi.max(l)));
+            (min, max)
+        };
+        let (min, max) = range(true);
+        assert!(
+            max > 0.18 && max <= 0.23 && min < max - 0.05,
+            "il respire : {min}..{max}"
+        );
+        let (min, max) = range(false);
+        assert!((max - min).abs() < 1e-6, "flashs coupés : niveau fixe ({min}..{max})");
     }
 }

@@ -7,7 +7,7 @@ use bevy::math::{DVec3, Quat, Vec3, Vec4};
 use bevy::pbr::StandardMaterial;
 use bevy::prelude::*;
 use bevy::tasks::{AsyncComputeTaskPool, Task, futures_lite::future};
-use cf_render::{AbsolutePosition, AudioFeatures, SceneColor, ScenePalette};
+use cf_render::{AbsolutePosition, AudioFeatures, CurrentShowFx, SceneColor, ScenePalette};
 
 use super::effects;
 use super::glb::CarModelError;
@@ -307,23 +307,34 @@ fn glow_material(
 pub(super) fn advance_look(
     time: Res<Time>,
     features: Option<Res<AudioFeatures>>,
+    show: Option<Res<CurrentShowFx>>,
     scene: Res<ScenePalette>,
     controls: Res<CarControls>,
     mut look: ResMut<RoadLook>,
     mut cars: Query<&mut CarState>,
 ) {
     let dt = time.delta_secs();
+    let now = time.elapsed_secs_f64();
     let palette = car_palette(&scene);
-    let (live, bass, pulse) = features.map_or((false, 0.0, 0.0), |f| (f.0.live, f.0.bass, f.0.pulse));
+    let raw_pulse = features.map_or(0.0, |f| f.0.pulse);
+    // Même politique que le post-process (`ShowFx::update`) : permis par le spectacle, hors respiration ; sans
+    // spectacle, rien ne flashe.
+    let policy = show.map(|s| (s.0.flashes, s.0.breathing));
     for mut state in &mut cars {
         let speed_ratio = (state.speed_mps / CRUISE_SPEED_MPS).max(0.0);
-        let brake = controls.brake.clamp(0.0, 1.0);
+        let brake = state.brake.toward(controls.brake.clamp(0.0, 1.0), dt, 1.0);
         state.glow.set_target(controls.lit.unwrap_or(palette.violet));
         let glow = state.glow.update(dt);
         state.blinker.update(dt, controls.steer);
-        state.logo.update(dt, live, bass, pulse);
+        // Règle 7 : kicks et clignotants ne montrent que ce que leurs limiteurs accordent.
+        let lit = state.blinker.lit();
+        state.flash.update(dt, now, policy, raw_pulse, lit);
+        let (pulse, blink) = (state.flash.kick(), state.flash.blink());
+        let animated = state.flash.permitted();
+        state.logo.update(dt, pulse, animated);
         let high_beams = speed_ratio > HIGH_BEAMS_RATIO;
-        let level = if high_beams { HIGH_BEAMS_LEVEL } else { HEADLIGHT_LEVEL };
+        let target = if high_beams { HIGH_BEAMS_LEVEL } else { HEADLIGHT_LEVEL };
+        let level = state.level.toward(target, dt, HIGH_BEAMS_LEVEL - HEADLIGHT_LEVEL);
         let inputs = LightInputs {
             glow,
             pulse,
@@ -338,6 +349,7 @@ pub(super) fn advance_look(
             levels: LightLevels::compute(&palette, &inputs),
             high_beams,
             pulse,
+            blink,
             brake,
         });
         // La route reflète la lueur de la voiture et ses feux stop.
@@ -375,18 +387,14 @@ pub(super) fn apply_model_lights(
         }
         // Clignotants : un seul côté, celui où le volant tourne. La lentille, son halo et sa flaque battent ensemble.
         let side = state.blinker.side;
-        let lit = state.blinker.lit();
         let amber = look.palette.amber;
         let scale = |k: f32| LinearRgba::rgb(amber.red * k, amber.green * k, amber.blue * k);
         for signal in &rig.signals {
             let mine = (signal.side == Side::Left && side < 0) || (signal.side == Side::Right && side > 0);
-            let on = lit && mine;
-            emit(&mut standard, &signal.material, if on { 1.0 } else { 0.03 });
-            let (halo, pool) = if on {
-                (scale(2.2), scale(0.9))
-            } else {
-                (LinearRgba::BLACK, LinearRgba::BLACK)
-            };
+            // Le battement est le niveau du limiteur (0 → 1), jamais un créneau.
+            let beat = if mine { look.blink } else { 0.0 };
+            emit(&mut standard, &signal.material, 0.03 + 0.97 * beat);
+            let (halo, pool) = (scale(2.2 * beat), scale(0.9 * beat));
             glow_material(&mut lights, &mut visibility, &signal.halo, signal.halo_entity, halo);
             glow_material(&mut lights, &mut visibility, &signal.pool, signal.pool_entity, pool);
         }
