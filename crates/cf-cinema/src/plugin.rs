@@ -1,0 +1,128 @@
+//! La couche Bevy du réalisateur, mince : le monde remplit [`CinemaWorld`] en `CfSet::Simulate`, le réalisateur écrit
+//! la [`CameraPose`] en `CfSet::Direct`, le rig de `cf-render` l'applique en `CfSet::Present`.
+//!
+//! ```text
+//! CfSet::Simulate   le monde (NeonWorld…) ─▶ Res<CinemaWorld>
+//! WorldSet::Subjects                        ─▶ Res<Subjects>
+//! CfSet::Direct     direct::<W> : CinemaDirector::update(CinemaFrame) ─▶ Res<CameraPose>
+//! CfSet::Present    rig de caméras (cf-render)
+//! ```
+
+use std::marker::PhantomData;
+
+use bevy::prelude::*;
+use cf_render::{CameraPose, CfSet, Subjects};
+
+use crate::director::CinemaDirector;
+use crate::shots;
+use crate::world::{CinemaFrame, CinemaWorld, Obstacles};
+
+/// Graine par défaut du réalisateur (rejouable) ; l'application peut en tirer une autre par soirée.
+pub const DEFAULT_SEED: u32 = 0x5111_a6e0;
+
+/// Étape du réalisateur dans `CfSet::Direct` : les systèmes qui lisent la pose de l'image se placent après.
+#[derive(SystemSet, Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub struct CinemaSet;
+
+/// Installe le réalisateur (catalogue, ressources). Le système qui l'appelle est ajouté par le monde, avec
+/// [`CinemaWorldPlugin`] : c'est lui qui sait répondre aux questions de collision.
+#[derive(Debug, Clone, Copy)]
+pub struct CinemaPlugin {
+    /// Graine du hasard du réalisateur.
+    pub seed: u32,
+    /// Mode calme : transitions plus lentes, pas de coupe « waouh ».
+    pub calm: bool,
+}
+
+impl Default for CinemaPlugin {
+    fn default() -> Self {
+        Self {
+            seed: DEFAULT_SEED,
+            calm: false,
+        }
+    }
+}
+
+impl Plugin for CinemaPlugin {
+    fn build(&self, app: &mut App) {
+        app.insert_resource(CinemaDirector::new(shots::catalog(), self.calm, self.seed))
+            .init_resource::<CinemaWorld>()
+            .init_resource::<CameraPose>()
+            .configure_sets(Update, CinemaSet.in_set(CfSet::Direct));
+    }
+}
+
+/// Branche le réalisateur sur le monde `W`, dont la ressource répond aux questions de collision. À ajouter par le
+/// plugin du monde (ou l'application), après [`CinemaPlugin`].
+#[derive(Debug)]
+pub struct CinemaWorldPlugin<W>(PhantomData<fn() -> W>);
+
+impl<W> Default for CinemaWorldPlugin<W> {
+    fn default() -> Self {
+        Self(PhantomData)
+    }
+}
+
+impl<W: Obstacles + Resource> Plugin for CinemaWorldPlugin<W> {
+    fn build(&self, app: &mut App) {
+        app.init_resource::<CinemaWorld>()
+            .init_resource::<CameraPose>()
+            .add_systems(Update, direct::<W>.in_set(CinemaSet).in_set(CfSet::Direct));
+    }
+}
+
+/// `CfSet::Direct` : la pose de l'image. Démarre depuis la pose actuelle de la caméra au premier appel.
+fn direct<W: Obstacles + Resource>(
+    world: Res<CinemaWorld>,
+    obstacles: Option<Res<W>>,
+    subjects: Option<Res<Subjects>>,
+    director: Option<ResMut<CinemaDirector>>,
+    mut pose: ResMut<CameraPose>,
+) {
+    let (Some(obstacles), Some(mut director)) = (obstacles, director) else { return };
+    let list = subjects.as_deref().map_or(&[][..], Subjects::as_slice);
+    let frame = CinemaFrame::new(&world, &*obstacles, list);
+    if !director.active() {
+        let from = *pose;
+        director.start(&from, &frame);
+    }
+    let next = *director.update(&frame);
+    if *pose != next {
+        *pose = next;
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use bevy::math::DVec3;
+
+    use super::*;
+    use crate::world::NoObstacles;
+
+    #[derive(Resource, Default)]
+    struct Empty;
+
+    impl Obstacles for Empty {
+        fn collides(&self, at: DVec3, radius: f64) -> bool {
+            NoObstacles.collides(at, radius)
+        }
+    }
+
+    #[test]
+    fn le_reealisateur_ecrit_la_pose_lue_par_le_rig() {
+        let mut app = App::new();
+        app.add_plugins((cf_render::CorePlugin, CinemaPlugin::default(), CinemaWorldPlugin::<Empty>::default()))
+            .init_resource::<Empty>();
+        app.world_mut().resource_mut::<CinemaWorld>().car = DVec3::new(0.0, 0.0, -1000.0);
+        app.world_mut().resource_mut::<CinemaWorld>().dt = 0.016;
+        for _ in 0..400 {
+            app.update();
+        }
+        let pose = *app.world().resource::<CameraPose>();
+        assert!(app.world().resource::<CinemaDirector>().active());
+        assert_eq!(app.world().resource::<CinemaDirector>().shot_id(), Some("chase"));
+        // Fondu fini (≤ 5,5 s à 0,016 s l'image) : la caméra est derrière la voiture.
+        let rel = pose.position - DVec3::new(0.0, 0.0, -1000.0);
+        assert!(rel.z > 2.0 && rel.z < 14.0, "{rel}");
+    }
+}
