@@ -35,6 +35,8 @@ struct Report {
     off_beat: u32,
     /// Plans `strobe` lancés alors que les flashs étaient coupés.
     strobe_without_flashes: u32,
+    /// Images jouées avec les flashs coupés (garde-fou : le test de `strobe` ne doit pas être vide).
+    frames_without_flashes: u32,
     /// Plans lancés en tout.
     shots: u32,
     /// Un drop préparé a été annoncé au réalisateur (`drop_planned`) au moins une fois.
@@ -48,7 +50,7 @@ fn demo_director() -> ShowDirector<Pcg32> {
     ShowDirector::<Pcg32>::new(&show, DropTitles::empty(), 7).expect("chef du spectacle")
 }
 
-/// Joue 10 minutes. Si `kill_flashes`, `FlashKill` est envoyé à la première image.
+/// Joue 10 minutes. Si `kill_flashes`, `FlashKill(On)` (coupe les flashs) est envoyé à la première image.
 fn play(kill_flashes: bool) -> Report {
     let mut sim = Sim::new(true);
     let mut show = demo_director();
@@ -63,7 +65,7 @@ fn play(kill_flashes: bool) -> Report {
     let mut shots = director.stats().shots;
     let mut cuts = director.stats().cuts;
     let mut first = true;
-    let kill = [Action::FlashKill(Switch::Off)];
+    let kill = [Action::FlashKill(Switch::On)];
     while sim.world.time < TEN_MINUTES {
         sim.step();
         let w = &sim.world;
@@ -93,6 +95,7 @@ fn play(kill_flashes: bool) -> Report {
         let mut view = ShowView::of(&state);
         view.drop_planned = show.drop_plan().is_some();
         report.drop_planned_seen |= view.drop_planned;
+        report.frames_without_flashes += u32::from(!state.flashes);
         sim.world.show = view;
         sim.world.drop = state.drop_now;
 
@@ -173,5 +176,6 @@ fn le_drop_prepare_du_chef_est_visible_du_realisateur() {
 fn strobe_n_est_jamais_choisi_quand_les_flashs_sont_coupes() {
     let report = play(true);
     assert!(report.shots >= 20, "{} plans seulement", report.shots);
+    assert!(report.frames_without_flashes > 30_000, "les flashs n'ont pas été coupés");
     assert_eq!(report.strobe_without_flashes, 0, "plan strobe avec les flashs coupés");
 }
