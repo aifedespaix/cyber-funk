@@ -68,7 +68,9 @@ impl<W: Obstacles + Resource> Plugin for CinemaWorldPlugin<W> {
     fn build(&self, app: &mut App) {
         app.init_resource::<CinemaWorld>()
             .init_resource::<CameraPose>()
-            .add_systems(Update, direct::<W>.in_set(CinemaSet).in_set(CfSet::Direct));
+            // `CinemaSet` est déjà dans `CfSet::Direct` (voir `CinemaPlugin`) : le redire ferait une arête redondante, que
+            // Bevy signale en avertissement à chaque lancement.
+            .add_systems(Update, direct::<W>.in_set(CinemaSet));
     }
 }
 
