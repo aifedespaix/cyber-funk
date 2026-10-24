@@ -30,6 +30,7 @@
 //! pas les `RenderLayers` aux enfants d'un tronçon.
 
 pub mod arches;
+mod config;
 pub mod layout;
 mod plan;
 pub mod query;
@@ -39,9 +40,9 @@ use bevy::mesh::MeshTag;
 use bevy::prelude::*;
 use cf_render::streaming::ArchetypeId;
 
+pub use config::{Clearing, FAR_BY_QUALITY, SceneryConfig};
 pub use layout::{
-    BASE_DEPTH_M, Clearing, FAR_BY_QUALITY, FLOOR_HEIGHT_M, Hitbox, MAX_PARTS, Part, Row, SPACING_M, SceneryConfig,
-    SpotAnchor, TINT_CYCLE_LEN, Tier,
+    BASE_DEPTH_M, FLOOR_HEIGHT_M, Hitbox, MAX_PARTS, Part, Row, SPACING_M, SpotAnchor, TINT_CYCLE_LEN, Tier,
 };
 pub(crate) use plan::plan_row;
 

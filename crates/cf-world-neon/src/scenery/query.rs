@@ -7,7 +7,8 @@
 
 use bevy::math::DVec3;
 
-use super::layout::{BASE_DEPTH_M, Hitbox, Row, SceneryConfig};
+use super::config::SceneryConfig;
+use super::layout::{BASE_DEPTH_M, Hitbox, Row};
 
 /// Une sphère (centre `at`, rayon `radius`, positions absolues) touche-t-elle un immeuble ? Les tours qui plongent sous
 /// la route ont leur pied bien en dessous : seul le sommet compte.
@@ -144,7 +145,7 @@ mod tests {
 
     #[test]
     fn une_zone_degagee_libere_la_facade() {
-        use super::super::layout::Clearing;
+        use super::super::config::Clearing;
         let mut config = config();
         let z = -26.0 * 40.0;
         let before = facade(&config, 1, z, 20.0);

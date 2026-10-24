@@ -4,7 +4,8 @@ use bevy::prelude::*;
 use cf_render::ChunkPlan;
 use cf_render::streaming::ArchetypeId;
 
-use super::layout::{Row, SceneryConfig};
+use super::config::SceneryConfig;
+use super::layout::Row;
 
 /// Remplit `plan` avec la ville de la rangée `index` : chaque pavé est un `Transform` (position en repère de tronçon,
 /// échelle = taille) et son tag.
