@@ -51,7 +51,7 @@ vient de la taille de la tâche et du nombre d'itérations, bien plus que du dé
 ## Statuts
 
 ⬜ à faire · 🟨 en cours · 🟦 PR ouverte · ✅ fusionnée.
-En cours au dernier point : J5-05.
+En cours au dernier point : aucune.
 
 | ID | Tâche | Modèle | Effort | Dépend de | Statut |
 | --- | --- | --- | --- | --- | --- |
@@ -90,9 +90,9 @@ En cours au dernier point : J5-05.
 | J4-08 | [Palettes et fondu de thème](tasks/J4.md) | Sonnet 5.5 | `medium` | J4-01, J0-03 | ✅ |
 | J5-01 | [Route et plan de route](tasks/J5.md) | Sonnet 5.5 | `high` | J4-03, J1-06 | ✅ |
 | J5-02 | [Immeubles, matériau de façade, décor](tasks/J5.md) | Sonnet 5.5 | `high` | J5-01, J4-04 | ✅ |
-| J5-03 | [Ciel, étoiles, planètes](tasks/J5.md) | Sonnet 5.5 | `medium` | J4-01, J0-03 | ⬜ |
+| J5-03 | [Ciel, étoiles, planètes](tasks/J5.md) | Sonnet 5.5 | `medium` | J4-01, J0-03 | ✅ |
 | J5-04 | [Atmosphère : brume, pluie, météo](tasks/J5.md) | Sonnet 5.5 | `medium` | J5-01 | ⬜ |
-| J5-05 | [Voiture, lumières, traînée](tasks/J5.md) | Sonnet 5.5 | `high` | J5-01, J0-03 | ⬜ |
+| J5-05 | [Voiture, lumières, traînée](tasks/J5.md) | Sonnet 5.5 | `high` | J5-01, J0-03 | ✅ |
 | J5-06 | [Pilote automatique, allure, chorégraphie, vol](tasks/J5.md) | Sonnet 5.5 | `high` | J5-05, J2-05 | ⬜ |
 | J5-07 | [Faisceaux et effets du monde](tasks/J5.md) | Sonnet 5.5 | `medium` | J5-02, J4-02 | ⬜ |
 | J6-01 | [Cœur du réalisateur](tasks/J6.md) | Opus 5.5 | `high` | J5-06, J4-01, J2-05 | ⬜ |
