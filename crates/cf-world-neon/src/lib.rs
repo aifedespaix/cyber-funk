@@ -13,6 +13,7 @@
 //!   exemples sans pilote ;
 //! - [`cinema`] (J6-01) : le branchement sur le réalisateur (collisions, `CinemaWorld` de chaque image) ;
 //! - [`pilot`] (J5-06) : le pilote automatique (allure, chorégraphie, vol, esquives) et [`CarAnimation`] ;
+//! - [`traffic`] (J7-03) : le trafic (véhicules volants, voitures au sol, registre d'événements pour J7-04 et J7-05) ;
 //! - [`car`] (J5-05) : la voiture (`CyberCar` de Sillage), ses lumières, sa traînée, la fumée de ses pneus. Elle prend la
 //!   place du pavé du point suivi provisoire.
 //!
@@ -33,6 +34,7 @@ pub mod road;
 pub mod route;
 pub mod scenery;
 pub mod sky;
+pub mod traffic;
 pub mod world;
 
 use bevy::prelude::*;
@@ -47,6 +49,7 @@ pub use road::{Road, RoadLook, RoadMaterial, RoadPalette, RoadPlugin};
 pub use route::{RoutePlan, RoutePlanner};
 pub use scenery::{Clearing, SceneryConfig, SpotAnchor};
 pub use sky::{RingPlanet, ShootingStarRequest, SkyLook, SkyPlugin};
+pub use traffic::{TrafficAppExt, TrafficEvent, TrafficPlugin, TrafficSettings, TrafficStats};
 pub use world::NeonWorld;
 
 /// Plugin du monde Neon City : le monde streamé, la route et le plan de route.
