@@ -84,7 +84,12 @@ fn main() {
 }
 
 fn keys(keys: Res<ButtonInput<KeyCode>>, mut mode: ResMut<QualityMode>) {
-    for (key, level) in [(KeyCode::Digit1, 0), (KeyCode::Digit2, 1), (KeyCode::Digit3, 2), (KeyCode::Digit4, 3)] {
+    for (key, level) in [
+        (KeyCode::Digit1, 0),
+        (KeyCode::Digit2, 1),
+        (KeyCode::Digit3, 2),
+        (KeyCode::Digit4, 3),
+    ] {
         if keys.just_pressed(key) {
             *mode = QualityMode::Fixed(level);
         }
@@ -127,7 +132,10 @@ fn spawn_scene(
         Transform::from_xyz(0.0, -0.01, -90.0),
     ));
     let body = unlit(&mut materials, 0.04, 0.03, 0.08);
-    let neon = [unlit(&mut materials, 0.0, 3.0, 4.0), unlit(&mut materials, 3.0, 0.6, 4.0)];
+    let neon = [
+        unlit(&mut materials, 0.0, 3.0, 4.0),
+        unlit(&mut materials, 3.0, 0.6, 4.0),
+    ];
     let strip = meshes.add(Cuboid::new(0.15, 0.15, 3.0));
     for i in 0..8 {
         let z = -8.0 - 6.0 * i as f32;
@@ -264,7 +272,10 @@ fn verdict(report: &Report) -> AppExit {
     }
     let first = lumas.first().map_or(0.0, |l| l.2);
     let lowest = lumas.iter().map(|l| l.2).fold(f32::MAX, f32::min);
-    println!("luminance moyenne : départ {first:.2}, minimum {lowest:.2} ({} captures)", lumas.len());
+    println!(
+        "luminance moyenne : départ {first:.2}, minimum {lowest:.2} ({} captures)",
+        lumas.len()
+    );
     println!(
         "plus grande variation entre deux captures ({EVERY} images) : {:.2} % ({}), limite {:.0} %",
         max_step.0 * 100.0,

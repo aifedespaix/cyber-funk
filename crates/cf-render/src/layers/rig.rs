@@ -225,7 +225,11 @@ const MIN_SCALE: f32 = 0.25;
 
 /// Taille d'une cible rendue à l'échelle `scale` d'une sortie de `output` pixels (au moins 1 × 1).
 fn scaled(output: UVec2, scale: f32) -> UVec2 {
-    let scale = if scale.is_finite() { scale.clamp(MIN_SCALE, 1.0) } else { 1.0 };
+    let scale = if scale.is_finite() {
+        scale.clamp(MIN_SCALE, 1.0)
+    } else {
+        1.0
+    };
     UVec2::new(
         ((output.x as f32 * scale).round() as u32).max(1),
         ((output.y as f32 * scale).round() as u32).max(1),

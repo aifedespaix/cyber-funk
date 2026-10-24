@@ -43,8 +43,8 @@ pub use palette::{
 };
 pub use postfx::{CurrentShowFx, LensWeather, PostFxPlugin, PostFxSettings, PostFxState, ShowFxInput};
 pub use quality::{
-    BLOOM_FADE_S, MAX_LEVEL, PIXEL_SCALE, Quality, QualityChanged, QualityIdle, QualityLevers, QualityMode, QualityPlugin,
-    levers_for,
+    BLOOM_FADE_S, MAX_LEVEL, PIXEL_SCALE, Quality, QualityChanged, QualityIdle, QualityLevers, QualityMode,
+    QualityPlugin, levers_for,
 };
 pub use schedule::{CfSet, CorePlugin};
 pub use show::{CurrentShow, ShowControls, ShowEventMessage, ShowPlugin, ShowRuntime};

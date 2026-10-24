@@ -68,7 +68,7 @@ impl Rig {
 fn une_machine_qui_tient_ne_bouge_jamais() {
     let mut rig = Rig::new(10.0);
     rig.run_for(120.0);
-    assert!(rig.changes.is_empty());
+    assert_eq!(rig.changes.len(), 0, "{:?}", rig.changes);
     assert_eq!(rig.level, 0);
 }
 
@@ -118,7 +118,11 @@ fn le_retrait_de_la_charge_fait_remonter_sans_osciller() {
     assert_eq!(rig.level, 0, "la qualité doit revenir au plein régime");
 
     let after: Vec<usize> = rig.changes[descent_changes..].iter().map(|c| c.1).collect();
-    assert_eq!(after, vec![2, 1, 0], "remontée d'un cran à la fois, sans aller-retour : {after:?}");
+    assert_eq!(
+        after,
+        vec![2, 1, 0],
+        "remontée d'un cran à la fois, sans aller-retour : {after:?}"
+    );
 }
 
 #[test]
@@ -171,7 +175,11 @@ fn une_remontee_trop_optimiste_double_la_patience() {
     // La remontée suivante attend au moins la nouvelle patience.
     let again = feed(&mut q, 0.01, 40.0);
     let second_raise = again.first().map(|c| c.0).expect("seconde remontée");
-    assert!(second_raise - fell_at >= 10.0, "remontée après {:.1} s", second_raise - fell_at);
+    assert!(
+        second_raise - fell_at >= 10.0,
+        "remontée après {:.1} s",
+        second_raise - fell_at
+    );
 }
 
 #[test]
@@ -264,7 +272,10 @@ fn la_table_des_leviers_reprend_celle_de_sillage() {
     assert_eq!(full.render_scale, 1.0);
     assert!(full.bloom);
     assert_eq!(full.bloom_divisor, 2);
-    assert_eq!((full.particle_density, full.rain_density, full.side_render_every), (1.0, 1.0, 1));
+    assert_eq!(
+        (full.particle_density, full.rain_density, full.side_render_every),
+        (1.0, 1.0, 1)
+    );
 
     let one = levers_for(1);
     assert_eq!((one.render_scale, one.bloom, one.bloom_divisor), (0.9, true, 4));
@@ -315,7 +326,11 @@ fn run(app: &mut App, frames: u32) {
 
 fn image_size(app: &App, layer: Layer) -> UVec2 {
     let handle = app.world().resource::<LayerTargets>().image(layer).clone();
-    app.world().resource::<Assets<Image>>().get(&handle).expect("texture").size()
+    app.world()
+        .resource::<Assets<Image>>()
+        .get(&handle)
+        .expect("texture")
+        .size()
 }
 
 fn bloom_of_compositor(app: &mut App) -> Option<Bloom> {
@@ -369,7 +384,7 @@ fn chaque_changement_de_niveau_est_annonce_une_fois() {
     app.init_resource::<Heard>().add_systems(Update, listen);
     run(&mut app, 400);
     let heard = &app.world().resource::<Heard>().0;
-    assert!(!heard.is_empty());
+    assert_ne!(heard.len(), 0);
     // Un cran à la fois, de proche en proche depuis 0.
     let mut level = 0;
     for m in heard {
@@ -386,12 +401,18 @@ fn le_mode_fixe_impose_le_niveau_et_le_plein_regime_revient() {
     app.insert_resource(QualityMode::Fixed(3));
     run(&mut app, 2);
     assert_eq!(app.world().resource::<RenderScale>().0, 0.7);
-    assert_eq!(app.world().resource::<LayerTargets>().render_size(), UVec2::new(700, 350));
+    assert_eq!(
+        app.world().resource::<LayerTargets>().render_size(),
+        UVec2::new(700, 350)
+    );
 
     app.insert_resource(QualityMode::Fixed(0));
     run(&mut app, 2);
     assert_eq!(app.world().resource::<RenderScale>().0, 1.0);
-    assert_eq!(app.world().resource::<LayerTargets>().render_size(), UVec2::new(1000, 500));
+    assert_eq!(
+        app.world().resource::<LayerTargets>().render_size(),
+        UVec2::new(1000, 500)
+    );
     assert_eq!(image_size(&app, Layer::World), UVec2::new(1000, 500));
 }
 
@@ -407,7 +428,11 @@ fn le_bloom_s_estompe_avant_d_etre_retire_et_revient_sans_a_coup() {
     run(&mut app, 3);
     let post = *app.world().resource::<PostFxSettings>();
     assert!(post.bloom, "encore là au début de l'estompage");
-    assert!(post.bloom_gain < 1.0 && post.bloom_gain > 0.8, "gain {}", post.bloom_gain);
+    assert!(
+        post.bloom_gain < 1.0 && post.bloom_gain > 0.8,
+        "gain {}",
+        post.bloom_gain
+    );
     let fading = bloom_of_compositor(&mut app).expect("bloom");
     assert!(fading.intensity < full.intensity && fading.intensity > 0.8 * full.intensity);
 
@@ -427,7 +452,11 @@ fn le_bloom_s_estompe_avant_d_etre_retire_et_revient_sans_a_coup() {
     app.insert_resource(QualityMode::Fixed(0));
     run(&mut app, 2);
     let back = bloom_of_compositor(&mut app).expect("bloom de retour");
-    assert!(back.intensity < 0.2 * full.intensity, "retour sans à-coup : {}", back.intensity);
+    assert!(
+        back.intensity < 0.2 * full.intensity,
+        "retour sans à-coup : {}",
+        back.intensity
+    );
     run(&mut app, 120);
     let settled = bloom_of_compositor(&mut app).expect("bloom");
     assert!(settled.intensity > 0.9 * full.intensity);
@@ -443,5 +472,8 @@ fn sans_changement_aucune_ecriture() {
     assert!(!app.world().resource_ref::<RenderScale>().is_changed());
     assert!(!app.world().resource_ref::<PostFxSettings>().is_changed());
     assert!(!app.world().resource_ref::<QualityLevers>().is_changed());
-    assert_eq!(app.world().resource::<LayerTargets>().render_size(), UVec2::new(1000, 500));
+    assert_eq!(
+        app.world().resource::<LayerTargets>().render_size(),
+        UVec2::new(1000, 500)
+    );
 }
