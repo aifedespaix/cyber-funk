@@ -2443,6 +2443,8 @@ dependencies = [
  "cf-render",
  "cf-show",
  "meshopt",
+ "rand_core",
+ "rand_pcg",
  "serde",
  "serde_json",
  "thiserror 2.0.21",

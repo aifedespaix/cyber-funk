@@ -68,7 +68,7 @@ impl Plugin for NeonWorldPlugin {
                     .after(cf_render::WorldSet::Chunks),
             );
         if self.standalone {
-            app.add_plugins(ChasePlugin::default());
+            app.add_plugins((ChasePlugin::default(), car::CarPlugin::default()));
         }
     }
 }

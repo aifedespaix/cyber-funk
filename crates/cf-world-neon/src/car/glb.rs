@@ -19,6 +19,9 @@ pub enum CarModelError {
     /// Le fichier n'est pas un GLB valide.
     #[error("GLB invalide : {0}")]
     Container(&'static str),
+    /// Le fichier n'a pas pu être lu.
+    #[error("lecture du fichier : {0}")]
+    Io(#[from] std::io::Error),
     /// Le JSON glTF est illisible.
     #[error("JSON glTF illisible : {0}")]
     Json(#[from] serde_json::Error),

@@ -39,6 +39,11 @@ pub enum MaterialRole {
     LogoRear,
     /// `glass` : pare-brise et vitres.
     Glass,
+    /// `screen_speed`, `screen_radio`, `screen_mirror` : écrans de l'habitacle. Sillage y dessine compteur, autoradio et
+    /// rétroviseur (jeu) ; ici ils restent éteints.
+    Screen,
+    /// `rain_glass` : gouttes sur le pare-brise, dessinées par la pluie du jeu (invisibles ici : alpha nul).
+    RainGlass,
     /// Tout le reste : intérieur, chrome, pneus… rendu tel que le GLB le décrit.
     Plain,
 }
@@ -77,6 +82,8 @@ impl MaterialRole {
             "signal_RR" => Self::Signal(Side::Right, Fore::Rear),
             "logo_rear_neon" => Self::LogoRear,
             "glass" => Self::Glass,
+            "screen_speed" | "screen_radio" | "screen_mirror" => Self::Screen,
+            "rain_glass" => Self::RainGlass,
             _ => Self::Plain,
         }
     }
@@ -179,7 +186,14 @@ impl CarModelAsset {
                     .filter(|&m| m < materials.len())
                     .ok_or_else(|| CarModelError::Invalid("primitive sans matériau".into()))?;
                 mine.push((meshes.len(), material));
-                meshes.push(build_mesh(&gltf, primitive)?);
+                let mut mesh = build_mesh(&gltf, primitive)?;
+                // Les normales de la peinture demandent des tangentes (sans elles, Bevy ignore la texture).
+                if materials[material].normal_image.is_some()
+                    && let Err(error) = mesh.generate_tangents()
+                {
+                    tracing::warn!(%error, "tangentes non calculées : texture de normales ignorée sur cette pièce");
+                }
+                meshes.push(mesh);
             }
             pieces.push(mine);
         }
@@ -228,7 +242,8 @@ fn build_mesh(gltf: &Gltf, primitive: &super::doc::PrimitiveDef) -> Result<Mesh>
     let triples = |values: Vec<f32>| values.chunks_exact(3).map(|c| [c[0], c[1], c[2]]).collect::<Vec<_>>();
     let positions = triples(gltf.floats(attribute("POSITION")?)?);
     let normals = triples(gltf.floats(attribute("NORMAL")?)?);
-    let mut mesh = Mesh::new(PrimitiveTopology::TriangleList, RenderAssetUsages::RENDER_WORLD);
+    // Les maillages gardent leur copie du monde principal : le culling (`Aabb`) et les mesures la relisent.
+    let mut mesh = Mesh::new(PrimitiveTopology::TriangleList, RenderAssetUsages::default());
     let count = positions.len();
     mesh.insert_attribute(Mesh::ATTRIBUTE_POSITION, positions);
     mesh.insert_attribute(Mesh::ATTRIBUTE_NORMAL, normals);
