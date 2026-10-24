@@ -19,7 +19,7 @@ struct Sign {
     // x : haut du bandeau dans sa page, y : largeur de la page, z : longueur de la boucle, w : position de lecture (px).
     strip: vec4<f32>,
     // x : hauteur de la page de bandeaux, y : 1 s'il y a un bandeau, z : 1 si la cellule n'a qu'un canal, w : le rendu.
-    layout: vec4<f32>,
+    mode: vec4<f32>,
     // Accent, w : opacité.
     accent: vec4<f32>,
     ice: vec4<f32>,
@@ -87,7 +87,7 @@ fn cell_px(q: vec2<f32>) -> vec4<f32> {
 // Les quatre canaux de couverture ; une cellule à un canal (projection) ne remplit que R.
 fn coverage(q: vec2<f32>) -> vec4<f32> {
     let c = cell_px(q);
-    if sign.layout.z > 0.5 {
+    if sign.mode.z > 0.5 {
         return vec4<f32>(c.r, 0.0, 0.0, 0.0);
     }
     return c;
@@ -98,7 +98,7 @@ fn ticker_cov(x_px: f32, y_px: f32) -> f32 {
     let period = max(sign.strip.z, 1.0);
     let s = x_px + sign.strip.w;
     let x = s - period * floor(s / period);
-    let uv = vec2<f32>((x + 0.5) / sign.strip.y, (sign.strip.x + clamp(y_px, 0.5, TICKER_H - 0.5)) / sign.layout.x);
+    let uv = vec2<f32>((x + 0.5) / sign.strip.y, (sign.strip.x + clamp(y_px, 0.5, TICKER_H - 0.5)) / sign.mode.x);
     return textureSampleLevel(strips, strips_sampler, uv, 0.0).r;
 }
 
@@ -135,7 +135,7 @@ fn product(dst: vec4<f32>, q: vec2<f32>) -> vec4<f32> {
 
 // Le bandeau défilant, sous l'image : fond d'encre à 85 %, texte d'accent qui vire à la glace sur le pouls.
 fn banner(dst: vec4<f32>, p: vec2<f32>) -> vec4<f32> {
-    if p.y < BAND_Y || sign.layout.y < 0.5 {
+    if p.y < BAND_Y || sign.mode.y < 0.5 {
         return dst;
     }
     var c = over(dst, sign.ink.rgb, 0.85);
@@ -301,7 +301,7 @@ fn fragment(in: VertexOutput, @builtin(front_facing) is_front: bool) -> @locatio
         discard;
     }
     let p = in.uv * vec2<f32>(CANVAS_W, CANVAS_H);
-    let look = i32(round(sign.layout.w));
+    let look = i32(round(sign.mode.w));
     let opacity = sign.accent.w;
     let pulse = sign.state.x;
     var c = vec4<f32>(0.0);
