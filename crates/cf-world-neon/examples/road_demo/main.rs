@@ -58,7 +58,7 @@ fn main() {
         CorePlugin,
         LayersPlugin::default(),
         CullingPlugin::default(),
-        NeonWorldPlugin::embedded(),
+        NeonWorldPlugin::embedded().without_city(),
         ChasePlugin {
             config: RunnerConfig {
                 start_z_m: -start_km * 1000.0,
