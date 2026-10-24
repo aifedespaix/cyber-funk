@@ -16,7 +16,7 @@ use cf_render::{CameraPose, CfSet, ShowRuntime, Subjects};
 use crate::choreo::{NoShow, ShowSide};
 use crate::director::CinemaDirector;
 use crate::shots;
-use crate::world::{CinemaFrame, CinemaWorld, Obstacles};
+use crate::world::{CinemaFrame, CinemaWorld, LaunchMeteor, Obstacles};
 
 /// Graine par défaut du réalisateur (rejouable) ; l'application peut en tirer une autre par soirée.
 pub const DEFAULT_SEED: u32 = 0x5111_a6e0;
@@ -49,6 +49,7 @@ impl Plugin for CinemaPlugin {
         app.insert_resource(CinemaDirector::new(shots::catalog(), self.calm, self.seed))
             .init_resource::<CinemaWorld>()
             .init_resource::<CameraPose>()
+            .add_message::<LaunchMeteor>()
             .configure_sets(Update, CinemaSet.in_set(CfSet::Direct));
     }
 }
@@ -68,6 +69,7 @@ impl<W: Obstacles + Resource> Plugin for CinemaWorldPlugin<W> {
     fn build(&self, app: &mut App) {
         app.init_resource::<CinemaWorld>()
             .init_resource::<CameraPose>()
+            .add_message::<LaunchMeteor>()
             // `CinemaSet` est déjà dans `CfSet::Direct` (voir `CinemaPlugin`) : le redire ferait une arête redondante, que
             // Bevy signale en avertissement à chaque lancement.
             .add_systems(Update, direct::<W>.in_set(CinemaSet));
@@ -83,6 +85,7 @@ fn direct<W: Obstacles + Resource>(
     mut runtime: Option<ResMut<ShowRuntime>>,
     mut pose: ResMut<CameraPose>,
     mut no_show: Local<NoShow>,
+    mut launches: MessageWriter<LaunchMeteor>,
 ) {
     let (Some(obstacles), Some(mut director)) = (obstacles, director) else {
         return;
@@ -100,6 +103,9 @@ fn direct<W: Obstacles + Resource>(
         director.start_with(&from, &frame, show);
     }
     let next = *director.update_with(&frame, show);
+    if director.take_meteor_launch() {
+        launches.write(LaunchMeteor);
+    }
     if *pose != next {
         *pose = next;
     }
@@ -143,5 +149,27 @@ mod tests {
         let rel = pose.position - DVec3::new(0.0, 0.0, -1000.0);
         assert!(crate::pose::is_finite(&pose));
         assert!(rel.length() > 1.0, "{rel}");
+    }
+
+    #[test]
+    fn la_chevauchee_d_un_astre_emet_l_ordre_lance_un_astre() {
+        let mut app = App::new();
+        app.add_plugins((
+            cf_render::CorePlugin,
+            CinemaPlugin::default(),
+            CinemaWorldPlugin::<Empty>::default(),
+        ))
+        .init_resource::<Empty>();
+        // Un catalogue d'un seul plan : la chevauchée, qui lance son astre faute d'en trouver un en vol.
+        app.insert_resource(CinemaDirector::new(vec![Box::new(shots::MeteorRide)], false, 1));
+        app.world_mut().resource_mut::<CinemaWorld>().car = DVec3::new(0.0, 0.0, -1000.0);
+        app.world_mut().resource_mut::<CinemaWorld>().dt = 0.016;
+        app.update();
+        let launches = app.world().resource::<Messages<LaunchMeteor>>().len();
+        assert_eq!(launches, 1, "un seul ordre par plan fabriqué");
+        app.update();
+        app.update();
+        // Le message se lit sur deux images : on s'assure surtout qu'aucun second ordre n'est parti.
+        assert!(app.world().resource::<Messages<LaunchMeteor>>().len() <= 1);
     }
 }

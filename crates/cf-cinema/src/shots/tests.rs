@@ -19,7 +19,7 @@ use crate::testkit::{BoxCity, DT, Sim, check_pose};
 use crate::world::{CinemaFrame, CinemaWorld};
 
 /// Plans qui ne jouent que sur une soirée scénarisée : leurs tests vivent avec leur lot (`tests_flight.rs` pour le
-/// lot B, J6-04). Les lots suivants ajoutent leurs identifiants ici.
+/// lot B, J6-04 ; `tests_world.rs` pour le lot C, J6-05).
 const SCENARIO_SHOTS: &[&str] = &[
     // Lot B (J6-04)
     "takeoff",
@@ -31,6 +31,16 @@ const SCENARIO_SHOTS: &[&str] = &[
     "bullet-time",
     "fpv-dive",
     "city-wide",
+    // Lot C (J6-05) : sujets du monde, joués par `tests_world.rs`
+    "ad-glance",
+    "pursuit",
+    "bikers",
+    "landmark-reveal",
+    "meteor-ride",
+    "ringworld",
+    "moon-pass",
+    "meteor-impact-watch",
+    "dj-sign",
 ];
 
 /// Trente secondes simulées, à la cadence de la soirée de test.

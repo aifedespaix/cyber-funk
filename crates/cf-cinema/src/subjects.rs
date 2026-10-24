@@ -9,6 +9,12 @@ use crate::kit::{FOV_MAX, FOV_MIN};
 use crate::pose::{aim, follow};
 use crate::world::CinemaFrame;
 
+/// Interpolation linéaire (`lerp` de `subject-helpers.ts`).
+#[must_use]
+pub fn lerp(a: f32, b: f32, t: f32) -> f32 {
+    a + (b - a) * t
+}
+
 /// Retrouve un sujet par (genre, id) : `None` s'il a disparu.
 #[must_use]
 pub fn find_subject<'a>(frame: &CinemaFrame<'a>, kind: SubjectKind, id: u64) -> Option<&'a Subject> {
