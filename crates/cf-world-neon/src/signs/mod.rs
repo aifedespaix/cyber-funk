@@ -3,6 +3,7 @@
 pub mod ads;
 pub mod formats;
 pub mod icons;
+pub mod paint;
 pub mod show_signs;
 
 #[cfg(test)]
