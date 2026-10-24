@@ -1,10 +1,10 @@
 //! Le tirage en deux temps : le rang (probabilités de base et garde-fous), puis le plan dans le rang (poids × énergie ×
 //! fraîcheur × humeur du morceau).
 
-use super::{
-    BREAK_BONUS, BREAK_SECONDS, BUILD_BONUS, BUILD_SECONDS, COCKPIT_CAP, DROP_BONUS, Editor, PROJECTOR_WEIGHT,
-    PickMode, lookup,
+use super::tables::{
+    BREAK_BONUS, BREAK_SECONDS, BUILD_BONUS, BUILD_SECONDS, COCKPIT_CAP, DROP_BONUS, PROJECTOR_WEIGHT, lookup,
 };
+use super::{Editor, PickMode};
 use crate::choreo::ShowSide;
 use crate::shot::ShotSpec;
 use crate::types::ShotTier;

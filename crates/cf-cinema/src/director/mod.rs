@@ -10,6 +10,7 @@ mod cuts;
 mod cuts_tests;
 mod guard;
 mod kind;
+mod stats;
 #[cfg(test)]
 mod tests;
 
@@ -30,6 +31,7 @@ use crate::world::CinemaFrame;
 
 pub use crate::choreo::MAX_CUTS_PER_SECOND;
 pub use guard::{CAMERA_RADIUS, MAX_AHEAD, MAX_BEHIND, MAX_HEIGHT};
+pub use stats::DirectorStats;
 
 /// Un plan et sa pose : la pose reste attachée à son plan quand les rôles (sortant / entrant) s'échangent.
 #[derive(Default)]
@@ -48,32 +50,6 @@ impl Slot {
         self.spec = None;
         self.prev = None;
     }
-}
-
-/// Ce que le réalisateur a fait depuis son démarrage : de quoi vérifier le rythme et la sûreté (tests, rapport).
-#[derive(Debug, Clone, Copy, Default, PartialEq)]
-pub struct DirectorStats {
-    /// Plans lancés (coupes et transitions confondues).
-    pub shots: u32,
-    /// Instant (horloge du monde) du dernier plan lancé.
-    pub last_shot_at: f64,
-    /// Mode du dernier tirage.
-    pub last_mode: Option<PickMode>,
-    /// Entrée du dernier plan.
-    pub last_kind: Option<TransitionKind>,
-    /// Le dernier plan est parti sur un temps musical.
-    pub last_on_beat: bool,
-    /// Temps comptés depuis la phrase au moment du dernier plan.
-    pub last_beat_no: u32,
-    /// Images où la pose touchait un immeuble et a été dégagée.
-    pub wall_saves: u32,
-    /// Images où la pose a été remplacée par le dernier bon cadrage (NaN, mur indégageable).
-    pub fallbacks: u32,
-    /// Coupes franches admises (transitions `Cut` et sauts de pose des plans) : plafonnées à
-    /// [`MAX_CUTS_PER_SECOND`] par seconde glissante.
-    pub cuts: u32,
-    /// Coupes refusées par le plafond : transition adoucie en fondu, ou saut de plan retardé (pose précédente tenue).
-    pub cuts_held: u32,
 }
 
 /// Le réalisateur. Ressource Bevy : un seul écrivain, le système de `CfSet::Direct`.
