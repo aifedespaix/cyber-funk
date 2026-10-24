@@ -2370,6 +2370,7 @@ dependencies = [
  "cf-analysis",
  "cf-render",
  "cf-show",
+ "rand_core",
  "tracing",
 ]
 

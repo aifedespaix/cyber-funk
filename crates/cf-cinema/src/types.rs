@@ -22,6 +22,28 @@ pub enum ShotTier {
     Epic,
 }
 
+impl ShotTier {
+    /// Les rangs, du plus courant au plus rare.
+    pub const ALL: [Self; 4] = [Self::Common, Self::Uncommon, Self::Rare, Self::Epic];
+
+    /// Nom du rang dans les fichiers de look (`shot_tiers` des portes) : celui de Sillage.
+    #[must_use]
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::Common => "common",
+            Self::Uncommon => "uncommon",
+            Self::Rare => "rare",
+            Self::Epic => "epic",
+        }
+    }
+
+    /// Position dans [`Self::ALL`].
+    #[must_use]
+    pub const fn index(self) -> usize {
+        self as usize
+    }
+}
+
 /// Comment on entre dans un plan.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum TransitionKind {

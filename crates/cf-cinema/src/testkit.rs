@@ -62,11 +62,16 @@ impl Obstacles for BoxCity {
 pub(crate) struct Sim {
     pub(crate) world: CinemaWorld,
     next_beat: f64,
+    bpm: f64,
     section_at: f64,
 }
 
 impl Sim {
     pub(crate) fn new(show: bool) -> Self {
+        Self::with_bpm(show, BPM)
+    }
+
+    pub(crate) fn with_bpm(show: bool, bpm: f64) -> Self {
         let mut world = CinemaWorld {
             live: true,
             dt: DT,
@@ -74,7 +79,7 @@ impl Sim {
             car: DVec3::new(0.0, 0.0, -10_000.0),
             ..CinemaWorld::default()
         };
-        world.beat.bpm = Some(BPM as f32);
+        world.beat.bpm = Some(bpm as f32);
         world.show = ShowView {
             active: show,
             cut_grid: CutGrid {
@@ -86,7 +91,8 @@ impl Sim {
         };
         Self {
             world,
-            next_beat: 60.0 / BPM,
+            next_beat: 60.0 / bpm,
+            bpm,
             section_at: 0.0,
         }
     }
@@ -99,7 +105,7 @@ impl Sim {
         w.show.drop_now = false;
         w.section_changed = None;
         if t >= self.next_beat {
-            self.next_beat += 60.0 / BPM;
+            self.next_beat += 60.0 / self.bpm;
             w.beat.count += 1;
             w.beat.pulse = 1.0;
         } else {

@@ -1,12 +1,15 @@
 //! Quand couper (`cinema/cutter.ts`). Hors spectacle : rythme de clip historique (coupe sur la phrase). Pendant le
 //! spectacle : la grille de coupe du look (en temps musicaux, selon la section).
 //!
-//! La mise en scène du spectacle (`Choreography` : préparation et frappe du drop, salves, ordres de l'opérateur) se
-//! branche en tête de [`Cutter::decide`] avec J6-02.
+//! La mise en scène du spectacle ([`Choreography`] : préparation et frappe du drop, salves, ordres de l'opérateur) passe
+//! en tête de [`Cutter::decide`] dès qu'un spectacle tourne ; la règle générique de drop (avec sa garde de 6 s) ne
+//! sert plus que hors spectacle, comme dans Sillage.
 
+use crate::choreo::{Call, Choreography, ShowSide};
 use crate::cues::CueList;
 use crate::editor::{Editor, PickMode};
 use crate::pacing::{CueFlags, grid_beats, max_seconds_of, min_seconds_of};
+use crate::rng::CinemaRng;
 use crate::shot::ShotSpec;
 use crate::types::{CueKind, TransitionKind};
 use crate::world::CinemaFrame;
@@ -34,6 +37,8 @@ pub struct Decision {
     pub spec: Option<usize>,
     /// Entrée imposée.
     pub kind: Option<TransitionKind>,
+    /// Le chef du spectacle a déjà compté ce plan dans la fraîcheur commune (plan de drop de `DropConductor`).
+    pub counted: bool,
 }
 
 impl Decision {
@@ -44,6 +49,7 @@ impl Decision {
             mode,
             spec: None,
             kind: None,
+            counted: false,
         }
     }
 }
@@ -62,8 +68,9 @@ pub struct OnAir<'a> {
 }
 
 /// Décide quand couper.
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone)]
 pub struct Cutter {
+    choreo: Choreography,
     flags: CueFlags,
     beat_no: u32,
     shot_beats: u32,
@@ -74,14 +81,37 @@ pub struct Cutter {
 }
 
 impl Cutter {
-    /// Repart de zéro.
-    pub fn reset(&mut self) {
-        *self = Self {
+    /// Coupeur dont la mise en scène tire au hasard avec `rng`.
+    #[must_use]
+    pub fn new(rng: CinemaRng) -> Self {
+        Self {
+            choreo: Choreography::new(rng),
+            flags: CueFlags::default(),
+            beat_no: 0,
+            shot_beats: 0,
+            reaction: false,
             reaction_at: f64::NEG_INFINITY,
             last_reaction: f64::NEG_INFINITY,
             last_opportunity: f64::NEG_INFINITY,
-            ..Self::default()
-        };
+        }
+    }
+
+    /// La mise en scène (salves déjà jouées).
+    #[must_use]
+    pub fn choreo(&self) -> &Choreography {
+        &self.choreo
+    }
+
+    /// Repart de zéro.
+    pub fn reset(&mut self, show: &dyn ShowSide) {
+        self.flags = CueFlags::default();
+        self.beat_no = 0;
+        self.shot_beats = 0;
+        self.reaction = false;
+        self.reaction_at = f64::NEG_INFINITY;
+        self.last_reaction = f64::NEG_INFINITY;
+        self.last_opportunity = f64::NEG_INFINITY;
+        self.choreo.reset(show);
     }
 
     /// Un événement de la voiture (décollage, descente, esquive) à saisir.
@@ -107,8 +137,9 @@ impl Cutter {
         frame: &CinemaFrame<'_>,
         cues: &CueList,
         on_air: &OnAir<'_>,
-        editor: &Editor,
+        editor: &mut Editor,
         catalog: &[Box<dyn ShotSpec>],
+        show: &mut dyn ShowSide,
     ) -> Option<Decision> {
         let f = &mut self.flags;
         *f = CueFlags::default();
@@ -132,9 +163,21 @@ impl Cutter {
         if on_air.holding {
             return None;
         }
-        let show = frame.show;
+        let view = frame.show;
         let elapsed = frame.time - on_air.started_at;
-        let breathing = show.active && show.breathing;
+        if view.active {
+            match self
+                .choreo
+                .decide(frame, f, elapsed, Some(on_air.index), editor, catalog, show)
+            {
+                Some(Call::Wait) => return None,
+                Some(Call::Decide(decision)) => return Some(decision),
+                None if view.drop_now => return None,
+                None => {}
+            }
+        }
+        let show: &dyn ShowSide = show;
+        let breathing = view.active && view.breathing;
         let min_seconds = f64::from(min_seconds_of(frame, on_air.spec));
         let max_seconds = f64::from(max_seconds_of(frame, on_air.spec));
         if f.drop && !breathing && elapsed > DROP_GUARD {
@@ -147,7 +190,7 @@ impl Cutter {
             && elapsed > REACTION_GUARD
             && frame.time - self.last_reaction >= REACTION_GAP
             && (!on_air.spec.scripted() || elapsed >= f64::from(on_air.spec.min_seconds()))
-            && let Some(reply) = editor.best_opportunity(frame, catalog, Some(on_air.index), true)
+            && let Some(reply) = editor.best_opportunity(frame, show, catalog, Some(on_air.index), true)
         {
             self.last_reaction = frame.time;
             self.reaction = false;
@@ -159,7 +202,7 @@ impl Cutter {
         if f.beat
             && elapsed > OPPORTUNITY_GUARD
             && frame.time - self.last_opportunity >= OPPORTUNITY_GAP
-            && let Some(chance) = editor.best_opportunity(frame, catalog, Some(on_air.index), false)
+            && let Some(chance) = editor.best_opportunity(frame, show, catalog, Some(on_air.index), false)
         {
             self.last_opportunity = frame.time;
             return Some(Decision {
@@ -167,7 +210,7 @@ impl Cutter {
                 ..Decision::of(PickMode::Normal)
             });
         }
-        if show.active {
+        if view.active {
             let grid = grid_beats(frame);
             if f.beat && self.beat_no.is_multiple_of(grid) && self.shot_beats >= grid && elapsed >= min_seconds {
                 return Some(Decision::of(PickMode::Normal));
