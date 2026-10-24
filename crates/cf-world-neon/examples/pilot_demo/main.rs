@@ -42,12 +42,16 @@ const LOOKS: [&str; 6] = [
 ];
 
 /// Le spectacle du niveau, portes lues dans son look.
-fn show_of(level: u8, heat: f64) -> ShowInput {
-    let look = cf_show::load::parse_look(LOOKS[usize::from(level.min(5))], "pilot_demo").unwrap_or_else(|e| {
-        panic!("look du niveau {level} illisible : {e}");
-    });
+fn show_of(level: u8, heat: f64) -> Option<ShowInput> {
+    let look = match cf_show::load::parse_look(LOOKS[usize::from(level.min(5))], "pilot_demo") {
+        Ok(look) => look,
+        Err(error) => {
+            error!(%error, level, "look du niveau illisible : portes toutes ouvertes");
+            return None;
+        }
+    };
     let g = look.gates;
-    ShowInput {
+    Some(ShowInput {
         level,
         heat,
         breathing: false,
@@ -60,7 +64,7 @@ fn show_of(level: u8, heat: f64) -> ShowInput {
             flight_on_drop_only: g.flight_on_drop_only,
             tricks: g.tricks,
         },
-    }
+    })
 }
 
 fn main() {
@@ -94,7 +98,7 @@ fn main() {
         ChaseCameraPlugin,
         PilotPlugin {
             settings: PilotSettings {
-                show: Some(show_of(level, 0.9)),
+                show: show_of(level, 0.9),
                 ..default()
             },
         },

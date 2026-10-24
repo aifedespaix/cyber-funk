@@ -9,12 +9,17 @@
 use cf_analysis::Section;
 
 use super::auto::FlightCommand;
-use super::machine::{Flight, FlightPhase};
+use super::machine::Flight;
+use super::types::FlightPhase;
 use crate::pilot::dance::{DanceStyle, dance_floor};
 use crate::route::FLOOR_COUNT;
 
 /// Ce que la danse lit à chaque image.
 #[derive(Debug, Clone, Copy)]
+#[allow(
+    clippy::struct_excessive_bools,
+    reason = "des drapeaux d'image indépendants, comme le `BeatState` de Sillage"
+)]
 pub struct DanceContext {
     /// Durée de l'image, s.
     pub dt: f64,
@@ -79,7 +84,7 @@ impl DanceFlight {
         }
 
         let bar = (c.dance_beat / 4.0).floor() as i64;
-        let downbeat = c.kick && c.count % 4 == 0;
+        let downbeat = c.kick && c.count.is_multiple_of(4);
         let lively = c.section == Section::Peak || (c.section == Section::Groove && c.intensity > 0.45);
 
         if !c.playing || c.outro || (c.section == Section::Calm && c.intensity < 0.3) {

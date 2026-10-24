@@ -5,7 +5,8 @@
 //! Sillage cherche d'abord les bonus qui flottent aux étages (`bestFloor`) ; c'est le mode Jeu, il n'y en a pas en
 //! cinéma : seul reste le petit vol que le pilote s'offre de temps en temps, réglé par les portes du look.
 
-use super::machine::{Flight, FlightEnv, FlightPhase, TrickKind};
+use super::machine::Flight;
+use super::types::{FlightEnv, FlightPhase, TrickKind};
 use crate::pilot::input::ShowInput;
 use crate::pilot::rand::Rand;
 use crate::route::FLOOR_COUNT;

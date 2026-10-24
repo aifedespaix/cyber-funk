@@ -53,7 +53,7 @@ impl Default for PilotSettings {
             dance: None,
             speed_cap_mps: None,
             calm: false,
-            seed: 0x5111_A6E,
+            seed: 0x0511_1A6E,
             start_z_m: 0.0,
             show: None,
         }

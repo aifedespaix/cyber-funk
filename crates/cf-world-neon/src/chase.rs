@@ -120,12 +120,18 @@ fn advance_runner(time: Res<Time>, config: Res<RunnerConfig>, mut runner: Query<
 /// `CfSet::Direct` : la caméra suit l'entité suivie (point suivi provisoire ou voiture).
 fn chase_camera(
     features: Option<Res<AudioFeatures>>,
-    runner: Query<&AbsolutePosition, With<StreamFocus>>,
+    runner: Query<(&AbsolutePosition, Has<crate::pilot::PilotCar>), With<StreamFocus>>,
     mut pose: ResMut<CameraPose>,
 ) {
-    let Ok(car) = runner.single() else { return };
+    let Ok((car, piloted)) = runner.single() else { return };
     let (pulse, intensity) = features.as_deref().map_or((0.0, 0.4), |f| (f.0.pulse, f.0.intensity));
-    let next = chase_pose(car.0, pulse, intensity);
+    // La voiture du pilote vole : la caméra monte avec elle. Le pavé provisoire, lui, est posé par son centre (0,65 m).
+    let at = if piloted {
+        car.0
+    } else {
+        DVec3::new(car.0.x, 0.0, car.0.z)
+    };
+    let next = chase_pose(at, pulse, intensity);
     if *pose != next {
         *pose = next;
     }

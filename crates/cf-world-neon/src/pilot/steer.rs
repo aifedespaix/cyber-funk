@@ -78,20 +78,17 @@ impl Autopilot {
     /// Renvoie la direction voulue, entre -1 et 1.
     pub fn steer(&mut self, s: &SteerInput<'_>) -> f64 {
         // Spectacle : sans rien à ramasser on suit la ligne de course.
-        let line = match (s.show, s.preferred) {
-            (Some(show), None) => {
-                let energy = s.energy * 0.7 + show.heat * 0.3;
-                Some(self.line.update(
-                    s.dt,
-                    s.beat,
-                    if show.breathing { energy * 0.5 } else { energy },
-                    s.lateral_rate,
-                ))
-            }
-            _ => {
-                self.line.reset(s.car_x);
-                None
-            }
+        let line = if let (Some(show), None) = (s.show, s.preferred) {
+            let energy = s.energy * 0.7 + show.heat * 0.3;
+            Some(self.line.update(
+                s.dt,
+                s.beat,
+                if show.breathing { energy * 0.5 } else { energy },
+                s.lateral_rate,
+            ))
+        } else {
+            self.line.reset(s.car_x);
+            None
         };
         let mut best = self.target;
         let mut best_cost = f64::INFINITY;
@@ -140,7 +137,7 @@ mod tests {
     use super::*;
     use crate::route::PickupKind;
 
-    fn input<'a>(ground: &'a [PickupView], car_x: f64, preferred: Option<f64>) -> SteerInput<'a> {
+    fn input(ground: &[PickupView], car_x: f64, preferred: Option<f64>) -> SteerInput<'_> {
         SteerInput {
             car_x,
             car_z: -1000.0,
