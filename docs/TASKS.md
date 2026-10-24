@@ -96,8 +96,8 @@ En cours au dernier point : aucune.
 | J5-06 | [Pilote automatique, allure, chorégraphie, vol](tasks/J5.md) | Sonnet 5.5 | `high` | J5-05, J2-05 | ✅ |
 | J5-07 | [Faisceaux et effets du monde](tasks/J5.md) | Sonnet 5.5 | `medium` | J5-02, J4-02 | ⬜ |
 | J6-01 | [Cœur du réalisateur](tasks/J6.md) | Opus 5.5 | `high` | J5-06, J4-01, J2-05 | ✅ |
-| J6-02 | [Éditeur et chorégraphie](tasks/J6.md) | Sonnet 5.5 | `high` | J6-01, J2-04 | ⬜ |
-| J6-03 | [Plans, lot A : voiture](tasks/J6.md) | Haiku 5.5 | `medium` | J6-01 | ⬜ |
+| J6-02 | [Éditeur et chorégraphie](tasks/J6.md) | Sonnet 5.5 | `high` | J6-01, J2-04 | ✅ |
+| J6-03 | [Plans, lot A : voiture](tasks/J6.md) | Haiku 5.5 | `medium` | J6-01 | ✅ |
 | J6-04 | [Plans, lot B : vol, cascades, vitesse](tasks/J6.md) | Sonnet 5.5 | `medium` | J6-01, J5-06 | ⬜ |
 | J6-05 | [Plans, lot C : sujets du monde](tasks/J6.md) | Sonnet 5.5 | `medium` | J6-01 | ⬜ |
 | J7-01 | [Système d'enseignes et textures 2D procédurales](tasks/J7.md) | Sonnet 5.5 | `high` | J5-02, J4-07 | ⬜ |
