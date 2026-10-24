@@ -363,6 +363,41 @@ mod tests {
         assert!((rotation.length() - 1.0).abs() < 1e-5);
     }
 
+    /// Les départs contre ceux de `shooting-stars.ts` (voir `tools/sillage-golden/sky/`, `tests/golden/sky.json`).
+    #[test]
+    fn les_departs_sont_ceux_de_sillage() {
+        let golden: serde_json::Value = serde_json::from_str(include_str!("../../tests/golden/sky.json")).expect("json");
+        let launches = golden["launches"].as_array().expect("départs");
+        assert!(!launches.is_empty());
+        let near = |v: &serde_json::Value, expected: f32, tol: f32, what: &str| {
+            let v = v.as_f64().expect("nombre") as f32;
+            assert!((v - expected).abs() <= tol, "{what} : {v} contre {expected}");
+        };
+        let mut stars = ShootingStars::new();
+        for launch in launches {
+            // Un départ de plus, après la pause qu'il faut à la cadence maximale, sur un pool libéré : le trait de Sillage
+            // repart de zéro de la même façon.
+            stars.clock_s += 2.0;
+            stars.streaks = [Streak::FREE; POOL];
+            let slot = stars.launch().expect("départ");
+            let streak = stars.streaks()[slot];
+            let k = launch["k"].as_u64().expect("k");
+            for (axis, value) in streak.position.to_array().iter().enumerate() {
+                near(&launch["position"][axis], *value, 0.02, &format!("départ {k} position"));
+            }
+            for (axis, value) in streak.direction.to_array().iter().enumerate() {
+                near(&launch["direction"][axis], *value, 1e-3, &format!("départ {k} direction"));
+            }
+            near(&launch["speed"], streak.speed_mps, 0.02, "vitesse");
+            near(&launch["life"], streak.life_s, 1e-3, "vie");
+            near(&launch["scale"][0], streak.length_m, 0.02, "longueur");
+            near(&launch["scale"][1], streak.width_m, 1e-3, "largeur");
+            // Teinte : numéro du rôle de couleur de la scène (glace 7, menthe 2, azur 3, corail 5).
+            let roles = [7, 2, 3, 5];
+            assert_eq!(launch["tint"].as_u64(), Some(roles[streak.tint]), "teinte du départ {k}");
+        }
+    }
+
     #[test]
     fn calme_espace_les_departs() {
         let count = |calm: bool| {
