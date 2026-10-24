@@ -10,6 +10,8 @@ mod cuts;
 mod cuts_tests;
 mod guard;
 mod kind;
+#[cfg(test)]
+mod show_tests;
 mod stats;
 #[cfg(test)]
 mod tests;

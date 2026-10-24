@@ -2368,9 +2368,11 @@ version = "0.1.0"
 dependencies = [
  "bevy",
  "cf-analysis",
+ "cf-control",
  "cf-render",
  "cf-show",
  "rand_core",
+ "rand_pcg",
  "tracing",
 ]
 

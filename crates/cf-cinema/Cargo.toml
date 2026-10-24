@@ -17,3 +17,7 @@ cf-render.workspace = true
 cf-show.workspace = true
 rand_core.workspace = true
 tracing.workspace = true
+
+[dev-dependencies]
+cf-control.workspace = true
+rand_pcg.workspace = true
