@@ -1,7 +1,7 @@
 //! Neon City, le monde repris de Sillage : route infinie, immeubles néon, ciel et planètes, voiture en pilote
 //! automatique, trafic, cascades, enseignes et événements. Implémente le trait `World` de `cf-render`.
 //!
-//! Contenu actuel (J5-01, J5-02, J5-03, J5-05, J5-06) :
+//! Contenu actuel (J5-01, J5-02, J5-03, J5-04, J5-05, J5-06) :
 //!
 //! - [`road`] : la route (plan unique, shader WESL, réaction au pouls et aux basses, teinte d'ambiance) ;
 //! - [`route`] : le plan de route (ponts, planificateur du pilote), pur et déterministe ;
@@ -10,6 +10,7 @@
 //! - [`meteors`] (J7-10) : les astres qui tombent, leurs explosions contre la ville et leurs anneaux dans la brume ;
 //! - [`signs`] (J7-01) : les enseignes de la route (textures 2D cuites à l'ouverture, bandeaux, néons, caméras) ;
 //! - [`facade`] : le matériau de façade (fenêtres, néons, pulsation sur les temps) et son shader ;
+//! - [`weather`] (J5-04) : l'atmosphère (brume sous la route, pluie, météo, éclairs d'orage derrière le limiteur) ;
 //! - [`world`] : [`NeonWorld`], l'implémentation du trait `World` (streaming) ;
 //! - [`chase`] : caméra de poursuite provisoire, en attendant le réalisateur (J6), et point suivi provisoire pour les
 //!   exemples sans pilote ;
@@ -45,6 +46,7 @@ pub mod signs;
 pub mod sky;
 pub mod stunts;
 pub mod traffic;
+pub mod weather;
 pub mod world;
 
 use bevy::prelude::*;
@@ -64,6 +66,7 @@ pub use signs::SignsPlugin;
 pub use sky::{RingPlanet, ShootingStarRequest, SkyLook, SkyPlugin};
 pub use stunts::{StuntDirector, StuntKind, StuntOrders, StuntRegistry, StuntSet, StuntsPlugin};
 pub use traffic::{TrafficAppExt, TrafficEvent, TrafficPlugin, TrafficSettings, TrafficStats};
+pub use weather::{Thunder, WeatherPlugin, WeatherSettings, WeatherState};
 pub use world::NeonWorld;
 
 /// Plugin du monde Neon City : le monde streamé, la route et le plan de route.
@@ -122,6 +125,7 @@ impl Plugin for NeonWorldPlugin {
             MeteorsPlugin,
             SignsPlugin::default(),
             LandmarksPlugin::default(),
+            WeatherPlugin,
         ))
         .init_resource::<RoutePlan>()
         .init_resource::<RoutePlanner>()
