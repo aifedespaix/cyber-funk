@@ -51,7 +51,9 @@ vient de la taille de la tâche et du nombre d'itérations, bien plus que du dé
 ## Statuts
 
 ⬜ à faire · 🟨 en cours · 🟦 PR ouverte · ✅ fusionnée.
-En cours au dernier point : aucune.
+En cours au dernier point : J7-05, J7-07.
+
+✅* J7-04 : événements écrits et testés, mais critère « déclenchable par `Action::Trigger` » non rempli et `CalmEventsPlugin` non branché : repris par J7-05.
 
 | ID | Tâche | Modèle | Effort | Dépend de | Statut |
 | --- | --- | --- | --- | --- | --- |
@@ -103,9 +105,9 @@ En cours au dernier point : aucune.
 | J7-01 | [Système d'enseignes et textures 2D procédurales](tasks/J7.md) | Sonnet 5.5 | `high` | J5-02, J4-07 | ✅ |
 | J7-02 | [Enseigne géante du DJ](tasks/J7.md) | Sonnet 5.5 | `high` | J7-01, J2-05 | ⬜ |
 | J7-03 | [Trafic : socle](tasks/J7.md) | Sonnet 5.5 | `high` | J5-02 | ✅ |
-| J7-04 | [Événements du trafic, lot A (calmes et urbains)](tasks/J7.md) | Haiku 5.5 | `medium` | J7-03 | ⬜ |
+| J7-04 | [Événements du trafic, lot A (calmes et urbains)](tasks/J7.md) | Haiku 5.5 | `medium` | J7-03 | ✅* |
 | J7-05 | [Événements du trafic, lot B (vol et démesure)](tasks/J7.md) | Sonnet 5.5 | `medium` | J7-03 | ⬜ |
-| J7-06 | [Directeur des cascades](tasks/J7.md) | Sonnet 5.5 | `high` | J5-06 | ⬜ |
+| J7-06 | [Directeur des cascades](tasks/J7.md) | Sonnet 5.5 | `high` | J5-06 | ✅ |
 | J7-07 | [Scripts de cascades](tasks/J7.md) | Sonnet 5.5 | `medium` | J7-06 | ⬜ |
 | J7-08 | [Landmarks : registre et bâtiments spéciaux](tasks/J7.md) | Sonnet 5.5 | `high` | J5-02 | ⬜ |
 | J7-09 | [Landmarks vitrines](tasks/J7.md) | Sonnet 5.5 | `medium` | J7-08 | ⬜ |
