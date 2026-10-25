@@ -30,6 +30,12 @@ fn sstep(edge0: f32, edge1: f32, x: f32) -> f32 {
     return 1.0 - smoothstep(edge1, edge0, x);
 }
 
+// Bevy mélange `AlphaMode::Add` en alpha prémultiplié (`src + dst × (1 − α)`) : pour retrouver le mélange additif de Three.js
+// (`src × α + dst`), chaque lumière rend sa couleur déjà multipliée par son alpha, avec un alpha nul.
+fn additive(color: vec3<f32>, alpha: f32) -> vec4<f32> {
+    return vec4<f32>(color * alpha, 0.0);
+}
+
 @fragment
 fn fragment(in: VertexOutput) -> @location(0) vec4<f32> {
     let tint = fx.tint.rgb;
@@ -45,28 +51,28 @@ fn fragment(in: VertexOutput) -> @location(0) vec4<f32> {
         let a = pow(along, 1.6) * width * level;
         // Le cœur de la queue blanchit près de la tête : un métal qui brûle.
         let col = mix(tint, vec3<f32>(1.0), pow(along, 5.0) * 0.55);
-        return vec4<f32>(col * a * 1.6, a);
+        return additive(col * a * 1.6, a);
     }
     if kind == KIND_GLOW {
         // Halo de chaleur centré sur l'astre : il déborde de la sphère sur toute sa circonférence.
         let a = pow(max(1.0 - d, 0.0), 2.4) * level;
-        return vec4<f32>(tint * 1.5, a);
+        return additive(tint * 1.5, a);
     }
     if kind == KIND_SPLASH {
         // Anneau de brume à l'impact dans la nappe de brouillard.
         let ring = sstep(0.18, 0.0, abs(d - 0.7)) + sstep(1.0, 0.0, d) * 0.25;
         let a = ring * level * (1.0 - smoothstep(0.85, 1.0, d));
-        return vec4<f32>(tint * a * 1.8, a);
+        return additive(tint * a * 1.8, a);
     }
     if kind == KIND_FLASH {
         // Éclair de l'explosion : cœur blanc, halo dans la teinte de l'astre.
         let core = exp(-d * d * 7.0);
         let halo = pow(max(1.0 - d, 0.0), 2.0);
         let col = mix(tint, vec3<f32>(1.0), core) * (core * 3.2 + halo * 1.3);
-        return vec4<f32>(col, (core + halo * 0.8) * level);
+        return additive(col, (core + halo * 0.8) * level);
     }
     // Onde de choc : un anneau qui s'élargit et s'amincit (`p.y` : son rayon, 0 → 1).
     let r = fx.p.y;
     let ring = sstep(0.1 + 0.08 * (1.0 - r), 0.0, abs(d - r * 0.92));
-    return vec4<f32>(mix(tint, vec3<f32>(1.0), 0.12) * 3.2, ring * level);
+    return additive(mix(tint, vec3<f32>(1.0), 0.12) * 3.2, ring * level);
 }

@@ -38,6 +38,7 @@ fn vertex(v: DebrisVertex) -> DebrisVarying {
 
 @fragment
 fn fragment(in: DebrisVarying) -> @location(0) vec4<f32> {
-    // Carré plein, comme les `Points` de Three.js sans texture ; le mélange additif ne garde que la couleur.
-    return vec4<f32>(in.color, 1.0);
+    // Carré plein, comme les `Points` de Three.js sans texture. Alpha nul : Bevy mélange `AlphaMode::Add` en alpha
+    // prémultiplié (`src + dst × (1 − α)`), la couleur s'ajoute donc telle quelle à l'image (voir `meteor_fx.wesl`).
+    return vec4<f32>(in.color, 0.0);
 }

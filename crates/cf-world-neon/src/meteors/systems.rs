@@ -69,6 +69,12 @@ impl Meteors {
         self.field.launch(anchor, calm, textures)
     }
 
+    /// Lance une pluie de `count` astres (au plus 12) étalés sur `seconds` (`startShower`) : le réalisateur, les tests et les
+    /// démos peuvent la réclamer ; le spectacle en lance aussi sur ses drops.
+    pub fn start_shower(&mut self, count: u32, seconds: f32) {
+        self.field.start_shower(count, seconds);
+    }
+
     /// Les astres en vol, comme sujets filmables (`Subject` de Sillage : id, position, vitesse, rayon).
     pub fn collect_subjects(&self, mut out: impl FnMut(Subject)) {
         for m in self.field.active() {

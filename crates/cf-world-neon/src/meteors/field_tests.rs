@@ -1,4 +1,5 @@
 use super::*;
+use crate::meteors::types::SPLASH_LIFE;
 
 const DT: f32 = 1.0 / 60.0;
 const CAR: DVec3 = DVec3::new(0.0, 0.0, -10_000.0);
