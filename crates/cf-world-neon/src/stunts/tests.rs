@@ -279,7 +279,7 @@ fn les_niveaux_sans_cascade_n_en_lancent_aucune() {
     closed.stunt_tiers.clear();
     let mut sim = Sim::new(1, full_registry(), &closed);
     sim.run(900.0);
-    assert!(sim.trace.runs.is_empty());
+    assert_eq!(sim.trace.runs.len(), 0);
     assert!(!sim.world.held);
 
     // Liste blanche vide.
@@ -287,7 +287,7 @@ fn les_niveaux_sans_cascade_n_en_lancent_aucune() {
     none.stunt_kinds.clear();
     let mut sim = Sim::new(1, full_registry(), &none);
     sim.run(900.0);
-    assert!(sim.trace.runs.is_empty());
+    assert_eq!(sim.trace.runs.len(), 0);
 }
 
 #[test]
@@ -297,7 +297,7 @@ fn la_voiture_ne_vole_jamais_au_niveau_zero() {
     grounded.max_floor = 0;
     let mut sim = Sim::new(2, full_registry(), &grounded);
     sim.run(900.0);
-    assert!(sim.trace.runs.is_empty());
+    assert_eq!(sim.trace.runs.len(), 0);
     assert!(sim.trace.max_weight.abs() < f64::EPSILON);
 }
 
@@ -336,7 +336,7 @@ fn liste_blanche_et_rangs_sont_respectes() {
     ];
     let mut sim = Sim::new(4, full_registry(), &g);
     sim.run(3600.0);
-    assert!(!sim.trace.runs.is_empty());
+    assert_ne!(sim.trace.runs.len(), 0);
     for (kind, ..) in &sim.trace.runs {
         // Loop est « rare » dans ce répertoire : refusée par les rangs ; le reste doit être sur la liste blanche.
         assert!(
@@ -485,7 +485,7 @@ fn l_usage_est_note_pour_la_fraicheur_du_tirage() {
     for _ in 0..(300.0 / DT) as usize {
         sim.frame(Planned::None, false, &mut link);
     }
-    assert!(!link.marked.is_empty());
+    assert_ne!(link.marked.len(), 0);
     assert!(link.marked.iter().all(|id| id.starts_with("stunt:")));
 }
 
@@ -529,7 +529,7 @@ fn le_registre_vide_ne_lance_rien_et_dispose_rend_la_ville() {
     let g = gates();
     let mut sim = Sim::new(14, StuntRegistry::default(), &g);
     sim.run(300.0);
-    assert!(sim.trace.runs.is_empty());
+    assert_eq!(sim.trace.runs.len(), 0);
 
     let mut sim = Sim::new(15, full_registry(), &g);
     let mut link = NoLink;

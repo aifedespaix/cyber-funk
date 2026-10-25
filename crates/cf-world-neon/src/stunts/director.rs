@@ -87,6 +87,7 @@ pub fn fold_period(bpm: Option<f32>) -> f64 {
 }
 
 /// Le chef d'orchestre. En ressource Bevy : un seul propriétaire, le système `drive_stunts`.
+#[allow(clippy::struct_excessive_bools)] // Les drapeaux d'état de Sillage (`active`, `dying`, `aborted`…), repris tels quels.
 #[derive(Resource)]
 pub struct StuntDirector {
     /// Une cascade tient la voiture (la pose pèse plus que rien).
@@ -339,8 +340,8 @@ impl StuntDirector {
         link: &mut dyn StuntLink,
     ) {
         let b = f.beat;
-        let bar = b.kick && b.count % 4 == 0;
-        let phrase = bar && b.count % 16 == 0;
+        let bar = b.kick && b.count.is_multiple_of(4);
+        let phrase = bar && b.count.is_multiple_of(16);
         let drop = f.show.map_or(f.drop, |s| s.drop_now);
         let planned = f.show.map_or(Planned::None, |s| s.planned);
         if f.road_speed < MIN_SPEED || world.busy() {
@@ -540,6 +541,7 @@ impl StuntDirector {
 }
 
 /// L'instant du tirage : sur quoi une cascade peut s'aligner.
+#[allow(clippy::struct_excessive_bools)] // Les quatre alignements possibles d'un instant de tirage.
 #[derive(Debug, Clone, Copy)]
 struct Moment {
     bar: bool,

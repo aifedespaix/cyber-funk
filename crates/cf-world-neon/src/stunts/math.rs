@@ -30,6 +30,7 @@ pub fn between(u: f64, a: f64, b: f64) -> f64 {
 
 /// Bosse : monte de `a` à `b`, tient jusqu'à `c`, redescend jusqu'à `d`.
 #[must_use]
+#[allow(clippy::many_single_char_names)] // a, b, c, d : les quatre bornes de la bosse, comme dans `math.ts`.
 pub fn bump(u: f64, a: f64, b: f64, c: f64, d: f64) -> f64 {
     between(u, a, b) * (1.0 - between(u, c, d))
 }
