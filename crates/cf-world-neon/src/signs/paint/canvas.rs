@@ -150,6 +150,14 @@ impl Canvas {
         self.layers[ink.ch].fill_path(path, &white(ink), FillRule::Winding, xf, None);
     }
 
+    /// Pose le halo d'une forme pleine **sans la forme** : l'ombre seule de Canvas 2D (`shadowOffset` hors cadre), comme
+    /// l'enseigne du DJ la dessine pour ses canaux de halo.
+    pub fn glow_only(&mut self, ink: Ink, path: &Path) {
+        if ink.glow > 0.0 && !ink.erase {
+            self.halo(ink, path, None);
+        }
+    }
+
     /// Pose un trait.
     pub fn stroke(&mut self, ink: Ink, path: &Path, stroke: &Stroke) {
         if ink.glow > 0.0 && !ink.erase {

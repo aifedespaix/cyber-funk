@@ -131,6 +131,7 @@ impl World for NeonWorld {
         Option<Res<'static, TrafficDirector>>,
         Option<Res<'static, crate::signs::SignRoadRes>>,
         Option<Res<'static, crate::meteors::Meteors>>,
+        Option<Res<'static, crate::djsign::DjSignRes>>,
     );
 
     fn layout(&self) -> StreamLayout {
@@ -187,10 +188,11 @@ impl World for NeonWorld {
     fn subjects(
         &self,
         _ctx: &SubjectContext<'_>,
-        (traffic, signs, meteors): &(
+        (traffic, signs, meteors, dj_sign): &(
             Option<Res<'_, TrafficDirector>>,
             Option<Res<'_, crate::signs::SignRoadRes>>,
             Option<Res<'_, crate::meteors::Meteors>>,
+            Option<Res<'_, crate::djsign::DjSignRes>>,
         ),
         out: &mut SubjectSink<'_>,
     ) {
@@ -210,6 +212,20 @@ impl World for NeonWorld {
                     size: width,
                     facing: Some(facing),
                 });
+            });
+        }
+        // L'enseigne géante du DJ (J7-02) : le plan `dj-sign` la filme. `id` change à chaque pose, le plan qui suivait
+        // l'ancienne enseigne ne la retrouve donc pas quand une neuve prend sa place.
+        if let Some(dj_sign) = dj_sign
+            && let Some((position, facing, width)) = dj_sign.0.focus()
+        {
+            out.push(cf_render::world::Subject {
+                id: u64::from(dj_sign.0.site_seq()),
+                kind: cf_render::world::SubjectKind::DjSign,
+                position,
+                velocity: Vec3::ZERO,
+                size: width,
+                facing: Some(facing),
             });
         }
         // Les astres en vol (J7-10) : `meteor-ride` et `meteor-impact-watch` les filment.

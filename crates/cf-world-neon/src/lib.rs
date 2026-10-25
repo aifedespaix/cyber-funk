@@ -37,6 +37,7 @@ pub mod beams;
 pub mod car;
 pub mod chase;
 pub mod cinema;
+pub mod djsign;
 pub mod dropfx;
 pub mod facade;
 pub mod landmarks;
@@ -60,6 +61,7 @@ pub use beams::{BeamField, BeamMaterial, Beams, BeamsPlugin};
 pub use car::{Car, CarControls, CarPlugin};
 pub use chase::{ChaseCameraPlugin, ChasePlugin, Runner, RunnerConfig, chase_pose};
 pub use cinema::{CinemaInput, NeonCinemaPlugin, fill_cinema_world};
+pub use djsign::{DjSignPlugin, DjSignSettings};
 pub use dropfx::{DropFx, DropFxPlugin};
 pub use facade::{FacadeLook, FacadeMaterial, FacadePlugin};
 pub use landmarks::{CityField, LandmarkHandle, LandmarkKind, LandmarksPlugin, StageLandmark};
@@ -130,6 +132,7 @@ impl Plugin for NeonWorldPlugin {
             SkyPlugin,
             MeteorsPlugin,
             SignsPlugin::default(),
+            DjSignPlugin::default(),
             LandmarksPlugin::default(),
             WeatherPlugin,
             BeamsPlugin,
