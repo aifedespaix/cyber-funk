@@ -17,6 +17,7 @@ use cf_cinema::{
 use cf_render::{AbsolutePosition, AudioFeatures, CfSet, CurrentShow, ShowRuntime, StreamFocus, WorldSet};
 use cf_show::director::ShowState;
 
+use crate::meteors::{MeteorSet, Meteors};
 use crate::pilot::{CarAnimation, DodgeSide, FlightPhase, PilotBrain, PilotSet, TrickKind};
 use crate::sky::RingPlanet;
 use crate::stunts::{StuntOrders, StuntSet};
@@ -128,7 +129,7 @@ pub fn fill_cinema_world(world: &mut CinemaWorld, input: &CinemaInput<'_>) {
         ring_outer: r.ring_outer,
         ring_normal: r.ring_normal,
     });
-    // Les cascades sont écrites par `build_cinema_world` (J7-06) ; pas d'astres qui tombent dans Neon City pour l'instant.
+    // Les cascades (J7-06) et le dernier impact d'astre (J7-10) sont écrits par `build_cinema_world`.
     world.stunt = None;
     world.last_blast = None;
 }
@@ -145,7 +146,8 @@ impl Plugin for NeonCinemaPlugin {
                 .in_set(CfSet::Simulate)
                 .after(WorldSet::Chunks)
                 .after(PilotSet)
-                .after(StuntSet),
+                .after(StuntSet)
+                .after(MeteorSet),
         );
     }
 }
@@ -161,6 +163,7 @@ fn build_cinema_world(
     animation: Option<Res<CarAnimation>>,
     ring: Option<Res<RingPlanet>>,
     stunts: Option<Res<StuntOrders>>,
+    meteors: Option<Res<Meteors>>,
     car: Query<&AbsolutePosition, With<StreamFocus>>,
     mut world: ResMut<CinemaWorld>,
 ) {
@@ -192,6 +195,14 @@ fn build_cinema_world(
             progress: view.progress,
             focus: view.focus,
         });
+    // Le dernier astre écrasé contre un immeuble (J7-10) : les plans `meteor-ride` et `meteor-impact-watch` tiennent
+    // jusqu'à l'explosion, puis la regardent.
+    world.last_blast = meteors.as_deref().and_then(Meteors::last_blast).map(|b| cf_cinema::MeteorBlast {
+        at: b.at,
+        radius: b.radius,
+        time: b.time_s,
+        meteor_id: b.meteor_id,
+    });
     world.show.drop_planned = runtime.is_some_and(|runtime| runtime.director().drop_plan().is_some());
 }
 

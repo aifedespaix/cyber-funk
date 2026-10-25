@@ -130,6 +130,7 @@ impl World for NeonWorld {
     type SubjectParam = (
         Option<Res<'static, TrafficDirector>>,
         Option<Res<'static, crate::signs::SignRoadRes>>,
+        Option<Res<'static, crate::meteors::Meteors>>,
     );
 
     fn layout(&self) -> StreamLayout {
@@ -186,9 +187,10 @@ impl World for NeonWorld {
     fn subjects(
         &self,
         _ctx: &SubjectContext<'_>,
-        (traffic, signs): &(
+        (traffic, signs, meteors): &(
             Option<Res<'_, TrafficDirector>>,
             Option<Res<'_, crate::signs::SignRoadRes>>,
+            Option<Res<'_, crate::meteors::Meteors>>,
         ),
         out: &mut SubjectSink<'_>,
     ) {
@@ -208,6 +210,12 @@ impl World for NeonWorld {
                     size: width,
                     facing: Some(facing),
                 });
+            });
+        }
+        // Les astres en vol (J7-10) : `meteor-ride` et `meteor-impact-watch` les filment.
+        if let Some(meteors) = meteors {
+            meteors.collect_subjects(|subject| {
+                out.push(subject);
             });
         }
     }
