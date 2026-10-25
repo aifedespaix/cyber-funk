@@ -66,21 +66,23 @@ impl Check {
 fn capture(commands: &mut Commands, time: &mut Time<Virtual>, name: &'static str) {
     time.pause();
     let mut shot = commands.spawn(Screenshot::primary_window());
-    shot.observe(move |captured: On<ScreenshotCaptured>, mut check: ResMut<Check>, mut time: ResMut<Time<Virtual>>| {
-        time.unpause();
-        if let Ok(image) = captured.image.clone().try_into_dynamic() {
-            let rgba = image.to_rgba8();
-            let width = rgba.width();
-            check.shots.insert(
-                name,
-                Shot {
-                    width,
-                    rgba: rgba.into_raw(),
-                },
-            );
-        }
-        check.awaiting = false;
-    });
+    shot.observe(
+        move |captured: On<ScreenshotCaptured>, mut check: ResMut<Check>, mut time: ResMut<Time<Virtual>>| {
+            time.unpause();
+            if let Ok(image) = captured.image.clone().try_into_dynamic() {
+                let rgba = image.to_rgba8();
+                let width = rgba.width();
+                check.shots.insert(
+                    name,
+                    Shot {
+                        width,
+                        rgba: rgba.into_raw(),
+                    },
+                );
+            }
+            check.awaiting = false;
+        },
+    );
     if let Some(dir) = std::env::var_os("CF_SNAPSHOT_DIR") {
         let dir = std::path::PathBuf::from(dir);
         let _ = std::fs::create_dir_all(&dir);
@@ -117,10 +119,7 @@ pub(crate) fn run_check(
                 // Derrière l'astre, un peu au-dessus : il file vers le fond.
                 let eye = m.position - m.velocity.as_dvec3().normalize() * 45.0 + DVec3::new(6.0, 9.0, 0.0);
                 *pose = pose_to(eye, m.position);
-                check.phase = Phase::Flight {
-                    id,
-                    frames: frames + 1,
-                };
+                check.phase = Phase::Flight { id, frames: frames + 1 };
                 if frames == FLIGHT_SHOT_FRAME {
                     check.awaiting = true;
                     capture(&mut commands, &mut time, "1-vol");
@@ -129,7 +128,12 @@ pub(crate) fn run_check(
             }
             // L'astre vient de finir.
             let blast = meteors.last_blast().filter(|b| b.meteor_id == id);
-            let splash = meteors.field().splashes().iter().find(|s| !s.is_free()).map(|s| s.position);
+            let splash = meteors
+                .field()
+                .splashes()
+                .iter()
+                .find(|s| !s.is_free())
+                .map(|s| s.position);
             check.phase = match (blast, splash, check.city) {
                 (Some(b), _, true) => Phase::Aftermath {
                     at: b.at,
@@ -146,7 +150,10 @@ pub(crate) fn run_check(
                     check.tries += 1;
                     meteors
                         .launch(CAR, false, count)
-                        .map_or(Phase::Done, |id| Phase::Flight { id, frames: FLIGHT_SHOT_FRAME + 1 })
+                        .map_or(Phase::Done, |id| Phase::Flight {
+                            id,
+                            frames: FLIGHT_SHOT_FRAME + 1,
+                        })
                 }
                 _ => Phase::Done,
             };

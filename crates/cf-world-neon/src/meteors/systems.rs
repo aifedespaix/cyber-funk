@@ -63,6 +63,17 @@ impl Meteors {
         self.field.last_blast()
     }
 
+    /// Le dernier impact tel que le réalisateur le lit (`CinemaWorld::last_blast`).
+    #[must_use]
+    pub fn cinema_blast(&self) -> Option<cf_cinema::MeteorBlast> {
+        self.last_blast().map(|b| cf_cinema::MeteorBlast {
+            at: b.at,
+            radius: b.radius,
+            time: b.time_s,
+            meteor_id: b.meteor_id,
+        })
+    }
+
     /// Lance un astre tout de suite (`launchMeteor`), autour de la voiture en `anchor`. `textures` : nombre de textures
     /// de planètes. Renvoie son identifiant, ou `None` s'il n'y a pas de place.
     pub fn launch(&mut self, anchor: DVec3, calm: bool, textures: usize) -> Option<u64> {

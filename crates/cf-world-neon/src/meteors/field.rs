@@ -15,9 +15,7 @@ use bevy::math::DVec3;
 use rand_core::{Rng, SeedableRng};
 use rand_pcg::Pcg32;
 
-use super::types::{
-    BlastRecord, FieldEvent, FieldInput, HEAT_COUNT, MIST_Y, Meteor, POOL, ShowGate, Splash,
-};
+use super::types::{BlastRecord, FieldEvent, FieldInput, HEAT_COUNT, MIST_Y, Meteor, POOL, ShowGate, Splash};
 use crate::rng::hash;
 
 /// Pluie d'astres (spectacle) : nombre minimal d'astres.
