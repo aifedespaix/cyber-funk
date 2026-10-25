@@ -17,8 +17,8 @@ use bevy::prelude::*;
 use bevy::shader::Shader;
 use cf_render::{CfSet, ScenePalette, ThemeLibrary, WarmupAppExt};
 
-pub use material::{FacadeMaterial, FacadeParams};
-pub use systems::{FrameInputs, build_params};
+pub use material::{FacadeMaterial, FacadeParams, TINT_COUNT};
+pub use systems::{FrameInputs, build_params, tint_rank};
 
 /// Le front de panne de courant au repos : profondeur nulle, la ville est entièrement éclairée.
 pub const NO_BLACKOUT: Vec4 = Vec4::new(0.0, 1.0, 0.0, 1.0);

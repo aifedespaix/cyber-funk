@@ -17,6 +17,8 @@
 //! - [`pilot`] (J5-06) : le pilote automatique (allure, chorégraphie, vol, esquives) et [`CarAnimation`] ;
 //! - [`stunts`] (J7-06) : le directeur des cascades (portes, tirage, pose fondue sur le pilote) et le registre qui
 //!   attend les scripts de J7-07 ;
+//! - [`landmarks`] (J7-08) : les immeubles-vitrines (mur de code, lave, ERROR, arcade, carte mère, arche, mecha), le champ de
+//!   lumières qu'ils partagent avec les façades et la route, et l'événement `landmark` du trafic ;
 //! - [`traffic`] (J7-03) : le trafic (véhicules volants, voitures au sol, registre d'événements pour J7-04 et J7-05) ;
 //! - [`car`] (J5-05) : la voiture (`CyberCar` de Sillage), ses lumières, sa traînée, la fumée de ses pneus. Elle prend la
 //!   place du pavé du point suivi provisoire.
@@ -32,6 +34,7 @@ pub mod car;
 pub mod chase;
 pub mod cinema;
 pub mod facade;
+pub mod landmarks;
 pub mod meteors;
 pub mod pilot;
 pub mod rng;
@@ -51,6 +54,7 @@ pub use car::{Car, CarControls, CarPlugin};
 pub use chase::{ChaseCameraPlugin, ChasePlugin, Runner, RunnerConfig, chase_pose};
 pub use cinema::{CinemaInput, NeonCinemaPlugin, fill_cinema_world};
 pub use facade::{FacadeLook, FacadeMaterial, FacadePlugin};
+pub use landmarks::{CityField, LandmarkHandle, LandmarkKind, LandmarksPlugin, StageLandmark};
 pub use meteors::{MeteorSet, Meteors, MeteorsPlugin};
 pub use pilot::{CarAnimation, Pilot, PilotPlugin, PilotSettings, PilotTraffic};
 pub use road::{Road, RoadLook, RoadMaterial, RoadPalette, RoadPlugin};
@@ -117,6 +121,7 @@ impl Plugin for NeonWorldPlugin {
             SkyPlugin,
             MeteorsPlugin,
             SignsPlugin::default(),
+            LandmarksPlugin::default(),
         ))
         .init_resource::<RoutePlan>()
         .init_resource::<RoutePlanner>()

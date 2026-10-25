@@ -1,16 +1,26 @@
 //! Le matériau de la route : un shader WESL (`assets/shaders/cf-world-neon/road.wesl`) et son bloc d'uniformes.
 
 use bevy::asset::{Asset, Handle, uuid_handle};
+use bevy::image::Image;
 use bevy::math::Vec4;
 use bevy::pbr::Material;
 use bevy::reflect::TypePath;
 use bevy::render::render_resource::{AsBindGroup, ShaderType};
 use bevy::shader::{Shader, ShaderRef};
 
+use crate::landmarks::field::FieldParams;
+
 /// Le shader de la route, embarqué dans le binaire : aucun fichier lu pendant un show (règle 8 de `CLAUDE.md`).
 pub(crate) const ROAD_SHADER: Handle<Shader> = uuid_handle!("6f0d3e2a-8b41-4c57-9a1e-5d7c2b9e4f13");
-/// Source du shader (`assets/shaders/cf-world-neon/road.wesl`).
-pub(crate) const ROAD_SOURCE: &str = include_str!("../../../../assets/shaders/cf-world-neon/road.wesl");
+/// Source du shader (`assets/shaders/cf-world-neon/road.wesl`), suivie du champ de la ville (`field.wesl`, partagé avec les
+/// façades : lumières des immeubles-vitrines, zone de glitch).
+pub(crate) const ROAD_SOURCE: &str = concat!(
+    include_str!("../../../../assets/shaders/cf-world-neon/road.wesl"),
+    "\n",
+    include_str!("../../../../assets/shaders/cf-world-neon/field.wesl"),
+    "\n",
+    include_str!("../../../../assets/shaders/cf-world-neon/glyph.wesl")
+);
 /// Chemin logique du shader (messages d'erreur de Bevy, imports).
 pub(crate) const ROAD_SHADER_PATH: &str = "cf-world-neon/road.wesl";
 
@@ -52,6 +62,13 @@ pub struct RoadMaterial {
     /// Uniformes envoyés au shader.
     #[uniform(0)]
     pub params: RoadParams,
+    /// Le champ de la ville : lumières des immeubles-vitrines, zone de glitch, décalque (J7-08).
+    #[uniform(1)]
+    pub field: FieldParams,
+    /// L'atlas du mot que l'immeuble ERROR projette sur la chaussée ; `None` : pas de décalque.
+    #[texture(2)]
+    #[sampler(3)]
+    pub decal: Option<Handle<Image>>,
 }
 
 impl Material for RoadMaterial {

@@ -13,9 +13,13 @@
 // Le décalage vertical du bloc (`aInfo.w`) est l'altitude de l'instance (sa base) : un corps commence à −BASE_DEPTH, une
 // couronne à la hauteur du corps, ce qui prolonge ses étages.
 //
-// Écarts avec Sillage (voir la PR) : pas de champ de lumières des immeubles-vitrines (`fieldPower`, `fieldLight`,
-// `fieldZone`) : sans événement actif ils valent 1, 0 et 0 dans Sillage aussi. Les pièces portent un `MeshTag` au lieu
-// d'attributs d'instance.
+// Le champ de la ville (`field.wesl`, ajouté au bout de ce fichier, J7-08) : `field_light` répand la lueur des
+// immeubles-vitrines, `field_zone` porte leur glitch (bandes aux canaux inversés, scanlines). Sans immeuble-vitrine ils
+// valent 0 et 0, comme dans Sillage. La panne de courant (`power`) est celle de J7-05.
+//
+// Écart avec Sillage (voir la PR) : les pièces portent un `MeshTag` au lieu d'attributs d'instance. Le rang de teinte du
+// tag va de 0 à 15 : 0..5 le cycle prismatique, 6..15 les couleurs de la scène (`SceneColor` sans l'encre), pour les corps
+// des immeubles-vitrines (lime, alarme, ambre…).
 //
 // Les dérivées (`fwidth`) sont calculées en tête, avant tout `discard` et tout retour anticipé : WGSL les exige en flot de
 // contrôle uniforme.
@@ -33,8 +37,8 @@ struct Facade {
     haze: vec4<f32>,
     mist: vec4<f32>,
     scan: vec4<f32>,
-    // Cycle prismatique : la teinte d'une tour est l'une de ces six couleurs.
-    cycle: array<vec4<f32>, 6>,
+    // La teinte d'une tour : 0..5 le cycle prismatique, 6..15 les couleurs de la scène (J7-08).
+    cycle: array<vec4<f32>, 16>,
     // x : temps (s), y : pouls (`uPulse`), z : basses (`uBass`), w : médiums (`uMid`).
     frame: vec4<f32>,
     // x : aigus (`uHigh`), y : temps musical continu (`uBeat`), z : pré-intro (`uBuild`), w : éclair d'orage (`uFlash`).
@@ -265,6 +269,16 @@ fn fragment(in: FacadeVarying) -> @location(0) vec4<f32> {
         let ramp = sstep(0.05, 0.0, abs(fract(in.local.z / 6.0) - 0.5) - 0.42);
         col += mix(ice, v_c, 0.5) * ramp * (0.8 + pulse * 1.2);
     }
+
+    // Lumières dynamiques des immeubles-vitrines, et leur zone de glitch (inversion de canaux, scanlines).
+    if !far {
+        col += (ice * 0.1 + v_c * 0.06) * field_light(in.world, n) * (1.0 + wet * 2.5);
+    }
+    let zw = field_zone(in.world);
+    let zone_band = step(0.92, fract(in.world.y * 0.045 + time * 0.7));
+    let zone_scan = step(0.5, fract(in.world.y * 0.9 - time * 3.0));
+    col = mix(col, col.brg * 1.3, zw * zone_band);
+    col += field.zone_tint.rgb * zw * (0.04 + 0.12 * zone_scan);
 
     // Éclair d'orage : la façade blanchit d'un coup, du côté éclairé.
     col += ice * flash * (0.25 + 0.5 * lambert);

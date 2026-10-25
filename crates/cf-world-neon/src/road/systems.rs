@@ -7,6 +7,7 @@ use cf_render::{AbsolutePosition, AudioFeatures, FloatingOrigin, StreamFocus};
 
 use super::material::RoadParams;
 use super::{AHEAD_M, Road, RoadLook, RoadMaterial};
+use crate::landmarks::field::{CityField, FieldParams};
 
 /// Période, en s, au bout de laquelle le temps du shader repart de zéro : 400 π s (~21 min).
 ///
@@ -116,6 +117,7 @@ pub(super) fn update_material(
     focus: Query<&AbsolutePosition, With<StreamFocus>>,
     road: Query<&MeshMaterial3d<RoadMaterial>, With<Road>>,
     mut materials: ResMut<Assets<RoadMaterial>>,
+    field: Option<Res<CityField>>,
 ) {
     let (pulse, bass, intensity) = features
         .as_deref()
@@ -132,12 +134,21 @@ pub(super) fn update_material(
             origin_z: origin.origin().z,
         },
     );
+    // Le champ de la ville (J7-08) : lumières, zone de glitch et décalque des immeubles-vitrines, en repère rendu.
+    let (field_params, decal) = field.as_deref().map_or((FieldParams::default(), None), |field| {
+        (field.params(origin.origin()), field.decal_map.clone())
+    });
     for handle in &road {
-        if materials.get(&handle.0).is_some_and(|m| m.params == params) {
+        if materials
+            .get(&handle.0)
+            .is_some_and(|m| m.params == params && m.field == field_params && m.decal == decal)
+        {
             continue;
         }
         if let Some(mut material) = materials.get_mut(&handle.0) {
             material.params = params;
+            material.field = field_params;
+            material.decal.clone_from(&decal);
         }
     }
 }

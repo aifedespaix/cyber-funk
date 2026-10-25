@@ -3,10 +3,11 @@
 use bevy::math::Vec4;
 use bevy::prelude::*;
 use cf_render::palette::LinearRgb;
-use cf_render::{AudioFeatures, SceneColor, ScenePalette};
+use cf_render::{AudioFeatures, FloatingOrigin, SceneColor, ScenePalette};
 
-use super::material::FacadeParams;
+use super::material::{FacadeParams, TINT_COUNT};
 use super::{FacadeLook, FacadeMaterial};
+use crate::landmarks::field::{CityField, FieldParams};
 use crate::road::RoadLook;
 
 /// Période, en s, au bout de laquelle le temps du shader repart de zéro : 40 min.
@@ -50,6 +51,29 @@ fn vec4(color: LinearRgb) -> Vec4 {
     Vec4::new(color.r, color.g, color.b, 1.0)
 }
 
+/// Les seize teintes que le tag d'une pièce nomme : le cycle prismatique (0..5), puis les couleurs de la scène (6..15, dans
+/// l'ordre de [`SceneColor::ALL`] sans l'encre), voir [`tint_rank`].
+fn tints(palette: &ScenePalette) -> [Vec4; TINT_COUNT] {
+    let mut out = [Vec4::ZERO; TINT_COUNT];
+    for (slot, color) in out.iter_mut().zip(palette.prismatic_cycle()) {
+        *slot = vec4(color);
+    }
+    for color in SceneColor::ALL {
+        if let Some(rank) = tint_rank(color) {
+            out[rank] = vec4(palette.get(color));
+        }
+    }
+    out
+}
+
+/// Le rang de teinte d'une couleur de la scène dans le tag d'une pièce (`6 + position`, l'encre n'en a pas : un corps noir
+/// n'a pas de sens), ou `None`.
+#[must_use]
+pub fn tint_rank(color: SceneColor) -> Option<usize> {
+    let position = SceneColor::ALL.iter().position(|c| *c == color)?;
+    (position > 0).then(|| 5 + position)
+}
+
 /// Les uniformes de l'image (`Scenery.update` de Sillage, plus le bloc de palette).
 #[must_use]
 pub fn build_params(
@@ -74,7 +98,7 @@ pub fn build_params(
         haze: vec4(get(SceneColor::Violet)),
         mist: vec4(mist),
         scan: vec4(get(SceneColor::Mint)),
-        cycle: palette.prismatic_cycle().map(vec4),
+        cycle: tints(palette),
         frame: Vec4::new((frame.time_s % TIME_WRAP_S) as f32, frame.pulse, frame.bass, frame.mid),
         audio: Vec4::new(
             frame.high,
@@ -99,6 +123,7 @@ pub fn build_params(
 
 /// `CfSet::Present` : remplit le matériau (temps, musique, météo, palette). Le matériau n'est touché que si quelque chose a
 /// changé : Bevy ne re-prépare pas un asset qu'on n'a pas écrit.
+#[allow(clippy::too_many_arguments)] // Les paramètres d'un système Bevy : ressources et requêtes.
 pub(super) fn update_material(
     time: Res<Time<Real>>,
     features: Option<Res<AudioFeatures>>,
@@ -107,6 +132,8 @@ pub(super) fn update_material(
     road: Res<RoadLook>,
     materials: Option<ResMut<Assets<FacadeMaterial>>>,
     scenery: Option<Res<crate::scenery::SceneryAssets>>,
+    origin: Option<Res<FloatingOrigin>>,
+    field: Option<Res<CityField>>,
 ) {
     let (Some(mut materials), Some(scenery)) = (materials, scenery) else {
         return;
@@ -124,10 +151,19 @@ pub(super) fn update_material(
         ..frame
     };
     let params = build_params(&palette, &look, road.wet, road.rain, &frame);
-    if materials.get(&scenery.material).is_some_and(|m| m.params == params) {
+    // Le champ de la ville (J7-08) : lumières des immeubles-vitrines, zone de glitch, panne de courant, en repère rendu.
+    let field_params = field
+        .as_deref()
+        .zip(origin.as_deref())
+        .map_or_else(FieldParams::default, |(field, origin)| field.params(origin.origin()));
+    if materials
+        .get(&scenery.material)
+        .is_some_and(|m| m.params == params && m.field == field_params)
+    {
         return;
     }
     if let Some(mut material) = materials.get_mut(&scenery.material) {
         material.params = params;
+        material.field = field_params;
     }
 }
