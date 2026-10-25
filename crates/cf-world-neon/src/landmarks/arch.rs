@@ -250,12 +250,7 @@ impl Landmark for VoxelArch {
             *voxels = PartPaint {
                 transform: Transform::IDENTITY,
                 mood: self.mood,
-                a: Vec4::new(
-                    self.burst_level,
-                    if self.permitted { 1.0 } else { 0.0 },
-                    self.car_z,
-                    0.0,
-                ),
+                a: Vec4::new(self.burst_level, self.burst_level, self.car_z, 0.0),
                 c: Vec4::new(self.cycle as f32, (frame.time % SPIN_WRAP_S) as f32, 0.0, 0.0),
                 ..PartPaint::default()
             };

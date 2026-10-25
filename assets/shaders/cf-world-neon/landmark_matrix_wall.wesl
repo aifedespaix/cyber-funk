@@ -30,7 +30,7 @@ fn fragment(in: PlaneOut) -> @location(0) vec4<f32> {
         // Plan i : prolonger le rayon de vue jusqu'à `depth` mètres derrière la façade.
         var q = in.local.xy + ray.xy * (depth[i] / max(-ray.z, 0.2)) + vec2<f32>(width * 0.5, HEIGHT * 0.5);
         if binary {
-            q.x += step(0.86, h11(floor(q.y / 5.0) + floor(beat * 0.5) * 3.1)) * (h11(floor(q.y / 5.0) + 7.0) - 0.5) * 9.0;
+            q.x += step(0.86, h11(floor(q.y / 5.0) + floor(beat * 0.5) * 3.1)) * (h11(floor(q.y / 5.0) + 7.0) - 0.5) * 9.0; // max 2 Hz (240 BPM)
         }
         let cell = vec2<f32>(cell_x[i], cell_y[i]) * select(1.0, 1.25, binary);
         // Pluie : colonnes qui tombent. Flux : rangées qui filent sur le côté, dans un sens ou dans l'autre.
@@ -47,7 +47,7 @@ fn fragment(in: PlaneOut) -> @location(0) vec4<f32> {
         let k = fract(id / (10.0 + seed * 18.0) + seed * 5.0);
         let lum = pow(1.0 - k, 3.0) * (0.35 + 0.65 * step(0.25, seed));
         let head = step(k, 0.06);
-        let gid = floor(h21(vec2<f32>(column, id)) * 40.0 + floor(time * (0.6 + seed * 2.0)) * h11(id + column));
+        let gid = floor(h21(vec2<f32>(column, id)) * 40.0 + floor(time * (0.6 + seed * 2.0)) * h11(id + column)); // max 2.6 Hz
         let cell_uv = select(vec2<f32>(fract(q.x / cell.x), fract(row_f)), vec2<f32>(fract(row_f), fract(q.y / cell.y)), flux);
         let g = glyph(cell_uv, gid, 1.0 - sharp[i], variant);
         let bright = (lum + head * 0.9 + pulse * 0.25 * lum) * gain[i];

@@ -4,8 +4,8 @@
 // (1 avant, 0,4 milieu, 0 arrière).
 //
 // Paramètres : a.x = déchirure (0..1, **déjà bornée** par le limiteur de flashs). Texture : la grille (`map`, échantillonnage
-// au plus proche). Écart avec Sillage (règle 7) : les tranches ne bougent qu'avec la déchirure (pas de plancher), au plus
-// 8 fois par seconde (10 dans Sillage).
+// au plus proche). Écart avec Sillage (règle 7) : les tranches ne bougent qu'avec la déchirure (pas de plancher), 3 fois
+// par seconde (10 dans Sillage), et tout est proportionnel à la déchirure.
 
 const GRID_W: f32 = 72.0;
 const GRID_H: f32 = 48.0;
@@ -67,7 +67,7 @@ fn fragment(in: HoloOut) -> @location(0) vec4<f32> {
     let front = step(0.5, in.layer);
     // Hologramme instable : des tranches se décalent, quand la déchirure le permet.
     let slice = floor(in.uv.y * grid.y / 3.0);
-    let tick = floor(time * (4.0 + glitch * 4.0));
+    let tick = floor(time * 3.0);
     let jump = (h11(slice + tick * 1.3) - 0.5) * 0.025 * glitch * step(0.86 - glitch * 0.3, h11(slice * 2.1 + tick));
     let g = vec2<f32>(in.uv.x + jump, in.uv.y) * grid;
     let cell = floor(g);

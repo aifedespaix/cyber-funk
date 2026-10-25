@@ -4,7 +4,7 @@
 // visage l'image se déchire un instant.
 //
 // Paramètres : a.x = le visage (0 calme, 1 smiley, 2 cyborg, 3 croix, 4 clin d'œil), a.y = déchirure (0..1, **bornée** par le
-// limiteur de flashs). Écart avec Sillage (règle 7) : la déchirure change au plus 8 fois par seconde (20 dans Sillage).
+// limiteur de flashs). Écart avec Sillage (règle 7) : la déchirure change 3 fois par seconde (20 dans Sillage) et tout est proportionnel à `swap`.
 
 fn sd_box(q: vec2<f32>, b: vec2<f32>) -> f32 {
     let d = abs(q) - b;
@@ -33,7 +33,7 @@ fn fragment(in: PlaneOut) -> @location(0) vec4<f32> {
     let swap = p.a.y;
     let res = vec2<f32>(40.0, 32.0);
     let slice = floor(in.uv.y * 16.0);
-    let shift = (h11(slice + floor(time * 8.0)) - 0.5) * 0.25 * swap;
+    let shift = (h11(slice + floor(time * 3.0)) - 0.5) * 0.25 * swap;
     let uv = vec2<f32>(in.uv.x + shift, in.uv.y);
     let q = ((floor(uv * res) + 0.5) / res - 0.5) * vec2<f32>(2.5, 2.0);
     var col = color(C_INK) * 1.2;

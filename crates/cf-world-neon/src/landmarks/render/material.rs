@@ -317,6 +317,38 @@ mod tests {
         }
     }
 
+    /// Règle 7 (WCAG 2.3.1) : aucun motif de shader d'immeuble ne change plus de 3 fois par seconde. Tout `floor(time * …)` ou
+    /// `floor(beat * …)` (un motif qui saute) doit avoir pour multiplicateur un littéral ≤ 3, ou porter sur sa ligne
+    /// l'annotation `// max N Hz` avec N ≤ 3 (le pire cas de l'expression).
+    #[test]
+    fn aucun_motif_de_shader_ne_change_plus_de_trois_fois_par_seconde() {
+        let mut texts: Vec<String> = Look::ALL.iter().map(|look| pieces(*look).join("\n")).collect();
+        texts.push(include_str!("../../../../../assets/shaders/cf-world-neon/road.wesl").to_owned());
+        let mut found = 0;
+        for text in texts {
+            for line in text.lines().filter(|l| !l.trim_start().starts_with("//")) {
+                for key in ["floor(time * ", "floor(t * ", "floor(beat * "] {
+                    let Some(at) = line.find(key) else { continue };
+                    found += 1;
+                    let rest = &line[at + key.len()..];
+                    let literal: String = rest.chars().take_while(|c| c.is_ascii_digit() || *c == '.').collect();
+                    let hz = if !literal.is_empty() && rest[literal.len()..].starts_with(')') {
+                        literal.parse::<f32>().ok()
+                    } else {
+                        line.split("// max ")
+                            .nth(1)
+                            .and_then(|t| t.split(' ').next())
+                            .and_then(|n| n.parse::<f32>().ok())
+                    };
+                    let hz = hz.unwrap_or(f32::INFINITY);
+                    // `beat` est compté en battements : 240 BPM = 4 par seconde, d'où l'annotation explicite.
+                    assert!(hz <= 3.0, "cadence {hz} Hz > 3 Hz (règle 7) dans : {}", line.trim());
+                }
+            }
+        }
+        assert!(found >= 8, "le test doit voir les motifs à saut ({found})");
+    }
+
     #[test]
     fn le_bloc_d_uniformes_a_les_champs_du_shader() {
         for needle in [

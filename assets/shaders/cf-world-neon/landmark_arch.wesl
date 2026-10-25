@@ -5,8 +5,8 @@
 // rotation, taille) : il s'assemble, tient, puis se désassemble en tournant autour de l'arche en spirale, rapetissé. Au passage
 // de la voiture, les voxels proches se dispersent et se recomposent derrière ; un drop fait éclater l'ensemble.
 //
-// Paramètres : a.x = éclatement (0..1, **déjà borné** par le limiteur de flashs), a.y = 1 si les flashs sont permis (les voxels
-// qui se défont ne clignotent en rouge que dans ce cas), a.z = position de la voiture le long de l'arche (m), c.x = horloge du
+// Paramètres : a.x = éclatement (0..1, **déjà borné** par le limiteur de flashs), a.y = éclatement accordé (les voxels
+// qui se défont ne clignotent en rouge que pendant l'éclatement, donc seulement si le limiteur l'a accordé), a.z = position de la voiture le long de l'arche (m), c.x = horloge du
 // cycle (intégrée côté CPU : `time × (1 + intensité/2)` de Sillage téléportait les voxels à chaque variation de l'intensité),
 // c.y = horloge de rotation (temps modulo 60 s : la rotation de Sillage croissait avec l'heure, jusqu'à tourner à des
 // dizaines de tours par seconde en fin de set).
@@ -92,7 +92,7 @@ fn fragment(in: VoxelOut) -> @location(0) vec4<f32> {
     let base = mix(mix(color(C_MINT), color(C_VIOLET), smoothstep(0.0, 0.5, in.tone)), color(C_ROSE), smoothstep(0.5, 1.0, in.tone));
     // Données corrompues : un voxel qui se défait passe en rouge (seulement quand les flashs sont permis, trois fois par
     // seconde au plus).
-    let flicker = step(0.55, h11(floor(time * 3.0) + in.seed * 40.0)) * p.a.y;
+    let flicker = step(0.55, h11(floor(time * 3.0) + in.seed * 40.0)) * p.a.y; // 3 Hz, amplitude = niveau du limiteur (a.y)
     var col = base * in.shade * (0.55 + 0.35 * edge);
     col = mix(col, color(C_ALARM) * 1.1, smoothstep(0.15, 0.7, in.away) * flicker * 0.75);
     col += color(C_ICE) * (1.0 - edge) * (0.25 + pulse * 0.5);

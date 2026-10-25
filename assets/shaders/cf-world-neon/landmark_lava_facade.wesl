@@ -28,7 +28,7 @@ fn fragment(in: PlaneOut) -> @location(0) vec4<f32> {
     heat += exp(-q.y / 6.0) * 0.5;
 
     let id = floor(fall / cell.y);
-    let bit = step(0.5, h21(vec2<f32>(column, id + floor(time * (1.0 + cs)))));
+    let bit = step(0.5, h21(vec2<f32>(column, id + floor(time * (1.0 + cs))))); // max 2 Hz
     let d = digit(vec2<f32>(fract(q.x / cell.x), fract(fall / cell.y)), bit);
     let k = fract(id / (14.0 + cs * 20.0) + cs * 7.0);
     let streak = pow(1.0 - k, 2.0);

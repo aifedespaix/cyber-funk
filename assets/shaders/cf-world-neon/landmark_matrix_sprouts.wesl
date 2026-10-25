@@ -38,7 +38,7 @@ fn vertex(v: SproutIn) -> SproutOut {
 fn fragment(in: SproutOut) -> @location(0) vec4<f32> {
     let time = p.frame.x;
     let pulse = p.frame.y;
-    let gid = floor(h21(vec2<f32>(in.seed.x * 91.0, in.seed.y * 57.0)) * 40.0 + floor(time * (1.0 + in.seed.w)) * 3.0);
+    let gid = floor(h21(vec2<f32>(in.seed.x * 91.0, in.seed.y * 57.0)) * 40.0 + floor(time * (0.5 + 0.8 * in.seed.w)) * 3.0); // max 2.3 Hz
     let g = glyph(in.uv, gid, 0.0, p.b.y);
     let fall = fract(in.seed.y - time * 0.05 * in.seed.w);
     let col = flow_color(in.seed.x + time * 0.8, 1.0 + pulse * 1.2) * g * (0.6 + 0.5 * fall);
