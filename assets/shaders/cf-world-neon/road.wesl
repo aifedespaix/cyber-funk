@@ -15,12 +15,16 @@
 // les 2π × 10 / fréquence mètres) : la teinte est celle de la coordonnée absolue, sans saut. Près du départ (origine 0,
 // `phase` nulle) le rendu est celui de Sillage au bit près.
 //
-// Écarts avec Sillage (voir la PR) : pas de champ de lumières des immeubles-vitrines (`fieldSheen`, `fieldLight`), ni de
-// zone de glitch, ni de décalque « ERROR » : ils appartiennent aux événements du monde. Sans événement actif ils
-// valent zéro dans Sillage aussi (lumières à y = -999, zone et décalque à force nulle).
+// Le champ de la ville (`field.wesl`, ajouté au bout de ce fichier, J7-08) : reflet des lumières des immeubles-vitrines sur
+// le sol mouillé (`field_sheen`), lueur diffuse (`field_light`), zone de glitch et décalque « ERROR ». Sans immeuble-vitrine
+// tout vaut zéro, comme dans Sillage (lumières à y = -999, zone et décalque à force nulle).
 
 import bevy_pbr::render::forward_io::VertexOutput;
 import bevy_pbr::render::mesh_view_bindings::view;
+
+// L'atlas du mot « ERROR » que l'immeuble du même nom projette sur la chaussée (cuit à l'ouverture, J7-08).
+@group(constants::MATERIAL_BIND_GROUP) @binding(2) var decal_map: texture_2d<f32>;
+@group(constants::MATERIAL_BIND_GROUP) @binding(3) var decal_sampler: sampler;
 
 // Même ordre de champs que `RoadParams` (Rust, `ShaderType`). Tout en vec4 : aucune surprise d'alignement.
 struct Road {
@@ -138,8 +142,9 @@ fn fragment(in: VertexOutput) -> @location(0) vec4<f32> {
     let glow = exp(-dot(d, d));
     col += mix(road.mint.rgb, glow_color, 0.6) * glow * (0.1 + pulse * 0.2 + energy * 0.1) + glow_color * exp(-dot(d, d) * 1.6) * 0.22;
 
-    // Sol mouillé : les lumières des immeubles-vitrines y laissent un reflet (champ de lumières : voir l'en-tête, il
-    // vaut zéro sans événement). Reste la lueur froide que `fieldLight` valait à zéro.
+    // Sol mouillé : les lumières des immeubles-vitrines y laissent un reflet et une lueur.
+    col += field_sheen(world, view.world_position) * (0.38 + wet_k * 2.4)
+        + ice * 0.06 * field_light(world, vec3<f32>(0.0, 1.0, 0.0)) * (1.0 + wet_k * 3.0);
 
     // Chaussée mouillée : les optiques de la voiture se reflètent dans le sol (phares devant, feux rouges derrière).
     let hq = p - car.xz;
@@ -170,8 +175,25 @@ fn fragment(in: VertexOutput) -> @location(0) vec4<f32> {
             rip += sstep(0.08, 0.0, abs(dd - ph * 0.6)) * (1.0 - ph) * step(h, 0.4 + rain * 0.5);
         }
         let near = 1.0 - smoothstep(30.0, 130.0, view_distance);
-        let lit = mix(ice, mood, 0.4) * 0.45;
+        let lit = mix(ice, mood, 0.4) * 0.45 + field_light(world, vec3<f32>(0.0, 1.0, 0.0)) * 1.4;
         col += lit * rip * rain * (0.35 + 0.65 * pud) * near;
+    }
+
+    // Zone de glitch : scanlines qui défilent, bandes aux canaux inversés.
+    let zw = field_zone(world);
+    let road_band = step(0.9, fract(world.z * 0.07 + time * 0.9));
+    let road_scan = step(0.5, fract(world.z * 0.9 - time * 4.0));
+    col = mix(col, col.brg * 1.4, zw * road_band);
+    col += field.zone_tint.rgb * zw * road_scan * 0.3;
+
+    // Décalque : le mot du panneau ERROR, projeté sur la route devant la voiture.
+    if field.decal.x > 0.001 {
+        let q = (world.xz - field.decal_box.xy) / field.decal_box.zw;
+        if abs(q.x) < 1.0 && abs(q.y) < 1.0 {
+            // Le haut du mot pointe vers l'avant (-z), pour qu'il se lise depuis le siège.
+            let m = glyph_word(decal_map, decal_sampler, vec2<f32>(q.x * 0.5 + 0.5, 0.5 - q.y * 0.5), field.decal_word, field.decal.y, time);
+            col += (field.zone_tint.rgb * (m.g * 1.6 + m.r) + ice * m.b * field.decal.y) * field.decal.x;
+        }
     }
 
     // Pré-intro : les lignes néon se dessinent depuis la voiture vers l'horizon, avec un front lumineux.

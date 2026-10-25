@@ -31,6 +31,7 @@ pub mod car;
 pub mod chase;
 pub mod cinema;
 pub mod facade;
+pub mod landmarks;
 pub mod pilot;
 pub mod rng;
 pub mod road;

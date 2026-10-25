@@ -7,12 +7,17 @@ use bevy::reflect::TypePath;
 use bevy::render::render_resource::{AsBindGroup, ShaderType};
 use bevy::shader::{Shader, ShaderRef};
 
-use crate::scenery::TINT_CYCLE_LEN;
+use crate::landmarks::field::FieldParams;
 
 /// Le shader des façades, embarqué dans le binaire : aucun fichier lu pendant un show (règle 8 de `CLAUDE.md`).
 pub(crate) const FACADE_SHADER: Handle<Shader> = uuid_handle!("2b8c5e1d-7a43-4f9b-86d0-c3e17a5b9d24");
-/// Source du shader (`assets/shaders/cf-world-neon/facade.wesl`).
-pub(crate) const FACADE_SOURCE: &str = include_str!("../../../../assets/shaders/cf-world-neon/facade.wesl");
+/// Source du shader (`assets/shaders/cf-world-neon/facade.wesl`), suivie du champ de la ville (`field.wesl`, partagé avec la
+/// route : lumières des immeubles-vitrines, zone de glitch, panne de courant).
+pub(crate) const FACADE_SOURCE: &str = concat!(
+    include_str!("../../../../assets/shaders/cf-world-neon/facade.wesl"),
+    "\n",
+    include_str!("../../../../assets/shaders/cf-world-neon/field.wesl")
+);
 /// Chemin logique du shader (messages d'erreur de Bevy, imports).
 pub(crate) const FACADE_SHADER_PATH: &str = "cf-world-neon/facade.wesl";
 /// Le passage de profondeur, embarqué lui aussi.
@@ -21,6 +26,9 @@ pub(crate) const PREPASS_SHADER: Handle<Shader> = uuid_handle!("9d4e7a30-5c18-4b
 pub(crate) const PREPASS_SOURCE: &str = include_str!("../../../../assets/shaders/cf-world-neon/facade_prepass.wesl");
 /// Chemin logique du passage de profondeur.
 pub(crate) const PREPASS_SHADER_PATH: &str = "cf-world-neon/facade_prepass.wesl";
+
+/// Nombre de teintes que le tag d'une pièce sait nommer : 4 bits.
+pub const TINT_COUNT: usize = 16;
 
 /// Les uniformes du shader de façade. Même ordre et mêmes types que la structure `Facade` de `facade.wesl` : tout en
 /// `Vec4`, pour que la disposition mémoire ne dépende d'aucune règle d'alignement.
@@ -40,8 +48,9 @@ pub struct FacadeParams {
     pub mist: Vec4,
     /// Ligne de balayage de la pré-intro (`uScan`, le cyan).
     pub scan: Vec4,
-    /// Cycle prismatique : les six teintes des tours.
-    pub cycle: [Vec4; TINT_CYCLE_LEN],
+    /// La teinte d'une pièce, par rang de son `MeshTag` : 0..5 le cycle prismatique (les six teintes des tours), 6..15 les
+    /// couleurs de la scène (`SceneColor` sans l'encre : lime, alarme, ambre…), pour les corps des immeubles-vitrines.
+    pub cycle: [Vec4; TINT_COUNT],
     /// `x` : temps (s), `y` : pouls (`uPulse`), `z` : basses (`uBass`), `w` : médiums (`uMid`).
     pub frame: Vec4,
     /// `x` : aigus (`uHigh`), `y` : temps musical continu (`uBeat`), `z` : pré-intro (`uBuild`), `w` : éclair d'orage
@@ -58,6 +67,9 @@ pub struct FacadeMaterial {
     /// Uniformes envoyés au shader.
     #[uniform(0)]
     pub params: FacadeParams,
+    /// Le champ de la ville : lumières des immeubles-vitrines, zone de glitch, panne de courant (J7-08).
+    #[uniform(1)]
+    pub field: FieldParams,
 }
 
 impl Material for FacadeMaterial {
