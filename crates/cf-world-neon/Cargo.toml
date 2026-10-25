@@ -80,6 +80,11 @@ path = "examples/meteor_demo/main.rs"
 required-features = ["demo"]
 
 [[example]]
+name = "beams_demo"
+path = "examples/beams_demo/main.rs"
+required-features = ["demo"]
+
+[[example]]
 name = "weather_demo"
 path = "examples/weather_demo/main.rs"
 required-features = ["demo"]

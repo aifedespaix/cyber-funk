@@ -61,11 +61,13 @@ fn tout_ce_que_le_monde_dessine_est_dans_la_couche_monde() {
         .map(|(n, l, _)| (n.to_string(), l.clone()))
         .collect();
     // La route, le point suivi et les six pavés des arches ont un nom ; les pièces des tronçons n'en ont pas (voir `city.rs`).
-    // Plus la pluie et la brume (J5-04) : une entité chacune, créées au démarrage.
+    // S'y ajoutent la pluie et la brume (J5-04, une entité chacune, créées au démarrage), les pools préalloués des
+    // projecteurs (un cône et une tache chacun) et du paquet du drop (les ondes et la gerbe) : tous dans la couche monde.
+    let pools = cf_world_neon::beams::MAX_BEAMS * 2 + cf_world_neon::dropfx::RINGS + 1;
     assert_eq!(
         found.len(),
-        2 + 6 + 2,
-        "la route, le point suivi, les arches, la pluie et la brume : {found:?}"
+        2 + 6 + 2 + pools,
+        "la route, le point suivi, les arches, la pluie, la brume et les pools : {found:?}"
     );
     for (name, layers) in &found {
         assert_eq!(*layers, world_layers, "{name} n'est pas dans la couche monde");
