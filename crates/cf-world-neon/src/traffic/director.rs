@@ -628,4 +628,97 @@ mod tests {
         assert_eq!(bands.len(), 1);
         assert!((bands[0].hi - bands[0].lo - 2.0 * (1.9 * 0.8 + 1.4)).abs() < 1e-5);
     }
+
+    /// Un événement qui emprunte un panneau au gestionnaire de la route à sa naissance et le rend à sa fin.
+    #[derive(Debug, Default)]
+    struct Borrower {
+        index: Option<usize>,
+        age: f32,
+    }
+
+    impl TrafficEvent for Borrower {
+        fn update(&mut self, dt: f32, ctx: &mut EventCtx<'_>) -> bool {
+            self.age += dt;
+            if self.index.is_none()
+                && let Some(signs) = ctx.signs.as_deref_mut()
+            {
+                self.index = signs.lease(
+                    crate::signs::FormatId::HangAd,
+                    crate::signs::SignAd::Catalogue(crate::signs::AdId(0)),
+                    15.0,
+                    false,
+                    ctx.frame.time,
+                );
+            }
+            // Un projecteur par image, pour vérifier que la scène est repeuplée à chaque image.
+            ctx.scene.pin(super::super::scene::PinBeam {
+                origin: at(0.0, 30.0, -100.0),
+                target_x: 0.0,
+                target_z: -120.0,
+                tint: LinearRgba::WHITE,
+            });
+            self.age < 2.0
+        }
+
+        fn end(&mut self, ctx: &mut EventCtx<'_>) {
+            if let (Some(index), Some(signs)) = (self.index.take(), ctx.signs.as_deref_mut()) {
+                signs.unlease(index);
+            }
+        }
+    }
+
+    fn registry_with_borrower() -> EventRegistry {
+        let mut registry = EventRegistry::default();
+        registry.register(
+            EventName::Adship,
+            Box::new(|_ctx: &mut EventCtx<'_>| -> Box<dyn TrafficEvent> { Box::new(Borrower::default()) }),
+        );
+        registry
+    }
+
+    #[test]
+    fn le_gestionnaire_de_panneaux_est_prete_aux_evenements_pendant_l_image() {
+        let mut director = TrafficDirector::new(2);
+        let mut registry = registry_with_borrower();
+        director.force(EventName::Adship);
+        let mut road = crate::signs::SignRoad::default();
+        let frame = TrafficFrame::default();
+        let leased = |road: &crate::signs::SignRoad| road.units.iter().filter(|u| u.leased).count();
+        director.update_with_signs(&frame, &mut registry, &mut NoShow, Some(&mut road), |_| true);
+        assert_eq!(leased(&road), 1, "le panneau est prêté à l'événement");
+        assert_eq!(director.scene.pins().len(), 1, "le projecteur est publié");
+        // L'image suivante repart d'une scène vide : un seul projecteur, pas deux.
+        let mut now = frame;
+        for i in 0..200 {
+            now.time = f64::from(i) * f64::from(frame.dt);
+            director.update_with_signs(&now, &mut registry, &mut NoShow, Some(&mut road), |_| true);
+            assert!(director.scene.pins().len() <= 1);
+        }
+        assert_eq!(director.active_count(), 0, "l'événement est fini (2 s)");
+        assert_eq!(leased(&road), 0, "le panneau est rendu à la fin");
+        assert!(director.scene.pins().is_empty());
+    }
+
+    #[test]
+    fn sans_gestionnaire_l_evenement_vit_quand_meme() {
+        let mut director = TrafficDirector::new(2);
+        let mut registry = registry_with_borrower();
+        director.force(EventName::Adship);
+        director.update(&TrafficFrame::default(), &mut registry, &mut NoShow, |_| true);
+        assert_eq!(director.active_count(), 1);
+    }
+
+    #[test]
+    fn l_arret_du_spectacle_vide_les_projecteurs_et_les_effets_de_ville() {
+        let mut director = TrafficDirector::new(3);
+        let mut registry = registry_with_borrower();
+        director.force(EventName::Adship);
+        let frame = TrafficFrame::default();
+        director.update(&frame, &mut registry, &mut NoShow, |_| true);
+        director.scene.fx.power.depth = 0.9;
+        director.shutdown(&frame);
+        assert_eq!(director.active_count(), 0);
+        assert!(director.scene.pins().is_empty());
+        assert!(director.scene.fx.power.depth.abs() < f32::EPSILON);
+    }
 }

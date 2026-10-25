@@ -1,13 +1,15 @@
 //! Cargo géant (`events/airship.ts`) : une masse lente qui traverse le ciel au-dessus des tours, feux de position et bandes
 //! néon sur toute la coque. Plus lent que la voiture : elle le rattrape et passe dessous.
 //!
-//! Écarts (voir la PR) : pas de projecteurs qui balaient la route (pas de faisceaux dans [`EventCtx`]) ; feux de position
-//! en lumière continue (le clignotement passerait par le limiteur de flashs, accessible côté matière seulement).
+//! Écarts (voir la PR) : feux de position en lumière continue (le clignotement passerait par le limiteur de flashs,
+//! accessible côté matière seulement). Les deux projecteurs qui balaient la route sont publiés dans la scène
+//! ([`Scene::pins`](crate::traffic::scene::Scene::pins)) ; le système de faisceaux du monde (J5-07) les dessinera.
 
 use bevy::color::LinearRgba;
 use bevy::math::{DVec3, Vec3};
+use cf_render::SceneColor;
 
-use super::common::{alive, index, pick_tone, range, release, set_pose, spawn_scripted, tone};
+use super::common::{alive, index, pick_tone, pin, range, release, set_pose, spawn_scripted, tone};
 use crate::traffic::event::{EventCtx, TrafficEvent};
 use crate::traffic::fleet::CraftId;
 use crate::traffic::variant::CARGO;
@@ -88,6 +90,21 @@ impl TrafficEvent for AirshipEvent {
             self.belly,
             1.4,
         );
+
+        // Projecteurs : actifs tant que le cargo est à portée de la route.
+        let car_z = ctx.frame.car.z;
+        let dz = position.z - car_z;
+        if dz < 40.0 && dz > -240.0 {
+            let time = ctx.frame.time as f32;
+            for i in 0..2 {
+                let t = time * 0.45 + self.bob + i as f32 * 2.3;
+                let side = if i == 0 { -1.0 } else { 1.0 };
+                let origin = position + DVec3::new(f64::from(side * s * 0.3), f64::from(-s * 0.25), f64::from(-s * 0.4));
+                let target_z = car_z - 20.0 - 45.0 * f64::from(0.5 + 0.5 * (t * 0.7 + i as f32).sin());
+                let tint = ctx.frame.named(if i == 0 { SceneColor::Ice } else { SceneColor::Azure });
+                pin(ctx, origin, t.sin() * 7.5, target_z, tint);
+            }
+        }
         true
     }
 

@@ -67,7 +67,7 @@ pub struct SceneFx {
     /// Pouls du dernier kick, tel que le limiteur le laisse passer, 0..1. Nul sans spectacle, en respiration ou quand les
     /// flashs sont coupés.
     pub kick: f32,
-    /// Blanchissement de la ville par l'éclair, accordé, 0..1.
+    /// Blanchissement de la ville par l'éclair, accordé, 0..1 (1 : le plafond de la voie, `MAX_FLASH_PEAK`).
     pub lightning: f32,
     /// Éclat d'une salve, accordé, 0..1.
     pub burst: f32,

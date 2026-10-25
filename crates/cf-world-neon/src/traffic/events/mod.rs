@@ -8,11 +8,11 @@
 //! des véhicules scénarisés sont écrits par l'événement (`Motion::Scripted`) ; tout ce qui clignote ou éclate passe par
 //! le limiteur de flashs côté matière, et ne clignote pas ici (voir les écarts de chaque fichier).
 //!
-//! Écarts communs (voir la PR, section « Écarts ») : l'[`EventCtx`] ne donne ni la palette nommée, ni les faisceaux des
-//! projecteurs, ni le gestionnaire de panneaux, ni les portiques : les teintes viennent du cycle, et ces effets sont omis.
+//! Écarts communs (voir la PR, section « Écarts ») : les teintes viennent du cycle de la palette (les teintes nommées sont
+//! maintenant dans le contexte, mais le lot A ne les a pas reprises) ; le vaisseau publicitaire ne pend pas ses panneaux
+//! (le prêteur de panneaux est dans le contexte, `EventCtx::signs`, mais pas encore utilisé).
 //!
-//! Branchement : [`CalmEventsPlugin`] n'est pas encore ajouté à [`TrafficPlugin`](super::TrafficPlugin) (le module
-//! `traffic/mod.rs` reste le socle) ; il se branche dans `TrafficPlugin::build` à la fusion.
+//! Branchement : [`CalmEventsPlugin`] est ajouté par [`TrafficPlugin`](super::TrafficPlugin), comme le lot B.
 
 mod adship;
 mod airship;
@@ -61,7 +61,7 @@ pub const CALM_EVENTS: [EventName; 11] = [
     EventName::HoloTitle,
 ];
 
-/// Titre affiché par défaut : le nom de la ville. Les noms des DJs ne sont pas dans le contexte de l'image.
+/// Titre affiché quand le spectacle ne donne aucun nom : le nom de la ville.
 pub const DEFAULT_TITLE: &str = "NEON CITY";
 
 /// Fabrique une fabrique à partir du constructeur d'un événement sans paramètre.
@@ -73,8 +73,11 @@ pub(crate) fn factory<E: TrafficEvent + 'static>(build: fn(&mut EventCtx<'_>) ->
 #[must_use]
 pub fn calm_factories(title: &str) -> Vec<(EventName, EventFactory)> {
     let title = title.to_owned();
-    let holo: EventFactory =
-        Box::new(move |ctx: &mut EventCtx<'_>| -> Box<dyn TrafficEvent> { Box::new(HoloTitleEvent::new(ctx, &title)) });
+    // Le nom du DJ en cours (ou de l'événement) quand le spectacle le donne ; sinon le titre du plugin.
+    let holo: EventFactory = Box::new(move |ctx: &mut EventCtx<'_>| -> Box<dyn TrafficEvent> {
+        let text = ctx.frame.dj_title.unwrap_or(title.as_str());
+        Box::new(HoloTitleEvent::new(ctx, text))
+    });
     vec![
         (EventName::Lanterns, factory(LanternEvent::new)),
         (EventName::Fish, factory(FishEvent::new)),
@@ -161,6 +164,7 @@ mod tests {
     struct Peak {
         crafts: usize,
         glints: usize,
+        pins: usize,
     }
 
     /// Fait vivre `name` pendant `seconds` secondes simulées, comme le ferait le directeur à 60 i/s.
@@ -197,6 +201,7 @@ mod tests {
             time += f64::from(dt);
             let frame = frame(car_z, time);
             glints.begin(frame.car);
+            scene.begin(frame.car);
             if running {
                 let mut ctx = EventCtx {
                     frame: &frame,
@@ -213,6 +218,7 @@ mod tests {
             walls.update(time);
             assert!(glints.used() <= crate::traffic::glints::GLINT_CAPACITY);
             peak.glints = peak.glints.max(glints.used());
+            peak.pins = peak.pins.max(scene.pins().len());
             peak.crafts = peak.crafts.max(fleet.crafts().iter().filter(|c| c.active).count());
             for craft in fleet.crafts().iter().filter(|c| c.active) {
                 assert!(craft.position.is_finite(), "{name:?} : position non finie");
@@ -259,7 +265,39 @@ mod tests {
             if name != EventName::HoloTitle {
                 assert!(peak.crafts + peak.glints > 0, "{name:?} n'a rien montré en 60 s");
             }
+            // Les projecteurs qui balaient la route : le cargo, le pétrolier, la police et le vaisseau publicitaire.
+            let projects = matches!(
+                name,
+                EventName::Airship | EventName::Refuel | EventName::Chase | EventName::Adship
+            );
+            assert_eq!(peak.pins > 0, projects, "{name:?} : {} projecteur(s)", peak.pins);
+            assert!(peak.pins <= crate::traffic::scene::MAX_PINS);
         }
+    }
+
+    #[test]
+    fn le_titre_holographique_prend_le_nom_du_dj_quand_le_spectacle_le_donne() {
+        let mut registry = registry();
+        let mut rig = crate::traffic::events::test_rig::Rig::new(4);
+        let title = |registry: &mut EventRegistry, rig: &mut crate::traffic::events::test_rig::Rig, dj: Option<&str>| {
+            let frame = TrafficFrame {
+                dj_title: dj,
+                ..rig.frame()
+            };
+            let mut ctx = EventCtx {
+                frame: &frame,
+                fleet: &mut rig.fleet,
+                glints: &mut rig.glints,
+                walls: &mut rig.walls,
+                rng: &mut rig.rng,
+                scene: &mut rig.scene,
+                signs: None,
+            };
+            let event = registry.create(EventName::HoloTitle, &mut ctx).expect("inscrit");
+            format!("{event:?}")
+        };
+        assert!(title(&mut registry, &mut rig, Some("DJ AIFE")).contains("DJ AIFE"));
+        assert!(title(&mut registry, &mut rig, None).contains(DEFAULT_TITLE));
     }
 
     #[test]

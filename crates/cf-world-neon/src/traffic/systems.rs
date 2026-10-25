@@ -11,6 +11,7 @@ use cf_render::{
     SceneColor, ScenePalette, ShowRuntime, SimulationLod, StreamFocus,
 };
 use cf_show::director::Order;
+use cf_show::limiter::MAX_FLASH_PEAK;
 
 use super::director::TrafficDirector;
 use super::event::{EventRegistry, SignLender};
@@ -306,10 +307,6 @@ pub(crate) fn update_flash(
     flash.serve(now, &mut director.scene.fx);
 }
 
-/// Part du blanchissement de la ville qu'un éclair accordé peut atteindre : `min(1, flash × 0,9)` de Sillage, le niveau
-/// accordé étant déjà borné par le limiteur.
-const LIGHTNING_GAIN: f32 = 0.9;
-
 /// `CfSet::Present`, après les limiteurs : ce que les événements font de la ville (éclair, panne, pouls des fenêtres),
 /// écrit dans `FacadeLook`. L'éclair est le niveau que le limiteur accorde, jamais la demande de l'événement.
 pub(crate) fn publish_city_fx(
@@ -328,7 +325,8 @@ pub(crate) fn publish_city_fx(
         NO_BLACKOUT
     };
     look.set_if_neq(FacadeLook {
-        flash: (fx.lightning * LIGHTNING_GAIN).clamp(0.0, 1.0),
+        // Le niveau accordé, en lumière ajoutée : au plus `MAX_FLASH_PEAK` (0,4), là où Sillage montait à 0,9.
+        flash: (fx.lightning * MAX_FLASH_PEAK).clamp(0.0, MAX_FLASH_PEAK),
         win_pulse: fx.win_pulse.clamp(0.0, 1.0),
         power,
         ..*look
