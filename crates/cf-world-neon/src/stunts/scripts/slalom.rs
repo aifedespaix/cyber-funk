@@ -55,7 +55,7 @@ impl StuntScript for Slalom {
                 SLEEK[i % SLEEK.len()],
                 (-side * 1.7, flight_level - 0.2, env.car_z - relative * env.period * at),
                 scale,
-                (i * 2) as i64,
+                i64::from((i * 2) as u32),
             );
             gates.push(Gate {
                 craft,

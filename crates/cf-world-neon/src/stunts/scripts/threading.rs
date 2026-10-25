@@ -108,7 +108,7 @@ impl StuntRun for Run {
                     CARGO[i % 2],
                     (across, gate.hull, z),
                     self.scale,
-                    (i * 3 + 1) as i64,
+                    i64::from((i * 3 + 1) as u32),
                 );
             }
             move_craft(ctx.world, self.ships[i], across, gate.hull, z, e.dt);

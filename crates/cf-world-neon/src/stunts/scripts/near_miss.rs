@@ -61,7 +61,7 @@ impl StuntScript for NearMiss {
                 POLICE,
                 (x0, flight_level, env.car_z + rush * (pass + delay) * period),
                 2.1,
-                i as i64,
+                i64::from(i as u32),
             );
             if let Some(craft) = id.and_then(|id| ctx.world.craft_mut(id)) {
                 craft.trail = 1.2;

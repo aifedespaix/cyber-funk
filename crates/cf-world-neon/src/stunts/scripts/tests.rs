@@ -12,7 +12,7 @@ use crate::stunts::kind::{STUNT_COUNT, StuntKind};
 use crate::stunts::permit::StuntLink;
 use crate::stunts::script::{Planned, StuntEnv, StuntRegistry, StuntScript, StuntShow};
 use crate::stunts::{StuntDirector, StuntFrame};
-use crate::traffic::{Craft, Fleet, TrafficBeat};
+use crate::traffic::{Craft, CraftId, Fleet, TrafficBeat};
 
 const DT: f64 = 1.0 / 60.0;
 /// Axe de la façade des premiers immeubles dans la ville de test.
@@ -49,15 +49,15 @@ impl TestWorld {
 }
 
 impl StuntWorld for TestWorld {
-    fn spawn(&mut self, variant: u8, at: DVec3, scale: f32, _tint: i64) -> Option<crate::traffic::CraftId> {
+    fn spawn(&mut self, variant: u8, at: DVec3, scale: f32, _tint: i64) -> Option<CraftId> {
         let mut rng = Rand::new(1);
         self.fleet
             .spawn(variant, at, bevy::math::Vec3::ZERO, LinearRgba::WHITE, scale, &mut rng)
     }
-    fn release(&mut self, id: crate::traffic::CraftId) {
+    fn release(&mut self, id: CraftId) {
         self.fleet.release(id);
     }
-    fn craft_mut(&mut self, id: crate::traffic::CraftId) -> Option<&mut Craft> {
+    fn craft_mut(&mut self, id: CraftId) -> Option<&mut Craft> {
         self.fleet.get_mut(id)
     }
     fn roof_at(&self, x: f64, z: f64) -> Option<f32> {
@@ -212,9 +212,8 @@ fn play(script: &dyn StuntScript, seed: u64, city: bool, seconds: f64) -> Trace 
             rng: &mut rng,
         };
         let going = current.step(*t, &mut ctx, &mut pose);
-        if let Some(why) = invalid(&pose) {
-            panic!("{} à t = {t:.2} s : {why}", script.kind().as_str());
-        }
+        let why = invalid(&pose);
+        assert!(why.is_none(), "{} à t = {t:.2} s : {why:?}", script.kind().as_str());
         assert!(
             !inside_building(&pose, &world, env.car_z),
             "{} dans un immeuble à t = {t:.2} s : {pose:?}",
