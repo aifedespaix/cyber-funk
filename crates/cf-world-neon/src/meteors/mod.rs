@@ -41,20 +41,20 @@ pub mod material;
 pub mod rig;
 mod sync;
 pub mod systems;
+pub mod types;
 
 use bevy::prelude::*;
 use bevy::shader::Shader;
 use cf_render::{CfSet, WarmupAppExt, WorldSet};
 
 pub use blast::{BLASTS, Blast, Blasts, DEBRIS};
-pub use field::{
-    BlastRecord, FieldEvent, FieldInput, HEAT_COUNT, MIST_Y, Meteor, MeteorField, POOL, ShowGate, Splash,
-};
+pub use field::{MeteorField, SHOWER_MAX, SHOWER_MIN};
 pub use flash::ImpactFlash;
 pub use material::{MeteorDebrisMaterial, MeteorFxMaterial, MeteorSurfaceMaterial};
 pub use rig::{MeteorPart, MeteorRig, Piece};
 pub use sync::{billboard, trail_pose};
 pub use systems::Meteors;
+pub use types::{BlastRecord, FieldEvent, FieldInput, HEAT_COUNT, MIST_Y, Meteor, POOL, SPLASH_LIFE, ShowGate, Splash};
 
 pub use crate::sky::PlanetTextures;
 

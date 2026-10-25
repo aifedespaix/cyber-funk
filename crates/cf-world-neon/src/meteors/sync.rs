@@ -5,20 +5,20 @@
 //! `CfSet::Present`, après le réalisateur : la caméra est celle de l'image. Les matériaux ne sont réécrits que si leurs
 //! uniformes changent (Bevy ne re-prépare pas un asset qu'on n'a pas touché).
 
+use bevy::camera::primitives::Aabb;
 use bevy::math::{Mat3, Vec3, Vec4};
 use bevy::mesh::VertexAttributeValues;
 use bevy::prelude::*;
-use bevy::camera::primitives::Aabb;
 use cf_render::palette::{LinearRgb, SceneColor};
 use cf_render::{AbsolutePosition, CameraPose, ScenePalette};
 
-use super::blast::{DEBRIS, ATTACK_S as BLAST_ATTACK_S};
-use super::field::{HEAT_COUNT, Meteor};
+use super::PlanetTextures;
+use super::blast::{ATTACK_S as BLAST_ATTACK_S, DEBRIS};
 use super::flash::{GRANTED_GAIN, UNGRANTED_GAIN};
 use super::material::{FxKind, FxParams, MeteorFxMaterial, MeteorSurfaceMaterial, SurfaceParams};
 use super::rig::{MeteorMaterials, MeteorRig, Piece};
 use super::systems::Meteors;
-use super::PlanetTextures;
+use super::types::{HEAT_COUNT, Meteor};
 
 /// Marge de l'`Aabb` des débris (m) : un carré de 2,3 m de côté, diagonale comprise, déborde de son centre d'un peu moins.
 const DEBRIS_MARGIN_M: f32 = 2.0;
@@ -69,7 +69,11 @@ pub fn trail_pose(heading: Vec3, to_camera: Vec3, radius: f32) -> (Quat, Vec3, V
     }
     let across = across.normalize();
     let rotation = Quat::from_mat3(&Mat3::from_cols(axis, across.cross(axis), across));
-    (rotation, Vec3::new(length, radius * 2.6, 1.0), heading * (-length * 0.5))
+    (
+        rotation,
+        Vec3::new(length, radius * 2.6, 1.0),
+        heading * (-length * 0.5),
+    )
 }
 
 /// Opacité d'un astre qui vient de naître : sa lueur monte en [`BLAST_ATTACK_S`] (jamais un départ sec).
@@ -119,7 +123,17 @@ pub(super) fn sync_meteors(
             ),
             Piece::Trail(i) | Piece::Glow(i) => {
                 let m = &meteors.field().meteors()[i];
-                m.active && trail_or_glow(*piece, m, &rig, &heat, eye, &mut absolute, &mut transform, &mut materials)
+                m.active
+                    && trail_or_glow(
+                        *piece,
+                        m,
+                        &rig,
+                        &heat,
+                        eye,
+                        &mut absolute,
+                        &mut transform,
+                        &mut materials,
+                    )
             }
             Piece::Splash(i) => {
                 let s = &meteors.field().splashes()[i];
@@ -280,7 +294,11 @@ mod tests {
 
     #[test]
     fn un_plan_billboard_regarde_la_camera() {
-        for from in [Vec3::new(0.0, 0.0, -50.0), Vec3::new(30.0, 10.0, -80.0), Vec3::new(0.0, -40.0, 0.01)] {
+        for from in [
+            Vec3::new(0.0, 0.0, -50.0),
+            Vec3::new(30.0, 10.0, -80.0),
+            Vec3::new(0.0, -40.0, 0.01),
+        ] {
             let facing = billboard(from) * Vec3::Z;
             let to_eye = (-from).normalize();
             assert!(facing.dot(to_eye) > 0.999, "{from:?} : {facing:?}");
@@ -297,7 +315,10 @@ mod tests {
         assert!(tail.dot(-heading) > 0.9999);
         assert!(((rotation * Vec3::Y).dot(rotation * Vec3::Z)).abs() < 1e-5);
         assert!((rotation.length() - 1.0).abs() < 1e-5);
-        assert!((offset.length() * 2.0 - scale.x).abs() < 1e-4, "centre à une demi-longueur de la tête");
+        assert!(
+            (offset.length() * 2.0 - scale.x).abs() < 1e-4,
+            "centre à une demi-longueur de la tête"
+        );
         assert!(offset.dot(heading) < 0.0, "le centre est derrière l'astre");
     }
 

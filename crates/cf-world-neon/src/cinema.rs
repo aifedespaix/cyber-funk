@@ -197,12 +197,15 @@ fn build_cinema_world(
         });
     // Le dernier astre écrasé contre un immeuble (J7-10) : les plans `meteor-ride` et `meteor-impact-watch` tiennent
     // jusqu'à l'explosion, puis la regardent.
-    world.last_blast = meteors.as_deref().and_then(Meteors::last_blast).map(|b| cf_cinema::MeteorBlast {
-        at: b.at,
-        radius: b.radius,
-        time: b.time_s,
-        meteor_id: b.meteor_id,
-    });
+    world.last_blast = meteors
+        .as_deref()
+        .and_then(Meteors::last_blast)
+        .map(|b| cf_cinema::MeteorBlast {
+            at: b.at,
+            radius: b.radius,
+            time: b.time_s,
+            meteor_id: b.meteor_id,
+        });
     world.show.drop_planned = runtime.is_some_and(|runtime| runtime.director().drop_plan().is_some());
 }
 

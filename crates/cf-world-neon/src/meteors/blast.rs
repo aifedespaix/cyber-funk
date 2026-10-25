@@ -264,7 +264,10 @@ mod tests {
         }
         let blast = &blasts.slots()[slot];
         assert!(blast.shock_done());
-        assert!(!blast.debris_alive(), "tous les débris sont éteints après {DEBRIS_LIFE} s");
+        assert!(
+            !blast.debris_alive(),
+            "tous les débris sont éteints après {DEBRIS_LIFE} s"
+        );
     }
 
     #[test]
@@ -289,7 +292,10 @@ mod tests {
         let slot = blasts.trigger(DVec3::ZERO, 2.0, 0);
         let blast = &blasts.slots()[slot];
         assert_eq!(blast.attack(), 0.0);
-        assert!((0..DEBRIS).all(|i| blast.debris_level(i) == 0.0), "débris sombres à l'instant 0");
+        assert!(
+            (0..DEBRIS).all(|i| blast.debris_level(i) == 0.0),
+            "débris sombres à l'instant 0"
+        );
         let mut last = 0.0;
         for _ in 0..8 {
             blasts.update(DT);
@@ -307,7 +313,9 @@ mod tests {
             blasts.update(DT);
         }
         let blast = &blasts.slots()[slot];
-        let falling = (0..DEBRIS).filter(|&i| blast.life_s[i] > 0.0 && blast.velocities[i].y < 0.0).count();
+        let falling = (0..DEBRIS)
+            .filter(|&i| blast.life_s[i] > 0.0 && blast.velocities[i].y < 0.0)
+            .count();
         assert!(falling > 0, "au bout de 2 s, des débris vivants descendent");
     }
 
@@ -322,7 +330,10 @@ mod tests {
             for i in 0..DEBRIS {
                 if blast.life_s[i] > 0.0 {
                     let p = blast.offset(i);
-                    assert!(p.cmpge(min).all() && p.cmple(max).all(), "débris {i} hors boîte à l'image {step}");
+                    assert!(
+                        p.cmpge(min).all() && p.cmple(max).all(),
+                        "débris {i} hors boîte à l'image {step}"
+                    );
                 }
             }
         }

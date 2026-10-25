@@ -8,8 +8,9 @@ use cf_render::{AbsolutePosition, CurrentShow, CurrentShowFx, StreamFocus};
 
 use super::PlanetTextures;
 use super::blast::Blasts;
-use super::field::{BlastRecord, FieldEvent, FieldInput, MeteorField, ShowGate};
+use super::field::MeteorField;
 use super::flash::ImpactFlash;
+use super::types::{BlastRecord, FieldEvent, FieldInput, ShowGate};
 use crate::sky::SkyLook;
 use crate::world::NeonWorld;
 

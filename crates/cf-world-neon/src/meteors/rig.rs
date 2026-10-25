@@ -19,8 +19,8 @@ use bevy::prelude::*;
 use cf_render::{AbsolutePosition, WorldLayer};
 
 use super::blast::{BLASTS, DEBRIS};
-use super::field::POOL;
 use super::material::{MeteorDebrisMaterial, MeteorFxMaterial, MeteorSurfaceMaterial};
+use super::types::POOL;
 
 /// Demi-côté de l'`Aabb` du corps : 1,17 (bosselage) arrondi à 1,25.
 pub(super) const BODY_HALF_EXTENT: f32 = 1.25;
@@ -90,11 +90,7 @@ pub(super) struct MeteorMaterials<'w> {
 }
 
 /// Crée le pool d'entités, une fois, au démarrage. Tout est caché ; `sync` montre ce qui vit.
-pub(super) fn spawn_meteors(
-    mut commands: Commands,
-    mut meshes: ResMut<Assets<Mesh>>,
-    mut materials: MeteorMaterials,
-) {
+pub(super) fn spawn_meteors(mut commands: Commands, mut meshes: ResMut<Assets<Mesh>>, mut materials: MeteorMaterials) {
     let sphere = meshes.add(Sphere::new(1.0).mesh().uv(28, 18));
     let quad = meshes.add(Rectangle::new(1.0, 1.0).mesh().build());
     let hidden = Visibility::Hidden;

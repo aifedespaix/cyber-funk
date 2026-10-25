@@ -12,7 +12,8 @@ fn app() -> App {
         .init_asset::<Image>()
         .add_plugins(MeteorsPlugin)
         .insert_resource(PlanetTextures(vec![Handle::default(); 3]));
-    app.world_mut().spawn((AbsolutePosition(DVec3::new(0.0, 0.0, -5000.0)), StreamFocus));
+    app.world_mut()
+        .spawn((AbsolutePosition(DVec3::new(0.0, 0.0, -5000.0)), StreamFocus));
     app
 }
 
@@ -53,7 +54,6 @@ fn sans_texture_le_message_ne_lance_rien() {
 
 #[test]
 fn sans_spectacle_une_explosion_ne_flashe_pas_mais_publie_son_impact() {
-    use super::field::FieldInput;
     let mut meteors = Meteors::new(1);
     let anchor = DVec3::new(0.0, 0.0, -5000.0);
     meteors.launch(anchor, false, 3).expect("astre");
@@ -74,9 +74,18 @@ fn sans_spectacle_une_explosion_ne_flashe_pas_mais_publie_son_impact() {
             break;
         }
     }
-    assert!(meteors.last_blast().is_some(), "l'impact est publié pour le réalisateur");
-    assert!(meteors.blasts().slots().iter().any(|b| !b.shock_done()), "l'explosion est rendue");
-    assert!(meteors.blasts().slots().iter().all(|b| !b.flash_granted), "aucun éclair sans spectacle");
+    assert!(
+        meteors.last_blast().is_some(),
+        "l'impact est publié pour le réalisateur"
+    );
+    assert!(
+        meteors.blasts().slots().iter().any(|b| !b.shock_done()),
+        "l'explosion est rendue"
+    );
+    assert!(
+        meteors.blasts().slots().iter().all(|b| !b.flash_granted),
+        "aucun éclair sans spectacle"
+    );
     assert_eq!(meteors.flash().level(), 0.0);
 }
 
@@ -161,6 +170,9 @@ fn flashs_coupes_ou_respiration_aucun_eclair_meme_pendant_une_pluie() {
             assert_eq!(meteors.flash().level(), 0.0, "{policy:?}");
             assert!(meteors.blasts().slots().iter().all(|b| !b.flash_granted), "{policy:?}");
         }
-        assert!(meteors.last_blast().is_some(), "les explosions ont lieu, sans éclair : {policy:?}");
+        assert!(
+            meteors.last_blast().is_some(),
+            "les explosions ont lieu, sans éclair : {policy:?}"
+        );
     }
 }

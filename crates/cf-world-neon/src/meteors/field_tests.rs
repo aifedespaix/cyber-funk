@@ -28,7 +28,12 @@ fn open_air(_: DVec3, _: f64) -> bool {
 }
 
 /// Rejoue `seconds` secondes ; renvoie le nombre d'astres lancés.
-fn run(field: &mut MeteorField, seconds: f32, show: Option<ShowGate>, collide: &mut dyn FnMut(DVec3, f64) -> bool) -> u64 {
+fn run(
+    field: &mut MeteorField,
+    seconds: f32,
+    show: Option<ShowGate>,
+    collide: &mut dyn FnMut(DVec3, f64) -> bool,
+) -> u64 {
     let before = field.spawned();
     for i in 0..(seconds / DT) as usize {
         field.update(&input(f64::from(DT) * i as f64, show), collide);
@@ -58,8 +63,12 @@ fn un_lancer_respecte_les_bornes_de_sillage() {
 #[test]
 fn le_mode_calme_ralentit_les_astres() {
     let (mut a, mut b) = (MeteorField::new(1), MeteorField::new(1));
-    let fast = a.launch(CAR, false, 7).and_then(|id| a.meteors().iter().find(|m| m.id == id).copied());
-    let slow = b.launch(CAR, true, 7).and_then(|id| b.meteors().iter().find(|m| m.id == id).copied());
+    let fast = a
+        .launch(CAR, false, 7)
+        .and_then(|id| a.meteors().iter().find(|m| m.id == id).copied());
+    let slow = b
+        .launch(CAR, true, 7)
+        .and_then(|id| b.meteors().iter().find(|m| m.id == id).copied());
     let (fast, slow) = (fast.expect("astre"), slow.expect("astre"));
     assert!((slow.velocity.length() / fast.velocity.length() - 0.45).abs() < 1e-3);
 }
@@ -284,7 +293,11 @@ fn les_evenements_et_le_pool_ne_depassent_jamais_leur_capacite() {
         field.update(&input(f64::from(DT) * f64::from(i), Some(gate(60.0))), &mut wall);
         assert!(field.active().count() <= POOL);
     }
-    assert_eq!(field.events.capacity(), capacity, "le vecteur d'événements ne se réalloue pas");
+    assert_eq!(
+        field.events.capacity(),
+        capacity,
+        "le vecteur d'événements ne se réalloue pas"
+    );
 }
 
 #[test]

@@ -121,7 +121,11 @@ mod tests {
         assert!(levels.iter().all(|&l| l <= MAX_FLASH_PEAK + 1e-6));
         let max_step = MAX_FLASH_PEAK * DT / MIN_FADE + 1e-3;
         for pair in levels.windows(2) {
-            assert!((pair[0] - pair[1]).abs() <= max_step, "saut de {}", (pair[0] - pair[1]).abs());
+            assert!(
+                (pair[0] - pair[1]).abs() <= max_step,
+                "saut de {}",
+                (pair[0] - pair[1]).abs()
+            );
         }
     }
 
