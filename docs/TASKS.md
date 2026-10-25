@@ -51,7 +51,7 @@ vient de la taille de la tâche et du nombre d'itérations, bien plus que du dé
 ## Statuts
 
 ⬜ à faire · 🟨 en cours · 🟦 PR ouverte · ✅ fusionnée.
-En cours au dernier point : J7-08.
+En cours au dernier point : J7-08 (correction règle 7).
 
 ✅* J7-07 : 12 cascades portées et testées ; critère « jouable par l'opérateur (debug) » non rempli (aucun ordre « lancer la cascade X » dans cf-show/cf-operator) : à câbler en J8.
 
@@ -111,7 +111,7 @@ En cours au dernier point : J7-08.
 | J7-07 | [Scripts de cascades](tasks/J7.md) | Sonnet 5.5 | `medium` | J7-06 | ✅* |
 | J7-08 | [Landmarks : registre et bâtiments spéciaux](tasks/J7.md) | Sonnet 5.5 | `high` | J5-02 | ⬜ |
 | J7-09 | [Landmarks vitrines](tasks/J7.md) | Sonnet 5.5 | `medium` | J7-08 | ⬜ |
-| J7-10 | [Météores et impacts](tasks/J7.md) | Sonnet 5.5 | `medium` | J5-02, J5-03 | ⬜ |
+| J7-10 | [Météores et impacts](tasks/J7.md) | Sonnet 5.5 | `medium` | J5-02, J5-03 | ✅ |
 | J7-11 | [Pré-intro et cartons-titres](tasks/J7.md) | Sonnet 5.5 | `medium` | J5-03, J4-01, J2-05 | ⬜ |
 | J8-01 | [Vue Live](tasks/J8.md) | Sonnet 5.5 | `high` | J2-05, J3-06, J4-05 | ✅ |
 | J8-02 | [Préparation : événement, créneaux, cues](tasks/J8.md) | Sonnet 5.5 | `medium` | J8-01, J2-07 | ⬜ |
@@ -125,6 +125,15 @@ En cours au dernier point : J7-08.
 | J9-03 | [Paquets d'installation](tasks/J9.md) | Sonnet 5.5 | `medium` | J0-01 | ✅ |
 | J9-04 | [Guide de l'opérateur](tasks/J9.md) | Sonnet 5.5 | `medium` | J8 terminé | ⬜ |
 | J9-05 | [Campagne de performance sur le matériel cible](tasks/J9.md) | Sonnet 5.5 | `high` | J9-01 | ⬜ |
+
+## Corrections à faire (relevées pendant les revues)
+
+- `NeonWorld::collides` ignore `without_city()` : des immeubles invisibles font exploser les météores (J7-10).
+- Tests intermittents sous forte charge : `show::tests::l_horloge_midi_prend_la_main_et_se_publie` (cf-render), même famille que `un_pad_midi_change_de_cue` (corrigé en J7-05 : instantané des ports rafraîchi toutes les 0,25 s).
+- `SignShow::dj_on_ads` à alimenter depuis `EventSettings::dj_on_ads` dans le binaire (J7-01).
+- Cascades jouables par l'opérateur (debug) : aucun ordre « lancer la cascade X » (J7-07), à câbler en J8.
+- Budget de flashs partagé entre le post-process, la voiture et les enseignes : chaque source a son limiteur de même politique (3/s) mais le compte à l'écran n'est pas mutualisé ; demande une API cf-render (J5-05).
+- Licence de la CyberCar inconnue : à régler avant toute distribution (J9-03 embarque `assets/`).
 
 ## Regroupements (une session pour deux tâches)
 
