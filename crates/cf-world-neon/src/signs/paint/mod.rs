@@ -7,6 +7,15 @@
 //!
 //! Le [`Painter`] ne connaît ni Bevy ni l'atlas : il rend des [`Bitmap`], que `atlas` range en pages.
 
+// Code de dessin : les coordonnées x, y, w, h, les rayons et les couleurs sont des arguments naturels ; les tailles de
+// canevas (au plus 4 096 px) sont très loin des limites des entiers signés.
+#![allow(
+    clippy::many_single_char_names,
+    clippy::too_many_arguments,
+    clippy::cast_possible_wrap,
+    reason = "code de dessin : voir le commentaire ci-dessus"
+)]
+
 mod arts;
 mod cam;
 pub mod canvas;
@@ -83,7 +92,6 @@ impl Painter {
         })
     }
 
-
     fn rgba(&self) -> Bitmap {
         Bitmap {
             w: CANVAS_W,
@@ -128,7 +136,11 @@ impl Painter {
     pub fn strip(&mut self, slogans: &[String]) -> Option<Strip> {
         let mut text = String::new();
         for (i, slogan) in slogans.iter().take(TICKER_SLOGANS).enumerate() {
-            let next = if i == 0 { slogan.clone() } else { format!("{text} /// {slogan}") };
+            let next = if i == 0 {
+                slogan.clone()
+            } else {
+                format!("{text} /// {slogan}")
+            };
             let width = self.fonts.width(&format!("{next}{GAP}"), Face::Mono, TICKER_FONT);
             if i > 0 && width > STRIP_MAX_W {
                 break;

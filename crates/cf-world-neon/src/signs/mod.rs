@@ -101,24 +101,25 @@ impl Plugin for SignsPlugin {
         if !rendering && !self.force {
             return;
         }
-        app.add_systems(Startup, (rig::spawn_rig, bake::start_bake)).add_systems(
-            Update,
-            (
-                bake::poll_bake.run_if(resource_exists::<bake::SignBake>),
-                systems::update_signs
-                    .after(WorldSet::Chunks)
-                    .after(crate::pilot::PilotSet)
-                    .run_if(resource_exists::<SignAtlas>),
+        app.add_systems(Startup, (rig::spawn_rig, bake::start_bake))
+            .add_systems(
+                Update,
+                (
+                    bake::poll_bake.run_if(resource_exists::<bake::SignBake>),
+                    systems::update_signs
+                        .after(WorldSet::Chunks)
+                        .after(crate::pilot::PilotSet)
+                        .run_if(resource_exists::<SignAtlas>),
+                )
+                    .chain()
+                    .in_set(CfSet::Simulate),
             )
-                .chain()
-                .in_set(CfSet::Simulate),
-        )
-        .add_systems(
-            Update,
-            systems::render_signs
-                .in_set(CfSet::Present)
-                .run_if(resource_exists::<SignAtlas>)
-                .run_if(resource_exists::<rig::SignRig>),
-        );
+            .add_systems(
+                Update,
+                systems::render_signs
+                    .in_set(CfSet::Present)
+                    .run_if(resource_exists::<SignAtlas>)
+                    .run_if(resource_exists::<rig::SignRig>),
+            );
     }
 }

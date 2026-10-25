@@ -20,11 +20,20 @@ fn tout_ce_que_la_route_peut_demander_est_cuit() {
         let id = AdId(index as u8);
         for slogan in 0..ad.slogans.len() as u8 {
             if index < PRODUCT_ADS {
-                assert!(atlas.cells.contains_key(&CellKey::Product { ad: id, slogan }), "produit {index}/{slogan}");
-                assert!(atlas.cells.contains_key(&CellKey::Ghost { ad: id, slogan }), "projection {index}/{slogan}");
+                assert!(
+                    atlas.cells.contains_key(&CellKey::Product { ad: id, slogan }),
+                    "produit {index}/{slogan}"
+                );
+                assert!(
+                    atlas.cells.contains_key(&CellKey::Ghost { ad: id, slogan }),
+                    "projection {index}/{slogan}"
+                );
             }
             if index >= NEON_FIRST {
-                assert!(atlas.cells.contains_key(&CellKey::Neon { ad: id, slogan }), "néon {index}/{slogan}");
+                assert!(
+                    atlas.cells.contains_key(&CellKey::Neon { ad: id, slogan }),
+                    "néon {index}/{slogan}"
+                );
             } else {
                 let key = StripKey {
                     ad: StripAd::Catalogue(id),
@@ -43,7 +52,10 @@ fn tout_ce_que_la_route_peut_demander_est_cuit() {
             assert!(atlas.cells.contains_key(&CellKey::LiveNeon { slot, tag }));
         }
         assert!(atlas.cells.contains_key(&CellKey::LiveGhost { slot, tag: 0 }));
-        assert!(!atlas.cells.contains_key(&CellKey::LiveGhost { slot, tag: 1 }), "l'événement a un nom : un seul texte");
+        assert!(
+            !atlas.cells.contains_key(&CellKey::LiveGhost { slot, tag: 1 }),
+            "l'événement a un nom : un seul texte"
+        );
         assert!(atlas.strips.contains_key(&StripKey {
             ad: StripAd::LivePoster { slot },
             start: 1
@@ -57,12 +69,18 @@ fn chaque_cellule_et_chaque_bande_tient_dans_sa_page() {
     let atlas = BakedAtlas::build(&slots(), 4);
     for (key, info) in &atlas.cells {
         let page = &atlas.pages[usize::from(info.page)];
-        assert!(u32::from(info.x) + CANVAS_W <= page.w && u32::from(info.y) + CANVAS_H <= page.h, "{key:?}");
+        assert!(
+            u32::from(info.x) + CANVAS_W <= page.w && u32::from(info.y) + CANVAS_H <= page.h,
+            "{key:?}"
+        );
         assert!(page.w <= PAGE_W && page.h <= PAGE_MAX_H);
     }
     for (key, info) in &atlas.strips {
         let page = &atlas.pages[usize::from(info.page)];
-        assert!(u32::from(info.width) <= page.w && u32::from(info.y) + TICKER_H <= page.h, "{key:?}");
+        assert!(
+            u32::from(info.width) <= page.w && u32::from(info.y) + TICKER_H <= page.h,
+            "{key:?}"
+        );
         assert!(info.period > 1.0 && info.period <= f32::from(info.width), "{key:?}");
     }
     assert!(atlas.pages.iter().all(|p| p.w <= 4096 && p.h <= 4096));
@@ -83,7 +101,10 @@ fn le_resultat_ne_depend_pas_du_nombre_de_fils() {
 /// show compris. En test (profil de développement) la marge est plus large ; `cargo test --release` tient les 2 s.
 #[test]
 fn la_cuisson_tient_dans_le_budget() {
-    let slots = SignShow::names("Démesure Live", ["KRMN", "Nova Kaito", "DJ Trois", "Quatre", "Cinq", "Six"]);
+    let slots = SignShow::names(
+        "Démesure Live",
+        ["KRMN", "Nova Kaito", "DJ Trois", "Quatre", "Cinq", "Six"],
+    );
     let threads = std::thread::available_parallelism().map_or(2, std::num::NonZero::get);
     let start = Instant::now();
     let atlas = BakedAtlas::build(&slots, threads);

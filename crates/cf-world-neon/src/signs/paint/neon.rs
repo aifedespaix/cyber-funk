@@ -59,7 +59,9 @@ pub fn neon(canvas: &mut Canvas, fonts: &mut Fonts, text: &str, seed: f32) {
     }
     // Cadre : un rectangle arrondi dont un côté est coupé.
     let gap = 38.0 + ((seed * 10.0) % 3.0).floor() * 26.0;
-    let Some(path) = Canvas::rounded_path(18.0, 18.0, W - 36.0, H - 36.0, 34.0) else { return };
+    let Some(path) = Canvas::rounded_path(18.0, 18.0, W - 36.0, H - 36.0, 34.0) else {
+        return;
+    };
     let stroke = Canvas::dashed_stroke(7.0, W * 2.0 - gap * 2.0, gap, -seed * 40.0);
     canvas.stroke(Ink::new(R).alpha(BRIGHT).glow(22.0), &path, &stroke);
 }
@@ -70,7 +72,14 @@ fn tube(canvas: &mut Canvas, letter: &super::text::Run, x: f32, y: f32, dead: bo
         draw_run(canvas, Ink::new(B).alpha(BRIGHT).glow(26.0), letter, x, y, Some(6.0));
         return;
     }
-    draw_run(canvas, Ink::new(R).alpha(BRIGHT * 0.55).glow(26.0), letter, x, y, Some(13.0));
+    draw_run(
+        canvas,
+        Ink::new(R).alpha(BRIGHT * 0.55).glow(26.0),
+        letter,
+        x,
+        y,
+        Some(13.0),
+    );
     draw_run(canvas, Ink::new(R).alpha(BRIGHT), letter, x, y, Some(6.0));
     draw_run(canvas, Ink::new(G).alpha(BRIGHT * 0.9), letter, x, y, Some(2.0));
 }
@@ -88,7 +97,14 @@ pub fn ghost(canvas: &mut Canvas, fonts: &mut Fonts, text: &str) {
     let top = H / 2.0 - (lines.len() as f32 - 1.0) * lead / 2.0;
     for (i, line) in lines.iter().enumerate() {
         let run = fonts.layout(line, Face::Sans, size);
-        draw_run(canvas, Ink::new(R).glow(30.0), &run, (W - run.width) / 2.0, top + i as f32 * lead + size * 0.34, None);
+        draw_run(
+            canvas,
+            Ink::new(R).glow(30.0),
+            &run,
+            (W - run.width) / 2.0,
+            top + i as f32 * lead + size * 0.34,
+            None,
+        );
     }
 }
 
@@ -110,14 +126,22 @@ mod tests {
 
     #[test]
     fn la_parenthese_finale_est_retiree() {
-        assert_eq!(strip_aside("AJOUTE AU PANIER. (PAS BESOIN DE LIRE)"), "AJOUTE AU PANIER.");
+        assert_eq!(
+            strip_aside("AJOUTE AU PANIER. (PAS BESOIN DE LIRE)"),
+            "AJOUTE AU PANIER."
+        );
         assert_eq!(strip_aside("PROMO"), "PROMO");
     }
 
     #[test]
     fn un_slogan_neon_tient_en_deux_lignes() {
         let mut fonts = Fonts::new();
-        for text in ["AUJOURD'HUI SEULEMENT", "LIVRAISON 5 MIN", "REVENDEZ-VOUS", "OUVERT 24H/24"] {
+        for text in [
+            "AUJOURD'HUI SEULEMENT",
+            "LIVRAISON 5 MIN",
+            "REVENDEZ-VOUS",
+            "OUVERT 24H/24",
+        ] {
             let (size, lines) = tube_lines(&mut fonts, text);
             assert!(lines.len() <= 2 && size >= 36.0, "{text} : {size} {lines:?}");
         }

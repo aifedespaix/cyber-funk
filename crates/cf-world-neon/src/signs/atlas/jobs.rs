@@ -85,7 +85,11 @@ pub fn jobs(slots: &[SlotNames]) -> Vec<Job> {
         for tag in 0..NEON_TAGS.len() as u8 {
             out.push(Job::Cell(CellKey::LiveNeon { slot, tag }));
         }
-        let ghost_tags = if names.event.is_empty() { NEON_TAGS.len() as u8 } else { 1 };
+        let ghost_tags = if names.event.is_empty() {
+            NEON_TAGS.len() as u8
+        } else {
+            1
+        };
         for tag in 0..ghost_tags {
             out.push(Job::Cell(CellKey::LiveGhost { slot, tag }));
         }
@@ -105,7 +109,9 @@ pub fn jobs(slots: &[SlotNames]) -> Vec<Job> {
 
 /// Les slogans d'un bandeau, dans l'ordre où il les enchaîne : à partir de `start`, en boucle.
 fn rotated(texts: &[String], start: usize) -> Vec<String> {
-    (0..texts.len()).map(|i| texts[(start + i) % texts.len()].clone()).collect()
+    (0..texts.len())
+        .map(|i| texts[(start + i) % texts.len()].clone())
+        .collect()
 }
 
 fn live_texts(key: StripAd, names: &SlotNames) -> Vec<String> {
@@ -168,11 +174,15 @@ fn bake_cell(painter: &mut Painter, key: CellKey, slots: &[SlotNames]) -> Option
         }
         CellKey::Ghost { ad, slogan } => {
             let a = ad.ad();
-            cell(painter.ghost(a.slogans[usize::from(slogan) % a.slogans.len()]), Secondary::None, 0)
+            cell(
+                painter.ghost(a.slogans[usize::from(slogan) % a.slogans.len()]),
+                Secondary::None,
+                0,
+            )
         }
         CellKey::Neon { ad, slogan } => {
             let a = ad.ad();
-            let seed = hash(f64::from(ad.0) * 7.0 + f64::from(slogan), 3.0) as f32 * 6.28;
+            let seed = hash(f64::from(ad.0) * 7.0 + f64::from(slogan), 3.0) as f32 * std::f32::consts::TAU;
             let text = a.slogans[usize::from(slogan) % a.slogans.len()];
             cell(painter.neon(text, seed), Secondary::Accent, 0)
         }
@@ -197,7 +207,11 @@ fn bake_cell(painter: &mut Painter, key: CellKey, slots: &[SlotNames]) -> Option
         CellKey::LiveNeon { slot, tag } => {
             let n = names(slot)?;
             let text = format!("{} {}", NEON_TAGS[usize::from(tag) % NEON_TAGS.len()], n.name);
-            cell(painter.neon(&text, hash(f64::from(slot), 3.0) as f32 * 6.28), Secondary::Accent, 0)
+            cell(
+                painter.neon(&text, hash(f64::from(slot), 3.0) as f32 * std::f32::consts::TAU),
+                Secondary::Accent,
+                0,
+            )
         }
         CellKey::LiveGhost { slot, tag } => {
             let n = names(slot)?;
@@ -236,10 +250,7 @@ pub fn bake_all(jobs: &[Job], slots: &[SlotNames], threads: usize) -> Vec<Option
                 })
             })
             .collect();
-        workers
-            .into_iter()
-            .flat_map(|w| w.join().unwrap_or_default())
-            .collect()
+        workers.into_iter().flat_map(|w| w.join().unwrap_or_default()).collect()
     });
     done.sort_by_key(|(i, _)| *i);
     let mut out: Vec<Option<Baked>> = (0..jobs.len()).map(|_| None).collect();

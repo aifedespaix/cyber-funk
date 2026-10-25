@@ -10,15 +10,15 @@
 //!   simple échange de poignée.
 
 use bevy::asset::{Asset, Handle, uuid_handle};
-use bevy::math::Vec4;
 use bevy::material::AlphaMode;
+use bevy::math::Vec4;
+use bevy::mesh::MeshVertexBufferLayoutRef;
 use bevy::pbr::Material;
+use bevy::pbr::{MaterialPipeline, MaterialPipelineKey};
 use bevy::prelude::Image;
 use bevy::reflect::TypePath;
 use bevy::render::render_resource::{AsBindGroup, RenderPipelineDescriptor, ShaderType, SpecializedMeshPipelineError};
 use bevy::shader::{Shader, ShaderRef};
-use bevy::mesh::MeshVertexBufferLayoutRef;
-use bevy::pbr::{MaterialPipeline, MaterialPipelineKey};
 
 use super::paint::{BAND_Y, DIGIT_SLOT, DIGITS_H, DIGITS_X, DIGITS_Y, FEED, LABELS};
 

@@ -10,9 +10,9 @@
 use cosmic_text::{Attrs, Buffer, CacheKeyFlags, Family, FontSystem, Metrics, Shaping, SwashCache, Weight, fontdb};
 use tiny_skia::{Path, PathBuilder};
 
-/// DejaVu Sans Mono Bold (licence Bitstream Vera, `assets/fonts/LICENCE.md`).
+/// `DejaVu Sans Mono Bold` (licence Bitstream Vera, `assets/fonts/LICENCE.md`).
 const MONO: &[u8] = include_bytes!("../../../../../assets/fonts/DejaVuSansMono-Bold.ttf");
-/// DejaVu Sans Bold.
+/// `DejaVu Sans Bold`.
 const SANS: &[u8] = include_bytes!("../../../../../assets/fonts/DejaVuSans-Bold.ttf");
 
 /// Les deux polices disponibles.
@@ -45,7 +45,10 @@ pub struct Run {
 
 impl std::fmt::Debug for Run {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("Run").field("glyphs", &self.glyphs.len()).field("width", &self.width).finish()
+        f.debug_struct("Run")
+            .field("glyphs", &self.glyphs.len())
+            .field("width", &self.width)
+            .finish_non_exhaustive()
     }
 }
 
@@ -124,10 +127,14 @@ impl Fonts {
         let mut lines = Vec::new();
         let mut line = String::new();
         for word in text.split(' ') {
-            let next = if line.is_empty() { word.to_owned() } else { format!("{line} {word}") };
+            let next = if line.is_empty() {
+                word.to_owned()
+            } else {
+                format!("{line} {word}")
+            };
             if !line.is_empty() && self.width(&next, face, size) > max_width {
                 lines.push(std::mem::take(&mut line));
-                line = word.to_owned();
+                word.clone_into(&mut line);
             } else {
                 line = next;
             }
@@ -171,10 +178,21 @@ mod tests {
     #[test]
     fn les_accents_et_les_signes_du_catalogue_sont_dessines() {
         let mut fonts = Fonts::new();
-        for text in ["ÉCHÉANCE À LA BÊTE", "« STEAK »", "MOTEL ∞", "◆ SECT.4", "AUJOURD'HUI…", "100% BIO*"] {
+        for text in [
+            "ÉCHÉANCE À LA BÊTE",
+            "« STEAK »",
+            "MOTEL ∞",
+            "◆ SECT.4",
+            "AUJOURD'HUI…",
+            "100% BIO*",
+        ] {
             let run = fonts.layout(text, Face::Sans, 40.0);
             let visible = text.chars().filter(|c| !c.is_whitespace()).count();
-            assert_eq!(run.glyphs.len(), visible, "{text} : une lettre n'a pas de contour (police sans ce signe ?)");
+            assert_eq!(
+                run.glyphs.len(),
+                visible,
+                "{text} : une lettre n'a pas de contour (police sans ce signe ?)"
+            );
         }
     }
 
@@ -186,7 +204,10 @@ mod tests {
         assert!(lines.len() > 1);
         assert_eq!(lines.join(" "), text);
         for line in &lines {
-            assert!(fonts.width(line, Face::Mono, 25.0) <= 256.0 + 0.5 || !line.contains(' '), "{line}");
+            assert!(
+                fonts.width(line, Face::Mono, 25.0) <= 256.0 + 0.5 || !line.contains(' '),
+                "{line}"
+            );
         }
     }
 }

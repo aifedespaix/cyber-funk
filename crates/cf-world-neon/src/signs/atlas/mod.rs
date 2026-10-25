@@ -267,7 +267,7 @@ impl Shelf {
     fn finish(self, out: &mut Vec<PageData>) -> usize {
         let base = out.len();
         for (index, items) in self.pages.into_iter().enumerate() {
-            let rows = (self.placed[index] + self.cols - 1) / self.cols;
+            let rows = self.placed[index].div_ceil(self.cols);
             let mut page = PageData::new(self.format, rows.max(1), self.row_h);
             for (x, y, bitmap) in &items {
                 page.blit(*x, *y, bitmap);
@@ -293,7 +293,14 @@ impl BakedAtlas {
         let mut failed = 0;
         for (job, result) in list.iter().zip(baked) {
             match (job, result) {
-                (Job::Cell(key), Some(Baked::Cell { bitmap, secondary, flags })) => {
+                (
+                    Job::Cell(key),
+                    Some(Baked::Cell {
+                        bitmap,
+                        secondary,
+                        flags,
+                    }),
+                ) => {
                     let is_rgba = matches!(bitmap.pixels, Pixels::Rgba(_));
                     let (page, x, y) = if is_rgba { rgba.put(bitmap) } else { r8.put(bitmap) };
                     cell_places.push((*key, is_rgba, page, x, y, secondary, flags));

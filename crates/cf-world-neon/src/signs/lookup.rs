@@ -26,12 +26,10 @@ pub fn cell_key(look: Look, ad: &SignAd, slogan: u8, show: &SignShow) -> Option<
             Some(CellKey::LiveGhost { slot: slot(live)?, tag })
         }
         (Look::Neon, SignAd::Catalogue(id)) if id.ad().kind == AdKind::Neon => Some(CellKey::Neon { ad: *id, slogan }),
-        (Look::Neon, SignAd::Live(live)) if live.role == LiveRole::Text && !live.ghost => {
-            Some(CellKey::LiveNeon {
-                slot: slot(live)?,
-                tag: live.tag as u8,
-            })
-        }
+        (Look::Neon, SignAd::Live(live)) if live.role == LiveRole::Text && !live.ghost => Some(CellKey::LiveNeon {
+            slot: slot(live)?,
+            tag: live.tag as u8,
+        }),
         (Look::Camera, SignAd::Catalogue(id)) if id.ad().kind == AdKind::Watch => Some(CellKey::Cam),
         (Look::Camera, SignAd::Live(live)) if live.role == LiveRole::Screen => {
             Some(CellKey::LiveScreen { slot: slot(live)? })
@@ -93,7 +91,10 @@ mod tests {
                 event: "DÉMESURE".into(),
             },
         ];
-        let atlas = BakedAtlas::build(&slots, std::thread::available_parallelism().map_or(2, std::num::NonZero::get));
+        let atlas = BakedAtlas::build(
+            &slots,
+            std::thread::available_parallelism().map_or(2, std::num::NonZero::get),
+        );
         let mut show = SignShow {
             active: true,
             dj_on_ads: true,
@@ -116,16 +117,25 @@ mod tests {
                 |_, _| false,
             );
             for unit in road.units.iter().filter(|u| u.state.is_some() && u.fresh) {
-                let (Some(state), Some(format)) = (unit.state, unit.format) else { continue };
+                let (Some(state), Some(format)) = (unit.state, unit.format) else {
+                    continue;
+                };
                 if !seen.insert((unit.slot, state.slogan)) {
                     continue;
                 }
                 let look = format.format().look;
                 let cell = cell_key(look, &state.ad, state.slogan, &show);
-                assert!(cell.is_some_and(|k| atlas.cells.contains_key(&k)), "{format:?} {:?} : cellule {cell:?}", state.ad);
+                assert!(
+                    cell.is_some_and(|k| atlas.cells.contains_key(&k)),
+                    "{format:?} {:?} : cellule {cell:?}",
+                    state.ad
+                );
                 if matches!(look, Look::Holo | Look::Metal | Look::Camera) {
                     let strip = strip_key(look, &state.ad, state.slogan);
-                    assert!(strip.is_some_and(|k| atlas.strips.contains_key(&k)), "{format:?} : bandeau {strip:?}");
+                    assert!(
+                        strip.is_some_and(|k| atlas.strips.contains_key(&k)),
+                        "{format:?} : bandeau {strip:?}"
+                    );
                 }
                 placed += 1;
                 live += usize::from(matches!(state.ad, SignAd::Live(_)));
@@ -135,6 +145,9 @@ mod tests {
             }
             z -= 6.0;
         }
-        assert!(placed > 400 && live > 10, "{placed} panneaux, dont {live} annonces du DJ");
+        assert!(
+            placed > 400 && live > 10,
+            "{placed} panneaux, dont {live} annonces du DJ"
+        );
     }
 }

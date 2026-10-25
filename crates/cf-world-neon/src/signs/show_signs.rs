@@ -15,7 +15,10 @@ use crate::rng::hash;
 /// Formats posés au bord de la route ou au-dessus : on y lit court. Les toits, projections et bandeaux gardent les
 /// longues phrases.
 const fn is_near(format: FormatId) -> bool {
-    matches!(format, FormatId::Holo | FormatId::Gantry | FormatId::Arm | FormatId::Neon)
+    matches!(
+        format,
+        FormatId::Holo | FormatId::Gantry | FormatId::Arm | FormatId::Neon
+    )
 }
 /// Un slogan « court » tient en 5 mots au plus.
 const SHORT_WORDS: usize = 5;
@@ -108,7 +111,13 @@ pub fn slogan_index(ad: &Ad, k: i64, format: FormatId, show_active: bool) -> usi
     if !show_active || !is_near(format) || hash(kf, 43.0) >= SHORT_SHARE {
         return usual;
     }
-    let eligible = |i: usize, text: &str| if ad.kind == AdKind::Estate { i % 2 == 1 } else { is_short(text) };
+    let eligible = |i: usize, text: &str| {
+        if ad.kind == AdKind::Estate {
+            !i.is_multiple_of(2)
+        } else {
+            is_short(text)
+        }
+    };
     let pool = ad.slogans.iter().enumerate().filter(|(i, t)| eligible(*i, t)).count();
     if pool == 0 {
         return usual;
@@ -210,7 +219,7 @@ impl LiveAd {
             }
             (LiveRole::Text, false, _) => format!("{tag} {}", names.name),
             (LiveRole::Screen, ..) => {
-                if i % 2 == 0 {
+                if i.is_multiple_of(2) {
                     names.name.clone()
                 } else if names.event.is_empty() {
                     "EN DIRECT".to_owned()
@@ -219,7 +228,7 @@ impl LiveAd {
                 }
             }
             (LiveRole::Poster, ..) => {
-                if i % 2 == 0 {
+                if i.is_multiple_of(2) {
                     names.name.clone()
                 } else {
                     format!("{} LIVE", names.name)
@@ -275,4 +284,3 @@ pub fn live_ad(k: i64, format: FormatId, show: &SignShow) -> Option<LiveAd> {
         },
     })
 }
-

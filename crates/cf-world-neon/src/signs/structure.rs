@@ -101,7 +101,9 @@ impl Fit {
     /// liseré s'éteignent avec lui, les pieds, la poutre et les câbles restent.
     #[must_use]
     pub fn shown(&self, kind: PartKind, display: bool) -> bool {
-        let Some(_) = self.parts[kind.index()] else { return false };
+        let Some(_) = self.parts[kind.index()] else {
+            return false;
+        };
         match kind {
             PartKind::Slab => display && self.backed,
             PartKind::Strip(_) => display && self.lit,
@@ -113,6 +115,11 @@ impl Fit {
 /// Pose la structure d'un panneau de `w` × `h` m. `drop` : hauteur du centre du panneau au-dessus du sol (les pieds
 /// descendent jusque-là) ; `round` : pieds ronds plutôt que carrés.
 #[must_use]
+#[allow(
+    clippy::too_many_arguments,
+    clippy::many_single_char_names,
+    reason = "toutes les cotes d'un panneau, une par argument"
+)]
 pub fn fit(mount: Mount, w: f32, h: f32, side: f32, drop: f32, backed: bool, lit: bool, round: bool) -> Fit {
     let mut f = Fit {
         backed,
@@ -172,7 +179,11 @@ pub fn fit(mount: Mount, w: f32, h: f32, side: f32, drop: f32, backed: bool, lit
             // Deux câbles verticaux jusqu'à un palonnier : le vaisseau s'accroche au palonnier, le panneau pend dessous.
             let top = h / 2.0 + 0.4;
             for (i, sign) in [-1.0_f32, 1.0].into_iter().enumerate() {
-                f.put(feet(i as u8), v(0.22, ROPE, 0.22), v(sign * w * 0.42, top + ROPE / 2.0, -0.2));
+                f.put(
+                    feet(i as u8),
+                    v(0.22, ROPE, 0.22),
+                    v(sign * w * 0.42, top + ROPE / 2.0, -0.2),
+                );
             }
             f.put(PartKind::Beam, v(w + 1.5, 0.8, 0.8), v(0.0, top + ROPE, -0.2));
         }

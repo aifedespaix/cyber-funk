@@ -3,6 +3,15 @@
 //! Avec `SIGNS_DUMP=<dossier>`, les cellules sont aussi écrites en `.ppm` (aperçu : accent rose, glace blanche,
 //! couleur propre menthe) pour être relues à l'œil.
 
+#![allow(
+    clippy::panic,
+    clippy::unwrap_used,
+    clippy::expect_used,
+    clippy::many_single_char_names,
+    clippy::needless_range_loop,
+    reason = "tests : un échec doit faire échouer le test"
+)]
+
 use super::*;
 use crate::signs::ads::{CATALOGUE, PRODUCT_ADS};
 use crate::signs::icons::{IconId, icon_for};
@@ -13,7 +22,7 @@ fn painter() -> Painter {
 
 fn channel(bitmap: &Bitmap, c: usize) -> Vec<u8> {
     match &bitmap.pixels {
-        Pixels::Rgba(d) => d.chunks_exact(4).map(|p| p[c]).collect(),
+        Pixels::Rgba(d) => d.as_chunks::<4>().0.iter().map(|p| p[c]).collect(),
         Pixels::R8(d) => d.clone(),
     }
 }
@@ -56,7 +65,11 @@ fn chaque_produit_dessine_dans_ses_canaux() {
                 icon,
                 live: None,
             });
-            assert!(ink_sum(&bitmap, 0) + ink_sum(&bitmap, 1) > 10_000, "{:?} rang {rank} : cellule vide", ad.kind);
+            assert!(
+                ink_sum(&bitmap, 0) + ink_sum(&bitmap, 1) > 10_000,
+                "{:?} rang {rank} : cellule vide",
+                ad.kind
+            );
             dump(&format!("product-{index}-{rank}"), &bitmap);
         }
     }
@@ -112,7 +125,10 @@ fn le_neon_la_projection_et_la_camera_ont_leur_contenu() {
     let cam = p.cam(None);
     assert!(ink_sum(&cam, 0) > 1_000 && ink_sum(&cam, 1) > 1_000);
     let screen = p.cam(Some(("KRMN", "DÉMESURE LIVE")));
-    assert!(ink_sum(&screen, 3) > 100_000, "la plaque du DJ est un voile sombre (canal K)");
+    assert!(
+        ink_sum(&screen, 3) > 100_000,
+        "la plaque du DJ est un voile sombre (canal K)"
+    );
     dump("cam", &cam);
     dump("screen", &screen);
     // La rangée de chiffres et les étiquettes sont dans la bande sous l'image, vide pour les autres cellules.
@@ -125,7 +141,10 @@ fn le_neon_la_projection_et_la_camera_ont_leur_contenu() {
         icon: None,
         live: None,
     });
-    assert!(channel(&product, 0)[band_start..].iter().all(|v| *v == 0), "la bande est réservée aux caméras");
+    assert!(
+        channel(&product, 0)[band_start..].iter().all(|v| *v == 0),
+        "la bande est réservée aux caméras"
+    );
 }
 
 #[test]
@@ -134,14 +153,23 @@ fn un_bandeau_est_une_boucle_exacte() {
     let ad = &CATALOGUE[0];
     let slogans: Vec<String> = ad.slogans.iter().map(|s| (*s).to_owned()).collect();
     let strip = p.strip(&slogans).unwrap_or_else(|| panic!("bande"));
-    assert!(strip.period > 600.0 && strip.period <= STRIP_MAX_W + 400.0, "{}", strip.period);
+    assert!(
+        strip.period > 600.0 && strip.period <= STRIP_MAX_W + 400.0,
+        "{}",
+        strip.period
+    );
     assert_eq!(strip.bitmap.h, TICKER_H);
-    let Pixels::R8(data) = &strip.bitmap.pixels else { panic!("un canal") };
+    let Pixels::R8(data) = &strip.bitmap.pixels else {
+        panic!("un canal")
+    };
     // L'intervalle final est vide : rien ne chevauche la couture de la boucle.
     let w = strip.bitmap.w as usize;
     let seam = strip.period as usize;
     for row in 0..TICKER_H as usize {
-        assert!(data[row * w + seam - 3..row * w + w].iter().all(|v| *v == 0), "couture sale, ligne {row}");
+        assert!(
+            data[row * w + seam - 3..row * w + w].iter().all(|v| *v == 0),
+            "couture sale, ligne {row}"
+        );
     }
     dump("strip", &strip.bitmap);
 }

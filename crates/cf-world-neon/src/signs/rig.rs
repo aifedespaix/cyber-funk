@@ -79,7 +79,13 @@ fn placeholder(texels: u32, format: TextureFormat) -> Image {
         TextureFormat::R8Unorm => vec![0_u8; (texels * texels) as usize],
         _ => vec![0_u8; (texels * texels * 4) as usize],
     };
-    let mut image = Image::new(size, TextureDimension::D2, bytes, format, RenderAssetUsages::RENDER_WORLD);
+    let mut image = Image::new(
+        size,
+        TextureDimension::D2,
+        bytes,
+        format,
+        RenderAssetUsages::RENDER_WORLD,
+    );
     image.sampler = ImageSampler::linear();
     image
 }

@@ -42,7 +42,10 @@ pub fn draw_icon(canvas: &mut Canvas, fonts: &mut Fonts, icon: IconId, cx: f32, 
         }
         IconId::Tag => {
             // Étiquette de prix, avec son trou de fil et son code-barres.
-            canvas.polygon(accent, &[(-32.0, -42.0), (32.0, -42.0), (32.0, 28.0), (0.0, 50.0), (-32.0, 28.0)]);
+            canvas.polygon(
+                accent,
+                &[(-32.0, -42.0), (32.0, -42.0), (32.0, 28.0), (0.0, 50.0), (-32.0, 28.0)],
+            );
             canvas.circle(Ink::cut(R), 0.0, -30.0, 5.0);
             text_center(canvas, fonts, Ink::cut(R), "%", Face::Sans, 34.0, 0.0, 4.0);
             for i in 0..7 {
@@ -96,14 +99,41 @@ pub fn draw_icon(canvas: &mut Canvas, fonts: &mut Fonts, icon: IconId, cx: f32, 
             let f = 0.5_f32;
             canvas.polyline(
                 accent,
-                &[(-26.0, -46.0), (26.0, -46.0), (3.0, 0.0), (26.0, 46.0), (-26.0, 46.0), (-3.0, 0.0)],
+                &[
+                    (-26.0, -46.0),
+                    (26.0, -46.0),
+                    (3.0, 0.0),
+                    (26.0, 46.0),
+                    (-26.0, 46.0),
+                    (-3.0, 0.0),
+                ],
                 3.0,
                 true,
             );
-            canvas.rect(accent.alpha(0.75), -20.0 * (1.0 - f), -40.0 + f * 30.0, 40.0 * (1.0 - f), 30.0 * (1.0 - f) + 1.0);
-            canvas.rect(accent.alpha(0.75), -22.0 * f - 2.0, 44.0 - 34.0 * f, 44.0 * f + 4.0, 34.0 * f);
+            canvas.rect(
+                accent.alpha(0.75),
+                -20.0 * (1.0 - f),
+                -40.0 + f * 30.0,
+                40.0 * (1.0 - f),
+                30.0 * (1.0 - f) + 1.0,
+            );
+            canvas.rect(
+                accent.alpha(0.75),
+                -22.0 * f - 2.0,
+                44.0 - 34.0 * f,
+                44.0 * f + 4.0,
+                34.0 * f,
+            );
             canvas.rect(accent, -1.0, -2.0, 2.0, 44.0 - 34.0 * f);
         }
+        _ => draw_play_icon(canvas, fonts, icon, accent),
+    }
+    canvas.xf = saved;
+}
+
+/// Les icônes de jeu, de politique et d'immobilier (la suite de `draw_icon`, même repère).
+fn draw_play_icon(canvas: &mut Canvas, fonts: &mut Fonts, icon: IconId, accent: Ink) {
+    match icon {
         IconId::Pad => {
             // Manette : croix directionnelle, deux boutons, barre de vie.
             canvas.rounded(accent, -50.0, -22.0, 100.0, 50.0, 18.0, Some(3.0));
@@ -136,7 +166,12 @@ pub fn draw_icon(canvas: &mut Canvas, fonts: &mut Fonts, icon: IconId, cx: f32, 
             for (i, level) in [0.4_f32, 0.6, 0.7, 0.9].into_iter().enumerate() {
                 canvas.rect(accent, -42.0 + i as f32 * 22.0, 44.0 - level * 80.0, 16.0, level * 80.0);
             }
-            canvas.polyline(Ink::new(G), &[(-46.0, 20.0), (-10.0, -4.0), (10.0, 6.0), (46.0, -40.0)], 3.0, false);
+            canvas.polyline(
+                Ink::new(G),
+                &[(-46.0, 20.0), (-10.0, -4.0), (10.0, 6.0), (46.0, -40.0)],
+                3.0,
+                false,
+            );
             canvas.polyline(Ink::new(G), &[(32.0, -38.0), (46.0, -40.0), (44.0, -26.0)], 3.0, false);
         }
         IconId::Liar => {
@@ -151,7 +186,12 @@ pub fn draw_icon(canvas: &mut Canvas, fonts: &mut Fonts, icon: IconId, cx: f32, 
         IconId::House => {
             // Maison, fenêtres allumées, bande « VENDU ».
             canvas.polyline(accent, &[(-42.0, 6.0), (0.0, -40.0), (42.0, 6.0)], 3.0, false);
-            canvas.polyline(accent, &[(-32.0, 0.0), (-32.0, 44.0), (32.0, 44.0), (32.0, 0.0)], 3.0, false);
+            canvas.polyline(
+                accent,
+                &[(-32.0, 0.0), (-32.0, 44.0), (32.0, 44.0), (32.0, 0.0)],
+                3.0,
+                false,
+            );
             canvas.rect(accent, -8.0, 20.0, 16.0, 24.0);
             canvas.rect(accent, 14.0, 8.0, 12.0, 10.0);
             canvas.rect(accent.alpha(0.3), -26.0, 8.0, 12.0, 10.0);
@@ -165,7 +205,10 @@ pub fn draw_icon(canvas: &mut Canvas, fonts: &mut Fonts, icon: IconId, cx: f32, 
             // Scène, deux projecteurs et une foule.
             for side in [-1.0_f32, 1.0] {
                 let sweep = (1.4 * 0.0 + side).sin() * 22.0;
-                canvas.polygon(accent.alpha(0.28), &[(side * 40.0, -46.0), (sweep - 14.0, 22.0), (sweep + 14.0, 22.0)]);
+                canvas.polygon(
+                    accent.alpha(0.28),
+                    &[(side * 40.0, -46.0), (sweep - 14.0, 22.0), (sweep + 14.0, 22.0)],
+                );
             }
             canvas.rect(accent, -46.0, 22.0, 92.0, 5.0);
             for i in 0..9 {
@@ -173,12 +216,22 @@ pub fn draw_icon(canvas: &mut Canvas, fonts: &mut Fonts, icon: IconId, cx: f32, 
                 canvas.circle(Ink::new(B), -40.0 + i as f32 * 10.0, 42.0 - hop, 4.0);
             }
         }
+        // Les autres sont dans `draw_icon`.
+        _ => {}
     }
-    canvas.xf = saved;
 }
 
 /// Texte centré en (x, y) dans le repère courant, `y` étant le milieu de la ligne (`textBaseline = "middle"`).
-pub fn text_center(canvas: &mut Canvas, fonts: &mut Fonts, ink: Ink, text: &str, face: Face, size: f32, x: f32, y: f32) {
+pub fn text_center(
+    canvas: &mut Canvas,
+    fonts: &mut Fonts,
+    ink: Ink,
+    text: &str,
+    face: Face,
+    size: f32,
+    x: f32,
+    y: f32,
+) {
     let run = fonts.layout(text, face, size);
     draw_run(canvas, ink, &run, x - run.width / 2.0, y + size * 0.34, None);
 }

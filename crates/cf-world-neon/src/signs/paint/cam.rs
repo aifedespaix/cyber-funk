@@ -46,11 +46,34 @@ pub fn cam(canvas: &mut Canvas, fonts: &mut Fonts, live: Option<(&str, &str)>) {
         (fx, fy + fh, 1.0, -1.0),
         (fx + fw, fy + fh, -1.0, -1.0),
     ] {
-        canvas.polyline(Ink::new(R).glow(8.0), &[(cx, cy + sy * l), (cx, cy), (cx + sx * l, cy)], 3.0, false);
+        canvas.polyline(
+            Ink::new(R).glow(8.0),
+            &[(cx, cy + sy * l), (cx, cy), (cx + sx * l, cy)],
+            3.0,
+            false,
+        );
     }
     // Mots fixes : « CAM » devant le numéro (deux chiffres, écrits par le matériau), « KM/H » après la vitesse.
-    text_right(canvas, fonts, Ink::new(R), "CAM", Face::Mono, 18.0, fx + fw - 14.0 - 2.0 * 10.8 - 6.0, fy + 11.0 + 17.0);
-    text_right(canvas, fonts, Ink::new(G), "KM/H", Face::Mono, 26.0, fx + fw - 14.0, fy + fh - 8.0 - 3.0);
+    text_right(
+        canvas,
+        fonts,
+        Ink::new(R),
+        "CAM",
+        Face::Mono,
+        18.0,
+        fx + fw - 14.0 - 2.0 * 10.8 - 6.0,
+        fy + 11.0 + 17.0,
+    );
+    text_right(
+        canvas,
+        fonts,
+        Ink::new(G),
+        "KM/H",
+        Face::Mono,
+        26.0,
+        fx + fw - 14.0,
+        fy + fh - 8.0 - 3.0,
+    );
     // Étiquettes et chiffres : le stockage sous l'image.
     for (text, x, _) in LABELS {
         let run = fonts.layout(text, Face::Mono, LABEL_SIZE);
@@ -68,7 +91,16 @@ pub fn cam(canvas: &mut Canvas, fonts: &mut Fonts, live: Option<(&str, &str)>) {
 }
 
 /// Texte dont le bord droit est en `right`, ligne de base en `baseline`.
-fn text_right(canvas: &mut Canvas, fonts: &mut Fonts, ink: Ink, text: &str, face: Face, size: f32, right: f32, baseline: f32) {
+fn text_right(
+    canvas: &mut Canvas,
+    fonts: &mut Fonts,
+    ink: Ink,
+    text: &str,
+    face: Face,
+    size: f32,
+    right: f32,
+    baseline: f32,
+) {
     let run = fonts.layout(text, face, size);
     draw_run(canvas, ink, &run, right - run.width, baseline, None);
 }
@@ -89,8 +121,22 @@ fn plate(canvas: &mut Canvas, fonts: &mut Fonts, name: &str, event: &str) {
         size = (58.0 * room / run.width).floor();
         run = fonts.layout(name, Face::Sans, size);
     }
-    draw_run(canvas, Ink::new(G).glow(10.0), &run, fx + 28.0, top + height * 0.42 + size * 0.34, None);
+    draw_run(
+        canvas,
+        Ink::new(G).glow(10.0),
+        &run,
+        fx + 28.0,
+        top + height * 0.42 + size * 0.34,
+        None,
+    );
     let line = if event.is_empty() { "EN DIRECT" } else { event };
     let small = fonts.layout(line, Face::Mono, 20.0);
-    draw_run(canvas, Ink::new(R), &small, fx + 28.0, top + height * 0.82 + 20.0 * 0.34, None);
+    draw_run(
+        canvas,
+        Ink::new(R),
+        &small,
+        fx + 28.0,
+        top + height * 0.82 + 20.0 * 0.34,
+        None,
+    );
 }

@@ -67,15 +67,36 @@ const fn rules(kind: AdKind) -> &'static [Rule] {
     match kind {
         AdKind::Food => &[
             (
-                &["POULET", "ÉLEV", "ANIMAL", "BÊTE", "PRAIRIE", "VÉCU", "VU L'EXT", "ÉTIQUETTE", "BIEN-ÊTRE"],
+                &[
+                    "POULET",
+                    "ÉLEV",
+                    "ANIMAL",
+                    "BÊTE",
+                    "PRAIRIE",
+                    "VÉCU",
+                    "VU L'EXT",
+                    "ÉTIQUETTE",
+                    "BIEN-ÊTRE",
+                ],
                 IconId::Cage,
             ),
             (&["PRIX", "KILO", "COÛTE", "PORTION", "REFAIT"], IconId::Tag),
         ],
         AdKind::Fashion => &[
-            (&["SOLDE", "STOCK", "MARGE", "PRIX", "%", "RECYCLEZ", "VALEUR"], IconId::Tag),
             (
-                &["ATELIER", "FABRIQU", "FENÊTRE", "COLLECTION", "BRODÉ", "TAILLE", "FIBRE"],
+                &["SOLDE", "STOCK", "MARGE", "PRIX", "%", "RECYCLEZ", "VALEUR"],
+                IconId::Tag,
+            ),
+            (
+                &[
+                    "ATELIER",
+                    "FABRIQU",
+                    "FENÊTRE",
+                    "COLLECTION",
+                    "BRODÉ",
+                    "TAILLE",
+                    "FIBRE",
+                ],
                 IconId::Needle,
             ),
         ],
@@ -85,7 +106,14 @@ const fn rules(kind: AdKind) -> &'static [Rule] {
                 IconId::Lock,
             ),
             (
-                &["IA PENSE", "NEURAL", "APPLICATION", "ATTENTION", "GISEMENT", "ZÉRO PENSÉE"],
+                &[
+                    "IA PENSE",
+                    "NEURAL",
+                    "APPLICATION",
+                    "ATTENTION",
+                    "GISEMENT",
+                    "ZÉRO PENSÉE",
+                ],
                 IconId::Chip,
             ),
             (
@@ -120,15 +148,28 @@ const fn rules(kind: AdKind) -> &'static [Rule] {
                 IconId::Ballot,
             ),
             (
-                &["CROISSANCE", "CAPITAUX", "SALAIRE", "BANQUIER", "AUSTÉRITÉ", "MILLIARDAIRE", "SPONSOR"],
+                &[
+                    "CROISSANCE",
+                    "CAPITAUX",
+                    "SALAIRE",
+                    "BANQUIER",
+                    "AUSTÉRITÉ",
+                    "MILLIARDAIRE",
+                    "SPONSOR",
+                ],
                 IconId::Chart,
             ),
             (&["PROMESSE", "MENTI", "ÉVOLUÉ", "CONTINUITÉ"], IconId::Liar),
         ],
         AdKind::Estate => &[
-            (&["CONCERT", "DAFT", "STADE", "FESTIVAL", "AFTER", "BILLET"], IconId::Spot),
             (
-                &["LOYER", "STUDIO", "LOGEMENT", "PROPRI", "PIERRE", "DOMICILE", "CHEZ-SOI", "VUE", "IMMEUBLE"],
+                &["CONCERT", "DAFT", "STADE", "FESTIVAL", "AFTER", "BILLET"],
+                IconId::Spot,
+            ),
+            (
+                &[
+                    "LOYER", "STUDIO", "LOGEMENT", "PROPRI", "PIERRE", "DOMICILE", "CHEZ-SOI", "VUE", "IMMEUBLE",
+                ],
                 IconId::House,
             ),
         ],

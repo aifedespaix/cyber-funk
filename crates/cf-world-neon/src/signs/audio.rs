@@ -10,6 +10,10 @@ const SNARE_REFRACTORY_S: f64 = 0.11;
 
 /// Ce qu'une enseigne lit de la musique et de la voiture.
 #[derive(Debug, Clone, Copy, PartialEq)]
+#[allow(
+    clippy::struct_excessive_bools,
+    reason = "un sac de faits de l'image : kick, charleston, drop, calme"
+)]
 pub struct SignAudio {
     /// Horloge de la scène (s).
     pub time: f64,

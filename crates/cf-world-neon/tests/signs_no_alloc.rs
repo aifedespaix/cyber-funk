@@ -41,7 +41,11 @@ fn le_regime_etabli_n_alloue_jamais() {
         snare: true,
         ..SignAudio::default()
     };
-    let step = |road: &mut SignRoad, flash: &mut SignFlash, gate: &mut DisplayGate, obstructions: &mut Vec<Obstruction>, i: u32| {
+    let step = |road: &mut SignRoad,
+                flash: &mut SignFlash,
+                gate: &mut DisplayGate,
+                obstructions: &mut Vec<Obstruction>,
+                i: u32| {
         let z = -f64::from(i) * 0.9;
         let time = f64::from(i) / 60.0;
         road.update(
@@ -63,11 +67,26 @@ fn le_regime_etabli_n_alloue_jamais() {
             }
             if let Some(format) = unit.format {
                 let f = format.format();
-                let _ = structure::fit(f.mount, unit.width, unit.height, unit.side, unit.layout.y, true, true, unit.round);
+                let _ = structure::fit(
+                    f.mount,
+                    unit.width,
+                    unit.height,
+                    unit.side,
+                    unit.layout.y,
+                    true,
+                    true,
+                    unit.round,
+                );
             }
             unit.fresh = false;
         }
-        flash.update(1.0 / 60.0, time, Some((true, false)), if i % 20 < 3 { 1.0 } else { 0.0 }, i % 50 == 0);
+        flash.update(
+            1.0 / 60.0,
+            time,
+            Some((true, false)),
+            if i % 20 < 3 { 1.0 } else { 0.0 },
+            i.is_multiple_of(50),
+        );
         obstructions.clear();
         road.obstructions(z, obstructions);
     };

@@ -10,9 +10,9 @@
 
 use bevy::math::{DVec3, Vec3};
 
-use super::ads::{AdId, AdKind, CAR_FRONT_AD, CAR_SIDE_AD, NEON_COUNT, NEON_FIRST, PRODUCT_ADS, WATCH_AD};
+use super::ads::{AdId, AdKind, CAR_FRONT_AD, CAR_SIDE_AD, NEON_COUNT, NEON_FIRST, WATCH_AD};
 use super::formats::{FormatId, Layout, Look, MAX_BEHIND, MAX_RANGE, Mount, format_at};
-use super::show_signs::{LiveAd, LiveRole, SignShow, live_allowed, live_ad, slogan_index};
+use super::show_signs::{LiveAd, LiveRole, SignShow, live_ad, live_allowed, slogan_index};
 use super::structure::ROPE;
 use super::ticker::Ticker;
 use crate::pilot::flight::Obstruction;
@@ -32,6 +32,8 @@ pub const PHANTOM_CHANCE: f64 = 0.45;
 pub const SHOT_RANGE: f64 = 16.0;
 /// Emplacements demandés au plus par image (étendue de la route ÷ écart, avec de la marge).
 const WANTED_MAX: usize = 16;
+/// `PRODUCT_ADS` en entier signé (les rangs d'emplacement se calculent en `i64`).
+const PRODUCT_I64: i64 = 7;
 
 /// Le plan que filme un écran-caméra : large depuis le portique, face à la voiture façon pub auto, ou de profil.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -84,6 +86,10 @@ impl SignAd {
 
 /// État d'un panneau tant qu'il est affiché (`SignState`).
 #[derive(Debug, Clone, Copy, PartialEq)]
+#[allow(
+    clippy::struct_excessive_bools,
+    reason = "des drapeaux de vie d'un panneau : flux, fantôme, radar"
+)]
 pub struct SignState {
     /// La publicité.
     pub ad: SignAd,
@@ -136,6 +142,10 @@ impl Display {
 
 /// Un emplacement recyclable.
 #[derive(Debug, Clone)]
+#[allow(
+    clippy::struct_excessive_bools,
+    reason = "des drapeaux de vie d'une unité : prêtée, visible, bug, neuve"
+)]
 pub struct Unit {
     /// Rang de l'emplacement le long de la route, `None` s'il est libre ; -1 pour un panneau prêté.
     pub slot: Option<i64>,
@@ -271,7 +281,7 @@ fn ad_for(k: i64, look: Look, shot: CamShot) -> AdId {
             CamShot::Wide => WATCH_AD,
         },
         Look::Neon => AdId((NEON_FIRST + (hash(kf, 8.0) * NEON_COUNT as f64).floor() as usize) as u8),
-        _ => AdId(((k * 3 + (hash(kf, 1.0) * 2.0).floor() as i64).rem_euclid(PRODUCT_ADS as i64)) as u8),
+        _ => AdId(((k * 3 + (hash(kf, 1.0) * 2.0).floor() as i64).rem_euclid(PRODUCT_I64)) as u8),
     }
 }
 
@@ -360,7 +370,7 @@ impl SignRoad {
         let z = slot_z(k);
         let state = SignState {
             ad,
-            seed: (hash(kf, 3.0) * 6.28) as f32,
+            seed: (hash(kf, 3.0) * std::f64::consts::TAU) as f32,
             slogan,
             born: frame.time,
             range: 0.0,
@@ -398,7 +408,12 @@ impl SignRoad {
             flashed: false,
             radar: false,
         });
-        unit.apply(id, 1.0, id.layout(1.0, |_| 0.5), if width > 0.0 { width } else { format.width });
+        unit.apply(
+            id,
+            1.0,
+            id.layout(1.0, |_| 0.5),
+            if width > 0.0 { width } else { format.width },
+        );
         unit.visible = false;
         Some(index)
     }
@@ -453,7 +468,12 @@ impl SignRoad {
                 Some(k) if k >= 0 => k as u64,
                 _ => 100_000 + i as u64,
             };
-            sink(id, unit.position(), Vec3::new(yaw.sin(), 0.0, yaw.cos()), unit.height * 2.0);
+            sink(
+                id,
+                unit.position(),
+                Vec3::new(yaw.sin(), 0.0, yaw.cos()),
+                unit.height * 2.0,
+            );
         }
     }
 
@@ -523,7 +543,9 @@ impl Unit {
 
 /// Une image de vie d'un panneau posé (`step`) : distance, fondu, bug, radar.
 fn step(unit: &mut Unit, frame: &RoadFrame<'_>) {
-    let (Some(id), Some(mut state)) = (unit.format, unit.state) else { return };
+    let (Some(id), Some(mut state)) = (unit.format, unit.state) else {
+        return;
+    };
     let format = id.format();
     let ahead = if unit.leased {
         frame.car_z - unit.hang.z

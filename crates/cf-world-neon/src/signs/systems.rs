@@ -183,11 +183,17 @@ fn params(d: &Draw<'_>, palette: &ScenePalette) -> SignParams {
     let verdict = cell.flags & FLAG_VERDICT != 0;
     let strip = d.view.strip;
     // Le flash de ce panneau : le niveau du limiteur d'événements, pour les panneaux concernés seulement.
-    let flash = if verdict || (look == Look::Camera && d.radar) { d.burst } else { 0.0 };
+    let flash = if verdict || (look == Look::Camera && d.radar) {
+        d.burst
+    } else {
+        0.0
+    };
     let pos = d.unit.ticker.position(d.audio, f64::from(state.seed));
     SignParams {
         cell: Vec4::new(f32::from(cell.x), f32::from(cell.y), d.page_size.x, d.page_size.y),
-        strip: strip.map_or(Vec4::ZERO, |s| Vec4::new(f32::from(s.y), super::atlas::PAGE_W as f32, s.period, pos)),
+        strip: strip.map_or(Vec4::ZERO, |s| {
+            Vec4::new(f32::from(s.y), super::atlas::PAGE_W as f32, s.period, pos)
+        }),
         layout: Vec4::new(
             d.strip_page_h,
             f32::from(u8::from(strip.is_some())),
@@ -278,7 +284,11 @@ pub fn render_signs(
         position.0 = unit.position();
         transform.rotation = Quat::from_rotation_y(unit.layout.yaw);
         let visible = unit.visible && unit_rig.resolved.cell.is_some();
-        visibility.set_if_neq(if visible { Visibility::Inherited } else { Visibility::Hidden });
+        visibility.set_if_neq(if visible {
+            Visibility::Inherited
+        } else {
+            Visibility::Hidden
+        });
         if !visible {
             continue;
         }
@@ -288,7 +298,11 @@ pub fn render_signs(
         if let Ok((mut t, mut v)) = parts.get_mut(unit_rig.panel) {
             t.translation = Vec3::new(unit.display.dx, 0.0, panel_z);
             t.scale = Vec3::new(unit.width * unit.display.sx, unit.height * unit.display.sy, 1.0);
-            v.set_if_neq(if shown > 0.01 { Visibility::Inherited } else { Visibility::Hidden });
+            v.set_if_neq(if shown > 0.01 {
+                Visibility::Inherited
+            } else {
+                Visibility::Hidden
+            });
         }
         let display_on = shown > 0.5;
         if let Some(fit) = fit_of(unit) {
@@ -306,7 +320,11 @@ pub fn render_signs(
         let level = (0.9 + frame.flash.pulse() * 0.8) * fade * glow * 1.4 * shown;
         set_color(&mut standard, &unit_rig.light.clone(), accent * level);
         let beacon = (0.3 + frame.flash.pulse() * 0.7) * fade;
-        set_color(&mut standard, &unit_rig.beacon.clone(), Vec3::new(beacon, beacon * 0.08, beacon * 0.05));
+        set_color(
+            &mut standard,
+            &unit_rig.beacon.clone(),
+            Vec3::new(beacon, beacon * 0.08, beacon * 0.05),
+        );
         // Le matériau du plan.
         let Some(cell) = unit_rig.resolved.cell else { continue };
         let view = unit_rig.resolved;

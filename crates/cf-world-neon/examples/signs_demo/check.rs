@@ -13,8 +13,8 @@ use bevy::render::view::screenshot::{Screenshot, ScreenshotCaptured, save_to_dis
 use cf_render::warmup::{AppState, LatePipelines};
 use cf_render::{AbsolutePosition, AudioFeatures};
 use cf_world_neon::Runner;
-use cf_world_neon::signs::road::slot_z;
 use cf_world_neon::signs::rig::SignUnitIndex;
+use cf_world_neon::signs::road::slot_z;
 use cf_world_neon::signs::show_signs::{LiveAd, LiveRole};
 use cf_world_neon::signs::{AdKind, FormatId, SignAd, SignAtlas, SignRoadRes, format_at};
 
@@ -43,15 +43,51 @@ struct Scene {
 }
 
 const SCENES: [Scene; 9] = [
-    Scene { name: "1-holo", what: What::Road(FormatId::Holo), dist: 40.0 },
-    Scene { name: "2-portique", what: What::Road(FormatId::Gantry), dist: 38.0 },
-    Scene { name: "3-neon", what: What::Road(FormatId::Neon), dist: 30.0 },
-    Scene { name: "4-projection", what: What::Road(FormatId::Ghost), dist: 90.0 },
-    Scene { name: "5-toit", what: What::Road(FormatId::Roof), dist: 110.0 },
-    Scene { name: "6-camera", what: What::Road(FormatId::Cam), dist: 45.0 },
-    Scene { name: "7-ecran-geant", what: What::Road(FormatId::Jumbo), dist: 120.0 },
-    Scene { name: "8-affiche-dj", what: What::Live(FormatId::Holo, LiveRole::Poster), dist: 40.0 },
-    Scene { name: "9-ecran-dj", what: What::Live(FormatId::Jumbo, LiveRole::Screen), dist: 70.0 },
+    Scene {
+        name: "1-holo",
+        what: What::Road(FormatId::Holo),
+        dist: 40.0,
+    },
+    Scene {
+        name: "2-portique",
+        what: What::Road(FormatId::Gantry),
+        dist: 38.0,
+    },
+    Scene {
+        name: "3-neon",
+        what: What::Road(FormatId::Neon),
+        dist: 30.0,
+    },
+    Scene {
+        name: "4-projection",
+        what: What::Road(FormatId::Ghost),
+        dist: 170.0,
+    },
+    Scene {
+        name: "5-toit",
+        what: What::Road(FormatId::Roof),
+        dist: 110.0,
+    },
+    Scene {
+        name: "6-camera",
+        what: What::Road(FormatId::Cam),
+        dist: 45.0,
+    },
+    Scene {
+        name: "7-ecran-geant",
+        what: What::Road(FormatId::Jumbo),
+        dist: 120.0,
+    },
+    Scene {
+        name: "8-affiche-dj",
+        what: What::Live(FormatId::Holo, LiveRole::Poster),
+        dist: 40.0,
+    },
+    Scene {
+        name: "9-ecran-dj",
+        what: What::Live(FormatId::Jumbo, LiveRole::Screen),
+        dist: 70.0,
+    },
 ];
 
 #[derive(Clone, Copy, PartialEq, Eq, Default)]
@@ -78,7 +114,10 @@ pub(crate) struct Check {
 
 fn scene_z(what: What) -> f64 {
     match what {
-        What::Road(id) => (2..2_000).map(|k| (k, format_at(k))).find(|(_, f)| *f == id).map_or(-900.0, |(k, _)| slot_z(k)),
+        What::Road(id) => (2..2_000)
+            .map(|k| (k, format_at(k)))
+            .find(|(_, f)| *f == id)
+            .map_or(-900.0, |(k, _)| slot_z(k)),
         What::Live(..) => -1_500.0,
     }
 }
@@ -128,6 +167,12 @@ pub(crate) fn run_check(
     let Ok((mut car, mut visibility)) = runner.single_mut() else {
         return;
     };
+    // Passe « sans » : les enseignes sont cachées après le système du rendu, avant l'extraction.
+    if hide {
+        for mut v in &mut units {
+            *v = Visibility::Hidden;
+        }
+    }
     match check.stage {
         Stage::Enter => {
             let z = scene_z(scene.what);
@@ -141,40 +186,35 @@ pub(crate) fn run_check(
             {
                 let live = LiveAd {
                     role,
-                    kind: if role == LiveRole::Poster { AdKind::Estate } else { AdKind::Watch },
+                    kind: if role == LiveRole::Poster {
+                        AdKind::Estate
+                    } else {
+                        AdKind::Watch
+                    },
                     accent: cf_render::SceneColor::Violet,
                     slot: 0,
                     tag: 0,
                     ghost: false,
                 };
                 let width = format.format().width;
-                if let Some(i) = road.0.lease(format, SignAd::Live(live), width, false, time.elapsed_secs_f64()) {
+                if let Some(i) = road
+                    .0
+                    .lease(format, SignAd::Live(live), width, false, time.elapsed_secs_f64())
+                {
                     let unit = &mut road.0.units[i];
                     unit.hang = DVec3::new(0.0, f64::from(unit.layout.y), z);
                     unit.layout.yaw = 0.0;
                     unit.layout.x = 0.0;
                     if let Some(state) = unit.state.as_mut() {
-                        state.slogan = if role == LiveRole::Poster { 1 } else { 0 };
+                        state.slogan = u8::from(role == LiveRole::Poster);
                     }
                     check.leased = Some(i);
                 }
             }
             check.stage = Stage::Settle(0);
         }
-        Stage::Settle(frames) if frames < SETTLE_FRAMES => {
-            if hide {
-                for mut v in &mut units {
-                    *v = Visibility::Hidden;
-                }
-            }
-            check.stage = Stage::Settle(frames + 1);
-        }
+        Stage::Settle(frames) if frames < SETTLE_FRAMES => check.stage = Stage::Settle(frames + 1),
         Stage::Settle(_) => {
-            if hide {
-                for mut v in &mut units {
-                    *v = Visibility::Hidden;
-                }
-            }
             let name = format!("{}{}", scene.name, if hide { "-vide" } else { "" });
             let key = name.clone();
             if check.late_before.is_none() {
@@ -203,13 +243,7 @@ pub(crate) fn run_check(
             }
             check.stage = Stage::Await;
         }
-        Stage::Await => {
-            if hide {
-                for mut v in &mut units {
-                    *v = Visibility::Hidden;
-                }
-            }
-        }
+        Stage::Await => {}
     }
     // Fin de la passe « avec » d'une scène prêtée : on rend l'unité.
     if check.stage == Stage::Enter
@@ -232,7 +266,10 @@ fn evaluate(check: &Check, late: usize) -> AppExit {
     };
     verdict(
         check.bake_s < 5.0,
-        format!("cuisson de l'atlas : {:.2} s (critère de la fiche : < 2 s en release)", check.bake_s),
+        format!(
+            "cuisson de l'atlas : {:.2} s (critère de la fiche : < 2 s en release)",
+            check.bake_s
+        ),
     );
     for scene in &SCENES {
         let (Some(with), Some(without)) = (
@@ -249,7 +286,11 @@ fn evaluate(check: &Check, late: usize) -> AppExit {
         let share = differing_share(with, without, 8.0);
         verdict(
             share > 0.004,
-            format!("{} : l'enseigne est dessinée ({:.2} % des pixels changent)", scene.name, share * 100.0),
+            format!(
+                "{} : l'enseigne est dessinée ({:.2} % des pixels changent)",
+                scene.name,
+                share * 100.0
+            ),
         );
     }
     // Le seul pipeline tardif admis est celui du capteur d'écran de la démo (`screenshot-to-screen`), compilé à la première
@@ -257,7 +298,9 @@ fn evaluate(check: &Check, late: usize) -> AppExit {
     let before = check.late_before.unwrap_or(usize::MAX);
     verdict(
         before == 0 && late <= 1,
-        format!("aucun pipeline compilé après Ready, enseignes comprises ({before} avant la première capture, {late} à la fin dont celui du capteur d'écran)"),
+        format!(
+            "aucun pipeline compilé après Ready, enseignes comprises ({before} avant la première capture, {late} à la fin dont celui du capteur d'écran)"
+        ),
     );
     if ok {
         info!("tous les verdicts sont verts");

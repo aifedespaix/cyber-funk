@@ -1,5 +1,14 @@
 //! Tests de la route d'enseignes : placement déterministe, pool borné, fondus, bug des portiques, radar, flux, prêt.
 
+#![allow(
+    clippy::panic,
+    clippy::unwrap_used,
+    clippy::expect_used,
+    clippy::many_single_char_names,
+    clippy::cast_possible_wrap,
+    reason = "tests : un échec doit faire échouer le test, et les rangs sont petits"
+)]
+
 use super::*;
 use crate::signs::formats::format_at;
 use crate::signs::show_signs::{SignShow, SlotNames};
@@ -8,7 +17,7 @@ fn no_bridge(_: f64, _: f64) -> bool {
     false
 }
 
-fn frame<'a>(car_z: f64, time: f64, show: &'a SignShow) -> RoadFrame<'a> {
+fn frame(car_z: f64, time: f64, show: &SignShow) -> RoadFrame<'_> {
     RoadFrame {
         car_z,
         altitude: 0.0,
@@ -26,6 +35,11 @@ fn drive(road: &mut SignRoad, from: f64, to: f64, step: f64, show: &SignShow, mu
         z -= step;
         time += step / 60.0;
     }
+}
+
+#[test]
+fn les_constantes_signees_suivent_le_catalogue() {
+    assert_eq!(PRODUCT_I64, crate::signs::ads::PRODUCT_ADS as i64);
 }
 
 #[test]
@@ -49,7 +63,9 @@ fn un_panneau_a_le_format_de_sa_carte_et_sa_place_ne_change_pas() {
     let mut seen = std::collections::HashMap::new();
     drive(&mut road, 0.0, -20_000.0, 5.0, &show, |road, _| {
         for unit in road.units.iter().filter(|u| u.state.is_some()) {
-            let (Some(k), Some(id)) = (unit.slot, unit.format) else { continue };
+            let (Some(k), Some(id)) = (unit.slot, unit.format) else {
+                continue;
+            };
             assert_eq!(id, format_at(k), "emplacement {k}");
             let place = (unit.z.to_bits(), unit.layout.x.to_bits(), unit.layout.y.to_bits());
             assert_eq!(*seen.entry(k).or_insert(place), place, "emplacement {k} a bougé");
@@ -73,11 +89,17 @@ fn un_panneau_apparait_en_fondu_devant_et_disparait_derriere() {
         }
     });
     // Un panneau lointain apparaît presque transparent (fondu), et finit par être pleinement opaque.
-    let (k, _) = first_visible.iter().find(|(k, _)| **k > 3).unwrap_or_else(|| panic!("aucun panneau"));
+    let (k, _) = first_visible
+        .iter()
+        .find(|(k, _)| **k > 3)
+        .unwrap_or_else(|| panic!("aucun panneau"));
     assert!(max_opacity[k] > 0.99, "opacité maximale {}", max_opacity[k]);
     for (k, ahead) in &first_visible {
         let range = format_at(*k).format().range;
-        assert!(*ahead <= range + 2.0, "emplacement {k} visible à {ahead} m, portée {range}");
+        assert!(
+            *ahead <= range + 2.0,
+            "emplacement {k} visible à {ahead} m, portée {range}"
+        );
     }
 }
 
@@ -93,7 +115,10 @@ fn les_ponts_ecartent_les_panneaux_portes_mais_pas_les_toits_ni_les_projections(
     }
     for unit in road.units.iter().filter(|u| u.state.is_some()) {
         let mount = unit.format.map(|f| f.format().mount);
-        assert!(matches!(mount, Some(Mount::None | Mount::Tower)), "{mount:?} posé sur une arche");
+        assert!(
+            matches!(mount, Some(Mount::None | Mount::Tower)),
+            "{mount:?} posé sur une arche"
+        );
     }
 }
 
@@ -107,7 +132,10 @@ fn la_face_lisible_regarde_vers_la_route() {
         assert!((facing.length() - 1.0).abs() < 1e-5 && width > 0.0);
         // Un panneau de côté se tourne vers l'axe de la route : sa face a une composante qui pointe vers x = 0.
         if position.x.abs() > 5.0 {
-            assert!(facing.x * position.x as f32 <= 0.0, "face tournée vers l'extérieur : {facing:?} à {position:?}");
+            assert!(
+                facing.x * position.x as f32 <= 0.0,
+                "face tournée vers l'extérieur : {facing:?} à {position:?}"
+            );
             checked += 1;
         }
     });
@@ -151,7 +179,10 @@ fn un_portique_fantome_bugue_s_eteint_au_passage_puis_revient() {
         let u = &road.units[i];
         let ahead = f.car_z - u.z;
         if ahead < 6.0 && ahead > -14.0 {
-            assert!(!u.display.on && u.display.passing, "à {ahead} m l'écran doit être éteint");
+            assert!(
+                !u.display.on && u.display.passing,
+                "à {ahead} m l'écran doit être éteint"
+            );
             saw_off = true;
         } else if u.glitching {
             saw_bug = true;
@@ -201,7 +232,10 @@ fn les_obstructions_sont_celles_des_portiques_et_potences_visibles() {
     let unit = &road.units[i];
     let y = f64::from(unit.layout.y);
     let half = f64::from(unit.height) / 2.0;
-    assert!(out.iter().any(|o| (o.lo - (y - half - 0.5)).abs() < 1e-9 && (o.hi - (y + half + 1.6)).abs() < 1e-9));
+    assert!(
+        out.iter()
+            .any(|o| (o.lo - (y - half - 0.5)).abs() < 1e-9 && (o.hi - (y + half + 1.6)).abs() < 1e-9)
+    );
     assert!(out.iter().all(|o| o.z_near > o.z_far));
     // Un panneau fantôme ne laisse que sa poutre à esquiver.
     let (road, i) = gantry_road(true);
@@ -234,7 +268,10 @@ fn le_radar_part_une_fois_par_passage_et_seule_la_camera_la_plus_proche_a_un_flu
         feeds_at_once = feeds_at_once.max(live);
     });
     assert!(radar.len() > 5, "{} radars", radar.len());
-    assert!(radar.values().all(|n| *n == 1), "un radar est parti plusieurs fois : {radar:?}");
+    assert!(
+        radar.values().all(|n| *n == 1),
+        "un radar est parti plusieurs fois : {radar:?}"
+    );
     assert_eq!(feeds_at_once, 1, "un seul flux à la fois");
 }
 
@@ -243,12 +280,17 @@ fn le_prete_ne_bouge_pas_avec_la_route_et_se_rend() {
     let show = SignShow::default();
     let mut road = SignRoad::default();
     let ad = SignAd::Catalogue(CAR_FRONT_AD);
-    let Some(i) = road.lease(FormatId::HangCam, ad, 17.0, false, 0.0) else { panic!("pas d'unité libre") };
+    let Some(i) = road.lease(FormatId::HangCam, ad, 17.0, false, 0.0) else {
+        panic!("pas d'unité libre")
+    };
     assert!(road.units[i].leased);
     road.units[i].hang = DVec3::new(0.0, 30.0, -250.0);
     for step in 0..400 {
         road.update(&frame(-f64::from(step) * 4.0, f64::from(step) / 15.0, &show), no_bridge);
-        assert!(road.units[i].leased && road.units[i].slot == Some(-1), "la route n'y touche pas");
+        assert!(
+            road.units[i].leased && road.units[i].slot == Some(-1),
+            "la route n'y touche pas"
+        );
     }
     road.unlease(i);
     assert!(road.units[i].slot.is_none() && !road.units[i].leased);
@@ -256,7 +298,10 @@ fn le_prete_ne_bouge_pas_avec_la_route_et_se_rend() {
     for _ in 0..POOL {
         let _ = road.lease(FormatId::HangAd, SignAd::Catalogue(WATCH_AD), 15.0, false, 0.0);
     }
-    assert!(road.lease(FormatId::HangAd, SignAd::Catalogue(WATCH_AD), 15.0, false, 0.0).is_none());
+    assert!(
+        road.lease(FormatId::HangAd, SignAd::Catalogue(WATCH_AD), 15.0, false, 0.0)
+            .is_none()
+    );
 }
 
 #[test]
@@ -274,14 +319,25 @@ fn en_spectacle_au_plus_un_panneau_sur_quatre_et_demi_annonce_le_dj() {
     let mut seen_live = 0;
     drive(&mut road, 0.0, -60_000.0, 9.0, &show, |road, _| {
         let placed = road.units.iter().filter(|u| u.state.is_some()).count();
-        let live = road.units.iter().filter(|u| matches!(u.state.map(|s| s.ad), Some(SignAd::Live(_)))).count();
-        assert!(live as f64 * 4.5 <= placed as f64 + 4.5, "{live} annonces sur {placed} panneaux");
+        let live = road
+            .units
+            .iter()
+            .filter(|u| matches!(u.state.map(|s| s.ad), Some(SignAd::Live(_))))
+            .count();
+        assert!(
+            live as f64 * 4.5 <= placed as f64 + 4.5,
+            "{live} annonces sur {placed} panneaux"
+        );
         seen_live += live;
     });
     assert!(seen_live > 0, "aucune annonce du DJ en 60 km");
     // Hors spectacle, jamais.
     let mut road = SignRoad::default();
     drive(&mut road, 0.0, -20_000.0, 9.0, &SignShow::default(), |road, _| {
-        assert!(road.units.iter().all(|u| !matches!(u.state.map(|s| s.ad), Some(SignAd::Live(_)))));
+        assert!(
+            road.units
+                .iter()
+                .all(|u| !matches!(u.state.map(|s| s.ad), Some(SignAd::Live(_))))
+        );
     });
 }

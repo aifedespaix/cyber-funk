@@ -49,7 +49,10 @@ fn app() -> App {
 fn until_baked(app: &mut App) {
     let start = Instant::now();
     while app.world().get_resource::<SignAtlas>().is_none() {
-        assert!(start.elapsed() < Duration::from_secs(60), "l'atlas n'a pas été cuit en 60 s");
+        assert!(
+            start.elapsed() < Duration::from_secs(60),
+            "l'atlas n'a pas été cuit en 60 s"
+        );
         app.update();
         std::thread::sleep(Duration::from_millis(5));
     }
@@ -61,19 +64,27 @@ fn le_show_attend_les_textures_et_toutes_les_entites_sont_dans_la_couche_monde()
     app.update();
     {
         let tracker = app.world().resource::<LoadTracker>();
-        assert!(!tracker.is_complete(), "l'étape « Enseignes (textures) » doit être en cours");
+        assert!(
+            !tracker.is_complete(),
+            "l'étape « Enseignes (textures) » doit être en cours"
+        );
         assert!(tracker.steps().iter().any(|s| s.label.contains("Enseignes")));
     }
     until_baked(&mut app);
     app.update();
-    assert!(app.world().resource::<LoadTracker>().is_complete(), "l'étape est close quand l'atlas est prêt");
+    assert!(
+        app.world().resource::<LoadTracker>().is_complete(),
+        "l'étape est close quand l'atlas est prêt"
+    );
     let atlas = app.world().resource::<SignAtlas>();
     assert!(atlas.bake_s < 20.0 && atlas.cells.len() > 250 && atlas.strips.len() > 100);
 
     let world_layers = Layer::World.render_layers();
     let rig = app.world().resource::<SignRig>();
     assert_eq!(rig.units.len(), 11);
-    let mut with_mesh = app.world_mut().query_filtered::<(&RenderLayers, &Mesh3d), With<ChildOf>>();
+    let mut with_mesh = app
+        .world_mut()
+        .query_filtered::<(&RenderLayers, &Mesh3d), With<ChildOf>>();
     let (mut count, mut wrong) = (0, 0);
     for (layers, _) in with_mesh.iter(app.world()) {
         count += 1;
@@ -81,7 +92,10 @@ fn le_show_attend_les_textures_et_toutes_les_entites_sont_dans_la_couche_monde()
     }
     // Onze plans et 13 pièces par unité (les enfants des racines ; le point suivi provisoire n'en est pas un).
     assert_eq!(count, 11 * 14);
-    assert_eq!(wrong, 0, "chaque pièce porte la couche monde (Bevy ne la propage pas aux enfants)");
+    assert_eq!(
+        wrong, 0,
+        "chaque pièce porte la couche monde (Bevy ne la propage pas aux enfants)"
+    );
     let mut roots = app.world_mut().query::<(&SignUnitIndex, &RenderLayers)>();
     assert_eq!(roots.iter(app.world()).filter(|(_, l)| **l == world_layers).count(), 11);
 }
@@ -99,18 +113,27 @@ fn rien_n_est_cree_ni_detruit_en_regime_etabli_et_les_panneaux_sont_devant_la_vo
         app.update();
         if frame % 30 == 0 {
             let car_z = {
-                let mut q = app.world_mut().query_filtered::<&AbsolutePosition, With<cf_render::StreamFocus>>();
+                let mut q = app
+                    .world_mut()
+                    .query_filtered::<&AbsolutePosition, With<cf_render::StreamFocus>>();
                 q.single(app.world()).expect("le point suivi").0.z
             };
             let road = &app.world().resource::<SignRoadRes>().0;
             for unit in road.units.iter().filter(|u| u.state.is_some() && u.visible) {
                 let ahead = car_z - unit.z;
                 let format = unit.format.expect("format").format();
-                assert!(ahead <= format.range + 1.0 && ahead >= -format.behind - 1.0, "{ahead} m hors de portée");
+                assert!(
+                    ahead <= format.range + 1.0 && ahead >= -format.behind - 1.0,
+                    "{ahead} m hors de portée"
+                );
                 seen_visible += 1;
             }
         }
     }
-    assert_eq!(app.world().entities().len(), entities, "des entités ont été créées en cours de route");
+    assert_eq!(
+        app.world().entities().len(),
+        entities,
+        "des entités ont été créées en cours de route"
+    );
     assert!(seen_visible > 20, "{seen_visible} panneaux vus en 40 s de route");
 }

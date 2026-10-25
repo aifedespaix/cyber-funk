@@ -214,6 +214,8 @@ const DECK: [FormatId; DECK_SIZE] = [
     FormatId::Neon,
 ];
 const DECK_SIZE: usize = 8;
+/// `DECK_SIZE` en entier signé, pour les rangs d'emplacement (qui peuvent être négatifs).
+const DECK_LEN: i64 = 8;
 const CAM_CHANCE: f64 = 0.4;
 const JUMBO_CHANCE: f64 = 0.5;
 
@@ -230,8 +232,8 @@ fn deal(round: i64) -> [FormatId; DECK_SIZE] {
         cards[5] = FormatId::Jumbo;
     }
     let mut keyed = [(FormatId::Holo, 0.0_f64); DECK_SIZE];
-    for (i, card) in cards.iter().enumerate() {
-        keyed[i] = (*card, hash((round * DECK_SIZE as i64 + i as i64) as f64, 11.0));
+    for (i, (slot, card)) in (0_i64..).zip(keyed.iter_mut().zip(cards)) {
+        *slot = (card, hash((round * DECK_LEN + i) as f64, 11.0));
     }
     // Tri stable, comme `Array.prototype.sort` : deux clés égales gardent l'ordre du jeu.
     keyed.sort_by(|a, b| a.1.total_cmp(&b.1));
@@ -243,7 +245,7 @@ fn deal(round: i64) -> [FormatId; DECK_SIZE] {
 }
 
 fn card(k: i64) -> FormatId {
-    let size = DECK_SIZE as i64;
+    let size = DECK_LEN;
     deal(k.div_euclid(size))[k.rem_euclid(size) as usize]
 }
 
@@ -276,6 +278,7 @@ mod tests {
 
     #[test]
     fn la_donne_garde_ses_huit_cartes() {
+        assert_eq!(usize::try_from(DECK_LEN), Ok(DECK_SIZE));
         for round in -3..200 {
             let cards = deal(round);
             let count = |id| cards.iter().filter(|c| **c == id).count();

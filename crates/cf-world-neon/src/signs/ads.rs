@@ -301,178 +301,112 @@ pub const CATALOGUE: [Ad; CATALOGUE_LEN] = [
     Ad {
         kind: AdKind::Neon,
         accent: SceneColor::Rose,
-        slogans: &[
-            "OUVERT 24H/24",
-            "DORMIR COÛTE CHER",
-        ],
+        slogans: &["OUVERT 24H/24", "DORMIR COÛTE CHER"],
     },
     Ad {
         kind: AdKind::Neon,
         accent: SceneColor::Mint,
-        slogans: &[
-            "NOODLES",
-            "SOUPE SYNTHÉTIQUE",
-        ],
+        slogans: &["NOODLES", "SOUPE SYNTHÉTIQUE"],
     },
     Ad {
         kind: AdKind::Neon,
         accent: SceneColor::Amber,
-        slogans: &[
-            "MOTEL ∞",
-            "CHAMBRE 404",
-        ],
+        slogans: &["MOTEL ∞", "CHAMBRE 404"],
     },
     Ad {
         kind: AdKind::Neon,
         accent: SceneColor::Azure,
-        slogans: &[
-            "CRÉDIT FACILE",
-            "DETTE +",
-        ],
+        slogans: &["CRÉDIT FACILE", "DETTE +"],
     },
     Ad {
         kind: AdKind::Neon,
         accent: SceneColor::Violet,
-        slogans: &[
-            "RÊVES -70%",
-            "SOLDES D'ÂMES",
-        ],
+        slogans: &["RÊVES -70%", "SOLDES D'ÂMES"],
     },
     Ad {
         kind: AdKind::Neon,
         accent: SceneColor::Lime,
-        slogans: &[
-            "OBÉIS",
-            "SOURIEZ",
-        ],
+        slogans: &["OBÉIS", "SOURIEZ"],
     },
     Ad {
         kind: AdKind::Neon,
         accent: SceneColor::Alarm,
-        slogans: &[
-            "PROMO",
-            "PROMO ÉTERNELLE",
-        ],
+        slogans: &["PROMO", "PROMO ÉTERNELLE"],
     },
     Ad {
         kind: AdKind::Neon,
         accent: SceneColor::Rose,
-        slogans: &[
-            "TRAVAILLE",
-            "CONSOMME",
-        ],
+        slogans: &["TRAVAILLE", "CONSOMME"],
     },
     Ad {
         kind: AdKind::Neon,
         accent: SceneColor::Mint,
-        slogans: &[
-            "100% BIO*",
-            "*PAS DU TOUT",
-        ],
+        slogans: &["100% BIO*", "*PAS DU TOUT"],
     },
     Ad {
         kind: AdKind::Neon,
         accent: SceneColor::Amber,
-        slogans: &[
-            "PRIX CASSÉS",
-            "EMPLOYÉS AUSSI",
-        ],
+        slogans: &["PRIX CASSÉS", "EMPLOYÉS AUSSI"],
     },
     Ad {
         kind: AdKind::Neon,
         accent: SceneColor::Azure,
-        slogans: &[
-            "À QUOI BON",
-            "ACHETEZ",
-        ],
+        slogans: &["À QUOI BON", "ACHETEZ"],
     },
     Ad {
         kind: AdKind::Neon,
         accent: SceneColor::Violet,
-        slogans: &[
-            "TOUT SE VEND",
-            "VOUS AUSSI",
-        ],
+        slogans: &["TOUT SE VEND", "VOUS AUSSI"],
     },
     Ad {
         kind: AdKind::Neon,
         accent: SceneColor::Lime,
-        slogans: &[
-            "LIVRAISON 5 MIN",
-            "LIVREUR 5 MIN",
-        ],
+        slogans: &["LIVRAISON 5 MIN", "LIVREUR 5 MIN"],
     },
     Ad {
         kind: AdKind::Neon,
         accent: SceneColor::Alarm,
-        slogans: &[
-            "MERCI",
-            "REVENEZ",
-        ],
+        slogans: &["MERCI", "REVENEZ"],
     },
     Ad {
         kind: AdKind::Neon,
         accent: SceneColor::Rose,
-        slogans: &[
-            "LIKE",
-            "TOI AUSSI",
-        ],
+        slogans: &["LIKE", "TOI AUSSI"],
     },
     Ad {
         kind: AdKind::Neon,
         accent: SceneColor::Amber,
-        slogans: &[
-            "SMILE OR ELSE",
-            "SOURIRE OBLIGATOIRE",
-        ],
+        slogans: &["SMILE OR ELSE", "SOURIRE OBLIGATOIRE"],
     },
     Ad {
         kind: AdKind::Neon,
         accent: SceneColor::Mint,
-        slogans: &[
-            "ZÉRO DÉCHET*",
-            "*SAUF VOUS",
-        ],
+        slogans: &["ZÉRO DÉCHET*", "*SAUF VOUS"],
     },
     Ad {
         kind: AdKind::Neon,
         accent: SceneColor::Azure,
-        slogans: &[
-            "BUY NOW",
-            "CRY LATER",
-        ],
+        slogans: &["BUY NOW", "CRY LATER"],
     },
     Ad {
         kind: AdKind::Neon,
         accent: SceneColor::Violet,
-        slogans: &[
-            "REVENDEZ-VOUS",
-            "PRIX DE GROS",
-        ],
+        slogans: &["REVENDEZ-VOUS", "PRIX DE GROS"],
     },
     Ad {
         kind: AdKind::Neon,
         accent: SceneColor::Lime,
-        slogans: &[
-            "WIFI GRATUIT",
-            "CERVEAU EN OPTION",
-        ],
+        slogans: &["WIFI GRATUIT", "CERVEAU EN OPTION"],
     },
     Ad {
         kind: AdKind::Neon,
         accent: SceneColor::Rose,
-        slogans: &[
-            "LAST CALL",
-            "FOREVER",
-        ],
+        slogans: &["LAST CALL", "FOREVER"],
     },
     Ad {
         kind: AdKind::Neon,
         accent: SceneColor::Alarm,
-        slogans: &[
-            "AUJOURD'HUI SEULEMENT",
-            "DEMAIN AUSSI",
-        ],
+        slogans: &["AUJOURD'HUI SEULEMENT", "DEMAIN AUSSI"],
     },
 ];
 
@@ -483,7 +417,11 @@ mod tests {
     #[test]
     fn le_catalogue_a_la_forme_attendue() {
         assert_eq!(CATALOGUE.len(), CATALOGUE_LEN);
-        assert!(CATALOGUE[..PRODUCT_ADS].iter().all(|a| !matches!(a.kind, AdKind::Watch | AdKind::Neon)));
+        assert!(
+            CATALOGUE[..PRODUCT_ADS]
+                .iter()
+                .all(|a| !matches!(a.kind, AdKind::Watch | AdKind::Neon))
+        );
         assert!(CATALOGUE[NEON_FIRST..].iter().all(|a| a.kind == AdKind::Neon));
         for id in [WATCH_AD, CAR_FRONT_AD, CAR_SIDE_AD] {
             assert_eq!(id.ad().kind, AdKind::Watch);

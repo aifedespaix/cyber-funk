@@ -141,7 +141,9 @@ mod tests {
 
     /// Une suite de demandes pseudo-aléatoire et reproductible.
     fn noise(seed: &mut u64) -> f32 {
-        *seed = seed.wrapping_mul(6_364_136_223_846_793_005).wrapping_add(1_442_695_040_888_963_407);
+        *seed = seed
+            .wrapping_mul(6_364_136_223_846_793_005)
+            .wrapping_add(1_442_695_040_888_963_407);
         ((*seed >> 33) as f32) / (u32::MAX >> 1) as f32
     }
 
@@ -158,16 +160,26 @@ mod tests {
             flash.update(DT, now, Some((true, false)), pulse, noise(&mut seed) > 0.5);
             let (p, b) = (flash.pulse(), flash.burst());
             let slew = 1.0 / MIN_FADE * DT + 1e-4;
-            assert!((p - last_p).abs() <= slew && (b - last_b).abs() <= slew, "variation trop brusque à {now:.2} s");
+            assert!(
+                (p - last_p).abs() <= slew && (b - last_b).abs() <= slew,
+                "variation trop brusque à {now:.2} s"
+            );
             if p > 0.02 && last_p <= 0.02 {
                 starts.push(now);
             }
             (last_p, last_b) = (p, b);
         }
         for window in starts.windows(MAX_FLASHES_PER_SECOND + 1) {
-            assert!(window[MAX_FLASHES_PER_SECOND] - window[0] >= 1.0, "plus de 3 départs en 1 s : {window:?}");
+            assert!(
+                window[MAX_FLASHES_PER_SECOND] - window[0] >= 1.0,
+                "plus de 3 départs en 1 s : {window:?}"
+            );
         }
-        assert!(starts.len() > 100, "le limiteur a laissé passer des flashs : {}", starts.len());
+        assert!(
+            starts.len() > 100,
+            "le limiteur a laissé passer des flashs : {}",
+            starts.len()
+        );
     }
 
     #[test]
@@ -206,7 +218,10 @@ mod tests {
         }
         // 60 s × 6 changements par seconde, au plus.
         assert!(flips <= 60 * 6 + 2, "{flips} changements en 60 s");
-        assert!(flips > 20, "le bug doit rester visible quand les flashs sont permis ({flips})");
+        assert!(
+            flips > 20,
+            "le bug doit rester visible quand les flashs sont permis ({flips})"
+        );
     }
 
     #[test]
@@ -215,7 +230,10 @@ mod tests {
         let mut seed = 5;
         for i in 0..600 {
             let shown = gate.step(DT, f64::from(i) / 60.0, noise(&mut seed) > 0.5, false, false);
-            assert!((shown - 1.0).abs() < 1e-6, "un clignotement de bug a survécu à la coupure des flashs");
+            assert!(
+                (shown - 1.0).abs() < 1e-6,
+                "un clignotement de bug a survécu à la coupure des flashs"
+            );
         }
         let mut last = 1.0;
         for i in 600..660 {

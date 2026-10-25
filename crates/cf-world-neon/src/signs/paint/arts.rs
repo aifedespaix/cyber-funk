@@ -95,10 +95,29 @@ fn food(canvas: &mut Canvas, fonts: &mut Fonts, d: &Draw<'_>) {
     }
     // Un pavé de viande vu de face, étiqueté.
     let (width, height) = (90.0, 104.0);
-    canvas.rect(Ink::new(R).glow(18.0), cx - width / 2.0, cy - height / 2.0, width, height);
-    canvas.rect(Ink::cut(R), cx - width / 2.0 + 5.0, cy - height / 2.0 + 14.0, width - 10.0, 22.0);
+    canvas.rect(
+        Ink::new(R).glow(18.0),
+        cx - width / 2.0,
+        cy - height / 2.0,
+        width,
+        height,
+    );
+    canvas.rect(
+        Ink::cut(R),
+        cx - width / 2.0 + 5.0,
+        cy - height / 2.0 + 14.0,
+        width - 10.0,
+        22.0,
+    );
     let run = fonts.layout("VIANDE", Face::Mono, 13.0);
-    draw_run(canvas, Ink::new(R), &run, cx - run.width / 2.0, cy - height / 2.0 + 25.0 + 4.4, None);
+    draw_run(
+        canvas,
+        Ink::new(R),
+        &run,
+        cx - run.width / 2.0,
+        cy - height / 2.0 + 25.0 + 4.4,
+        None,
+    );
 }
 
 const SHIRT: [(f32, f32); 13] = [
@@ -150,7 +169,12 @@ fn mind(canvas: &mut Canvas, fonts: &mut Fonts, d: &Draw<'_>) {
             let y = -34.0 + i as f32 * 8.5;
             let alpha = if i % 2 == 0 { 0.9 } else { 0.25 };
             let (a, b) = ((i % 3) as f32 * 8.0, (i % 4) as f32 * 8.0);
-            canvas.polyline(Ink::new(R).alpha(alpha), &[(-46.0 + a, y), (-6.0, y), (4.0, y + 5.0), (46.0 - b, y + 5.0)], 2.0, false);
+            canvas.polyline(
+                Ink::new(R).alpha(alpha),
+                &[(-46.0 + a, y), (-6.0, y), (4.0, y + 5.0), (46.0 - b, y + 5.0)],
+                2.0,
+                false,
+            );
         }
         canvas.xf = saved;
     }
@@ -191,7 +215,16 @@ fn escape(canvas: &mut Canvas, fonts: &mut Fonts, d: &Draw<'_>) {
         }
     }
     // Le verdict, sur le canal d'encre : il n'apparaît que lorsque le limiteur de flashs l'accorde (`FLAG_VERDICT`).
-    fit_text(canvas, fonts, Ink::new(K), "GAME OVER", Face::Sans, 78.0, (W / 2.0, H / 2.0), W * 0.92);
+    fit_text(
+        canvas,
+        fonts,
+        Ink::new(K),
+        "GAME OVER",
+        Face::Sans,
+        78.0,
+        (W / 2.0, H / 2.0),
+        W * 0.92,
+    );
 }
 
 fn politics(canvas: &mut Canvas, fonts: &mut Fonts, d: &Draw<'_>) {
@@ -219,18 +252,26 @@ fn politics(canvas: &mut Canvas, fonts: &mut Fonts, d: &Draw<'_>) {
         );
         let u = 1.0 - t;
         let (a, b, c, e) = (u * u * u, 3.0 * u * u * t, 3.0 * u * t * t, t * t * t);
-        smile.push((a * p0.0 + b * p1.0 + c * p2.0 + e * p3.0, a * p0.1 + b * p1.1 + c * p2.1 + e * p3.1));
+        smile.push((
+            a * p0.0 + b * p1.0 + c * p2.0 + e * p3.0,
+            a * p0.1 + b * p1.1 + c * p2.1 + e * p3.1,
+        ));
     }
     canvas.polyline(Ink::cut(R), &smile, 4.0, false);
     for i in -3..=3 {
         let x = cx + i as f32 * (reach / 3.4);
         let drop = (i as f32).abs() * 3.0;
-        canvas.segment(Ink::cut(R), (x, cy + 27.0 + grin * 10.0 - drop), (x, cy + 34.0 + grin * 14.0 - drop), 4.0);
+        canvas.segment(
+            Ink::cut(R),
+            (x, cy + 27.0 + grin * 10.0 - drop),
+            (x, cy + 34.0 + grin * 14.0 - drop),
+            4.0,
+        );
     }
 }
 
 fn estate(canvas: &mut Canvas, fonts: &mut Fonts, d: &Draw<'_>) {
-    if d.rank % 2 == 0 {
+    if d.rank.is_multiple_of(2) {
         // Texte de l'annonce immobilière, en pas fixe, sur sa halo violet.
         let len = d.slogan.chars().count();
         let size = if len > 70 {
@@ -240,7 +281,16 @@ fn estate(canvas: &mut Canvas, fonts: &mut Fonts, d: &Draw<'_>) {
         } else {
             25.0
         };
-        lines(canvas, fonts, d.slogan, 18.0, W * 0.5, size, size * 1.3, Ink::new(G).glow(8.0));
+        lines(
+            canvas,
+            fonts,
+            d.slogan,
+            18.0,
+            W * 0.5,
+            size,
+            size * 1.3,
+            Ink::new(G).glow(8.0),
+        );
     } else {
         concert(canvas, fonts, d);
     }
@@ -253,7 +303,14 @@ fn estate(canvas: &mut Canvas, fonts: &mut Fonts, d: &Draw<'_>) {
     for (i, dx) in [-26.0_f32, 0.0, 24.0].into_iter().enumerate() {
         let tall = 70.0 + ((i * 37) % 3) as f32 * 22.0;
         let half = (14.0 + 0.6 * 12.0) * if i == 1 { 1.2 } else { 1.0 };
-        canvas.rect_outline(Ink::new(R).glow(8.0), cx + dx - half, base - tall, half * 2.0, tall, 2.0);
+        canvas.rect_outline(
+            Ink::new(R).glow(8.0),
+            cx + dx - half,
+            base - tall,
+            half * 2.0,
+            tall,
+            2.0,
+        );
         for row in 0..(tall / 11.0) as usize {
             let alpha = 0.25 + 0.5 * ((row + i) % 3) as f32 / 2.0;
             let y = base - tall + row as f32 * 11.0;
@@ -264,9 +321,29 @@ fn estate(canvas: &mut Canvas, fonts: &mut Fonts, d: &Draw<'_>) {
 
 /// Affiche de concert : un égaliseur à mi-hauteur, le nom du groupe (ou du DJ) et l'événement.
 fn concert(canvas: &mut Canvas, fonts: &mut Fonts, d: &Draw<'_>) {
-    let (name, event) = d.live.map_or(("DAFT PURGES", "STADE BARDELA"), |(n, e)| (n, if e.is_empty() { "LIVE SET" } else { e }));
-    fit_text(canvas, fonts, Ink::new(G).glow(8.0), name, Face::Sans, 40.0, (W * 0.28, H * 0.2), W * 0.5);
-    fit_text(canvas, fonts, Ink::new(G), event, Face::Mono, 22.0, (W * 0.28, H * 0.34), W * 0.5);
+    let (name, event) = d.live.map_or(("DAFT PURGES", "STADE BARDELA"), |(n, e)| {
+        (n, if e.is_empty() { "LIVE SET" } else { e })
+    });
+    fit_text(
+        canvas,
+        fonts,
+        Ink::new(G).glow(8.0),
+        name,
+        Face::Sans,
+        40.0,
+        (W * 0.28, H * 0.2),
+        W * 0.5,
+    );
+    fit_text(
+        canvas,
+        fonts,
+        Ink::new(G),
+        event,
+        Face::Mono,
+        22.0,
+        (W * 0.28, H * 0.34),
+        W * 0.5,
+    );
     for i in 0..16 {
         let level = 0.45 + 0.35 * ((i as f32 * 1.3).sin()).abs();
         let height = 8.0 + level * (H * 0.45);
@@ -276,9 +353,18 @@ fn concert(canvas: &mut Canvas, fonts: &mut Fonts, d: &Draw<'_>) {
 }
 
 fn brute(canvas: &mut Canvas, fonts: &mut Fonts, d: &Draw<'_>) {
-    if d.rank % 2 == 0 {
+    if d.rank.is_multiple_of(2) {
         // « ACHÈTE MOI » en stroboscope : tout le canal R est soumis au limiteur (`FLAG_GATE_R`).
-        fit_text(canvas, fonts, Ink::new(R).glow(24.0), "ACHÈTE MOI", Face::Sans, 118.0, (W / 2.0, H / 2.0), W * 0.94);
+        fit_text(
+            canvas,
+            fonts,
+            Ink::new(R).glow(24.0),
+            "ACHÈTE MOI",
+            Face::Sans,
+            118.0,
+            (W / 2.0, H / 2.0),
+            W * 0.94,
+        );
         return;
     }
     // Silhouette cliché et barres de censure.
@@ -288,14 +374,49 @@ fn brute(canvas: &mut Canvas, fonts: &mut Fonts, d: &Draw<'_>) {
     for i in 0..7 {
         let row = (i * 3) % 4;
         let ink = if i % 2 == 0 { Ink::cut(B) } else { Ink::new(G) };
-        canvas.rect(ink, cx - 36.0 + ((i * 29) % 40) as f32, H * 0.4 + i as f32 * 10.0, 28.0 + row as f32 * 12.0, 8.0);
+        canvas.rect(
+            ink,
+            cx - 36.0 + ((i * 29) % 40) as f32,
+            H * 0.4 + i as f32 * 10.0,
+            28.0 + row as f32 * 12.0,
+            8.0,
+        );
     }
     // Néon de motel qui se déchire en aberration.
     let amount = 2.5;
-    for (ink, dx) in [(Ink::new(B).alpha(0.55), -amount), (Ink::new(G).alpha(0.55), 0.0), (Ink::new(R).alpha(0.55), amount)] {
+    for (ink, dx) in [
+        (Ink::new(B).alpha(0.55), -amount),
+        (Ink::new(G).alpha(0.55), 0.0),
+        (Ink::new(R).alpha(0.55), amount),
+    ] {
         let run = fonts.layout("SeXxX", Face::Sans, 64.0);
-        draw_run(canvas, ink.glow(10.0), &run, W * 0.3 - run.width / 2.0 + dx, H * 0.45 + 64.0 * 0.34, None);
+        draw_run(
+            canvas,
+            ink.glow(10.0),
+            &run,
+            W * 0.3 - run.width / 2.0 + dx,
+            H * 0.45 + 64.0 * 0.34,
+            None,
+        );
     }
-    fit_text(canvas, fonts, Ink::new(G), "TU VEUX DU", Face::Mono, 22.0, (W * 0.3, H * 0.15), W * 0.5);
-    fit_text(canvas, fonts, Ink::new(G), "ACHÈTE-MOI !", Face::Sans, 34.0, (W * 0.3, H * 0.78), W * 0.5);
+    fit_text(
+        canvas,
+        fonts,
+        Ink::new(G),
+        "TU VEUX DU",
+        Face::Mono,
+        22.0,
+        (W * 0.3, H * 0.15),
+        W * 0.5,
+    );
+    fit_text(
+        canvas,
+        fonts,
+        Ink::new(G),
+        "ACHÈTE-MOI !",
+        Face::Sans,
+        34.0,
+        (W * 0.3, H * 0.78),
+        W * 0.5,
+    );
 }

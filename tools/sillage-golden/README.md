@@ -146,3 +146,16 @@ bun run tools/sillage-golden/road/index.ts --check   # recalcule et compare
 ```
 
 Le rendu côte à côte de la route (`road-render/`) est décrit dans son `README.md`.
+
+## Enseignes (J7-01)
+
+`signs/` fait tourner les fichiers d'origine des enseignes (`formats.ts`, `show-signs.ts`, `ads.ts`, `art-icons.ts`,
+`random.ts`, copiés tels quels, empreintes vérifiées) et écrit `crates/cf-world-neon/tests/golden/signs.json` : le jeu de
+cartes de la route (1 216 emplacements), les slogans de départ de chaque publicité, les annonces du DJ, les icônes
+choisies par slogan et la forme du catalogue. Bouchons (pas des copies) : `signs/sillage/engine/palette.ts` et
+`signs/sillage/engine/show/types.ts` (types seuls, effacés à l'exécution).
+
+```bash
+bun run tools/sillage-golden/signs/index.ts           # régénère signs.json
+bun run tools/sillage-golden/signs/index.ts --check   # recalcule et compare (code 1 si écart)
+```

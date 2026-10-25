@@ -87,7 +87,10 @@ pub struct Canvas {
 
 impl std::fmt::Debug for Canvas {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("Canvas").field("w", &self.w).field("h", &self.h).finish_non_exhaustive()
+        f.debug_struct("Canvas")
+            .field("w", &self.w)
+            .field("h", &self.h)
+            .finish_non_exhaustive()
     }
 }
 
@@ -157,6 +160,7 @@ impl Canvas {
     }
 
     /// Un trait rond de `width` pixels.
+    #[must_use]
     pub fn line_stroke(width: f32) -> Stroke {
         Stroke {
             width,
@@ -167,6 +171,7 @@ impl Canvas {
     }
 
     /// Un trait pointillé de `width` pixels (`setLineDash`).
+    #[must_use]
     pub fn dashed_stroke(width: f32, on: f32, off: f32, phase: f32) -> Stroke {
         Stroke {
             width,
@@ -277,7 +282,9 @@ impl Canvas {
 
     /// Efface un rectangle de toutes les couches (`clearRect`).
     pub fn clear_rect(&mut self, x: f32, y: f32, w: f32, h: f32) {
-        let Some(rect) = Rect::from_xywh(x, y, w, h) else { return };
+        let Some(rect) = Rect::from_xywh(x, y, w, h) else {
+            return;
+        };
         let path = PathBuilder::from_rect(rect);
         let mut paint = solid(1.0);
         paint.blend_mode = BlendMode::Clear;
@@ -291,7 +298,9 @@ impl Canvas {
     fn halo(&mut self, ink: Ink, path: &Path, stroke: Option<&Stroke>) {
         let pad = (ink.glow * 3.0).ceil() + stroke.map_or(0.0, |s| s.width);
         let bounds = path.bounds();
-        let Some(device) = bounds.transform(self.xf) else { return };
+        let Some(device) = bounds.transform(self.xf) else {
+            return;
+        };
         let x0 = (device.left() - pad).floor().max(0.0) as i32;
         let y0 = (device.top() - pad).floor().max(0.0) as i32;
         let x1 = ((device.right() + pad).ceil() as i32).min(self.w as i32);
@@ -299,7 +308,9 @@ impl Canvas {
         if x1 <= x0 || y1 <= y0 {
             return;
         }
-        let Some(mut tmp) = Pixmap::new((x1 - x0) as u32, (y1 - y0) as u32) else { return };
+        let Some(mut tmp) = Pixmap::new((x1 - x0) as u32, (y1 - y0) as u32) else {
+            return;
+        };
         let xf = self.xf.post_translate(-(x0 as f32), -(y0 as f32));
         match stroke {
             Some(s) => tmp.stroke_path(path, &solid(1.0), s, xf, None),
@@ -319,8 +330,8 @@ impl Canvas {
         let n = (self.w * self.h) as usize;
         let mut out = vec![0_u8; n * 4];
         for (c, layer) in self.layers.iter().enumerate() {
-            for (i, px) in layer.data().chunks_exact(4).enumerate() {
-                out[i * 4 + c] = px[3];
+            for (i, alpha) in alpha_of(layer.data()).enumerate() {
+                out[i * 4 + c] = alpha;
             }
         }
         out
@@ -329,8 +340,13 @@ impl Canvas {
     /// Le canal `R` seul (cellules à une couleur : projections, bandeaux).
     #[must_use]
     pub fn pack_r8(&self) -> Vec<u8> {
-        self.layers[R].data().chunks_exact(4).map(|px| px[3]).collect()
+        alpha_of(self.layers[R].data()).collect()
     }
+}
+
+/// L'alpha de chaque pixel d'un tampon RGBA : la couverture, puisque les formes sont posées en blanc.
+fn alpha_of(data: &[u8]) -> impl Iterator<Item = u8> + '_ {
+    data.as_chunks::<4>().0.iter().map(|px| px[3])
 }
 
 /// Flou de boîte en trois passes sur le canal alpha, rayon `r` pixels ; les canaux couleur reprennent l'alpha (blanc
@@ -338,13 +354,13 @@ impl Canvas {
 fn blur_alpha(pixmap: &mut Pixmap, r: f32) {
     let (w, h) = (pixmap.width() as usize, pixmap.height() as usize);
     let radius = (r * 0.9).round().max(1.0) as usize;
-    let mut a: Vec<f32> = pixmap.data().chunks_exact(4).map(|px| f32::from(px[3])).collect();
+    let mut a: Vec<f32> = alpha_of(pixmap.data()).map(f32::from).collect();
     let mut tmp = vec![0.0_f32; a.len()];
     for _ in 0..3 {
         box_pass(&a, &mut tmp, w, h, radius, true);
         box_pass(&tmp, &mut a, w, h, radius, false);
     }
-    for (px, v) in pixmap.data_mut().chunks_exact_mut(4).zip(&a) {
+    for (px, v) in pixmap.data_mut().as_chunks_mut::<4>().0.iter_mut().zip(&a) {
         let v = v.round().clamp(0.0, 255.0) as u8;
         px.copy_from_slice(&[v, v, v, v]);
     }
