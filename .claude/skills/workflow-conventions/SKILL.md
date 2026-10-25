@@ -30,7 +30,7 @@ que la mécanique.
   Avant de reprendre, vérifier le disque (`df -h`) et la place du dossier `target`.
 - Revue : CI + critères de la fiche d'abord. Revue Opus (`code-review`, `high`) seulement pour J1-03, J2-05, J2-06,
   J3-03, J4-02.
-- Disque plein (le dossier `target` atteint 25 Go : les binaires de test des crates liés à Bevy pèsent plusieurs centaines de Mo chacun) : `for c in cf-audio cf-analysis cf-control cf-show cf-render cf-cinema cf-world-neon cf-operator cyber-funk; do cargo clean -p $c; done` libère ~14 Go sans toucher aux dépendances de Bevy (15 min à recompiler). À faire quand plus aucun agent ne compile.
+- Disque plein (le dossier `target` atteint 25 Go : les binaires de test des crates liés à Bevy pèsent plusieurs centaines de Mo chacun) : `for c in cf-audio cf-analysis cf-control cf-show cf-render cf-cinema cf-world-neon cf-operator cyber-funk; do cargo clean -p $c; done` libère ~14 Go sans toucher aux dépendances de Bevy (15 min à recompiler). À faire quand plus aucun agent ne compile. Préventif : dans le prompt de chaque agent Bevy, demander `CARGO_INCREMENTAL=0` (le cache incrémental fait paniquer `rustc` quand le disque se remplit) ; `rm -rf target/debug/incremental target/debug/examples` et `rm -rf .claude/worktrees/*/target` sont sûrs à tout moment.
 - Après chaque fusion : passer la ligne de `docs/TASKS.md` à ✅ (les agents n'y touchent pas).
 - Conflits `Cargo.lock` : merger `main` dans la branche et laisser cargo le regénérer.
 

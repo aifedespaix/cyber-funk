@@ -151,6 +151,8 @@ Dépendances système Linux : `libasound2-dev libudev-dev libxkbcommon-dev libwa
   jamais un autre, le disque est limité. Piège : deux branches qui modifient le même crate peuvent s'écraser dans ce
   dossier (faux « unresolved import ») ; un `touch crates/<crate>/src/lib.rs` avant `cargo test` force la recompilation. Pas d'écran ni de carte son : tests sans matériel (`Xvfb` + rendu logiciel pour
   le visuel) et dis dans la PR ce qui n'a pas pu être vérifié.
+- Disque : lance les compilations avec `CARGO_INCREMENTAL=0` (le cache incrémental pèse plusieurs Go et fait paniquer
+  `rustc` quand le disque se remplit) ; ne supprime jamais le dossier `target` d'un autre agent en cours de build.
 
 ---
 
