@@ -12,10 +12,12 @@ use bevy::prelude::*;
 use bevy::render::view::screenshot::{Screenshot, ScreenshotCaptured, save_to_disk};
 use cf_render::warmup::{AppState, LatePipelines};
 use cf_render::{AbsolutePosition, ChunkStream};
-use cf_world_neon::landmarks::pass::{LandmarkPass, PassStart};
+use cf_world_neon::landmarks::frame::FlashPolicy;
 use cf_world_neon::landmarks::render::LandmarkRig;
-use cf_world_neon::landmarks::{LandmarkHandle, LandmarkKind};
-use cf_world_neon::traffic::{TrafficBeat, TrafficFrame, TrafficShow};
+use cf_world_neon::landmarks::{LandmarkHandle, LandmarkKind, StageLandmark};
+use cf_world_neon::scenery::Clearing;
+use cf_world_neon::traffic::grand::{Landmark, LandmarkFrame};
+use cf_world_neon::traffic::{TrafficBeat, TrafficDrive};
 use cf_world_neon::{NeonWorld, Runner};
 
 use crate::shots::{Shot, differing_share};
@@ -95,14 +97,14 @@ const SCENES: [Scene; 9] = [
     },
 ];
 
-/// L'image du trafic d'un immeuble : un kick à 128 BPM, un drop à `DROP_FRAME`, les flashs permis (sous le limiteur).
-pub(crate) fn traffic_frame(car_z: f64, time: f64, frame_in_scene: u32) -> TrafficFrame<'static> {
+/// L'image d'un immeuble : un kick à 128 BPM, un drop à `DROP_FRAME`.
+pub(crate) fn landmark_frame(car_z: f64, time: f64, frame_in_scene: u32) -> LandmarkFrame {
     let beat_s = f64::from(60.0 / BPM);
     let phase = time % beat_s;
     let pulse = (-(phase / 0.12)).exp() as f32;
-    TrafficFrame {
-        car: DVec3::new(0.0, 0.65, car_z),
+    LandmarkFrame {
         time,
+        dt: 1.0 / 60.0,
         beat: TrafficBeat {
             kick: phase < 1.0 / 60.0,
             bass: 0.5 * pulse,
@@ -111,27 +113,41 @@ pub(crate) fn traffic_frame(car_z: f64, time: f64, frame_in_scene: u32) -> Traff
             loud: 0.5,
             pulse,
             count: (time / beat_s) as u32,
+            beat: time / beat_s,
             bpm: Some(BPM),
         },
-        drive: cf_world_neon::traffic::TrafficDrive {
+        drive: TrafficDrive {
             drop: frame_in_scene == DROP_FRAME,
             intensity: 0.6,
             section: cf_analysis::Section::Groove,
         },
-        show: Some(TrafficShow {
-            level: 3,
-            breathing: false,
-            flashes: true,
-            ground_traffic: 0.5,
-            event_rate: 1.0,
-            events: &[],
-            city_pulse: 0.6,
-            titles: false,
-            dj_seq: 0,
-            level_seq: 0,
-        }),
-        ..TrafficFrame::default()
+        car: DVec3::new(0.0, 0.65, car_z),
+        calm: false,
+        phase: pulse,
     }
+}
+
+/// Les flashs sont permis, sous le limiteur de l'immeuble : c'est le cas normal d'un show.
+const LIVE: FlashPolicy = FlashPolicy {
+    flashes: true,
+    breathing: false,
+};
+
+/// Pose un immeuble devant la voiture et rend la zone que la ville lui dégage.
+fn place(landmark: &mut StageLandmark, car_z: f64, side: i8, center_m: Option<f64>) -> (f64, Clearing) {
+    let span = f64::from(landmark.span());
+    let z = center_m.map_or_else(
+        || car_z - f64::from(landmark.lead().unwrap_or(400.0)) - span / 2.0,
+        |center| car_z - center,
+    );
+    landmark.show(z, side, LinearRgba::WHITE);
+    let margin = span / 2.0 + 14.0;
+    let clearing = Clearing {
+        z0: z - margin,
+        z1: z + margin,
+        side: if landmark.spans_road() { 0 } else { side },
+    };
+    (z, clearing)
 }
 
 #[derive(Clone, Copy, PartialEq, Eq, Default)]
@@ -149,7 +165,7 @@ pub(crate) struct Check {
     /// Indice de scène * 2 + passe (0 : avec l'immeuble, 1 : sans).
     step: usize,
     stage: Stage,
-    pass: Option<LandmarkPass>,
+    landmark: Option<StageLandmark>,
     shots: HashMap<String, Shot>,
     entities_before: Option<usize>,
     entities_after: usize,
@@ -226,31 +242,19 @@ pub(crate) fn run_check(
             if check.entities_before.is_none() {
                 check.entities_before = Some(rig.entity_count());
             }
-            let mut stage = handle.lock();
-            let pass = LandmarkPass::begin(
-                &mut stage,
-                scene.kind,
-                car_z,
-                PassStart {
-                    side: 1,
-                    tint: 2,
-                    scale: 1.0,
-                    debug_center: Some(scene.center_m),
-                },
-            );
+            let mut landmark = StageLandmark::of(&handle, scene.kind);
+            let (_, clearing) = place(&mut landmark, car_z, 1, Some(f64::from(scene.center_m)));
             // La ville s'écarte devant l'immeuble, comme le fait le directeur du trafic (`apply_clearings`).
-            if world.set_clearings(&[pass.clearing()]) {
+            if world.set_clearings(&[clearing]) {
                 stream.replan_all();
             }
-            check.pass = Some(pass);
+            check.landmark = Some(landmark);
             check.stage = Stage::Live(0);
         }
         Stage::Live(frame) if frame < SETTLE_FRAMES => {
-            if let Some(mut pass) = check.pass {
-                let mut stage = handle.lock();
+            if let Some(landmark) = check.landmark.as_mut() {
                 let in_scene = if scene.drop { frame } else { u32::MAX };
-                pass.update(&mut stage, &traffic_frame(car_z, now, in_scene), 1.0 / 60.0);
-                check.pass = Some(pass);
+                landmark.drive(&landmark_frame(car_z, now, in_scene), LIVE, None);
             }
             // Passe « sans » : la racine est cachée après le système du rendu, avant l'extraction.
             if hide {
@@ -293,9 +297,8 @@ pub(crate) fn run_check(
     }
     // Fin de la passe « sans » : on range l'immeuble.
     if check.stage == Stage::Enter && check.step % 2 == 0 && check.step > 0 {
-        if let Some(mut pass) = check.pass.take() {
-            let mut stage = handle.lock();
-            pass.end(&mut stage);
+        if let Some(mut landmark) = check.landmark.take() {
+            landmark.hide();
             if world.set_clearings(&[]) {
                 stream.replan_all();
             }
@@ -363,7 +366,7 @@ fn evaluate(check: &Check, late: usize) -> AppExit {
 #[derive(Resource, Default)]
 pub(crate) struct Tour {
     index: usize,
-    pass: Option<LandmarkPass>,
+    current: Option<(StageLandmark, f64)>,
 }
 
 pub(crate) fn tour(
@@ -373,29 +376,24 @@ pub(crate) fn tour(
     car: Query<&AbsolutePosition, With<Runner>>,
 ) {
     let Ok(car) = car.single() else { return };
-    let mut stage = handle.lock();
     let now = time.elapsed_secs_f64();
-    let mut running = tour.pass.take();
-    if running.is_none_or(|p| p.finished(car.z)) {
-        if let Some(mut done) = running {
-            done.end(&mut stage);
+    // L'immeuble est rangé 160 m après son bord.
+    let done = tour
+        .current
+        .as_ref()
+        .is_none_or(|(landmark, z)| z - f64::from(landmark.span()) / 2.0 > car.z + 160.0);
+    if done {
+        if let Some((mut landmark, _)) = tour.current.take() {
+            landmark.hide();
         }
         let kind = SCENES[tour.index % SCENES.len()].kind;
         tour.index += 1;
-        running = Some(LandmarkPass::begin(
-            &mut stage,
-            kind,
-            car.z,
-            PassStart {
-                side: if tour.index % 2 == 0 { 1 } else { -1 },
-                tint: 2,
-                scale: 1.0,
-                debug_center: None,
-            },
-        ));
+        let mut landmark = StageLandmark::of(&handle, kind);
+        let side = if tour.index % 2 == 0 { 1 } else { -1 };
+        let (z, _) = place(&mut landmark, car.z, side, None);
+        tour.current = Some((landmark, z));
     }
-    if let Some(mut pass) = running {
-        pass.update(&mut stage, &traffic_frame(car.z, now, u32::MAX), time.delta_secs());
-        tour.pass = Some(pass);
+    if let Some((landmark, _)) = tour.current.as_mut() {
+        landmark.drive(&landmark_frame(car.z, now, u32::MAX), LIVE, None);
     }
 }

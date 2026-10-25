@@ -52,7 +52,7 @@ pub use car::{Car, CarControls, CarPlugin};
 pub use chase::{ChaseCameraPlugin, ChasePlugin, Runner, RunnerConfig, chase_pose};
 pub use cinema::{CinemaInput, NeonCinemaPlugin, fill_cinema_world};
 pub use facade::{FacadeLook, FacadeMaterial, FacadePlugin};
-pub use landmarks::{CityField, LandmarkEvent, LandmarkHandle, LandmarkKind, LandmarksPlugin};
+pub use landmarks::{CityField, LandmarkHandle, LandmarkKind, LandmarksPlugin, StageLandmark};
 pub use pilot::{CarAnimation, Pilot, PilotPlugin, PilotSettings, PilotTraffic};
 pub use road::{Road, RoadLook, RoadMaterial, RoadPalette, RoadPlugin};
 pub use route::{RoutePlan, RoutePlanner};

@@ -1,10 +1,12 @@
-// Le champ de la ville (`FIELD_GLSL` de `landmarks/field.ts`) : les lumières dynamiques des immeubles-vitrines, leur zone de
-// glitch, la panne de courant. Ce texte est ajouté au bout des shaders des façades (`facade.wesl`) et de la route
+// Le champ de la ville (`FIELD_GLSL` de `landmarks/field.ts`) : les lumières dynamiques des immeubles-vitrines et leur zone de
+// glitch. La panne de courant n'est pas ici : elle est dans le bloc de la façade (`facade.power`, J7-05).
+//
+// Ce texte est ajouté au bout des shaders des façades (`facade.wesl`) et de la route
 // (`road.wesl`) : les deux déclarent le même bloc à `@binding(1)`.
 //
 // Les positions sont en repère rendu (relatives à l'origine flottante de `cf-render`), comme `in.world`. Sans immeuble-vitrine,
-// toutes les lumières sont éteintes (position à y = -999, couleur nulle), la zone et le décalque à force nulle, la panne à
-// part éteinte nulle : ces fonctions rendent 0, 0, 0 et 1.
+// toutes les lumières sont éteintes (position à y = -999, couleur nulle), la zone et le décalque à force nulle : ces
+// fonctions rendent 0, 0 et 0.
 
 // Même ordre de champs que `FieldParams` (Rust, `ShaderType`). Tout en vec4.
 struct Field {
@@ -15,8 +17,6 @@ struct Field {
     // x : z du centre, y : demi-longueur, z : force.
     zone: vec4<f32>,
     zone_tint: vec4<f32>,
-    // Panne de courant : x : z du front, y : largeur du front, z : part éteinte derrière le front, w : sens.
-    power: vec4<f32>,
     // Décalque : centre x, centre z, demi-largeur, demi-profondeur.
     decal_box: vec4<f32>,
     // Décalque : rangée de l'atlas, début et fin du texte (0..1), nombre de lettres.
@@ -53,12 +53,6 @@ fn field_sheen(p: vec3<f32>, cam: vec3<f32>) -> vec3<f32> {
         sum += field.light_col[i].rgb * spec * att;
     }
     return sum;
-}
-
-// Part de lumière qui reste aux fenêtres : 1 partout, moins derrière le front d'une panne de courant.
-fn field_power(p: vec3<f32>) -> f32 {
-    let behind = smoothstep(-field.power.y, field.power.y, (p.z - field.power.x) * field.power.w);
-    return 1.0 - field.power.z * behind;
 }
 
 // Zone de glitch : un fondu autour du centre, plein sur la moitié de sa longueur.

@@ -7,7 +7,8 @@
 //! compilé pendant le show.
 //!
 //! La scène porte aussi ce que le directeur du trafic tenait de l'immeuble : l'historique des derniers tirages et leur
-//! fraîcheur (`chooseLandmark`), la variation du spectacle (`landmarkVariation`), l'ordre de mise au point (`force`).
+//! fraîcheur (`chooseLandmark`) et l'ordre de mise au point (`force`). La variation du spectacle (`landmarkVariation`) est
+//! celle de l'événement du trafic (J7-05, `VariationHistory`).
 
 use bevy::math::Vec3;
 
@@ -39,12 +40,10 @@ pub struct Active {
     pub place: Placement,
 }
 
-/// Ce que la scène lit en dehors du trafic : le temps musical continu et la palette, écrits chaque image par un système
-/// Bevy (`beat.beat` d'`AudioFeatures` n'est pas dans `TrafficFrame`).
+/// Ce que la scène lit en dehors du trafic : la palette et la teinte d'humeur, écrites chaque image par un système Bevy
+/// (`TrafficFrame` ne les porte pas).
 #[derive(Debug, Clone, Copy)]
 pub struct StageInputs {
-    /// Temps musical continu (`beat.beat`).
-    pub beat: f32,
     /// La palette vivante.
     pub colors: Colors,
     /// Teinte ambiante de la section (`SceneMood`), lumière linéaire.
@@ -54,7 +53,6 @@ pub struct StageInputs {
 impl Default for StageInputs {
     fn default() -> Self {
         Self {
-            beat: 0.0,
             colors: Colors::default(),
             mood: Vec3::new(0.4, 0.2, 0.9),
         }
@@ -82,15 +80,6 @@ pub struct FrameUniform {
     pub phase: f32,
 }
 
-/// Mise au point : un immeuble précis à une distance précise (`force` de `director.ts`).
-#[derive(Debug, Clone, Copy, PartialEq)]
-pub struct Forced {
-    /// Lequel.
-    pub kind: LandmarkKind,
-    /// Distance exacte du centre devant la voiture (m) et côté ; sinon le défaut.
-    pub at: Option<(f32, i8)>,
-}
-
 /// La scène des immeubles-vitrines.
 pub struct LandmarkStage {
     landmarks: Vec<Box<dyn Landmark>>,
@@ -108,9 +97,7 @@ pub struct LandmarkStage {
     history: Vec<LandmarkKind>,
     fresh: [f64; KIND_COUNT],
     marks: Vec<(LandmarkKind, f64)>,
-    last_side: i8,
-    last_tint: Option<u8>,
-    forced: Option<Forced>,
+    forced: Option<LandmarkKind>,
 }
 
 impl std::fmt::Debug for LandmarkStage {
@@ -164,8 +151,6 @@ impl LandmarkStage {
             history: Vec::with_capacity(HISTORY + 1),
             fresh: [1.0; KIND_COUNT],
             marks: Vec::with_capacity(HISTORY),
-            last_side: 1,
-            last_tint: None,
             forced: None,
         }
     }
@@ -229,13 +214,23 @@ impl LandmarkStage {
         self.light_levels = [0.0; MAX_LIGHTS];
     }
 
+    /// Change l'échelle du passage de l'immeuble visible (`group.scale` de Sillage).
+    pub fn set_scale(&mut self, scale: f32) {
+        if let Some(active) = &mut self.active {
+            active.place.scale = scale;
+            self.seq = self.seq.wrapping_add(1);
+        }
+    }
+
     /// Avance l'immeuble visible d'une image et écrit la pose de ses pièces. `frame.beat.pulse` est le pouls **brut** de
-    /// l'analyse : la scène le remplace par celui du limiteur avant de le donner à l'immeuble (règle 7 de `CLAUDE.md`).
-    pub fn step(&mut self, frame: &mut LandmarkFrame) {
+    /// l'analyse : la scène le remplace avant de le donner à l'immeuble (règle 7 de `CLAUDE.md`), par `shared_pulse` (le
+    /// pouls que le limiteur du trafic accorde à toute la ville, ce que fait l'événement) ou, à défaut, par celui de son
+    /// propre limiteur.
+    pub fn step(&mut self, frame: &mut LandmarkFrame, shared_pulse: Option<f32>) {
         let permitted = frame.policy.permitted();
-        let pulse = self.pulse.update(frame.dt, frame.time, permitted, frame.beat.pulse);
+        let own = self.pulse.update(frame.dt, frame.time, permitted, frame.beat.pulse);
+        let pulse = shared_pulse.map_or(own, |p| p.clamp(0.0, 1.0));
         frame.beat.pulse = pulse;
-        frame.beat.beat = self.inputs.beat;
         frame.colors = self.inputs.colors;
         let Some(active) = self.active else { return };
         let index = active.kind.index();
@@ -267,12 +262,12 @@ impl LandmarkStage {
     }
 
     /// Ordre de mise au point : le prochain tirage sera celui-ci (outil de développement).
-    pub fn force(&mut self, forced: Option<Forced>) {
+    pub fn force(&mut self, forced: Option<LandmarkKind>) {
         self.forced = forced;
     }
 
     /// La mise au point en attente, consommée par le prochain événement.
-    pub fn take_forced(&mut self) -> Option<Forced> {
+    pub fn take_forced(&mut self) -> Option<LandmarkKind> {
         self.forced.take()
     }
 
@@ -305,26 +300,6 @@ impl LandmarkStage {
             self.history.remove(0);
         }
         chosen
-    }
-
-    /// Allure du passage au spectacle (`landmarkVariation`) : un côté qui change le plus souvent, une teinte du cycle
-    /// toujours différente de la précédente et, pour un immeuble qui n'enjambe pas la route, une échelle. Rend
-    /// `(côté, rang de teinte, échelle)`.
-    pub fn variation(&mut self, rng: &mut Rand, spans_road: bool, cycle_len: usize) -> (i8, u8, f32) {
-        let side = if rng.unit() < 0.75 {
-            -self.last_side
-        } else {
-            self.last_side
-        };
-        let size = cycle_len.max(1);
-        let tint = match self.last_tint {
-            None => (rng.unit() * size as f64) as usize % size,
-            Some(last) => (usize::from(last) + 1 + (rng.unit() * (size - 1) as f64) as usize) % size,
-        };
-        self.last_side = side;
-        self.last_tint = Some(tint as u8);
-        let scale = if spans_road { 1.0 } else { rng.range(0.9, 1.18) as f32 };
-        (side, tint as u8, scale)
     }
 }
 
@@ -406,21 +381,5 @@ mod tests {
         let mut marked = 0;
         stage.take_marks(|_, _| marked += 1);
         assert_eq!(marked, 9500);
-    }
-
-    #[test]
-    fn la_variation_change_de_teinte_a_chaque_passage_et_garde_l_echelle_des_arches() {
-        let mut stage = stage();
-        let mut rng = Rand::new(3);
-        let mut last_tint = None;
-        for _ in 0..200 {
-            let (side, tint, scale) = stage.variation(&mut rng, false, 6);
-            assert!(side == -1 || side == 1);
-            assert!((0.9..=1.18).contains(&scale));
-            assert_ne!(Some(tint), last_tint);
-            assert!(tint < 6);
-            last_tint = Some(tint);
-        }
-        assert!((stage.variation(&mut rng, true, 6).2 - 1.0).abs() < f32::EPSILON);
     }
 }

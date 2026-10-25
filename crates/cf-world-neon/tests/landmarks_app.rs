@@ -13,7 +13,7 @@ use bevy::prelude::*;
 use bevy::time::TimeUpdateStrategy;
 use cf_render::world::SubjectKind;
 use cf_render::{AbsolutePosition, CorePlugin, Layer, OriginPlugin, StreamFocus};
-use cf_world_neon::landmarks::pass::{LandmarkPass, PassStart};
+use cf_world_neon::landmarks::Placement;
 use cf_world_neon::landmarks::render::LandmarkRig;
 use cf_world_neon::traffic::{EventName, EventRegistry, TrafficDirector, TrafficPlugin};
 use cf_world_neon::{CityField, LandmarkHandle, LandmarkKind, LandmarksPlugin, PilotTraffic};
@@ -90,7 +90,7 @@ fn les_entites_sont_preallouees_dans_la_couche_monde_et_ne_changent_plus() {
     let before = entity_count(&mut app);
     // Une minute et demie de passages forcés : aucun spawn ni despawn.
     for kind in LandmarkKind::ALL {
-        app.world().resource::<LandmarkHandle>().force(kind, Some((60.0, 1)));
+        app.world().resource::<LandmarkHandle>().force(kind);
         app.world_mut()
             .resource_mut::<TrafficDirector>()
             .force(EventName::Landmark);
@@ -113,15 +113,14 @@ fn la_facade_regarde_la_route_et_le_corps_s_etend_vers_l_exterieur() {
         {
             let handle = app.world().resource::<LandmarkHandle>().clone();
             let mut stage = handle.lock();
-            LandmarkPass::begin(
-                &mut stage,
+            stage.show(
                 LandmarkKind::Lava,
-                car.z,
-                PassStart {
+                Placement {
+                    z: car.z - 100.0,
                     side,
                     tint: 0,
                     scale: 1.0,
-                    debug_center: Some(100.0),
+                    spans_road: false,
                 },
             );
         }
@@ -160,7 +159,7 @@ fn l_evenement_landmark_est_inscrit_et_chaque_immeuble_sort_comme_sujet_puis_se_
     drive(&mut app, 3);
     assert!(
         app.world().resource::<EventRegistry>().contains(EventName::Landmark),
-        "l'événement `landmark` est inscrit par le plugin"
+        "l'événement `landmark` est inscrit (J7-05) et ses immeubles sont ceux de la scène (J7-08)"
     );
     let handle = app.world().resource::<LandmarkHandle>().clone();
     for kind in LandmarkKind::ALL {
@@ -173,7 +172,7 @@ fn l_evenement_landmark_est_inscrit_et_chaque_immeuble_sort_comme_sujet_puis_se_
             if !was_active && frame % 120 == 0 {
                 // Un ordre tombé près d'une arche-immeuble de la route est écarté par le directeur (« on retente plus tard ») :
                 // on le redonne jusqu'à ce que l'immeuble apparaisse.
-                handle.force(kind, None);
+                handle.force(kind);
                 app.world_mut()
                     .resource_mut::<TrafficDirector>()
                     .force(EventName::Landmark);

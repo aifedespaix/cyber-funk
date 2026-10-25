@@ -3,20 +3,19 @@
 //!
 //! Le décor est en matériaux custom, sans lumières : les « vraies » lumières des immeubles-vitrines sont donc un petit
 //! tableau d'uniformes que lisent les façades (diffus) et la route (diffus, plus reflet sur sol mouillé). S'y ajoutent une
-//! zone de glitch (scanlines et inversions de canaux sur les façades voisines et sur la route), une panne de courant, et un
-//! décalque au sol (le mot projeté par l'immeuble ERROR, qui suit la voiture).
+//! zone de glitch (scanlines et inversions de canaux sur les façades voisines et sur la route), et un décalque au sol (le mot projeté par l'immeuble ERROR, qui suit la voiture).
 //!
 //! # Qui écrit quoi
 //!
 //! - [`FieldState`] : la partie que **écrivent les immeubles** (lumières, zone, décalque), pure et testable. Un par scène
 //!   d'immeuble ([`crate::landmarks::LandmarkStage`]).
 //! - [`CityField`] : la ressource que lisent le matériau des façades et celui de la route. Un seul système la remplit
-//!   ([`crate::landmarks::render::publish_field`]) ; la panne de courant (`power`) est écrite par l'événement qui la
-//!   joue (`blackout`).
+//!   (`publish` de [`crate::landmarks::plugin`]). La panne de courant n'est pas ici : c'est `FacadeLook::power`, écrit par
+//!   l'événement `blackout` (J7-05).
 //! - [`FieldParams`] : le bloc d'uniformes, tout en `Vec4`, avec positions **relatives à l'origine flottante** (le
 //!   rendu pense en `f32` autour d'une origine proche, voir `cf-render::origin`).
 //!
-//! Le texte des fonctions WGSL (`field_light`, `field_sheen`, `field_zone`, `field_power`) est dans
+//! Le texte des fonctions WGSL (`field_light`, `field_sheen`, `field_zone`) est dans
 //! `assets/shaders/cf-world-neon/field.wesl`, ajouté au bout des shaders de façade et de route.
 
 use bevy::asset::Handle;
@@ -188,38 +187,11 @@ impl FieldState {
     }
 }
 
-/// Panne de courant : un front de z qui avance et éteint les fenêtres derrière lui (`uPower`).
-#[derive(Debug, Clone, Copy, PartialEq)]
-pub struct Outage {
-    /// z absolu du front, m.
-    pub z: f64,
-    /// Largeur du front, m.
-    pub width: f32,
-    /// Part de la ville éteinte derrière le front, 0..1.
-    pub share: f32,
-    /// Sens : 1, éteint vers −z ; −1, l'inverse.
-    pub direction: f32,
-}
-
-impl Default for Outage {
-    fn default() -> Self {
-        Self {
-            z: 0.0,
-            width: 1.0,
-            share: 0.0,
-            direction: 1.0,
-        }
-    }
-}
-
-/// Le champ que lisent les façades et la route : la partie des immeubles-vitrines, la panne de courant, l'atlas du
-/// décalque.
+/// Le champ que lisent les façades et la route : la partie des immeubles-vitrines et l'atlas du décalque.
 #[derive(Resource, Debug, Clone, Default)]
 pub struct CityField {
     /// Lumières, zone et décalque, écrits par les immeubles.
     pub state: FieldState,
-    /// Panne de courant, écrite par l'événement qui la joue.
-    pub power: Outage,
     /// L'atlas du mot ERROR, cuit à l'ouverture (règle 8) ; `None` tant qu'il n'existe pas.
     pub decal_map: Option<Handle<Image>>,
 }
@@ -236,8 +208,6 @@ pub struct FieldParams {
     pub zone: Vec4,
     /// Teinte de la zone.
     pub zone_tint: Vec4,
-    /// Panne de courant : `x` z du front, `y` largeur, `z` part éteinte, `w` sens.
-    pub power: Vec4,
     /// Décalque : centre x, centre z, demi-largeur, demi-profondeur.
     pub decal_box: Vec4,
     /// Décalque : rangée de l'atlas, début, fin, nombre de lettres.
@@ -260,13 +230,6 @@ impl CityField {
         let zone = &self.state.zone;
         out.zone = Vec4::new((zone.z - origin.z) as f32, zone.half_length, zone.strength, 0.0);
         out.zone_tint = zone.tint.extend(0.0);
-        let power = &self.power;
-        out.power = Vec4::new(
-            (power.z - origin.z) as f32,
-            power.width.max(0.001),
-            power.share,
-            power.direction,
-        );
         let decal = &self.state.decal;
         out.decal_box = Vec4::new(
             decal.center_x - origin.x as f32,
@@ -293,8 +256,6 @@ mod tests {
             assert_eq!(params.light_col[i], Vec4::ZERO);
         }
         assert!(params.zone.z.abs() < f32::EPSILON && params.decal.x.abs() < f32::EPSILON);
-        // Une panne sans part éteinte ne change rien : `fieldPower` vaut 1.
-        assert!(params.power.z.abs() < f32::EPSILON);
     }
 
     #[test]
@@ -329,7 +290,6 @@ mod tests {
             "light_col: array<vec4<f32>, 6>",
             "zone: vec4<f32>",
             "zone_tint: vec4<f32>",
-            "power: vec4<f32>",
             "decal_box: vec4<f32>",
             "decal_word: vec4<f32>",
             "decal: vec4<f32>",

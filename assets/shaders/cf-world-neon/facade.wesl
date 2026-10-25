@@ -13,9 +13,9 @@
 // Le décalage vertical du bloc (`aInfo.w`) est l'altitude de l'instance (sa base) : un corps commence à −BASE_DEPTH, une
 // couronne à la hauteur du corps, ce qui prolonge ses étages.
 //
-// Le champ de la ville (`field.wesl`, ajouté au bout de ce fichier, J7-08) : `field_power` éteint les fenêtres derrière le
-// front d'une panne de courant, `field_light` répand la lueur des immeubles-vitrines, `field_zone` porte leur glitch
-// (bandes aux canaux inversés, scanlines). Sans immeuble-vitrine ils valent 1, 0 et 0, comme dans Sillage.
+// Le champ de la ville (`field.wesl`, ajouté au bout de ce fichier, J7-08) : `field_light` répand la lueur des
+// immeubles-vitrines, `field_zone` porte leur glitch (bandes aux canaux inversés, scanlines). Sans immeuble-vitrine ils
+// valent 0 et 0, comme dans Sillage. La panne de courant (`power`) est celle de J7-05.
 //
 // Écart avec Sillage (voir la PR) : les pièces portent un `MeshTag` au lieu d'attributs d'instance. Le rang de teinte du
 // tag va de 0 à 15 : 0..5 le cycle prismatique, 6..15 les couleurs de la scène (`SceneColor` sans l'encre), pour les corps

@@ -34,11 +34,11 @@ pub use material::{LandmarkKey, LandmarkMaterial, LandmarkParams};
 pub(crate) use material::{embed_shaders, warm};
 
 use super::arcade_game::{GRID_H, GRID_W};
-use super::event::LandmarkHandle;
 use super::field::CityField;
 use super::frame::Colors;
 use super::landmark::{LandmarkKind, Placement};
 use super::part::{MapId, PartPaint};
+use super::plugin::LandmarkHandle;
 use super::stage::FrameUniform;
 use crate::scenery::{BASE_DEPTH_M, SceneryAssets, Tier, fog_range};
 
