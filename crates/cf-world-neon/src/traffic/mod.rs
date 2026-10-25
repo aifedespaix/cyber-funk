@@ -43,6 +43,7 @@ pub mod air_lanes;
 pub mod bike_patterns;
 pub mod director;
 pub mod event;
+pub mod events;
 pub mod flash;
 pub mod fleet;
 pub mod frame;
