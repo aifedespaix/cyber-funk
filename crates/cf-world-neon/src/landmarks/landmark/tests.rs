@@ -18,22 +18,45 @@ fn le_registre_garde_l_ordre_et_les_noms_de_sillage() {
     assert_eq!(
         names,
         [
-            "error", "matrix", "flux", "binary", "mecha", "arch", "lava", "arcade", "board"
+            "error",
+            "matrix",
+            "flux",
+            "binary",
+            "mecha",
+            "arch",
+            "lava",
+            "arcade",
+            "board",
+            "organ",
+            "aquarium",
+            "greenhouse",
+            "lighthouse",
+            "clock",
+            "ice",
+            "radio",
+            "pagoda",
+            "console",
+            "hotel"
         ]
     );
     for (i, kind) in LandmarkKind::ALL.iter().enumerate() {
         assert_eq!(kind.index(), i);
         assert_eq!(LandmarkKind::from_name(kind.as_str()), Some(*kind));
     }
-    assert_eq!(LandmarkKind::from_name("aquarium"), None);
+    assert_eq!(LandmarkKind::from_name("tour-eiffel"), None);
 }
 
 #[test]
-fn seuls_error_mecha_et_arcade_sont_exclus_du_mode_calme() {
+fn seuls_error_mecha_arcade_et_console_sont_exclus_du_mode_calme() {
     let loud: Vec<_> = LandmarkKind::ALL.iter().filter(|k| !k.calm_safe()).collect();
     assert_eq!(
         loud,
-        [&LandmarkKind::Error, &LandmarkKind::Mecha, &LandmarkKind::Arcade]
+        [
+            &LandmarkKind::Error,
+            &LandmarkKind::Mecha,
+            &LandmarkKind::Arcade,
+            &LandmarkKind::Console
+        ]
     );
     // Le mur de code compte double.
     assert!((LandmarkKind::Flux.weight() - 2.0).abs() < f64::EPSILON);

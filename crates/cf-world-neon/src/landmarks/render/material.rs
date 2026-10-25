@@ -90,7 +90,7 @@ impl From<&LandmarkMaterial> for LandmarkKey {
 }
 
 /// Les identifiants des shaders, dans l'ordre de [`Look::ALL`].
-const SHADERS: [Handle<Shader>; 13] = [
+const SHADERS: [Handle<Shader>; 26] = [
     uuid_handle!("92851024-e7ad-467d-827d-a290abb27245"),
     uuid_handle!("bcadd81e-36a1-4302-b32c-61f762837545"),
     uuid_handle!("98f898f4-be73-4701-b468-bfecaf050b22"),
@@ -104,6 +104,19 @@ const SHADERS: [Handle<Shader>; 13] = [
     uuid_handle!("d3c984ad-a192-441e-a157-15aa86217ddc"),
     uuid_handle!("af4f5097-7046-47f0-ae3d-a969265ad43d"),
     uuid_handle!("26e503c7-09b9-44c5-b75c-b8aeb708d487"),
+    uuid_handle!("e4bb45a1-2cff-4c36-b52f-46532391b814"),
+    uuid_handle!("b85aa2fa-5002-4a35-895b-a83386cb3346"),
+    uuid_handle!("dc541874-7d2a-4e0e-9007-013792c35e96"),
+    uuid_handle!("368c821d-3486-40f3-8dd7-9893713a76ab"),
+    uuid_handle!("0b0d0717-702c-42c8-a482-6856593e2b07"),
+    uuid_handle!("99ebb2c5-cd13-4bb4-9ba4-cb248886cf86"),
+    uuid_handle!("70290ef4-90ee-4c56-b902-f75c024d81ce"),
+    uuid_handle!("7254acb4-d47a-4d3a-ba5a-9a3cb41e2e1a"),
+    uuid_handle!("83eda05c-3551-41fb-a713-8516c8a083cf"),
+    uuid_handle!("97b83616-051f-48e6-b75d-a2d32d752a44"),
+    uuid_handle!("ec88e029-a668-4a82-b772-d3aab79d114e"),
+    uuid_handle!("5053b5ec-d573-48b8-8410-c247ea8290dc"),
+    uuid_handle!("d5f1dcfa-3ba9-400c-8700-df94e879121f"),
 ];
 
 const COMMON: &str = include_str!("../../../../../assets/shaders/cf-world-neon/landmark_common.wesl");
@@ -123,6 +136,20 @@ const ARCH: &str = include_str!("../../../../../assets/shaders/cf-world-neon/lan
 const MECHA_PANEL: &str = include_str!("../../../../../assets/shaders/cf-world-neon/landmark_mecha_panel.wesl");
 const MECHA_FACE: &str = include_str!("../../../../../assets/shaders/cf-world-neon/landmark_mecha_face.wesl");
 const IRON: &str = include_str!("../../../../../assets/shaders/cf-world-neon/landmark_iron.wesl");
+const SHOW_SHAPES: &str = include_str!("../../../../../assets/shaders/cf-world-neon/landmark_show_shapes.wesl");
+const SHOW_ORGAN: &str = include_str!("../../../../../assets/shaders/cf-world-neon/landmark_show_organ.wesl");
+const SHOW_AQUARIUM: &str = include_str!("../../../../../assets/shaders/cf-world-neon/landmark_show_aquarium.wesl");
+const SHOW_GREENHOUSE: &str = include_str!("../../../../../assets/shaders/cf-world-neon/landmark_show_greenhouse.wesl");
+const SHOW_LIGHTHOUSE: &str = include_str!("../../../../../assets/shaders/cf-world-neon/landmark_show_lighthouse.wesl");
+const SHOW_CLOCK: &str = include_str!("../../../../../assets/shaders/cf-world-neon/landmark_show_clock.wesl");
+const SHOW_ICE: &str = include_str!("../../../../../assets/shaders/cf-world-neon/landmark_show_ice.wesl");
+const SHOW_RADIO: &str = include_str!("../../../../../assets/shaders/cf-world-neon/landmark_show_radio.wesl");
+const SHOW_PAGODA: &str = include_str!("../../../../../assets/shaders/cf-world-neon/landmark_show_pagoda.wesl");
+const SHOW_CONSOLE: &str = include_str!("../../../../../assets/shaders/cf-world-neon/landmark_show_console.wesl");
+const SHOW_HOTEL: &str = include_str!("../../../../../assets/shaders/cf-world-neon/landmark_show_hotel.wesl");
+const LIGHTHOUSE_BEAM: &str = include_str!("../../../../../assets/shaders/cf-world-neon/landmark_lighthouse_beam.wesl");
+const RADIO_WAVES: &str = include_str!("../../../../../assets/shaders/cf-world-neon/landmark_radio_waves.wesl");
+const PAGODA_BLOCKS: &str = include_str!("../../../../../assets/shaders/cf-world-neon/landmark_pagoda_blocks.wesl");
 
 /// Le rang d'un rendu dans [`Look::ALL`].
 fn rank(look: Look) -> usize {
@@ -146,6 +173,19 @@ pub fn pieces(look: Look) -> Vec<&'static str> {
         Look::MechaPanel => &[MECHA_PANEL],
         Look::MechaFace => &[MECHA_FACE],
         Look::Iron => &[IRON],
+        Look::ShowOrgan => &[SHOW_SHAPES, SHOW_ORGAN],
+        Look::ShowAquarium => &[SHOW_SHAPES, SHOW_AQUARIUM],
+        Look::ShowGreenhouse => &[SHOW_SHAPES, SHOW_GREENHOUSE],
+        Look::ShowLighthouse => &[SHOW_SHAPES, SHOW_LIGHTHOUSE],
+        Look::ShowClock => &[SHOW_SHAPES, SHOW_CLOCK],
+        Look::ShowIce => &[SHOW_SHAPES, SHOW_ICE],
+        Look::ShowRadio => &[SHOW_SHAPES, SHOW_RADIO],
+        Look::ShowPagoda => &[SHOW_SHAPES, SHOW_PAGODA],
+        Look::ShowConsole => &[SHOW_SHAPES, SHOW_CONSOLE],
+        Look::ShowHotel => &[SHOW_SHAPES, SHOW_HOTEL],
+        Look::LighthouseBeam => &[LIGHTHOUSE_BEAM],
+        Look::RadioWaves => &[RADIO_WAVES],
+        Look::PagodaBlocks => &[PAGODA_BLOCKS],
     };
     std::iter::once(COMMON).chain(tail.iter().copied()).collect()
 }

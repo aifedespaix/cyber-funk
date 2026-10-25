@@ -66,6 +66,7 @@ pub mod mecha;
 pub mod part;
 pub mod plugin;
 pub mod render;
+pub mod showcase;
 pub mod stage;
 
 pub use adapter::StageLandmark;

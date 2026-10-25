@@ -40,7 +40,7 @@ struct Scene {
     drop: bool,
 }
 
-const SCENES: [Scene; 9] = [
+const SCENES: [Scene; 19] = [
     Scene {
         kind: LandmarkKind::Matrix,
         center_m: 100.0,
@@ -92,6 +92,66 @@ const SCENES: [Scene; 9] = [
     Scene {
         kind: LandmarkKind::Mecha,
         center_m: 160.0,
+        car_x: -4.0,
+        drop: true,
+    },
+    Scene {
+        kind: LandmarkKind::Organ,
+        center_m: 120.0,
+        car_x: -4.0,
+        drop: true,
+    },
+    Scene {
+        kind: LandmarkKind::Aquarium,
+        center_m: 120.0,
+        car_x: -4.0,
+        drop: true,
+    },
+    Scene {
+        kind: LandmarkKind::Greenhouse,
+        center_m: 120.0,
+        car_x: -4.0,
+        drop: true,
+    },
+    Scene {
+        kind: LandmarkKind::Lighthouse,
+        center_m: 160.0,
+        car_x: -4.0,
+        drop: true,
+    },
+    Scene {
+        kind: LandmarkKind::Clock,
+        center_m: 130.0,
+        car_x: -4.0,
+        drop: true,
+    },
+    Scene {
+        kind: LandmarkKind::Ice,
+        center_m: 120.0,
+        car_x: -4.0,
+        drop: true,
+    },
+    Scene {
+        kind: LandmarkKind::Radio,
+        center_m: 160.0,
+        car_x: -4.0,
+        drop: true,
+    },
+    Scene {
+        kind: LandmarkKind::Pagoda,
+        center_m: 130.0,
+        car_x: -4.0,
+        drop: true,
+    },
+    Scene {
+        kind: LandmarkKind::Console,
+        center_m: 120.0,
+        car_x: -4.0,
+        drop: true,
+    },
+    Scene {
+        kind: LandmarkKind::Hotel,
+        center_m: 130.0,
         car_x: -4.0,
         drop: true,
     },

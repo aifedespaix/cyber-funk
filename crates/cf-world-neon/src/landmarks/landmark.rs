@@ -23,7 +23,7 @@ use super::part::{BodySpec, PartPaint, PartSpec, RoadBand};
 /// Distance de la façade à l'axe de la route, comme la méga-tour (`FACE_X` de `base.ts`), m.
 pub const FACE_X: f32 = 17.0;
 
-/// Les immeubles-vitrines que cette tâche livre. J7-09 en ajoute dix (aquarium, horloge, console…).
+/// Les immeubles-vitrines : neuf de J7-08, dix de J7-09 (aquarium, horloge, console…), dans l'ordre du registre de Sillage.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum LandmarkKind {
     /// Le panneau géant ERROR sur un corps rouge.
@@ -44,10 +44,30 @@ pub enum LandmarkKind {
     Arcade,
     /// La tour « carte mère ».
     Board,
+    /// L'orgue de cathédrale.
+    Organ,
+    /// L'aquarium géant.
+    Aquarium,
+    /// La serre jungle.
+    Greenhouse,
+    /// Le phare et son faisceau.
+    Lighthouse,
+    /// La tour horloge.
+    Clock,
+    /// La falaise de glace.
+    Ice,
+    /// La tour radio et ses ondes.
+    Radio,
+    /// La pagode néon.
+    Pagoda,
+    /// La manette géante.
+    Console,
+    /// L'hôtel de verre.
+    Hotel,
 }
 
-/// Nombre d'immeubles livrés par J7-08.
-pub const KIND_COUNT: usize = 9;
+/// Nombre d'immeubles.
+pub const KIND_COUNT: usize = 19;
 
 impl LandmarkKind {
     /// Tous les immeubles, dans l'ordre du registre de Sillage.
@@ -61,6 +81,16 @@ impl LandmarkKind {
         Self::Lava,
         Self::Arcade,
         Self::Board,
+        Self::Organ,
+        Self::Aquarium,
+        Self::Greenhouse,
+        Self::Lighthouse,
+        Self::Clock,
+        Self::Ice,
+        Self::Radio,
+        Self::Pagoda,
+        Self::Console,
+        Self::Hotel,
     ];
 
     /// Le nom de Sillage (`error`, `matrix`…), celui des identifiants de fraîcheur `landmark:<nom>`.
@@ -76,6 +106,16 @@ impl LandmarkKind {
             Self::Lava => "lava",
             Self::Arcade => "arcade",
             Self::Board => "board",
+            Self::Organ => "organ",
+            Self::Aquarium => "aquarium",
+            Self::Greenhouse => "greenhouse",
+            Self::Lighthouse => "lighthouse",
+            Self::Clock => "clock",
+            Self::Ice => "ice",
+            Self::Radio => "radio",
+            Self::Pagoda => "pagoda",
+            Self::Console => "console",
+            Self::Hotel => "hotel",
         }
     }
 
@@ -92,6 +132,16 @@ impl LandmarkKind {
             Self::Lava => "landmark:lava",
             Self::Arcade => "landmark:arcade",
             Self::Board => "landmark:board",
+            Self::Organ => "landmark:organ",
+            Self::Aquarium => "landmark:aquarium",
+            Self::Greenhouse => "landmark:greenhouse",
+            Self::Lighthouse => "landmark:lighthouse",
+            Self::Clock => "landmark:clock",
+            Self::Ice => "landmark:ice",
+            Self::Radio => "landmark:radio",
+            Self::Pagoda => "landmark:pagoda",
+            Self::Console => "landmark:console",
+            Self::Hotel => "landmark:hotel",
         }
     }
 
@@ -110,7 +160,7 @@ impl LandmarkKind {
     /// Autorisé en mode « réduire les animations » : pas de stroboscope ni de danse (`calmSafe` de `registry.ts`).
     #[must_use]
     pub const fn calm_safe(self) -> bool {
-        !matches!(self, Self::Error | Self::Mecha | Self::Arcade)
+        !matches!(self, Self::Error | Self::Mecha | Self::Arcade | Self::Console)
     }
 
     /// Poids au tirage : les trois variantes du mur de code comptent double, c'est la signature de la ville

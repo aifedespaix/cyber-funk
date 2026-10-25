@@ -37,11 +37,37 @@ pub enum Look {
     MechaFace,
     /// Un aplat sans éclairage (mâts et traverse du panneau ERROR : `MeshBasicMaterial` de Sillage).
     Iron,
+    /// La façade de l'orgue (`showcase/organ.ts`).
+    ShowOrgan,
+    /// La cuve de l'aquarium.
+    ShowAquarium,
+    /// La verrière de la serre.
+    ShowGreenhouse,
+    /// La tour du phare.
+    ShowLighthouse,
+    /// Le cadran et la mécanique de l'horloge.
+    ShowClock,
+    /// La paroi de glace.
+    ShowIce,
+    /// Le treillis de la tour radio.
+    ShowRadio,
+    /// Les paravents et lanternes de la pagode (lumière seule).
+    ShowPagoda,
+    /// La manette géante.
+    ShowConsole,
+    /// Les chambres de l'hôtel de verre.
+    ShowHotel,
+    /// Le faisceau tournant du phare.
+    LighthouseBeam,
+    /// Les ondes qui partent de l'antenne.
+    RadioWaves,
+    /// Les étages et toits de la pagode (blocs de ville).
+    PagodaBlocks,
 }
 
 impl Look {
     /// Tous les rendus, dans l'ordre de leur numéro.
-    pub const ALL: [Self; 13] = [
+    pub const ALL: [Self; 26] = [
         Self::MatrixWall,
         Self::MatrixSprouts,
         Self::LavaFacade,
@@ -55,6 +81,19 @@ impl Look {
         Self::MechaPanel,
         Self::MechaFace,
         Self::Iron,
+        Self::ShowOrgan,
+        Self::ShowAquarium,
+        Self::ShowGreenhouse,
+        Self::ShowLighthouse,
+        Self::ShowClock,
+        Self::ShowIce,
+        Self::ShowRadio,
+        Self::ShowPagoda,
+        Self::ShowConsole,
+        Self::ShowHotel,
+        Self::LighthouseBeam,
+        Self::RadioWaves,
+        Self::PagodaBlocks,
     ];
 
     /// Lumière pure : additif, transparent, sans écriture de profondeur (`additive` d'`overlayMaterial`).
@@ -69,6 +108,9 @@ impl Look {
                 | Self::Beam
                 | Self::ArcadeHolo
                 | Self::ArchVoxels
+                | Self::ShowPagoda
+                | Self::LighthouseBeam
+                | Self::RadioWaves
         )
     }
 
@@ -83,6 +125,15 @@ impl Look {
                 | Self::ErrorFacade
                 | Self::BoardFacade
                 | Self::MechaFace
+                | Self::ShowOrgan
+                | Self::ShowAquarium
+                | Self::ShowGreenhouse
+                | Self::ShowLighthouse
+                | Self::ShowClock
+                | Self::ShowIce
+                | Self::ShowRadio
+                | Self::ShowConsole
+                | Self::ShowHotel
         )
     }
 

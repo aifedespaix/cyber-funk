@@ -24,6 +24,7 @@ use super::lava::LavaBuilding;
 use super::matrix::{MatrixBuilding, MatrixVariant};
 use super::mecha::MechaBuilding;
 use super::part::{PartPaint, PartSpec};
+use super::showcase::Showcase;
 use crate::pilot::rand::Rand;
 
 /// Combien de derniers tirages on se souvient (`landmarkHistory`) ; les deux derniers sont exclus du tirage suivant.
@@ -132,6 +133,10 @@ impl LandmarkStage {
                     LandmarkKind::Lava => Box::new(LavaBuilding::new()),
                     LandmarkKind::Arcade => Box::new(ArcadeBuilding::new()),
                     LandmarkKind::Board => Box::new(BoardTower::new()),
+                    vitrine => match Showcase::new(*vitrine) {
+                        Some(showcase) => Box::new(showcase),
+                        None => Box::new(BoardTower::new()),
+                    },
                 }
             })
             .collect();
