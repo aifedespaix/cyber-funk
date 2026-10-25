@@ -1,5 +1,5 @@
-//! Les cascades dans une vraie `App` Bevy, sans rendu : le pilote conduit, le directeur lance une cascade (registre rempli
-//! par un faux script, les vrais sont J7-07), fond sa pose dans l'abscisse et l'animation de la voiture, publie
+//! Les cascades dans une vraie `App` Bevy, sans rendu : le pilote conduit, le directeur lance une cascade (registre limité
+//! à un faux script, indépendant des vrais de J7-07), fond sa pose dans l'abscisse et l'animation de la voiture, publie
 //! [`StuntOrders`] pour le réalisateur et suspend les événements du trafic le temps de la cascade.
 
 #![allow(clippy::expect_used, clippy::unwrap_used, clippy::panic)]
@@ -12,8 +12,8 @@ use bevy::time::TimeUpdateStrategy;
 use cf_render::{AbsolutePosition, AudioFeatures, CorePlugin, CullingPlugin};
 use cf_world_neon::pilot::PilotCar;
 use cf_world_neon::stunts::{
-    StuntAlign, StuntAppExt, StuntCtx, StuntEnv, StuntKind, StuntOrders, StuntPose, StuntRun, StuntScript, StuntTier,
-    StuntWorld, StuntsPlugin,
+    StuntAlign, StuntAppExt, StuntCtx, StuntEnv, StuntKind, StuntOrders, StuntPose, StuntRegistry, StuntRun,
+    StuntScript, StuntTier, StuntWorld, StuntsPlugin,
 };
 use cf_world_neon::traffic::TrafficPlugin;
 use cf_world_neon::{CarAnimation, PilotPlugin, PilotSettings};
@@ -89,6 +89,9 @@ fn app() -> App {
         ..cf_analysis::AudioFeatures::NEUTRAL
     }))
     .insert_resource(TimeUpdateStrategy::ManualDuration(FRAME))
+    // `StuntsPlugin` inscrit les douze vrais scripts : le test ne doit pas dépendre du tirage dans ce répertoire, il
+    // joue seulement le faux script (Slalom, remplacé).
+    .insert_resource(StuntRegistry::default())
     .register_stunt(Hop);
     app
 }
