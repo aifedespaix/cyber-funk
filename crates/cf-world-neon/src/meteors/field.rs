@@ -186,15 +186,14 @@ impl MeteorField {
     pub fn update(&mut self, input: &FieldInput, collide: &mut dyn FnMut(DVec3, f64) -> bool) {
         self.events.clear();
         let dt = input.dt_s.max(0.0);
-        match input.show {
-            Some(show) => self.step_show(input, show),
-            None => {
-                self.countdown_s -= dt;
-                if self.countdown_s <= 0.0 {
-                    self.launch(input.anchor, input.calm, input.textures);
-                    let (base, span) = if input.calm { (8.0, 8.0) } else { (2.2, 4.0) };
-                    self.countdown_s = base + hash(self.spawned as f64, 12.0) as f32 * span;
-                }
+        if let Some(show) = input.show {
+            self.step_show(input, show);
+        } else {
+            self.countdown_s -= dt;
+            if self.countdown_s <= 0.0 {
+                self.launch(input.anchor, input.calm, input.textures);
+                let (base, span) = if input.calm { (8.0, 8.0) } else { (2.2, 4.0) };
+                self.countdown_s = base + hash(self.spawned as f64, 12.0) as f32 * span;
             }
         }
 

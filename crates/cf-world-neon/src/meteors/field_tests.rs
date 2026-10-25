@@ -130,6 +130,9 @@ fn hors_spectacle_la_cadence_est_libre_comme_dans_sillage() {
 
 #[test]
 fn une_pluie_ne_part_que_sur_un_drop_permis() {
+    fn gate_no_drop(g: ShowGate) -> ShowGate {
+        ShowGate { drop_now: false, ..g }
+    }
     let shower = ShowGate {
         meteor_shower: true,
         drop_now: true,
@@ -146,9 +149,6 @@ fn une_pluie_ne_part_que_sur_un_drop_permis() {
         }
         any
     };
-    fn gate_no_drop(g: ShowGate) -> ShowGate {
-        ShowGate { drop_now: false, ..g }
-    }
     // Probabilité 0,4 par drop : sur 200 images avec drop, au moins une pluie sur 40 graines.
     assert!((0..40).any(|seed| started(shower, seed)), "une pluie finit par partir");
     for forbidden in [

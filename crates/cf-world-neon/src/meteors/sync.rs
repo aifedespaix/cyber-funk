@@ -276,12 +276,12 @@ fn trail_or_glow(
 /// Réécrit positions et couleurs des carrés d'une gerbe, en place (aucune allocation : les attributs existent déjà).
 fn write_debris(mesh: &mut Mesh, blast: &super::blast::Blast, tint: [f32; 3]) {
     if let Some(VertexAttributeValues::Float32x3(positions)) = mesh.attribute_mut(Mesh::ATTRIBUTE_POSITION) {
-        for (i, quad) in positions.chunks_exact_mut(4).enumerate().take(DEBRIS) {
+        for (i, quad) in positions.as_chunks_mut::<4>().0.iter_mut().enumerate().take(DEBRIS) {
             quad.fill(blast.offset(i).to_array());
         }
     }
     if let Some(VertexAttributeValues::Float32x4(colors)) = mesh.attribute_mut(Mesh::ATTRIBUTE_COLOR) {
-        for (i, quad) in colors.chunks_exact_mut(4).enumerate().take(DEBRIS) {
+        for (i, quad) in colors.as_chunks_mut::<4>().0.iter_mut().enumerate().take(DEBRIS) {
             let level = blast.debris_level(i);
             quad.fill([tint[0] * level, tint[1] * level, tint[2] * level, 1.0]);
         }
