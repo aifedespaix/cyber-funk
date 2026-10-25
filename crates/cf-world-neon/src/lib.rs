@@ -1,7 +1,7 @@
 //! Neon City, le monde repris de Sillage : route infinie, immeubles néon, ciel et planètes, voiture en pilote
 //! automatique, trafic, cascades, enseignes et événements. Implémente le trait `World` de `cf-render`.
 //!
-//! Contenu actuel (J5-01, J5-02, J5-03, J5-05, J5-06) :
+//! Contenu actuel (J5-01, J5-02, J5-03, J5-05, J5-06, J5-07) :
 //!
 //! - [`road`] : la route (plan unique, shader WESL, réaction au pouls et aux basses, teinte d'ambiance) ;
 //! - [`route`] : le plan de route (ponts, planificateur du pilote), pur et déterministe ;
@@ -20,6 +20,8 @@
 //! - [`landmarks`] (J7-08) : les immeubles-vitrines (mur de code, lave, ERROR, arcade, carte mère, arche, mecha), le champ de
 //!   lumières qu'ils partagent avec les façades et la route, et l'événement `landmark` du trafic ;
 //! - [`traffic`] (J7-03) : le trafic (véhicules volants, voitures au sol, registre d'événements pour J7-04 et J7-05) ;
+//! - [`beams`] (J5-07) : les projecteurs du décor (balayeurs des façades, projecteurs épinglés par les événements) ;
+//! - [`dropfx`] (J5-07) : le paquet du drop (ondes de choc et gerbe, sur l'image du `drop_now`) ;
 //! - [`car`] (J5-05) : la voiture (`CyberCar` de Sillage), ses lumières, sa traînée, la fumée de ses pneus. Elle prend la
 //!   place du pavé du point suivi provisoire.
 //!
@@ -30,9 +32,11 @@
 //! invisible pour la caméra du monde. Les pièces que les tronçons créent (J5-02) en héritent par le bundle qu'on
 //! déclare à `PieceRegistry::add` : y mettre `WorldLayer`.
 
+pub mod beams;
 pub mod car;
 pub mod chase;
 pub mod cinema;
+pub mod dropfx;
 pub mod facade;
 pub mod landmarks;
 pub mod meteors;
@@ -50,9 +54,11 @@ pub mod world;
 use bevy::prelude::*;
 use cf_render::WorldPlugin;
 
+pub use beams::{BeamField, BeamMaterial, Beams, BeamsPlugin};
 pub use car::{Car, CarControls, CarPlugin};
 pub use chase::{ChaseCameraPlugin, ChasePlugin, Runner, RunnerConfig, chase_pose};
 pub use cinema::{CinemaInput, NeonCinemaPlugin, fill_cinema_world};
+pub use dropfx::{DropFx, DropFxPlugin};
 pub use facade::{FacadeLook, FacadeMaterial, FacadePlugin};
 pub use landmarks::{CityField, LandmarkHandle, LandmarkKind, LandmarksPlugin, StageLandmark};
 pub use meteors::{MeteorSet, Meteors, MeteorsPlugin};
@@ -122,6 +128,8 @@ impl Plugin for NeonWorldPlugin {
             MeteorsPlugin,
             SignsPlugin::default(),
             LandmarksPlugin::default(),
+            BeamsPlugin,
+            DropFxPlugin,
         ))
         .init_resource::<RoutePlan>()
         .init_resource::<RoutePlanner>()
