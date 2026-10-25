@@ -60,6 +60,11 @@ path = "examples/sky_demo/main.rs"
 required-features = ["demo"]
 
 [[example]]
+name = "traffic_demo"
+path = "examples/traffic_demo/main.rs"
+required-features = ["demo"]
+
+[[example]]
 name = "signs_demo"
 path = "examples/signs_demo/main.rs"
 required-features = ["demo"]

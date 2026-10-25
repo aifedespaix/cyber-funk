@@ -32,6 +32,7 @@ pub mod icons;
 pub mod lookup;
 pub mod material;
 pub mod paint;
+pub mod publish;
 pub mod rig;
 pub mod road;
 pub mod show_signs;
@@ -102,6 +103,14 @@ impl Plugin for SignsPlugin {
             return;
         }
         app.add_systems(Startup, (rig::spawn_rig, bake::start_bake))
+            .add_systems(
+                Update,
+                publish::publish_sign_obstructions
+                    .in_set(CfSet::Simulate)
+                    .after(crate::traffic::TrafficSet::Publish)
+                    .before(crate::pilot::PilotSet)
+                    .run_if(resource_exists::<crate::pilot::PilotTraffic>),
+            )
             .add_systems(
                 Update,
                 (

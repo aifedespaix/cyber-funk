@@ -21,6 +21,7 @@ mod cam;
 pub mod canvas;
 mod icons;
 mod neon;
+mod street;
 pub mod text;
 
 pub use arts::Draw;

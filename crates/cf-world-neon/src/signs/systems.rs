@@ -3,7 +3,7 @@
 //! Aucune allocation par image en régime établi : les tampons (obstructions, sujets) sont préalloués, les entités du
 //! pool ne sont jamais créées ni détruites, les uniformes sont réécrits en place et seulement s'ils changent.
 
-use bevy::math::{DVec3, Vec3, Vec4};
+use bevy::math::{Vec3, Vec4};
 use bevy::prelude::*;
 use cf_analysis::AudioFeatures as Features;
 use cf_render::palette::LinearRgb;
@@ -391,11 +391,4 @@ fn fit_structure(
             transform.scale = part.scale;
         }
     }
-}
-
-/// Les sujets filmables (panneaux lisibles) : pour que `NeonWorld::subjects` les dépose dans le `SubjectSink`.
-///
-/// `collect` reçoit (identifiant, centre de la face, direction de la face lisible, largeur).
-pub fn collect_subjects(road: &SignRoad, collect: impl FnMut(u64, DVec3, Vec3, f32)) {
-    road.collect_signs(collect);
 }
