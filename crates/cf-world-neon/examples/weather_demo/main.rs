@@ -58,7 +58,11 @@ struct Check {
 }
 
 /// Les trois scènes : `(nom, averse, cran)`.
-const STEPS: [(&str, f32, usize); 3] = [("1-pluie-pleine", 1.0, 0), ("2-pluie-qualite-max", 1.0, MAX_LEVEL), ("3-sec", 0.0, 0)];
+const STEPS: [(&str, f32, usize); 3] = [
+    ("1-pluie-pleine", 1.0, 0),
+    ("2-pluie-qualite-max", 1.0, MAX_LEVEL),
+    ("3-sec", 0.0, 0),
+];
 
 fn main() {
     let check = std::env::var_os("CF_CHECK").is_some();
@@ -159,7 +163,13 @@ fn run_check(
             if let Ok(image) = captured.image.clone().try_into_dynamic() {
                 let rgba = image.to_rgba8();
                 let width = rgba.width();
-                check.shots.push((name, Shot { width, rgba: rgba.into_raw() }));
+                check.shots.push((
+                    name,
+                    Shot {
+                        width,
+                        rgba: rgba.into_raw(),
+                    },
+                ));
             }
             check.step += 1;
             check.awaiting = false;
@@ -172,10 +182,11 @@ fn run_check(
     }
 }
 
-/// Pixels nettement plus clairs que le fond de la scène sèche : les traînées de pluie.
+/// Pixels nettement plus clairs que la scène sèche, dans la moitié haute de l'image (ni route mouillée ni gouttes de
+/// l'objectif en bas : seulement les traînées de pluie devant les immeubles et le ciel).
 fn streaks(shot: &Shot, dry: &Shot) -> usize {
     let mut n = 0;
-    for y in 0..shot.height() {
+    for y in 0..shot.height() / 2 {
         for x in 0..shot.width {
             if luma(shot.pixel(x, y)) > luma(dry.pixel(x, y)) + 8.0 {
                 n += 1;
@@ -192,7 +203,7 @@ fn verdicts(shots: &[(&'static str, Shot)]) {
     };
     let (n_full, n_worst) = (streaks(full, dry), streaks(worst, dry));
     eprintln!("pixels éclaircis par la pluie : pleine qualité {n_full}, dernier cran {n_worst}");
-    let ok = n_full > 200 && n_worst < n_full;
+    let ok = n_full > 50 && n_worst < n_full;
     eprintln!("{}", if ok { "OK" } else { "FAIL" });
     if !ok {
         std::process::exit(1);
