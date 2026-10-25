@@ -37,6 +37,8 @@ pub struct SheetSlot {
 pub struct ShowSheet {
     /// Nom de l'événement (vide : aucun).
     pub event_name: String,
+    /// L'enseigne géante du DJ est permise (`EventSettings::dj_sign`) : lue par `cf-world-neon` (J7-02).
+    pub dj_sign: bool,
     /// Créneaux dans l'ordre de passage.
     pub slots: Vec<SheetSlot>,
 }
@@ -48,6 +50,7 @@ impl ShowSheet {
         let event = show.event();
         Self {
             event_name: event.settings.name.clone(),
+            dj_sign: event.settings.dj_sign,
             slots: event
                 .slots
                 .iter()

@@ -164,6 +164,8 @@ fn build_cinema_world(
     ring: Option<Res<RingPlanet>>,
     stunts: Option<Res<StuntOrders>>,
     meteors: Option<Res<Meteors>>,
+    sheet: Option<Res<cf_render::ShowSheet>>,
+    dj_sign: Option<Res<crate::djsign::DjSignSettings>>,
     car: Query<&AbsolutePosition, With<StreamFocus>>,
     mut world: ResMut<CinemaWorld>,
 ) {
@@ -207,6 +209,9 @@ fn build_cinema_world(
             meteor_id: b.meteor_id,
         });
     world.show.drop_planned = runtime.is_some_and(|runtime| runtime.director().drop_plan().is_some());
+    // L'enseigne du DJ est permise (`show.djSign`) : le plan `dj-sign` ne joue que si elle l'est, et il lui faut en plus le
+    // sujet que `NeonWorld` publie quand l'enseigne est posée (J7-02).
+    world.show.dj_sign = sheet.is_some_and(|s| s.dj_sign) && dj_sign.is_none_or(|s| s.enabled);
 }
 
 #[cfg(test)]
