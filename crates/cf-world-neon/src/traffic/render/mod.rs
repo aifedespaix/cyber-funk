@@ -4,13 +4,16 @@
 //!   et un seul matériau (Bevy les regroupe en un lot par modèle, l'équivalent des `InstancedMesh` de Sillage). La
 //!   teinte voyage dans le `MeshTag` ;
 //! - **traînées** : une entité par véhicule du pool, un maillage et un matériau communs ;
-//! - **points lumineux** et **murs de lumière** : une entité chacun, dont le maillage est réécrit sur place.
+//! - **points lumineux** et **murs de lumière** : une entité chacun, dont le maillage est réécrit sur place ;
+//! - **panneaux des structures** (route croisée, tour, portiques, danseur, aurore) : deux entités, une par couche (plein et
+//!   lumière), dont le maillage est réécrit sur place (voir `panels`).
 //!
 //! Toutes portent `WorldLayer`. Les `Aabb` sont ceux des maillages (véhicules, traînées) ou un volume centré sur la
 //! voiture (points, murs : leurs sommets sont relatifs à l'origine de l'image) : jamais de `NoFrustumCulling`.
 
 mod materials;
 mod meshes;
+mod panels;
 mod sync;
 
 use std::path::PathBuf;
@@ -21,6 +24,9 @@ use cf_render::{AbsolutePosition, EntityPool, LodBands, SimulationLod, WorldLaye
 
 pub(crate) use materials::embed_shaders;
 pub use materials::{GlintMaterial, TrailMaterial, VehicleMaterial, VehicleParams, WallMaterial};
+pub(crate) use panels::embed_shader as embed_panel_shader;
+pub use panels::{HoloMaterial, PanelMaterial, PanelParams, TrafficPanelsLight, TrafficPanelsSolid};
+pub(crate) use panels::{sync_panels, update_panel_materials};
 pub(crate) use sync::{sync_dynamic, sync_fleet, update_materials};
 
 use super::director::TrafficDirector;
@@ -86,6 +92,13 @@ pub struct TrafficEntities {
     pub(crate) walls: Entity,
     /// Points écrits à l'image précédente (pour éteindre ceux qui disparaissent).
     pub(crate) last_glints: usize,
+    /// Les deux couches de panneaux : entités, maillages, matériaux, et panneaux écrits à l'image précédente.
+    pub(crate) panel_solid: Entity,
+    pub(crate) panel_light: Entity,
+    pub(crate) panel_meshes: [Handle<Mesh>; 2],
+    pub(crate) panel_solid_material: Handle<PanelMaterial>,
+    pub(crate) panel_light_material: Handle<HoloMaterial>,
+    pub(crate) last_panels: [usize; 2],
 }
 
 impl TrafficEntities {
@@ -108,7 +121,7 @@ impl TrafficEntities {
     /// Nombre d'entités préallouées par le trafic.
     #[must_use]
     pub fn entity_count(&self) -> usize {
-        self.bodies.iter().map(EntityPool::capacity).sum::<usize>() + self.trails.len() + 2
+        self.bodies.iter().map(EntityPool::capacity).sum::<usize>() + self.trails.len() + 4
     }
 }
 
@@ -123,6 +136,8 @@ pub(crate) fn setup_traffic(
     mut trails: ResMut<Assets<TrailMaterial>>,
     mut glints: ResMut<Assets<GlintMaterial>>,
     mut walls: ResMut<Assets<WallMaterial>>,
+    mut panel_solid: ResMut<Assets<PanelMaterial>>,
+    mut panel_light: ResMut<Assets<HoloMaterial>>,
 ) {
     let models = model::load_models(&source.models_dir);
     let vehicle_material = vehicles.add(VehicleMaterial::default());
@@ -181,6 +196,25 @@ pub(crate) fn setup_traffic(
         walls.add(WallMaterial::default()),
     );
 
+    let panel_solid_mesh = meshes.add(panels::panel_mesh());
+    let panel_light_mesh = meshes.add(panels::panel_mesh());
+    let panel_solid_material = panel_solid.add(PanelMaterial::default());
+    let panel_light_material = panel_light.add(HoloMaterial::default());
+    let panel_solid_entity = spawn_dynamic(
+        &mut commands,
+        "trafic : panneaux pleins",
+        TrafficPanelsSolid,
+        panel_solid_mesh.clone(),
+        panel_solid_material.clone(),
+    );
+    let panel_light_entity = spawn_dynamic(
+        &mut commands,
+        "trafic : panneaux de lumière",
+        TrafficPanelsLight,
+        panel_light_mesh.clone(),
+        panel_light_material.clone(),
+    );
+
     commands.insert_resource(TrafficEntities {
         bodies,
         trails: trail_entities,
@@ -191,6 +225,12 @@ pub(crate) fn setup_traffic(
         glints: glint_entity,
         walls: wall_entity,
         last_glints: 0,
+        panel_solid: panel_solid_entity,
+        panel_light: panel_light_entity,
+        panel_meshes: [panel_solid_mesh, panel_light_mesh],
+        panel_solid_material,
+        panel_light_material,
+        last_panels: [0; 2],
     });
 }
 

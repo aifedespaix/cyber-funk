@@ -113,14 +113,21 @@ mod tests {
     #[test]
     fn les_lanternes_restent_au_bord_de_la_route_et_s_eteignent() {
         let frame = TrafficFrame::default();
-        let (mut fleet, mut glints, mut walls, mut rng) =
-            (Fleet::new(), Glints::new(), LightWalls::new(), Rand::new(3));
+        let (mut fleet, mut glints, mut walls, mut rng, mut scene) = (
+            Fleet::new(),
+            Glints::new(),
+            LightWalls::new(),
+            Rand::new(3),
+            crate::traffic::scene::Scene::new(),
+        );
         let mut ctx = EventCtx {
             frame: &frame,
             fleet: &mut fleet,
             glints: &mut glints,
             walls: &mut walls,
             rng: &mut rng,
+            scene: &mut scene,
+            signs: None,
         };
         let mut event = LanternEvent::new(&mut ctx);
         assert!(event.update(0.1, &mut ctx));

@@ -112,6 +112,12 @@ pub fn build_params(
             look.win_pulse.clamp(0.0, 1.0),
             0.0,
         ),
+        power: Vec4::new(
+            look.power.x,
+            look.power.y.max(0.001),
+            look.power.z.clamp(0.0, 1.0),
+            look.power.w,
+        ),
     }
 }
 

@@ -171,6 +171,7 @@ mod tests {
         fleet: Fleet,
         glints: Glints,
         walls: LightWalls,
+        scene: crate::traffic::scene::Scene,
         rng: Rand,
         lanes: AirLanes,
     }
@@ -181,6 +182,7 @@ mod tests {
                 fleet: Fleet::new(),
                 glints: Glints::new(),
                 walls: LightWalls::new(),
+                scene: crate::traffic::scene::Scene::new(),
                 rng: Rand::new(11),
                 lanes: AirLanes::default(),
             }
@@ -197,6 +199,8 @@ mod tests {
                     glints: &mut self.glints,
                     walls: &mut self.walls,
                     rng: &mut self.rng,
+                    scene: &mut self.scene,
+                    signs: None,
                 };
                 self.lanes.update(f.dt, &mut ctx);
                 self.fleet.update(f.dt, f.car.z, |_| true);
