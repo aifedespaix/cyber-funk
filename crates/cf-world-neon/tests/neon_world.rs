@@ -13,6 +13,7 @@ use cf_render::{
     AbsolutePosition, AudioFeatures, CameraPose, ChunkStream, CorePlugin, FloatingOrigin, Layer, StreamFocus,
     StreamStats, aabb_encloses_mesh, mesh_aabb,
 };
+use cf_world_neon::meteors::{MeteorPart, Piece};
 use cf_world_neon::road::{AHEAD_M, LENGTH_M};
 use cf_world_neon::route::{BridgeWindow, bridge_z};
 use cf_world_neon::sky::SkyPart;
@@ -54,7 +55,7 @@ fn tout_ce_que_le_monde_dessine_est_dans_la_couche_monde() {
     // Le ciel est dans la couche arrière-plan (testé dans `sky.rs`) : ici, tout le reste.
     let mut meshes = app
         .world_mut()
-        .query_filtered::<(&Name, &RenderLayers, &Mesh3d), Without<SkyPart>>();
+        .query_filtered::<(&Name, &RenderLayers, &Mesh3d), (Without<SkyPart>, Without<MeteorPart>)>();
     let found: Vec<_> = meshes
         .iter(app.world())
         .map(|(n, l, _)| (n.to_string(), l.clone()))
@@ -69,6 +70,42 @@ fn tout_ce_que_le_monde_dessine_est_dans_la_couche_monde() {
         .world_mut()
         .query_filtered::<Entity, (With<Mesh3d>, Without<RenderLayers>)>();
     assert_eq!(bare.iter(app.world()).count(), 0);
+}
+
+#[test]
+fn les_astres_sont_un_pool_cache_de_la_couche_monde_sans_culling_force() {
+    use bevy::camera::primitives::Aabb;
+    let mut app = app(0.0, 40.0);
+    app.update();
+    let mut parts = app
+        .world_mut()
+        .query_filtered::<(&Piece, &RenderLayers, &Visibility, Has<Aabb>), With<MeteorPart>>();
+    let found: Vec<_> = parts
+        .iter(app.world())
+        .map(|(p, l, v, aabb)| (*p, l.clone(), *v, aabb))
+        .collect();
+    // Douze astres (corps, queue, halo), douze anneaux de brume, six explosions (éclair, onde, gerbe).
+    assert_eq!(found.len(), 12 * 4 + 6 * 3);
+    for (piece, layers, visibility, _) in &found {
+        assert_eq!(
+            *layers,
+            Layer::World.render_layers(),
+            "{piece:?} n'est pas dans la couche monde"
+        );
+        assert_eq!(*visibility, Visibility::Hidden, "{piece:?} est visible au repos");
+    }
+    // Le corps (bosselé par son vertex shader) et la gerbe (mouvante) portent un `Aabb` explicite.
+    for (piece, .., aabb) in &found {
+        if matches!(piece, Piece::Body(_) | Piece::Debris(_)) {
+            assert!(aabb, "{piece:?} doit porter son Aabb explicite");
+        }
+    }
+    // Aucune entité créée en régime établi : le pool est le même après une seconde.
+    for _ in 0..60 {
+        app.update();
+    }
+    let after = parts.iter(app.world()).count();
+    assert_eq!(after, 12 * 4 + 6 * 3);
 }
 
 #[test]

@@ -7,6 +7,7 @@
 //! - [`route`] : le plan de route (ponts, planificateur du pilote), pur et déterministe ;
 //! - [`scenery`] : la ville (immeubles par tronçon, arches, collisions) ;
 //! - [`sky`] : le ciel (voûte, étoiles, aurores, astres, géante à anneau, étoiles filantes), couche arrière-plan ;
+//! - [`meteors`] (J7-10) : les astres qui tombent, leurs explosions contre la ville et leurs anneaux dans la brume ;
 //! - [`signs`] (J7-01) : les enseignes de la route (textures 2D cuites à l'ouverture, bandeaux, néons, caméras) ;
 //! - [`facade`] : le matériau de façade (fenêtres, néons, pulsation sur les temps) et son shader ;
 //! - [`world`] : [`NeonWorld`], l'implémentation du trait `World` (streaming) ;
@@ -31,6 +32,7 @@ pub mod car;
 pub mod chase;
 pub mod cinema;
 pub mod facade;
+pub mod meteors;
 pub mod pilot;
 pub mod rng;
 pub mod road;
@@ -49,6 +51,7 @@ pub use car::{Car, CarControls, CarPlugin};
 pub use chase::{ChaseCameraPlugin, ChasePlugin, Runner, RunnerConfig, chase_pose};
 pub use cinema::{CinemaInput, NeonCinemaPlugin, fill_cinema_world};
 pub use facade::{FacadeLook, FacadeMaterial, FacadePlugin};
+pub use meteors::{MeteorSet, Meteors, MeteorsPlugin};
 pub use pilot::{CarAnimation, Pilot, PilotPlugin, PilotSettings, PilotTraffic};
 pub use road::{Road, RoadLook, RoadMaterial, RoadPalette, RoadPlugin};
 pub use route::{RoutePlan, RoutePlanner};
@@ -112,6 +115,7 @@ impl Plugin for NeonWorldPlugin {
             RoadPlugin,
             FacadePlugin,
             SkyPlugin,
+            MeteorsPlugin,
             SignsPlugin::default(),
         ))
         .init_resource::<RoutePlan>()
