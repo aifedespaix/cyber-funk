@@ -196,6 +196,7 @@ impl Landmark for ArcadeBuilding {
 }
 
 #[cfg(test)]
+#[allow(clippy::panic, clippy::expect_used)]
 mod tests {
     use super::*;
     use crate::landmarks::field::{FieldState, MAX_LIGHTS};

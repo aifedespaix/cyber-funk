@@ -8,6 +8,7 @@
 //! Pure et déterministe : le hasard est injecté (graine). Aucune allocation en régime établi : les tirs, bombes et
 //! explosions vivent dans des tampons de capacité fixe, la grille est écrite en place.
 
+use self::sprites::{Sprite, boss_sprite, sprite};
 use super::math::clamp01;
 use crate::pilot::rand::Rand;
 
@@ -15,8 +16,15 @@ use crate::pilot::rand::Rand;
 pub const GRID_W: usize = 72;
 /// Hauteur de la grille, en cases.
 pub const GRID_H: usize = 48;
+/// Les mêmes, en entiers signés (le tracé accepte des coordonnées négatives, rognées au bord).
+const GRID_W_I32: i32 = 72;
+const GRID_H_I32: i32 = 48;
 
 /// Indices de couleur écrits dans la grille ; le shader les convertit en palette.
+mod draw;
+mod motion;
+mod sprites;
+
 #[derive(Debug, Clone, Copy)]
 pub struct Px;
 
@@ -45,57 +53,6 @@ impl Px {
     pub const GROUND: u8 = 10;
     /// Lueur.
     pub const GLOW: u8 = 11;
-}
-
-#[derive(Debug, Clone)]
-struct Sprite {
-    w: usize,
-    h: usize,
-    on: Vec<u8>,
-}
-
-/// Lit un dessin en texte (`#` allumé), haut du dessin en haut ; stocké l'axe y vers le haut.
-fn sprite(rows: &[&str]) -> Sprite {
-    let w = rows.first().map_or(0, |r| r.len());
-    let h = rows.len();
-    let mut on = vec![0_u8; w * h];
-    for (ry, row) in rows.iter().enumerate() {
-        for (x, c) in row.bytes().enumerate() {
-            on[(h - 1 - ry) * w + x] = u8::from(c == b'#');
-        }
-    }
-    Sprite { w, h, on }
-}
-
-/// Le boss : une soucoupe à dôme, deux yeux creux à pupilles, une rangée de dents. Construit à partir d'un profil de
-/// demi-largeurs.
-fn boss_sprite() -> Sprite {
-    let half = [4_i32, 6, 8, 9, 10, 11, 11, 11, 11, 10, 9];
-    let rows: Vec<String> = half
-        .iter()
-        .enumerate()
-        .map(|(y, &hw)| {
-            (0..23_i32)
-                .map(|x| {
-                    let d = (x - 11).abs();
-                    if d > hw {
-                        return '.';
-                    }
-                    let eye = (3..=6).contains(&y) && ((5..=8).contains(&x) || (14..=17).contains(&x));
-                    let pupil = (4..=5).contains(&y) && ((6..=7).contains(&x) || (15..=16).contains(&x));
-                    if eye {
-                        return if pupil { '#' } else { '.' };
-                    }
-                    if y >= 9 && x % 2 == 0 && d <= 7 {
-                        return '.';
-                    }
-                    '#'
-                })
-                .collect()
-        })
-        .collect();
-    let refs: Vec<&str> = rows.iter().map(String::as_str).collect();
-    sprite(&refs)
 }
 
 const COLS: usize = 6;
@@ -437,291 +394,7 @@ impl ArcadeGame {
         }
         self.render();
     }
-
-    fn move_shots(&mut self) {
-        let mut i = 0;
-        while i < self.shots.len() {
-            if self.advance_shot(i) {
-                i += 1;
-            } else {
-                self.shots.remove(i);
-            }
-        }
-    }
-
-    /// Avance le tir `i`. Faux s'il est détruit (touché ou sorti).
-    fn advance_shot(&mut self, i: usize) -> bool {
-        self.shots[i].1 += 3.0;
-        let (sx, sy) = self.shots[i];
-        let boss_height = self.boss_sprite.h as f32;
-        let hit_boss = self
-            .boss
-            .is_some_and(|boss| (sx - boss.x).abs() <= 11.0 && sy >= boss.y && sy <= boss.y + boss_height);
-        if hit_boss {
-            if let Some(boss) = &mut self.boss {
-                boss.hp -= 1;
-            }
-            self.explode(sx, sy, 2.0);
-            return false;
-        }
-        for index in 0..self.alive.len() {
-            if !self.alive[index] {
-                continue;
-            }
-            let x = self.invader_x(index % COLS);
-            let y = self.invader_y(index / COLS);
-            if sx >= x && sx < x + INV_W && sy >= y && sy < y + INV_H {
-                self.alive[index] = false;
-                self.explode(x + INV_W / 2.0, y + INV_H / 2.0, 4.0);
-                return false;
-            }
-        }
-        sy < GRID_H as f32
-    }
-
-    fn move_bombs(&mut self) {
-        let mut i = 0;
-        while i < self.bombs.len() {
-            let mut b = self.bombs[i];
-            b.x += b.vx;
-            b.y += b.vy;
-            self.bombs[i] = b;
-            let hit = self.invulnerable == 0 && (b.x - self.px).abs() <= 4.0 && b.y <= 7.0 && b.y >= 2.0;
-            if hit {
-                self.explode(self.px, 4.0, 5.0);
-                self.invulnerable = 36;
-                self.px = GRID_W as f32 / 2.0;
-            }
-            if !hit && b.y > 1.0 && b.x > 0.0 && b.x < GRID_W as f32 {
-                i += 1;
-            } else {
-                self.bombs.remove(i);
-            }
-        }
-    }
-
-    fn update_boss(&mut self) {
-        let Some(mut boss) = self.boss else { return };
-        boss.age += TICK;
-        // Période de quatre temps : le balancier reste calé sur le tempo.
-        boss.x = GRID_W as f32 / 2.0 + (self.clock * std::f32::consts::PI / 2.0).sin() * (GRID_W as f32 / 2.0 - 14.0);
-        boss.y = 31.0 + (self.clock * std::f32::consts::PI).sin() * 2.0;
-        if boss.hp <= 0 {
-            for _ in 0..7 {
-                let x = boss.x + (self.rng.unit() as f32 - 0.5) * 20.0;
-                let y = boss.y + self.rng.unit() as f32 * self.boss_sprite.h as f32;
-                let size = 3.0 + (self.rng.unit() * 3.0).floor() as f32;
-                self.explode(x, y, size);
-            }
-            self.energy = 1.0;
-            self.boss = None;
-            self.wave_delay = 20;
-        } else if boss.age > BOSS_SECONDS {
-            self.boss = None;
-            self.new_wave();
-        } else {
-            self.boss = Some(boss);
-        }
-    }
-
-    fn render(&mut self) {
-        self.cells.fill(Px::EMPTY);
-        for x in 0..GRID_W {
-            self.cells[x] = if x % 4 < 3 { Px::GROUND } else { Px::EMPTY };
-        }
-        if let Some(boss) = self.boss {
-            self.blit_boss(boss);
-            let width = ((GRID_W as f32 - 12.0) * boss.hp.max(0) as f32 / BOSS_HP as f32).round() as usize;
-            for x in 0..width {
-                self.cells[(GRID_H - 2) * GRID_W + 6 + x] = Px::HP;
-                self.cells[(GRID_H - 3) * GRID_W + 6 + x] = Px::HP;
-            }
-        } else {
-            for i in 0..self.alive.len() {
-                if !self.alive[i] {
-                    continue;
-                }
-                let row = i / COLS;
-                let kind = if row == 0 {
-                    2
-                } else if row < 3 {
-                    1
-                } else {
-                    0
-                };
-                let (x, y) = (self.invader_x(i % COLS), self.invader_y(row));
-                self.blit(kind, self.frame, x, y, Px::INV_A + kind as u8);
-            }
-        }
-        if self.invulnerable == 0 || self.invulnerable % 4 < 2 {
-            let x = (self.px - self.player_sprite.w as f32 / 2.0).round();
-            self.blit_player(x);
-        }
-        for i in 0..self.shots.len() {
-            let (x, y) = self.shots[i];
-            self.plot(x, y, Px::SHOT, 1, 3);
-        }
-        for i in 0..self.bombs.len() {
-            let b = self.bombs[i];
-            self.plot(b.x.round(), b.y.round(), Px::BOMB, 1, 2);
-        }
-        for i in 0..self.booms.len() {
-            let b = self.booms[i];
-            self.ring(b.x, b.y, (8 - b.life) as f32 * (b.size / 5.0) + 0.6);
-        }
-        self.dirty = true;
-    }
-
-    fn blit(&mut self, kind: usize, frame: usize, x0: f32, y0: f32, value: u8) {
-        let (w, h) = (self.invaders[kind][frame].w, self.invaders[kind][frame].h);
-        for y in 0..h {
-            for x in 0..w {
-                if self.invaders[kind][frame].on[y * w + x] != 0 {
-                    self.plot(x0 + x as f32, y0 + y as f32, value, 1, 1);
-                }
-            }
-        }
-    }
-
-    fn blit_player(&mut self, x0: f32) {
-        let (w, h) = (self.player_sprite.w, self.player_sprite.h);
-        for y in 0..h {
-            for x in 0..w {
-                if self.player_sprite.on[y * w + x] != 0 {
-                    self.plot(x0 + x as f32, 2.0 + y as f32, Px::PLAYER, 1, 1);
-                }
-            }
-        }
-    }
-
-    fn blit_boss(&mut self, boss: Boss) {
-        let (w, h) = (self.boss_sprite.w, self.boss_sprite.h);
-        let x0 = (boss.x - w as f32 / 2.0).round();
-        let y0 = boss.y.round();
-        for y in 0..h {
-            for x in 0..w {
-                if self.boss_sprite.on[y * w + x] != 0 {
-                    self.plot(x0 + x as f32, y0 + y as f32, Px::BOSS, 1, 1);
-                }
-            }
-        }
-    }
-
-    fn plot(&mut self, x: f32, y: f32, value: u8, w: usize, h: usize) {
-        let (bx, by) = (x.round() as i32, y.round() as i32);
-        for dy in 0..h as i32 {
-            for dx in 0..w as i32 {
-                let (cx, cy) = (bx + dx, by + dy);
-                if (0..GRID_W as i32).contains(&cx) && (0..GRID_H as i32).contains(&cy) {
-                    self.cells[cy as usize * GRID_W + cx as usize] = value;
-                }
-            }
-        }
-    }
-
-    fn ring(&mut self, x: f32, y: f32, r: f32) {
-        let reach = r.ceil() as i32 + 1;
-        for dy in -reach..=reach {
-            for dx in -reach..=reach {
-                let d = (dx.abs() + dy.abs()) as f32;
-                if d > r - 1.4 && d <= r + 0.3 {
-                    self.plot(x + dx as f32, y + dy as f32, Px::BOOM, 1, 1);
-                }
-            }
-        }
-    }
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-
-    fn play(seconds: f32, kick_every: f32, with_boss_at: Option<f32>) -> ArcadeGame {
-        let mut game = ArcadeGame::new(7);
-        let dt = 1.0 / 60.0;
-        let mut t = 0.0;
-        let mut next_kick = 0.0;
-        while t < seconds {
-            if t >= next_kick {
-                game.on_beat();
-                next_kick += kick_every;
-            }
-            if with_boss_at.is_some_and(|at| (t - at).abs() < dt / 2.0) {
-                game.start_boss();
-            }
-            game.advance(dt, t * 2.0, if (t * 4.0) as i32 % 2 == 0 { 0.8 } else { 0.1 });
-            t += dt;
-        }
-        game
-    }
-
-    #[test]
-    fn la_grille_ne_contient_que_des_indices_de_palette() {
-        let game = play(60.0, 0.47, Some(20.0));
-        assert!(game.cells.iter().all(|c| *c <= Px::GLOW));
-        assert_eq!(game.cells.len(), GRID_W * GRID_H);
-    }
-
-    #[test]
-    fn la_formation_est_dessinee_au_depart_et_le_sol_aussi() {
-        let game = ArcadeGame::new(1);
-        assert_eq!(game.invaders_alive(), COLS * ROWS);
-        assert!(game.cells.iter().any(|c| (Px::INV_A..=Px::INV_C).contains(c)));
-        assert!(game.cells[..GRID_W].contains(&Px::GROUND));
-        assert!(game.cells.contains(&Px::PLAYER));
-    }
-
-    #[test]
-    fn deux_parties_de_meme_graine_jouent_pareil() {
-        let a = play(30.0, 0.5, Some(10.0));
-        let b = play(30.0, 0.5, Some(10.0));
-        assert_eq!(a.cells, b.cells);
-        let c = {
-            let mut game = ArcadeGame::new(8);
-            for i in 0..1800 {
-                if i % 30 == 0 {
-                    game.on_beat();
-                }
-                game.advance(1.0 / 60.0, i as f32 / 30.0, 0.8);
-            }
-            game
-        };
-        assert!(c.cells.len() == a.cells.len());
-    }
-
-    #[test]
-    fn un_drop_appelle_le_boss_qui_finit_par_partir() {
-        let mut game = ArcadeGame::new(3);
-        game.start_boss();
-        assert!(game.boss_active());
-        assert!((game.energy - 1.0).abs() < f32::EPSILON);
-        for i in 0..(30 * 60) {
-            if i % 28 == 0 {
-                game.on_beat();
-            }
-            game.advance(1.0 / 60.0, i as f32 / 30.0, 0.7);
-        }
-        assert!(!game.boss_active(), "le boss est vaincu ou part au bout de 18 s");
-    }
-
-    #[test]
-    fn les_tampons_ne_depassent_jamais_leur_capacite() {
-        let mut game = ArcadeGame::new(5);
-        game.start_boss();
-        for i in 0..(120 * 60) {
-            game.on_beat();
-            game.on_beat();
-            game.advance(1.0 / 60.0, i as f32 / 30.0, 1.0);
-            assert!(game.shots.len() <= SHOTS_MAX && game.bombs.len() <= BOMBS_MAX && game.booms.len() <= BOOMS_MAX);
-            assert!(game.shots.capacity() <= SHOTS_MAX * 2, "pas de réallocation");
-        }
-    }
-
-    #[test]
-    fn les_sprites_ont_les_dimensions_de_sillage() {
-        let game = ArcadeGame::new(1);
-        assert_eq!((game.invaders[0][0].w, game.invaders[0][0].h), (8, 6));
-        assert_eq!((game.player_sprite.w, game.player_sprite.h), (9, 5));
-        assert_eq!((game.boss_sprite.w, game.boss_sprite.h), (23, 11));
-    }
-}
+mod tests;

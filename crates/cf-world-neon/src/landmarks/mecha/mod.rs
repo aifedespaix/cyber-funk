@@ -41,19 +41,80 @@ struct Layout {
     look_speed: f32,
 }
 
-#[rustfmt::skip]
-const fn layout(side: i8, at: f32, scale: f32, accent: SceneColor, beat_offset: u32, level_shift: i8, mirror: bool, every: u32, twist_gain: f32, look_speed: f32) -> Layout {
-    Layout { side, at, scale, accent, beat_offset, level_shift, mirror, every, twist_gain, look_speed }
-}
-
 /// Trois robots de chaque côté, chacun avec sa couleur, sa taille et sa façon de bouger.
 const ROSTER: [Layout; 6] = [
-    layout(1, -1.25, 1.0, SceneColor::Sun, 0, 0, false, 1, 1.0, 1.0),
-    layout(-1, -0.75, 1.15, SceneColor::Mint, 3, 0, true, 1, 1.4, 0.6),
-    layout(1, -0.25, 0.9, SceneColor::Rose, 5, 1, true, 1, 0.7, 1.6),
-    layout(-1, 0.25, 1.2, SceneColor::Azure, 2, 0, false, 2, 1.2, 0.5),
-    layout(1, 0.75, 1.05, SceneColor::Violet, 6, -1, false, 1, 1.0, 1.2),
-    layout(-1, 1.25, 0.95, SceneColor::Lime, 1, 1, true, 1, 0.8, 2.0),
+    Layout {
+        side: 1,
+        at: -1.25,
+        scale: 1.0,
+        accent: SceneColor::Sun,
+        beat_offset: 0,
+        level_shift: 0,
+        mirror: false,
+        every: 1,
+        twist_gain: 1.0,
+        look_speed: 1.0,
+    },
+    Layout {
+        side: -1,
+        at: -0.75,
+        scale: 1.15,
+        accent: SceneColor::Mint,
+        beat_offset: 3,
+        level_shift: 0,
+        mirror: true,
+        every: 1,
+        twist_gain: 1.4,
+        look_speed: 0.6,
+    },
+    Layout {
+        side: 1,
+        at: -0.25,
+        scale: 0.9,
+        accent: SceneColor::Rose,
+        beat_offset: 5,
+        level_shift: 1,
+        mirror: true,
+        every: 1,
+        twist_gain: 0.7,
+        look_speed: 1.6,
+    },
+    Layout {
+        side: -1,
+        at: 0.25,
+        scale: 1.2,
+        accent: SceneColor::Azure,
+        beat_offset: 2,
+        level_shift: 0,
+        mirror: false,
+        every: 2,
+        twist_gain: 1.2,
+        look_speed: 0.5,
+    },
+    Layout {
+        side: 1,
+        at: 0.75,
+        scale: 1.05,
+        accent: SceneColor::Violet,
+        beat_offset: 6,
+        level_shift: -1,
+        mirror: false,
+        every: 1,
+        twist_gain: 1.0,
+        look_speed: 1.2,
+    },
+    Layout {
+        side: -1,
+        at: 1.25,
+        scale: 0.95,
+        accent: SceneColor::Lime,
+        beat_offset: 1,
+        level_shift: 1,
+        mirror: true,
+        every: 1,
+        twist_gain: 0.8,
+        look_speed: 2.0,
+    },
 ];
 
 /// Le chœur de mecha.

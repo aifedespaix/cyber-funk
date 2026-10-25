@@ -257,10 +257,8 @@ pub(crate) fn run_check(
                 landmark.drive(&landmark_frame(car_z, now, in_scene), LIVE, None);
             }
             // Passe « sans » : la racine est cachée après le système du rendu, avant l'extraction.
-            if hide {
-                if let Ok(mut visibility) = roots.get_mut(rig.root(scene.kind)) {
-                    *visibility = Visibility::Hidden;
-                }
+            if hide && let Ok(mut visibility) = roots.get_mut(rig.root(scene.kind)) {
+                *visibility = Visibility::Hidden;
             }
             check.stage = Stage::Live(frame + 1);
         }
@@ -296,12 +294,14 @@ pub(crate) fn run_check(
         Stage::Await => {}
     }
     // Fin de la passe « sans » : on range l'immeuble.
-    if check.stage == Stage::Enter && check.step % 2 == 0 && check.step > 0 {
-        if let Some(mut landmark) = check.landmark.take() {
-            landmark.hide();
-            if world.set_clearings(&[]) {
-                stream.replan_all();
-            }
+    if check.stage == Stage::Enter
+        && check.step.is_multiple_of(2)
+        && check.step > 0
+        && let Some(mut landmark) = check.landmark.take()
+    {
+        landmark.hide();
+        if world.set_clearings(&[]) {
+            stream.replan_all();
         }
     }
 }
@@ -389,7 +389,7 @@ pub(crate) fn tour(
         let kind = SCENES[tour.index % SCENES.len()].kind;
         tour.index += 1;
         let mut landmark = StageLandmark::of(&handle, kind);
-        let side = if tour.index % 2 == 0 { 1 } else { -1 };
+        let side = if tour.index.is_multiple_of(2) { 1 } else { -1 };
         let (z, _) = place(&mut landmark, car.z, side, None);
         tour.current = Some((landmark, z));
     }

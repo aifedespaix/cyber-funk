@@ -240,7 +240,7 @@ pub(crate) fn warm(world: &mut World) -> Vec<Entity> {
             }
             let radius = meshes
                 .get(&mesh.0)
-                .and_then(|m| m.get_aabb())
+                .and_then(<Mesh as MeshAabb>::get_aabb)
                 .map_or(0.0, |aabb| aabb.half_extents.length());
             picked.push((mesh.0.clone(), material.0.clone(), radius));
         }
@@ -270,7 +270,7 @@ mod tests {
 
     #[test]
     fn chaque_rendu_a_un_identifiant_unique() {
-        let mut ids: Vec<_> = SHADERS.iter().map(|h| h.id()).collect();
+        let mut ids: Vec<_> = SHADERS.iter().map(Handle::id).collect();
         ids.sort();
         ids.dedup();
         assert_eq!(ids.len(), Look::ALL.len());

@@ -283,8 +283,7 @@ impl LandmarkStage {
         let mut roll = rng.unit() * total;
         let mut chosen = LandmarkKind::ALL
             .iter()
-            .filter(pool)
-            .last()
+            .rfind(|kind| pool(kind))
             .copied()
             .unwrap_or(LandmarkKind::Matrix);
         for kind in LandmarkKind::ALL.iter().filter(pool) {

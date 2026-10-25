@@ -123,6 +123,7 @@ pub fn build_params(
 
 /// `CfSet::Present` : remplit le matériau (temps, musique, météo, palette). Le matériau n'est touché que si quelque chose a
 /// changé : Bevy ne re-prépare pas un asset qu'on n'a pas écrit.
+#[allow(clippy::too_many_arguments)] // Les paramètres d'un système Bevy : ressources et requêtes.
 pub(super) fn update_material(
     time: Res<Time<Real>>,
     features: Option<Res<AudioFeatures>>,

@@ -87,6 +87,7 @@ pub fn bake(fonts: &mut Fonts) -> Option<Vec<u8>> {
 }
 
 #[cfg(test)]
+#[allow(clippy::panic, clippy::expect_used)]
 mod tests {
     use super::*;
 
@@ -94,7 +95,7 @@ mod tests {
     fn les_mots_sont_centres_et_tiennent_dans_la_rangee() {
         for span in spans() {
             assert!(span.from > 0.0 && span.to < 1.0 && span.from < span.to);
-            assert!(((span.from + span.to) / 2.0 - 0.5).abs() < 1e-5, "centré");
+            assert!((f32::midpoint(span.from, span.to) - 0.5).abs() < 1e-5, "centré");
         }
         // « SYSTEM FAILURE » (14 lettres) remplit 96 % de la largeur.
         let long = spans()[2];

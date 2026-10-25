@@ -53,41 +53,41 @@ pub struct PathPoint {
 pub fn arch_path() -> Vec<PathPoint> {
     let mut points = Vec::new();
     let exponent = 2.0 / 4.0;
-    let mut y = 0.0;
-    while y < SPRING {
+    let mut height = 0.0;
+    while height < SPRING {
         points.push(PathPoint {
             x: HALF_WIDTH,
-            y,
+            y: height,
             nx: 1.0,
             ny: 0.0,
         });
-        y += 0.5;
+        height += 0.5;
     }
     for i in 0..=80 {
-        let t = i as f32 / 80.0 * std::f32::consts::PI;
-        let c = t.cos();
-        let sign = if c == 0.0 { 0.0 } else { c.signum() };
-        let x = HALF_WIDTH * sign * c.abs().powf(exponent);
-        let y = SPRING + RISE * t.sin().abs().powf(exponent);
-        let (nx, ny) = (x / HALF_WIDTH, (y - SPRING) / RISE);
-        let n = nx.hypot(ny);
-        let n = if n == 0.0 { 1.0 } else { n };
+        let angle = i as f32 / 80.0 * std::f32::consts::PI;
+        let cosine = angle.cos();
+        let sign = if cosine == 0.0 { 0.0 } else { cosine.signum() };
+        let along = HALF_WIDTH * sign * cosine.abs().powf(exponent);
+        let up = SPRING + RISE * angle.sin().abs().powf(exponent);
+        let (nx, ny) = (along / HALF_WIDTH, (up - SPRING) / RISE);
+        let norm = nx.hypot(ny);
+        let norm = if norm == 0.0 { 1.0 } else { norm };
         points.push(PathPoint {
-            x,
-            y,
-            nx: nx / n,
-            ny: ny / n,
+            x: along,
+            y: up,
+            nx: nx / norm,
+            ny: ny / norm,
         });
     }
-    let mut y = SPRING;
-    while y >= 0.0 {
+    let mut height = SPRING;
+    while height >= 0.0 {
         points.push(PathPoint {
             x: -HALF_WIDTH,
-            y,
+            y: height,
             nx: -1.0,
             ny: 0.0,
         });
-        y -= 0.5;
+        height -= 0.5;
     }
     points
 }
@@ -264,6 +264,7 @@ impl Landmark for VoxelArch {
 }
 
 #[cfg(test)]
+#[allow(clippy::panic, clippy::expect_used)]
 mod tests {
     use super::*;
 
