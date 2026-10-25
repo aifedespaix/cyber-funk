@@ -3,22 +3,27 @@
 //! [`TrafficDirector`](super::TrafficDirector).
 
 use bevy::color::LinearRgba;
+use bevy::ecs::system::SystemParam;
+use bevy::math::{DVec3, Vec4};
 use bevy::prelude::*;
 use cf_render::{
-    AbsolutePosition, AudioFeatures, ChunkStream, CurrentShow, CurrentShowFx, QualityLevers, ScenePalette, ShowRuntime,
-    SimulationLod, StreamFocus,
+    AbsolutePosition, AudioFeatures, ChunkStream, CurrentShow, CurrentShowFx, FloatingOrigin, QualityLevers,
+    SceneColor, ScenePalette, ShowRuntime, SimulationLod, StreamFocus,
 };
 use cf_show::director::Order;
 
 use super::director::TrafficDirector;
-use super::event::EventRegistry;
+use super::event::{EventRegistry, SignLender};
 use super::flash::TrafficFlash;
 use super::fleet::FleetStats;
 use super::frame::{TrafficBeat, TrafficDrive, TrafficFrame, TrafficShow};
+use super::names::EventName;
 use super::render::TrafficEntities;
 use super::scheduler::{NoShow, ShowLink};
+use crate::facade::{FacadeLook, NO_BLACKOUT};
 use crate::pilot::{CarAnimation, PilotTraffic};
 use crate::route::floor_altitude;
+use crate::signs::{SignRoadRes, SignShow};
 use crate::world::NeonWorld;
 
 /// Écart maximal (s) qu'une image peut faire avancer le trafic : après une pause ou un blocage, on n'avance pas de
@@ -112,13 +117,49 @@ pub(crate) fn publish_traffic(
     }
 }
 
+/// Ce que le trafic emprunte aux enseignes : le nom du DJ pour le titre holographique, le gestionnaire de panneaux prêté
+/// aux événements.
+#[derive(SystemParam)]
+pub(crate) struct SignAccess<'w> {
+    names: Option<Res<'w, SignShow>>,
+    road: Option<ResMut<'w, SignRoadRes>>,
+}
+
+/// `CfSet::Simulate`, avant `drive_traffic` : prend le plus ancien déclencheur du monde (`Action::Trigger`) et lance
+/// l'événement du trafic qu'il nomme, quelles que soient les portes du look (c'est l'opérateur qui le veut).
+///
+/// Un identifiant qui n'est pas un événement du trafic (une cascade, par exemple) n'est pas pris : il reste dans la file
+/// pour le système à qui il est destiné. Un seul déclencheur par image : `TrafficDirector::force` ne retient qu'un nom.
+pub(crate) fn take_triggers(runtime: Option<ResMut<ShowRuntime>>, mut director: ResMut<TrafficDirector>) {
+    let Some(mut runtime) = runtime else { return };
+    let wanted = runtime
+        .director()
+        .state()
+        .orders
+        .trigger_pending()
+        .and_then(|id| EventName::from_slug(&id.0));
+    if let Some(name) = wanted
+        && runtime.director_mut().take_trigger().is_some()
+    {
+        director.force(name);
+    }
+}
+
+/// Le nom à afficher en titre : celui du DJ en cours, à défaut celui de l'événement.
+fn dj_title(names: &SignShow) -> Option<&str> {
+    let slot = names.active.then(|| names.current()).flatten()?;
+    [slot.name.as_str(), slot.event.as_str()]
+        .into_iter()
+        .find(|text| !text.is_empty())
+}
+
 /// `CfSet::Simulate`, après la cadence de simulation et le pilote : avance le trafic d'une image.
 #[allow(clippy::too_many_arguments)] // Les paramètres d'un système Bevy : ressources et requêtes.
 pub(crate) fn drive_traffic(
     time: Res<Time>,
     features: Option<Res<AudioFeatures>>,
     show: Option<Res<CurrentShow>>,
-    runtime: Option<ResMut<ShowRuntime>>,
+    mut runtime: Option<ResMut<ShowRuntime>>,
     levers: Option<Res<QualityLevers>>,
     palette: Option<Res<ScenePalette>>,
     settings: Res<TrafficSettings>,
@@ -129,6 +170,7 @@ pub(crate) fn drive_traffic(
     mut director: ResMut<TrafficDirector>,
     mut registry: ResMut<EventRegistry>,
     mut stats: ResMut<TrafficStats>,
+    mut signs: SignAccess,
     mut state: Local<DriveState>,
 ) {
     let Ok(car) = car.single() else { return };
@@ -171,6 +213,12 @@ pub(crate) fn drive_traffic(
     let cycle = palette
         .as_deref()
         .map_or([LinearRgba::WHITE; 6], |p| p.prismatic_cycle().map(linear));
+    let named = palette
+        .as_deref()
+        .map_or([LinearRgba::WHITE; SceneColor::ALL.len()], |p| {
+            SceneColor::ALL.map(|c| linear(p.get(c)))
+        });
+    let title = signs.names.as_deref().and_then(dj_title);
     let frame = TrafficFrame {
         dt,
         time: now,
@@ -185,9 +233,11 @@ pub(crate) fn drive_traffic(
         calm: settings.calm,
         show: show
             .as_deref()
-            .map(|s| TrafficShow::of(&s.0, state.level_seq, settings.titles)),
+            .map(|s| TrafficShow::of(&s.0, state.level_seq, settings.titles || title.is_some())),
         cycle,
         density: levers.as_deref().map_or(1.0, |l| l.particle_density),
+        palette: named,
+        dj_title: title,
     };
 
     // C'est le tour d'un véhicule quand le culling de simulation de son entité le dit ; sans entité (tests sans rendu),
@@ -199,10 +249,18 @@ pub(crate) fn drive_traffic(
             .and_then(|body| lods.get(body).ok())
             .is_none_or(SimulationLod::due)
     };
-    match runtime {
-        Some(mut runtime) => director.update(&frame, &mut registry, &mut RuntimeLink(&mut runtime), due),
-        None => director.update(&frame, &mut registry, &mut NoShow, due),
-    }
+    // Le chef du spectacle quand il existe ; sinon, personne : tout est permis sauf les événements du spectacle seul.
+    let mut runtime_link;
+    let mut no_show = NoShow;
+    let link: &mut dyn ShowLink = match runtime.as_deref_mut() {
+        Some(runtime) => {
+            runtime_link = RuntimeLink(runtime);
+            &mut runtime_link
+        }
+        None => &mut no_show,
+    };
+    let lender = signs.road.as_deref_mut().map(|road| &mut road.0 as &mut dyn SignLender);
+    director.update_with_signs(&frame, &mut registry, link, lender, due);
 
     let next = TrafficStats {
         fleet: director.fleet.stats(),
@@ -232,14 +290,47 @@ pub(crate) fn apply_clearings(
     }
 }
 
-/// `CfSet::Present` : les limiteurs de flashs du trafic (règle 7), avec la même politique que la voiture.
+/// `CfSet::Present` : les limiteurs de flashs du trafic (règle 7), avec la même politique que la voiture. Ils reçoivent
+/// aussi les demandes des événements (éclair, salve, variation de lumière de la ville) et rendent les niveaux accordés.
 pub(crate) fn update_flash(
     time: Res<Time>,
     features: Option<Res<AudioFeatures>>,
     show: Option<Res<CurrentShowFx>>,
     mut flash: ResMut<TrafficFlash>,
+    mut director: ResMut<TrafficDirector>,
 ) {
     let policy = show.map(|s| (s.0.flashes, s.0.breathing));
     let pulse = features.map_or(0.0, |f| f.0.pulse);
-    flash.update(time.delta_secs(), time.elapsed_secs_f64(), policy, pulse);
+    let now = time.elapsed_secs_f64();
+    flash.update(time.delta_secs(), now, policy, pulse);
+    flash.serve(now, &mut director.scene.fx);
+}
+
+/// Part du blanchissement de la ville qu'un éclair accordé peut atteindre : `min(1, flash × 0,9)` de Sillage, le niveau
+/// accordé étant déjà borné par le limiteur.
+const LIGHTNING_GAIN: f32 = 0.9;
+
+/// `CfSet::Present`, après les limiteurs : ce que les événements font de la ville (éclair, panne, pouls des fenêtres),
+/// écrit dans `FacadeLook`. L'éclair est le niveau que le limiteur accorde, jamais la demande de l'événement.
+pub(crate) fn publish_city_fx(
+    director: Res<TrafficDirector>,
+    origin: Option<Res<FloatingOrigin>>,
+    mut look: ResMut<FacadeLook>,
+) {
+    let fx = director.scene.fx;
+    let car_z = director.scene.panels.origin().z;
+    // Le front est relatif à la voiture ; la façade le lit en coordonnées du monde rendu.
+    let power = if fx.power.depth > 0.0 {
+        let front = DVec3::new(0.0, 0.0, car_z + f64::from(fx.power.front_rel_m));
+        let render_z = origin.as_deref().map_or(front.z, |o| f64::from(o.to_render(front).z));
+        Vec4::new(render_z as f32, fx.power.edge_m, fx.power.depth, -1.0)
+    } else {
+        NO_BLACKOUT
+    };
+    look.set_if_neq(FacadeLook {
+        flash: (fx.lightning * LIGHTNING_GAIN).clamp(0.0, 1.0),
+        win_pulse: fx.win_pulse.clamp(0.0, 1.0),
+        power,
+        ..*look
+    });
 }

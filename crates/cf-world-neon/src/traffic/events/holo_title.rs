@@ -136,14 +136,21 @@ mod tests {
     #[test]
     fn le_titre_apparait_lettre_a_lettre_puis_s_efface() {
         let frame = TrafficFrame::default();
-        let (mut fleet, mut glints, mut walls, mut rng) =
-            (Fleet::new(), Glints::new(), LightWalls::new(), Rand::new(11));
+        let (mut fleet, mut glints, mut walls, mut rng, mut scene) = (
+            Fleet::new(),
+            Glints::new(),
+            LightWalls::new(),
+            Rand::new(11),
+            crate::traffic::scene::Scene::new(),
+        );
         let mut ctx = EventCtx {
             frame: &frame,
             fleet: &mut fleet,
             glints: &mut glints,
             walls: &mut walls,
             rng: &mut rng,
+            scene: &mut scene,
+            signs: None,
         };
         let mut event = HoloTitleEvent::new(&mut ctx, "DJ TEST");
         assert_eq!(event.title(), "DJ TEST");

@@ -18,10 +18,12 @@ use super::fleet::Fleet;
 use super::frame::TrafficFrame;
 use super::glints::Glints;
 use super::names::{EVENT_COUNT, EventName};
+use super::scene::Scene;
 use super::walls::LightWalls;
 use crate::pilot::flight::{Band, Obstruction};
 use crate::pilot::rand::Rand;
 use crate::scenery::Clearing;
+use crate::signs::{FormatId, SignAd, SignRoad};
 
 /// Le centre et la taille de la structure d'un événement, que le réalisateur peut filmer (sujet `Landmark`).
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -30,6 +32,27 @@ pub struct Focus {
     pub position: DVec3,
     /// Taille caractéristique (hauteur d'une structure), m.
     pub size: f32,
+}
+
+/// Les panneaux que le gestionnaire de la route prête aux événements (`SignLender` de `context.ts`) : le vaisseau
+/// publicitaire y prend ses écrans, les place lui-même à chaque image et les rend à sa fin.
+pub trait SignLender: fmt::Debug {
+    /// Prête un panneau de format `id` portant la publicité `ad` (largeur `width` m, 0 : celle du format). `time` : horloge
+    /// de la scène, s. Rend son indice, ou `None` si la route n'a plus de panneau libre.
+    fn lease(&mut self, id: FormatId, ad: SignAd, width: f32, phantom: bool, time: f64) -> Option<usize>;
+
+    /// Rend un panneau prêté.
+    fn unlease(&mut self, index: usize);
+}
+
+impl SignLender for SignRoad {
+    fn lease(&mut self, id: FormatId, ad: SignAd, width: f32, phantom: bool, time: f64) -> Option<usize> {
+        SignRoad::lease(self, id, ad, width, phantom, time)
+    }
+
+    fn unlease(&mut self, index: usize) {
+        SignRoad::unlease(self, index);
+    }
 }
 
 /// Tout ce dont un événement a besoin pour vivre dans la scène, recomposé à chaque image.
@@ -45,6 +68,10 @@ pub struct EventCtx<'a> {
     pub walls: &'a mut LightWalls,
     /// Le hasard du trafic (graine injectée).
     pub rng: &'a mut Rand,
+    /// Panneaux des structures, projecteurs et effets de ville : voir [`Scene`].
+    pub scene: &'a mut Scene,
+    /// Le gestionnaire de panneaux de la route, quand il existe (absent sans enseignes, et dans les tests de logique).
+    pub signs: Option<&'a mut (dyn SignLender + 'a)>,
 }
 
 /// Un événement du trafic : une petite scène qui dure quelques dizaines de secondes.

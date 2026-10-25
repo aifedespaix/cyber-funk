@@ -49,6 +49,9 @@ pub struct FacadeParams {
     pub audio: Vec4,
     /// `x` : humidité (`uWet`), `y` : pluie (`uRain`), `z` : pouls des fenêtres (`uWinPulse`).
     pub weather: Vec4,
+    /// Front d'une panne de courant (`uPower`) : `x` position en z du front (monde rendu, m), `y` demi-largeur de son fondu
+    /// (m), `z` part des fenêtres éteintes au-delà du front (0 : rien), `w` sens (−1 : éteint du côté des z négatifs).
+    pub power: Vec4,
 }
 
 /// Matériau des immeubles et des arches. Un seul exemplaire dans le monde : il porte l'état de l'image (temps, musique,

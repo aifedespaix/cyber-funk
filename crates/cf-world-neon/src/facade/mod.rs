@@ -20,6 +20,9 @@ use cf_render::{CfSet, ScenePalette, ThemeLibrary, WarmupAppExt};
 pub use material::{FacadeMaterial, FacadeParams};
 pub use systems::{FrameInputs, build_params};
 
+/// Le front de panne de courant au repos : profondeur nulle, la ville est entièrement éclairée.
+pub const NO_BLACKOUT: Vec4 = Vec4::new(0.0, 1.0, 0.0, 1.0);
+
 /// Ce que les façades montrent en dehors de la musique et de la météo : écrit par les événements du monde, lu par le
 /// système qui remplit le matériau.
 #[derive(Resource, Debug, Clone, Copy, PartialEq)]
@@ -30,6 +33,11 @@ pub struct FacadeLook {
     pub flash: f32,
     /// Pouls des fenêtres, 0 à 1 (`uWinPulse`, événement « city-pulse ») : un autre lot de fenêtres s'allume à chaque temps.
     pub win_pulse: f32,
+    /// Front d'une panne de courant (`uPower`, événement « blackout ») en coordonnées du monde rendu : `x` position en z du
+    /// front (m), `y` demi-largeur de son fondu (m), `z` part des fenêtres éteintes (0 : aucune panne), `w` sens (−1 :
+    /// éteint du côté des z négatifs, vers l'avant de la voiture). La profondeur est celle que le limiteur de flashs a
+    /// accordée (règle 7).
+    pub power: Vec4,
     /// Temps imposé au shader, en s (tests et captures de référence). `None` : l'horloge réelle.
     pub clock_s: Option<f64>,
 }
@@ -40,6 +48,7 @@ impl Default for FacadeLook {
             build: 1.0,
             flash: 0.0,
             win_pulse: 0.0,
+            power: NO_BLACKOUT,
             clock_s: None,
         }
     }

@@ -17,9 +17,9 @@
 //!
 //! # Ce qui n'est pas ici
 //!
-//! Les événements eux-mêmes (J7-04, J7-05), et ce qui ne sert qu'à eux : portiques et rideaux d'hologramme
-//! (`portals.ts`, `hologram.ts`), blocs d'immeubles posés à la main (`block-set.ts`). Le registre est prêt à les
-//! recevoir.
+//! Les événements eux-mêmes sont dans [`events`] (lot A, J7-04 : calmes et urbains) et [`grand`] (lot B, J7-05 : vol et
+//! démesure) ; [`TrafficPlugin`] inscrit les deux au registre. Ce qui ne sert qu'à eux est ici : [`panels`] et [`scene`]
+//! (structures, projecteurs, effets de ville), à la place de `portals.ts`, `hologram.ts` et `block-set.ts`.
 //!
 //! # Branchement
 //!
@@ -48,11 +48,14 @@ pub mod flash;
 pub mod fleet;
 pub mod frame;
 pub mod glints;
+pub mod grand;
 pub mod ground;
 pub mod model;
 pub mod motion;
 pub mod names;
+pub mod panels;
 pub mod render;
+pub mod scene;
 pub mod scheduler;
 pub mod systems;
 pub mod variant;
@@ -66,17 +69,21 @@ use bevy::shader::Shader;
 use cf_render::{CfSet, CullingSet, ScenePalette, ThemeLibrary, WarmupAppExt, WorldSet};
 
 pub use director::TrafficDirector;
-pub use event::{EventCtx, EventFactory, EventRegistry, Focus, TrafficAppExt, TrafficEvent};
+pub use event::{EventCtx, EventFactory, EventRegistry, Focus, SignLender, TrafficAppExt, TrafficEvent};
 pub use flash::TrafficFlash;
 pub use fleet::{Craft, CraftId, Fleet, FleetStats};
 pub use frame::{TrafficBeat, TrafficDrive, TrafficFrame, TrafficShow};
+pub use grand::GrandEventsPlugin;
 pub use names::EventName;
+pub use panels::{PANEL_CAPACITY, Panel, PanelKind, Panels};
 pub use render::{
-    GlintMaterial, TrafficBody, TrafficEntities, TrafficSource, TrafficTrail, TrailMaterial, VehicleMaterial,
-    WallMaterial,
+    GlintMaterial, HoloMaterial, PanelMaterial, TrafficBody, TrafficEntities, TrafficSource, TrafficTrail,
+    TrailMaterial, VehicleMaterial, WallMaterial,
 };
+pub use scene::{MAX_PINS, PinBeam, PowerFront, Scene, SceneFx};
 pub use systems::{TrafficSettings, TrafficStats};
 
+use crate::facade::FacadeLook;
 use crate::pilot::PilotSet;
 
 /// Les étapes du trafic dans l'image, toutes en `CfSet::Simulate` (sauf le rendu, en `Present`).
@@ -125,6 +132,7 @@ impl Plugin for TrafficPlugin {
                 models_dir: self.assets_dir.join("models/crafts"),
             })
             .init_resource::<EventRegistry>()
+            .add_plugins((events::CalmEventsPlugin::default(), GrandEventsPlugin::default()))
             .init_resource::<TrafficFlash>()
             .init_resource::<TrafficStats>()
             .init_resource::<crate::PilotTraffic>()
@@ -135,19 +143,26 @@ impl Plugin for TrafficPlugin {
                 MaterialPlugin::<TrailMaterial>::default(),
                 MaterialPlugin::<GlintMaterial>::default(),
                 MaterialPlugin::<WallMaterial>::default(),
+                MaterialPlugin::<PanelMaterial>::default(),
+                MaterialPlugin::<HoloMaterial>::default(),
             ))
             .warm_material::<VehicleMaterial>("trafic : véhicules")
             .warm_material::<TrailMaterial>("trafic : traînées")
             .warm_material::<GlintMaterial>("trafic : points lumineux")
-            .warm_material::<WallMaterial>("trafic : murs de lumière");
+            .warm_material::<WallMaterial>("trafic : murs de lumière")
+            .warm_material::<PanelMaterial>("trafic : panneaux des structures")
+            .warm_material::<HoloMaterial>("trafic : hologrammes et aurore");
             if let Some(mut shaders) = app.world_mut().get_resource_mut::<Assets<Shader>>() {
                 render::embed_shaders(&mut shaders);
+                render::embed_panel_shader(&mut shaders);
             }
         } else {
             app.init_asset::<VehicleMaterial>()
                 .init_asset::<TrailMaterial>()
                 .init_asset::<GlintMaterial>()
-                .init_asset::<WallMaterial>();
+                .init_asset::<WallMaterial>()
+                .init_asset::<PanelMaterial>()
+                .init_asset::<HoloMaterial>();
         }
         // Sans `PalettePlugin`, le thème de départ de Sillage (« Void Velvet ») : les véhicules ont besoin de ses couleurs.
         if !app.world().contains_resource::<ScenePalette>() {
@@ -167,7 +182,7 @@ impl Plugin for TrafficPlugin {
             Update,
             (
                 systems::publish_traffic.in_set(TrafficSet::Publish).before(PilotSet),
-                (systems::drive_traffic, systems::apply_clearings)
+                (systems::take_triggers, systems::drive_traffic, systems::apply_clearings)
                     .chain()
                     .in_set(TrafficSet::Step)
                     .after(CullingSet::Lod)
@@ -177,8 +192,11 @@ impl Plugin for TrafficPlugin {
                     .run_if(resource_exists::<TrafficEntities>),
                 (
                     systems::update_flash,
+                    systems::publish_city_fx.run_if(resource_exists::<FacadeLook>),
                     render::update_materials.run_if(resource_exists::<TrafficEntities>),
                     render::sync_dynamic.run_if(resource_exists::<TrafficEntities>),
+                    render::update_panel_materials.run_if(resource_exists::<TrafficEntities>),
+                    render::sync_panels.run_if(resource_exists::<TrafficEntities>),
                 )
                     .chain()
                     .in_set(CfSet::Present),

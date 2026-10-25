@@ -10,12 +10,13 @@ use bevy::math::Vec3;
 use cf_render::{Subject, SubjectKind};
 
 use super::air_lanes::AirLanes;
-use super::event::{EventCtx, EventRegistry, TrafficEvent};
+use super::event::{EventCtx, EventRegistry, SignLender, TrafficEvent};
 use super::fleet::{Craft, Fleet};
 use super::frame::TrafficFrame;
 use super::glints::Glints;
 use super::ground::GroundTraffic;
 use super::names::{EventName, MAX_PARALLEL};
+use super::scene::Scene;
 use super::scheduler::{Running, Scheduler, ShowLink};
 use super::variant::{BIKE, CRAFT_LENGTH, HEAVY, POLICE};
 use super::walls::LightWalls;
@@ -52,6 +53,8 @@ pub struct TrafficDirector {
     pub glints: Glints,
     /// Murs de lumière des motos.
     pub walls: LightWalls,
+    /// Panneaux des structures, projecteurs et effets de ville que les événements écrivent à chaque image.
+    pub scene: Scene,
     lanes: AirLanes,
     scheduler: Scheduler,
     rng: Rand,
@@ -90,6 +93,7 @@ impl TrafficDirector {
             ground: GroundTraffic::default(),
             glints: Glints::new(),
             walls: LightWalls::new(),
+            scene: Scene::new(),
             lanes: AirLanes::default(),
             scheduler: Scheduler::default(),
             rng: Rand::new(seed),
@@ -214,8 +218,22 @@ impl TrafficDirector {
         link: &mut dyn ShowLink,
         due: impl FnMut(&Craft) -> bool,
     ) {
+        self.update_with_signs(frame, registry, link, None, due);
+    }
+
+    /// Comme [`TrafficDirector::update`], avec le gestionnaire de panneaux de la route prêté aux événements pour cette
+    /// image (le vaisseau publicitaire y prend ses écrans).
+    pub fn update_with_signs(
+        &mut self,
+        frame: &TrafficFrame<'_>,
+        registry: &mut EventRegistry,
+        link: &mut dyn ShowLink,
+        mut signs: Option<&mut (dyn SignLender + '_)>,
+        due: impl FnMut(&Craft) -> bool,
+    ) {
         self.scheduler.track_show(frame, &mut self.rng);
         self.glints.begin(frame.car);
+        self.scene.begin(frame.car);
         let bar = (frame.dance_beat / 4.0).floor() as i64;
         let bar_started = bar != self.bar;
         self.bar = bar;
@@ -227,6 +245,13 @@ impl TrafficDirector {
                 glints: &mut self.glints,
                 walls: &mut self.walls,
                 rng: &mut self.rng,
+                scene: &mut self.scene,
+                // `Some(s)` est un site de coercion : la durée de vie de l'objet-trait raccourcit avec celle de l'emprunt
+                // (derrière `Option`, `as_deref_mut` seul ne la raccourcirait pas : `&mut` est invariant).
+                signs: match signs.as_deref_mut() {
+                    Some(s) => Some(s),
+                    None => None,
+                },
             };
             if frame.playing {
                 self.lanes.update(frame.dt, &mut ctx);
@@ -277,6 +302,8 @@ impl TrafficDirector {
                 glints: &mut self.glints,
                 walls: &mut self.walls,
                 rng: &mut self.rng,
+                scene: &mut self.scene,
+                signs: None,
             };
             for mut a in self.active.drain(..) {
                 a.event.end(&mut ctx);
@@ -284,6 +311,8 @@ impl TrafficDirector {
         }
         self.ground.clear(&mut self.fleet);
         self.fleet.clear();
+        // Plus rien à montrer : ni panneaux, ni projecteurs, ni panne de courant.
+        self.scene.begin(frame.car);
         self.claims.clear();
         self.obstructions.clear();
         self.flyby = false;

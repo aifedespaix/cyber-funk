@@ -18,13 +18,15 @@ mod adship;
 mod airship;
 mod bikes;
 mod chase;
-mod common;
+pub(crate) mod common;
 mod convoy;
 mod escort;
 mod fish;
 mod holo_title;
 mod lanterns;
 mod refuel;
+#[cfg(test)]
+pub(crate) mod test_rig;
 mod toll;
 
 use bevy::app::{App, Plugin};
@@ -63,7 +65,7 @@ pub const CALM_EVENTS: [EventName; 11] = [
 pub const DEFAULT_TITLE: &str = "NEON CITY";
 
 /// Fabrique une fabrique à partir du constructeur d'un événement sans paramètre.
-fn factory<E: TrafficEvent + 'static>(build: fn(&mut EventCtx<'_>) -> E) -> EventFactory {
+pub(crate) fn factory<E: TrafficEvent + 'static>(build: fn(&mut EventCtx<'_>) -> E) -> EventFactory {
     Box::new(move |ctx: &mut EventCtx<'_>| -> Box<dyn TrafficEvent> { Box::new(build(ctx)) })
 }
 
@@ -167,6 +169,7 @@ mod tests {
         let mut fleet = Fleet::new();
         let mut glints = Glints::new();
         let mut walls = LightWalls::new();
+        let mut scene = crate::traffic::scene::Scene::new();
         let mut rng = Rand::new(0x5EED);
         let mut car_z = 0.0;
         let mut time = 0.0;
@@ -178,6 +181,8 @@ mod tests {
                 glints: &mut glints,
                 walls: &mut walls,
                 rng: &mut rng,
+                scene: &mut scene,
+                signs: None,
             };
             registry
                 .create(name, &mut ctx)
@@ -199,6 +204,8 @@ mod tests {
                     glints: &mut glints,
                     walls: &mut walls,
                     rng: &mut rng,
+                    scene: &mut scene,
+                    signs: None,
                 };
                 running = event.update(dt, &mut ctx);
             }
@@ -218,6 +225,8 @@ mod tests {
             glints: &mut glints,
             walls: &mut walls,
             rng: &mut rng,
+            scene: &mut scene,
+            signs: None,
         };
         event.end(&mut ctx);
         (fleet, peak)

@@ -7,6 +7,7 @@
 use bevy::color::LinearRgba;
 use bevy::math::DVec3;
 use cf_analysis::{AudioFeatures, Section};
+use cf_render::SceneColor;
 use cf_show::director::ShowState;
 use cf_show::model::EventName as ShowEventName;
 
@@ -33,6 +34,9 @@ pub struct TrafficBeat {
     pub pulse: f32,
     /// Nombre de kicks depuis le début de l'analyse.
     pub count: u32,
+    /// Temps musical continu, en battements (`beat` de `BeatState`) : sa partie entière suit `count`, sa partie
+    /// fractionnaire est l'avancée dans le temps en cours.
+    pub beat: f64,
     /// Tempo détecté, battements par minute.
     pub bpm: Option<f32>,
 }
@@ -47,6 +51,7 @@ impl TrafficBeat {
         loud: 0.0,
         pulse: 0.0,
         count: 0,
+        beat: 0.0,
         bpm: None,
     };
 }
@@ -61,6 +66,7 @@ impl From<&AudioFeatures> for TrafficBeat {
             loud: f.loud,
             pulse: f.pulse,
             count: f.count,
+            beat: f.beat,
             bpm: f.bpm,
         }
     }
@@ -170,6 +176,12 @@ pub struct TrafficFrame<'a> {
     pub cycle: [LinearRgba; 6],
     /// Densité du trafic voulue par la qualité adaptative, 0 → 1 (`QualityLevers::particle_density`).
     pub density: f32,
+    /// Les couleurs nommées de la palette, dans l'ordre de [`SceneColor::ALL`] (`ctx.palette` de Sillage : `ice`, `azure`,
+    /// `rose`, `sun`…). Lire par [`TrafficFrame::named`].
+    pub palette: [LinearRgba; SceneColor::ALL.len()],
+    /// Le nom du DJ en cours (ou, à défaut, de l'événement), tel que l'affichent les enseignes ; absent hors spectacle.
+    /// Sert au titre holographique.
+    pub dj_title: Option<&'a str>,
 }
 
 impl TrafficFrame<'_> {
@@ -177,6 +189,12 @@ impl TrafficFrame<'_> {
     #[must_use]
     pub fn tint(&self, index: i64) -> LinearRgba {
         self.cycle[index.unsigned_abs() as usize % self.cycle.len()]
+    }
+
+    /// Une couleur nommée de la palette de la scène (`ctx.palette.ice`…).
+    #[must_use]
+    pub fn named(&self, color: SceneColor) -> LinearRgba {
+        self.palette[color as usize]
     }
 
     /// Vrai si une hauteur `y` est libre de la voiture : ni son altitude actuelle, ni celle de l'étage qu'elle vise
@@ -207,6 +225,8 @@ impl Default for TrafficFrame<'_> {
             show: None,
             cycle: [LinearRgba::WHITE; 6],
             density: 1.0,
+            palette: [LinearRgba::WHITE; SceneColor::ALL.len()],
+            dj_title: None,
         }
     }
 }
@@ -232,6 +252,21 @@ mod tests {
         assert!(!frame.is_free(15.0, FLOOR_MARGIN_M));
         assert!(!frame.is_free(21.0, FLOOR_MARGIN_M));
         assert!(frame.is_free(38.5, FLOOR_MARGIN_M));
+    }
+
+    #[test]
+    fn les_couleurs_nommees_se_lisent_dans_l_ordre_de_la_palette() {
+        for (i, color) in SceneColor::ALL.into_iter().enumerate() {
+            assert_eq!(color as usize, i);
+        }
+        let mut palette = [LinearRgba::BLACK; SceneColor::ALL.len()];
+        palette[SceneColor::Ice as usize] = LinearRgba::rgb(0.2, 0.4, 0.6);
+        let frame = TrafficFrame {
+            palette,
+            ..TrafficFrame::default()
+        };
+        assert_eq!(frame.named(SceneColor::Ice), LinearRgba::rgb(0.2, 0.4, 0.6));
+        assert_eq!(frame.named(SceneColor::Ink), LinearRgba::BLACK);
     }
 
     #[test]
