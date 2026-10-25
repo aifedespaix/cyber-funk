@@ -67,6 +67,11 @@ fn main() {
             },
         },
     ))
+    .insert_resource(cf_world_neon::WeatherSettings {
+        // La démo fixe elle-même l'humidité et la pluie (touches, scènes de capture).
+        drive_road_look: false,
+        ..default()
+    })
     .insert_resource(AudioFeatures(cf_analysis::AudioFeatures::NEUTRAL));
     if check {
         app.init_resource::<check::Check>()
