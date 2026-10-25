@@ -87,12 +87,23 @@ fn called_cue(app: &App, cue: usize) -> bool {
 }
 
 /// Joue des images (et laisse respirer les threads) jusqu'à ce que `done` soit vrai ; échoue au bout de `max_s`.
+///
+/// Le délai est borné en **temps réel**, et en nombre d'images : les threads MIDI (ouverture des ports, callbacks) n'ont
+/// que le temps réel pour avancer, et une machine chargée les retarde de plusieurs centaines de millisecondes. Un délai
+/// compté seulement en images (3 s d'horloge de l'application = 180 images, soit moins d'une demi-seconde réelle) faisait
+/// échouer ces tests à vide.
 fn until(app: &mut App, max_s: f64, what: &str, done: impl Fn(&App) -> bool) {
     let frames = (max_s * 60.0) as usize;
-    for _ in 0..frames {
+    let deadline = std::time::Instant::now() + Duration::from_secs_f64(max_s);
+    let mut played = 0;
+    loop {
         app.update();
+        played += 1;
         if done(app) {
             return;
+        }
+        if played >= frames && std::time::Instant::now() >= deadline {
+            break;
         }
         std::thread::sleep(Duration::from_millis(2));
     }
@@ -148,9 +159,15 @@ fn un_pad_midi_change_de_cue() {
     until(&mut app, 3.0, "action du pad", |a| seen(a).contains(&Action::Go));
     app.update();
     assert!(called_cue(&app, 1), "le pad a appelé le cue 1");
-    // Le panneau voit le port et le dernier message.
+    // Le panneau voit le port et le dernier message. L'instantané des ports n'est rafraîchi que quelques fois par seconde
+    // (`STATUS_PERIOD_S`, il prend un verrou et clone) : on l'attend, au lieu de supposer qu'un rafraîchissement a eu lieu
+    // entre l'ouverture du port et ce test (c'était la cause de l'échec intermittent sous charge : le test finissait avant
+    // le rafraîchissement suivant).
+    until(&mut app, 3.0, "le port dans le panneau", |a| {
+        let status = a.world().resource::<ControlsStatus>();
+        status.ports.connected.iter().any(|p| p.name == "Pads de test")
+    });
     let status = app.world().resource::<ControlsStatus>();
-    assert!(status.ports.connected.iter().any(|p| p.name == "Pads de test"));
     assert!(status.last_input.is_some());
 }
 
