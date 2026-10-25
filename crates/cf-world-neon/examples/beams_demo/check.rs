@@ -48,6 +48,10 @@ enum Phase {
 }
 
 #[derive(Resource)]
+#[allow(
+    clippy::struct_excessive_bools,
+    reason = "un exemple : des drapeaux de script indépendants"
+)]
 pub(crate) struct Check {
     flashes: bool,
     start: Option<Instant>,
@@ -231,18 +235,18 @@ pub(crate) fn run_check(
 const GROUND: ((u32, u32), (u32, u32)) = ((150, 290), (750, 540));
 
 /// Part des pixels du sol qui diffèrent de plus de `level` (sur 255) entre deux captures.
-fn ground_share(a: &Shot, b: &Shot, level: f32) -> f32 {
+fn ground_share(first: &Shot, second: &Shot, level: f32) -> f32 {
     let ((x0, y0), (x1, y1)) = GROUND;
-    let mut n = 0;
+    let mut differing = 0;
     for y in y0..y1 {
         for x in x0..x1 {
-            let (p, q) = (a.pixel(x, y), b.pixel(x, y));
+            let (p, q) = (first.pixel(x, y), second.pixel(x, y));
             if (0..3).any(|c| (p[c] - q[c]).abs() > level) {
-                n += 1;
+                differing += 1;
             }
         }
     }
-    n as f32 / ((x1 - x0) * (y1 - y0)) as f32
+    differing as f32 / ((x1 - x0) * (y1 - y0)) as f32
 }
 
 fn evaluate(check: &Check, late: usize) -> AppExit {
