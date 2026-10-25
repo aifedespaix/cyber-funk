@@ -6,7 +6,7 @@ use cf_render::{AbsolutePosition, CfSet, CurrentShowFx, ShowFxInput, StreamFocus
 use cf_show::drop::DropFxPackage;
 use cf_show::limiter::{MAX_FLASH_PEAK, MAX_FLASHES_PER_SECOND, MIN_FADE};
 
-use super::logic::{BURST_Y_M, RING_Y_M};
+use super::ring::{BURST_Y_M, RING_Y_M};
 use super::*;
 
 const DT: f32 = 1.0 / 60.0;

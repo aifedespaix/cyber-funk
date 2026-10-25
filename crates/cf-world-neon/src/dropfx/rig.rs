@@ -16,8 +16,8 @@ use bevy::mesh::{Indices, PrimitiveTopology};
 use bevy::prelude::*;
 use cf_render::{AbsolutePosition, WorldLayer};
 
-use super::logic::{PARTICLES, RINGS};
 use super::material::{DropRingMaterial, DropSparkMaterial, RING_HALF_M};
+use super::ring::{PARTICLES, RINGS};
 
 /// Tout ce qui fait partie du paquet du drop : à interroger pour le compter ou le cacher en bloc.
 #[derive(Component, Debug, Default, Clone, Copy)]

@@ -11,9 +11,9 @@ use bevy::prelude::*;
 use cf_render::AbsolutePosition;
 
 use super::DropFx;
-use super::logic::{CYCLE_LEN, PARTICLES};
 use super::material::{DropRingMaterial, RING_HALF_M, RingParams};
 use super::rig::{DropPiece, DropRig};
+use super::ring::{CYCLE_LEN, PARTICLES};
 
 /// Marge de l'`Aabb` de la gerbe (m) : un demi-côté d'étincelle, arrondi largement.
 const SPARK_MARGIN_M: f32 = 0.5;

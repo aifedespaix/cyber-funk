@@ -31,6 +31,7 @@
 pub mod logic;
 pub mod material;
 pub mod rig;
+pub mod ring;
 pub mod safety;
 mod sync;
 pub mod systems;
@@ -39,12 +40,12 @@ use bevy::prelude::*;
 use bevy::shader::Shader;
 use cf_render::{CfSet, WarmupAppExt, WorldSet};
 
-pub use logic::{
-    BURST_Y_M, CYCLE_LEN, DROP_RING_GAP_S, DROP_RINGS_MAX, DropFx, DropInput, PARTICLE_LIFE_S, PARTICLES, RING_LIFE_S,
-    RINGS, Ring,
-};
+pub use logic::{DropFx, DropInput};
 pub use material::{DropRingMaterial, DropSparkMaterial, RingParams};
 pub use rig::{DropPart, DropPiece, DropRig};
+pub use ring::{
+    BURST_Y_M, CYCLE_LEN, DROP_RING_GAP_S, DROP_RINGS_MAX, PARTICLE_LIFE_S, PARTICLES, RING_LIFE_S, RINGS, Ring,
+};
 pub use safety::{DropFlash, GRANTED_GAIN, UNGRANTED_GAIN};
 
 /// L'étape où le paquet du drop avance (`CfSet::Simulate`).
