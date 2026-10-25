@@ -8,8 +8,8 @@
 //! - [`kind`] : le catalogue ([`StuntKind`], [`StuntTier`], [`StuntAlign`]) et la validation des identifiants que
 //!   `cf-show` ne connaît que comme des chaînes (liste blanche des looks, cascade du drop préparé) ;
 //! - [`script`] : le contrat d'une cascade ([`StuntScript`], [`StuntRun`], [`StuntPose`], [`StuntEnv`]) et le registre
-//!   ([`StuntRegistry`], [`StuntAppExt::register_stunt`]). **Les scripts concrets sont J7-07** : le registre est prêt à
-//!   les recevoir, comme celui des événements du trafic ;
+//!   ([`StuntRegistry`], [`StuntAppExt::register_stunt`]) ;
+//! - [`scripts`] : les douze scripts concrets (J7-07), inscrits par [`StuntsPlugin`] ;
 //! - [`world`] : ce que les cascades savent de la ville ([`StuntWorld`], [`TrafficStuntWorld`]) ;
 //! - [`permit`] : les portes (rangs, liste blanche, Ascension et son délai, ordre de l'opérateur) ;
 //! - [`director`] : [`StuntDirector`], pur (temps et hasard injectés) ;
@@ -42,6 +42,7 @@ pub mod kind;
 pub mod math;
 pub mod permit;
 pub mod script;
+pub mod scripts;
 pub mod systems;
 pub mod world;
 
@@ -77,6 +78,7 @@ pub struct StuntsPlugin {
 
 impl Plugin for StuntsPlugin {
     fn build(&self, app: &mut App) {
+        scripts::register_all(app);
         app.insert_resource(self.settings)
             .insert_resource(StuntDirector::new(self.settings.seed))
             .init_resource::<StuntRegistry>()

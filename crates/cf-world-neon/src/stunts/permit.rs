@@ -19,6 +19,8 @@ pub trait StuntLink {
     fn freshness_weight(&self, id: &str, now: f64) -> f64;
     /// Marque `id` comme utilisé à l'instant `now`.
     fn freshness_mark(&mut self, id: &str, now: f64);
+    /// Ralentit le monde à `scale` (0,1 → 1) pendant `seconds` (`show.requestTimeScale`). Sans effet par défaut.
+    fn request_time_scale(&mut self, _scale: f32, _seconds: f32) {}
 }
 
 /// Pas de spectacle : aucun ordre, aucune mémoire.
