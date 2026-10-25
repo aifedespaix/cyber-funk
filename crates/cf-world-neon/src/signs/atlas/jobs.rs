@@ -259,7 +259,9 @@ pub fn bake_all_measured(jobs: &[Job], slots: &[SlotNames], threads: usize) -> (
                 scope.spawn(|| {
                     let mut out = Vec::new();
                     let start = thread_cpu_s();
-                    let Some(mut painter) = Painter::new() else { return (out, None) };
+                    let Some(mut painter) = Painter::new() else {
+                        return (out, None);
+                    };
                     loop {
                         let i = next.fetch_add(1, Ordering::Relaxed);
                         let Some(job) = jobs.get(i) else { break };

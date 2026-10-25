@@ -11,12 +11,10 @@ use bevy::color::LinearRgba;
 use bevy::math::DVec3;
 use cf_world_neon::pilot::rand::Rand;
 use cf_world_neon::traffic::events::{DEFAULT_TITLE, calm_factories};
-use cf_world_neon::traffic::grand::grand_factories;
 use cf_world_neon::traffic::glints::Glints;
+use cf_world_neon::traffic::grand::grand_factories;
 use cf_world_neon::traffic::walls::LightWalls;
-use cf_world_neon::traffic::{
-    EventCtx, EventName, EventRegistry, Fleet, Scene, TrafficBeat, TrafficFrame,
-};
+use cf_world_neon::traffic::{EventCtx, EventName, EventRegistry, Fleet, Scene, TrafficBeat, TrafficFrame};
 
 #[global_allocator]
 static ALLOCATOR: AllocDisabler = AllocDisabler;

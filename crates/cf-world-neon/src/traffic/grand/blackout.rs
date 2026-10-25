@@ -182,8 +182,14 @@ mod tests {
         // Les flashs sont coupés pendant que la ville est au plus sombre (image 6 s) : la profondeur redescend vers la
         // version adoucie, par un fondu (jamais plus vite que `MIN_FADE`, ici bien plus doucement), pas d'un coup.
         let (lights, depth) = run(true, Some(6 * 60));
-        assert!(depth >= DARK - 0.06, "elle avait commencé en pleine profondeur : {depth}");
-        let max_rate = lights.windows(2).map(|w| (w[1] - w[0]).abs() * 60.0).fold(0.0, f32::max);
+        assert!(
+            depth >= DARK - 0.06,
+            "elle avait commencé en pleine profondeur : {depth}"
+        );
+        let max_rate = lights
+            .windows(2)
+            .map(|w| (w[1] - w[0]).abs() * 60.0)
+            .fold(0.0, f32::max);
         assert!(max_rate <= 1.0 / MIN_FADE, "pente {max_rate} /s");
         // Après le fondu, la panne ne passe plus sous 55 % de lumière.
         let settled = &lights[7 * 60..9 * 60];

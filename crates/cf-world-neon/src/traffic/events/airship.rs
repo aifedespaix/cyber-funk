@@ -99,9 +99,12 @@ impl TrafficEvent for AirshipEvent {
             for i in 0..2 {
                 let t = time * 0.45 + self.bob + i as f32 * 2.3;
                 let side = if i == 0 { -1.0 } else { 1.0 };
-                let origin = position + DVec3::new(f64::from(side * s * 0.3), f64::from(-s * 0.25), f64::from(-s * 0.4));
+                let origin =
+                    position + DVec3::new(f64::from(side * s * 0.3), f64::from(-s * 0.25), f64::from(-s * 0.4));
                 let target_z = car_z - 20.0 - 45.0 * f64::from(0.5 + 0.5 * (t * 0.7 + i as f32).sin());
-                let tint = ctx.frame.named(if i == 0 { SceneColor::Ice } else { SceneColor::Azure });
+                let tint = ctx
+                    .frame
+                    .named(if i == 0 { SceneColor::Ice } else { SceneColor::Azure });
                 pin(ctx, origin, t.sin() * 7.5, target_z, tint);
             }
         }

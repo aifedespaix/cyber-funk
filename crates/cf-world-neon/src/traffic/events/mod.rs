@@ -165,6 +165,7 @@ mod tests {
         crafts: usize,
         glints: usize,
         pins: usize,
+        panels: usize,
     }
 
     /// Fait vivre `name` pendant `seconds` secondes simulées, comme le ferait le directeur à 60 i/s.
@@ -219,6 +220,7 @@ mod tests {
             assert!(glints.used() <= crate::traffic::glints::GLINT_CAPACITY);
             peak.glints = peak.glints.max(glints.used());
             peak.pins = peak.pins.max(scene.pins().len());
+            peak.panels = peak.panels.max(scene.panels.used());
             peak.crafts = peak.crafts.max(fleet.crafts().iter().filter(|c| c.active).count());
             for craft in fleet.crafts().iter().filter(|c| c.active) {
                 assert!(craft.position.is_finite(), "{name:?} : position non finie");
@@ -263,7 +265,10 @@ mod tests {
             assert_eq!(left, 0, "{name:?} : {left} véhicule(s) non rendus après end");
             // Le titre holographique ne pose ni véhicule ni point : sa pose est testée dans `holo_title`.
             if name != EventName::HoloTitle {
-                assert!(peak.crafts + peak.glints > 0, "{name:?} n'a rien montré en 60 s");
+                assert!(
+                    peak.crafts + peak.glints + peak.panels > 0,
+                    "{name:?} n'a rien montré en 60 s"
+                );
             }
             // Les projecteurs qui balaient la route : le cargo, le pétrolier, la police et le vaisseau publicitaire.
             let projects = matches!(
@@ -279,23 +284,24 @@ mod tests {
     fn le_titre_holographique_prend_le_nom_du_dj_quand_le_spectacle_le_donne() {
         let mut registry = registry();
         let mut rig = crate::traffic::events::test_rig::Rig::new(4);
-        let title = |registry: &mut EventRegistry, rig: &mut crate::traffic::events::test_rig::Rig, dj: Option<&str>| {
-            let frame = TrafficFrame {
-                dj_title: dj,
-                ..rig.frame()
+        let title =
+            |registry: &mut EventRegistry, rig: &mut crate::traffic::events::test_rig::Rig, dj: Option<&str>| {
+                let frame = TrafficFrame {
+                    dj_title: dj,
+                    ..rig.frame()
+                };
+                let mut ctx = EventCtx {
+                    frame: &frame,
+                    fleet: &mut rig.fleet,
+                    glints: &mut rig.glints,
+                    walls: &mut rig.walls,
+                    rng: &mut rig.rng,
+                    scene: &mut rig.scene,
+                    signs: None,
+                };
+                let event = registry.create(EventName::HoloTitle, &mut ctx).expect("inscrit");
+                format!("{event:?}")
             };
-            let mut ctx = EventCtx {
-                frame: &frame,
-                fleet: &mut rig.fleet,
-                glints: &mut rig.glints,
-                walls: &mut rig.walls,
-                rng: &mut rig.rng,
-                scene: &mut rig.scene,
-                signs: None,
-            };
-            let event = registry.create(EventName::HoloTitle, &mut ctx).expect("inscrit");
-            format!("{event:?}")
-        };
         assert!(title(&mut registry, &mut rig, Some("DJ AIFE")).contains("DJ AIFE"));
         assert!(title(&mut registry, &mut rig, None).contains(DEFAULT_TITLE));
     }

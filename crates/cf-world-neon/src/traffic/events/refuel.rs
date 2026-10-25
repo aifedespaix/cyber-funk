@@ -141,7 +141,9 @@ impl TrafficEvent for RefuelEvent {
                 let side = if i == 0 { -1.0 } else { 1.0 };
                 let origin = position + DVec3::new(f64::from(side * scale * 0.3), f64::from(-scale * 0.2), 0.0);
                 let target_z = car_z - 25.0 - 40.0 * f64::from(0.5 + 0.5 * (t * 0.8 + i as f32).sin());
-                let tint = ctx.frame.named(if i == 0 { SceneColor::Amber } else { SceneColor::Ice });
+                let tint = ctx
+                    .frame
+                    .named(if i == 0 { SceneColor::Amber } else { SceneColor::Ice });
                 pin(ctx, origin, t.sin() * 7.0, target_z, tint);
             }
         }

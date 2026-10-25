@@ -36,7 +36,7 @@ mod crossroad;
 mod dancer;
 mod fireworks;
 pub mod landmark;
-mod portal;
+pub(crate) mod portal;
 mod race;
 mod storm;
 mod swarm;

@@ -96,7 +96,11 @@ fn frame(app: &mut App, i: usize, hostile: bool) {
         audio.0.section = Section::Peak;
         audio.0.intensity = 0.9;
         audio.0.kick = i % period == 0;
-        audio.0.pulse = if i % period < 3 { 1.0 - (i % period) as f32 / 3.0 } else { 0.0 };
+        audio.0.pulse = if i % period < 3 {
+            1.0 - (i % period) as f32 / 3.0
+        } else {
+            0.0
+        };
         audio.0.bass = 0.7;
         audio.0.mid = 0.5;
         audio.0.count = (i / period) as u32;
@@ -131,7 +135,10 @@ fn chaque_evenement_se_declenche_par_action_trigger_et_vit_60_secondes_simulees(
         assert!(at <= 8, "{name:?} lancé tardivement : image {at}");
         // La file d'ordres est vidée : le déclencheur a été pris.
         let runtime = app.world().resource::<ShowRuntime>();
-        assert!(runtime.director().state().orders.trigger_pending().is_none(), "{name:?}");
+        assert!(
+            runtime.director().state().orders.trigger_pending().is_none(),
+            "{name:?}"
+        );
     }
 }
 
@@ -148,7 +155,12 @@ fn un_declencheur_qui_n_est_pas_un_evenement_du_trafic_reste_pour_son_destinatai
         frame(&mut app, i, false);
     }
     let runtime = app.world().resource::<ShowRuntime>();
-    let pending = runtime.director().state().orders.trigger_pending().map(|id| id.0.to_string());
+    let pending = runtime
+        .director()
+        .state()
+        .orders
+        .trigger_pending()
+        .map(|id| id.0.to_string());
     assert_eq!(pending.as_deref(), Some("wall-ride"));
     assert_eq!(active(&app), before, "le trafic n'a rien lancé pour une cascade");
 }
@@ -230,11 +242,17 @@ fn la_ville_tient_les_plafonds_du_limiteur_sous_une_charge_hostile() {
 
     // Pas vide : l'éclair, le pouls et la panne ont bien eu lieu, sinon les plafonds ne prouveraient rien.
     assert!(flash.iter().copied().fold(0.0, f32::max) > 0.05, "aucun éclair");
-    assert!(pulse.iter().copied().fold(0.0, f32::max) > 0.05, "aucun pouls de fenêtres");
+    assert!(
+        pulse.iter().copied().fold(0.0, f32::max) > 0.05,
+        "aucun pouls de fenêtres"
+    );
     assert!(light.iter().copied().fold(1.0, f32::min) < 0.6, "aucune panne");
 
     // Amplitude : l'éclair ne dépasse jamais le plafond de la voie.
-    assert!(flash.iter().all(|&v| v <= MAX_FLASH_PEAK + EPS), "éclair au-dessus du plafond");
+    assert!(
+        flash.iter().all(|&v| v <= MAX_FLASH_PEAK + EPS),
+        "éclair au-dessus du plafond"
+    );
     // Aucune variation plus rapide que `MIN_FADE`, ramenée à la pleine échelle de chacune.
     let max_step = FRAME_S / MIN_FADE + EPS;
     for (name, levels, span) in [
@@ -242,7 +260,10 @@ fn la_ville_tient_les_plafonds_du_limiteur_sous_une_charge_hostile() {
         ("pouls", &pulse, 1.0),
         ("panne", &light, 1.0),
     ] {
-        let worst = levels.windows(2).map(|w| (w[1] - w[0]).abs() / span).fold(0.0, f32::max);
+        let worst = levels
+            .windows(2)
+            .map(|w| (w[1] - w[0]).abs() / span)
+            .fold(0.0, f32::max);
         assert!(worst <= max_step, "{name} : saut de {worst} entre deux images");
     }
     // Au plus trois éclairs par seconde glissante.
@@ -264,5 +285,8 @@ fn flashs_coupes_plus_d_eclair_et_une_panne_adoucie() {
     );
     // La panne n'a plus la profondeur pleine : la ville ne passe jamais sous 55 % de sa lumière.
     let darkest = after.iter().map(|c| c.light).fold(1.0, f32::min);
-    assert!(darkest >= 0.55 - EPS, "panne trop sombre sans l'accord du limiteur : {darkest}");
+    assert!(
+        darkest >= 0.55 - EPS,
+        "panne trop sombre sans l'accord du limiteur : {darkest}"
+    );
 }
