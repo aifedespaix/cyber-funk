@@ -51,7 +51,7 @@ vient de la taille de la tâche et du nombre d'itérations, bien plus que du dé
 ## Statuts
 
 ⬜ à faire · 🟨 en cours · 🟦 PR ouverte · ✅ fusionnée.
-En cours au dernier point : J7-02, J7-09.
+En cours au dernier point : J7-02 (aucune branche ni PR au 2026-10-25 : à relancer).
 
 ✅* J7-07 : 12 cascades portées et testées ; critère « jouable par l'opérateur (debug) » non rempli (aucun ordre « lancer la cascade X » dans cf-show/cf-operator) : à câbler en J8.
 
@@ -110,7 +110,7 @@ En cours au dernier point : J7-02, J7-09.
 | J7-06 | [Directeur des cascades](tasks/J7.md) | Sonnet 5.5 | `high` | J5-06 | ✅ |
 | J7-07 | [Scripts de cascades](tasks/J7.md) | Sonnet 5.5 | `medium` | J7-06 | ✅* |
 | J7-08 | [Landmarks : registre et bâtiments spéciaux](tasks/J7.md) | Sonnet 5.5 | `high` | J5-02 | ✅ |
-| J7-09 | [Landmarks vitrines](tasks/J7.md) | Sonnet 5.5 | `medium` | J7-08 | ⬜ |
+| J7-09 | [Landmarks vitrines](tasks/J7.md) | Sonnet 5.5 | `medium` | J7-08 | ✅ |
 | J7-10 | [Météores et impacts](tasks/J7.md) | Sonnet 5.5 | `medium` | J5-02, J5-03 | ✅ |
 | J7-11 | [Pré-intro et cartons-titres](tasks/J7.md) | Sonnet 5.5 | `medium` | J5-03, J4-01, J2-05 | ⬜ |
 | J8-01 | [Vue Live](tasks/J8.md) | Sonnet 5.5 | `high` | J2-05, J3-06, J4-05 | ✅ |
