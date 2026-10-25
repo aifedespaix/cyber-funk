@@ -71,6 +71,10 @@ impl StuntLink for RuntimeLink<'_> {
     fn freshness_mark(&mut self, id: &str, now: f64) {
         self.0.director_mut().freshness_mut().mark(id, now);
     }
+
+    fn request_time_scale(&mut self, scale: f32, seconds: f32) {
+        self.0.director_mut().request_time_scale(scale, seconds);
+    }
 }
 
 /// Le hasard des véhicules posés par les cascades : il ne sert qu'à leur déphasage de brillance.

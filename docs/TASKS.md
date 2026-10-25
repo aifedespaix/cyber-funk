@@ -54,6 +54,7 @@ vient de la taille de la tâche et du nombre d'itérations, bien plus que du dé
 En cours au dernier point : J7-05, J7-07.
 
 ✅* J7-04 : événements écrits et testés, mais critère « déclenchable par `Action::Trigger` » non rempli et `CalmEventsPlugin` non branché : repris par J7-05.
+✅* J7-07 : 12 cascades portées et testées ; critère « jouable par l'opérateur (debug) » non rempli (aucun ordre « lancer la cascade X » dans cf-show/cf-operator) : à câbler en J8.
 
 | ID | Tâche | Modèle | Effort | Dépend de | Statut |
 | --- | --- | --- | --- | --- | --- |
@@ -108,7 +109,7 @@ En cours au dernier point : J7-05, J7-07.
 | J7-04 | [Événements du trafic, lot A (calmes et urbains)](tasks/J7.md) | Haiku 5.5 | `medium` | J7-03 | ✅* |
 | J7-05 | [Événements du trafic, lot B (vol et démesure)](tasks/J7.md) | Sonnet 5.5 | `medium` | J7-03 | ⬜ |
 | J7-06 | [Directeur des cascades](tasks/J7.md) | Sonnet 5.5 | `high` | J5-06 | ✅ |
-| J7-07 | [Scripts de cascades](tasks/J7.md) | Sonnet 5.5 | `medium` | J7-06 | ⬜ |
+| J7-07 | [Scripts de cascades](tasks/J7.md) | Sonnet 5.5 | `medium` | J7-06 | ✅* |
 | J7-08 | [Landmarks : registre et bâtiments spéciaux](tasks/J7.md) | Sonnet 5.5 | `high` | J5-02 | ⬜ |
 | J7-09 | [Landmarks vitrines](tasks/J7.md) | Sonnet 5.5 | `medium` | J7-08 | ⬜ |
 | J7-10 | [Météores et impacts](tasks/J7.md) | Sonnet 5.5 | `medium` | J5-02, J5-03 | ⬜ |

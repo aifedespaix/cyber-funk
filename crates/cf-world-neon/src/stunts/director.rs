@@ -254,6 +254,10 @@ impl StuntDirector {
             if !run.step(self.t, &mut ctx, &mut self.pose) {
                 self.dying = true;
             }
+            // Le ralenti du monde (Ascension) : seul le chef du spectacle sait le faire ; hors spectacle, `NoLink` l'ignore.
+            if let Some((scale, seconds)) = self.pose.time_scale.take() {
+                link.request_time_scale(scale, seconds);
+            }
         }
 
         let duration = self.run.as_ref().map_or(0.0, |r| r.duration());
@@ -509,6 +513,7 @@ impl StuntDirector {
             roll: 0.0,
             hover: false,
             focus: DVec3::new(env.car_x, env.altitude, env.car_z),
+            time_scale: None,
         };
         world.hold(true);
         if script.tier() == StuntTier::Rare {

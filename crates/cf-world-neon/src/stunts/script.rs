@@ -35,6 +35,9 @@ pub struct StuntPose {
     pub hover: bool,
     /// Le point que filme la caméra du mode cinéma (la voiture par défaut), absolu, m.
     pub focus: DVec3,
+    /// Ralenti du monde demandé cette image : `(facteur 0,1 → 1, durée en s)`. Écrit par la cascade (l'Ascension),
+    /// relevé et remis à `None` par le directeur, qui le transmet au chef du spectacle (`requestTimeScale`).
+    pub time_scale: Option<(f32, f32)>,
 }
 
 /// Le spectacle vu des cascades : les portes du look et ce que le chef du spectacle a décidé.
