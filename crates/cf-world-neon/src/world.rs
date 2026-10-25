@@ -15,6 +15,7 @@ use cf_show::model::ShowGates;
 use crate::facade::FacadeMaterial;
 use crate::scenery::arches::ArchPool;
 use crate::scenery::{self, Clearing, MAX_PARTS, Row, SceneryAssets, SceneryConfig, SpotAnchor};
+use crate::traffic::TrafficDirector;
 
 /// Longueur d'un tronçon : l'écart entre deux rangées d'immeubles (`SPACING` de `scenery.ts`), en m.
 pub const CHUNK_LENGTH_M: f32 = 26.0;
@@ -126,7 +127,7 @@ impl NeonWorld {
 
 impl World for NeonWorld {
     const ID: &'static str = "neon";
-    type SubjectParam = ();
+    type SubjectParam = Option<Res<'static, TrafficDirector>>;
 
     fn layout(&self) -> StreamLayout {
         StreamLayout {
@@ -178,5 +179,17 @@ impl World for NeonWorld {
         Replan::Keep
     }
 
-    fn subjects(&self, _ctx: &SubjectContext<'_>, &(): &(), _out: &mut SubjectSink<'_>) {}
+    /// Les sujets du trafic (véhicules de la flotte, structures d'événements), s'il y a un trafic.
+    fn subjects(
+        &self,
+        _ctx: &SubjectContext<'_>,
+        traffic: &Option<Res<'_, TrafficDirector>>,
+        out: &mut SubjectSink<'_>,
+    ) {
+        if let Some(traffic) = traffic {
+            traffic.collect_subjects(|subject| {
+                out.push(subject);
+            });
+        }
+    }
 }
