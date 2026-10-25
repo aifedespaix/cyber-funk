@@ -19,6 +19,7 @@ use cf_show::director::ShowState;
 
 use crate::pilot::{CarAnimation, DodgeSide, FlightPhase, PilotBrain, PilotSet, TrickKind};
 use crate::sky::RingPlanet;
+use crate::stunts::{StuntOrders, StuntSet};
 use crate::world::NeonWorld;
 
 /// Les yeux du conducteur, relatifs à la voiture (m) : au-dessus du siège, un peu en arrière du centre.
@@ -127,7 +128,7 @@ pub fn fill_cinema_world(world: &mut CinemaWorld, input: &CinemaInput<'_>) {
         ring_outer: r.ring_outer,
         ring_normal: r.ring_normal,
     });
-    // Ni cascades ni astres qui tombent dans Neon City pour l'instant.
+    // Les cascades sont écrites par `build_cinema_world` (J7-06) ; pas d'astres qui tombent dans Neon City pour l'instant.
     world.stunt = None;
     world.last_blast = None;
 }
@@ -143,7 +144,8 @@ impl Plugin for NeonCinemaPlugin {
             build_cinema_world
                 .in_set(CfSet::Simulate)
                 .after(WorldSet::Chunks)
-                .after(PilotSet),
+                .after(PilotSet)
+                .after(StuntSet),
         );
     }
 }
@@ -158,6 +160,7 @@ fn build_cinema_world(
     brain: Option<Res<PilotBrain>>,
     animation: Option<Res<CarAnimation>>,
     ring: Option<Res<RingPlanet>>,
+    stunts: Option<Res<StuntOrders>>,
     car: Query<&AbsolutePosition, With<StreamFocus>>,
     mut world: ResMut<CinemaWorld>,
 ) {
@@ -180,6 +183,15 @@ fn build_cinema_world(
     );
     // Le drop préparé vit dans le chef du spectacle, pas dans `ShowState` : sans cette lecture, le plan `dolly-zoom`
     // (qui se cale sur un drop annoncé) ne serait jamais jouable.
+    // La cascade en cours (J7-06) : le plan `stunt-cam` la cadre.
+    world.stunt = stunts
+        .as_deref()
+        .and_then(|orders| orders.view)
+        .map(|view| cf_cinema::Stunt {
+            kind: view.kind.as_str(),
+            progress: view.progress,
+            focus: view.focus,
+        });
     world.show.drop_planned = runtime.is_some_and(|runtime| runtime.director().drop_plan().is_some());
 }
 

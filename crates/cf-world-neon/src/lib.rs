@@ -14,6 +14,8 @@
 //!   exemples sans pilote ;
 //! - [`cinema`] (J6-01) : le branchement sur le réalisateur (collisions, `CinemaWorld` de chaque image) ;
 //! - [`pilot`] (J5-06) : le pilote automatique (allure, chorégraphie, vol, esquives) et [`CarAnimation`] ;
+//! - [`stunts`] (J7-06) : le directeur des cascades (portes, tirage, pose fondue sur le pilote) et le registre qui
+//!   attend les scripts de J7-07 ;
 //! - [`traffic`] (J7-03) : le trafic (véhicules volants, voitures au sol, registre d'événements pour J7-04 et J7-05) ;
 //! - [`car`] (J5-05) : la voiture (`CyberCar` de Sillage), ses lumières, sa traînée, la fumée de ses pneus. Elle prend la
 //!   place du pavé du point suivi provisoire.
@@ -36,6 +38,7 @@ pub mod route;
 pub mod scenery;
 pub mod signs;
 pub mod sky;
+pub mod stunts;
 pub mod traffic;
 pub mod world;
 
@@ -52,6 +55,7 @@ pub use route::{RoutePlan, RoutePlanner};
 pub use scenery::{Clearing, SceneryConfig, SpotAnchor};
 pub use signs::SignsPlugin;
 pub use sky::{RingPlanet, ShootingStarRequest, SkyLook, SkyPlugin};
+pub use stunts::{StuntDirector, StuntKind, StuntOrders, StuntRegistry, StuntSet, StuntsPlugin};
 pub use traffic::{TrafficAppExt, TrafficEvent, TrafficPlugin, TrafficSettings, TrafficStats};
 pub use world::NeonWorld;
 
