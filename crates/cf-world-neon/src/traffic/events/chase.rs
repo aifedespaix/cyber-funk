@@ -5,11 +5,12 @@
 //! Les gyrophares alternent rouge et bleu côté matière, derrière le limiteur de flashs (`TrafficFlash`, règle 7) ; ici les
 //! halos des gyrophares restent à intensité constante.
 //!
-//! Écart : pas de faisceau de sirène qui balaie la chaussée (pas de faisceaux dans [`EventCtx`]).
+//! Écart : le faisceau de la sirène est publié dans la scène (voir `airship`), mais à teinte constante (un mélange du rouge
+//! et du bleu des gyrophares) : l'alternance à 2,6 Hz de Sillage serait un stroboscope hors du limiteur de flashs.
 
 use bevy::math::{DVec3, Vec3};
 
-use super::common::{alive, index, pick_tone, range, release};
+use super::common::{alive, index, pick_tone, pin, range, release};
 use crate::traffic::air_lanes::LANES;
 use crate::traffic::event::{EventCtx, TrafficEvent};
 use crate::traffic::fleet::{CraftId, Fleet};
@@ -25,6 +26,8 @@ pub(crate) struct ChaseEvent {
     quarry: Option<CraftId>,
     alarm: bevy::color::LinearRgba,
     azure: bevy::color::LinearRgba,
+    /// Teinte du faisceau de sirène : constante.
+    siren: bevy::color::LinearRgba,
 }
 
 impl ChaseEvent {
@@ -35,6 +38,7 @@ impl ChaseEvent {
             quarry: None,
             alarm: super::common::tone(ctx, 0),
             azure: super::common::tone(ctx, 3),
+            siren: super::common::lerp_color(super::common::tone(ctx, 0), super::common::tone(ctx, 3), 0.5),
         };
         let oncoming = ctx.rng.unit() < 0.4;
         let lanes: Vec<usize> = LANES
@@ -111,7 +115,7 @@ impl TrafficEvent for ChaseEvent {
             self.quarry = None;
         }
         // Halos des deux gyrophares, de part et d'autre du toit, en lumière continue.
-        for &car_id in &self.police {
+        for (i, &car_id) in self.police.iter().enumerate() {
             let Some(car) = ctx.fleet.get(car_id) else {
                 continue;
             };
@@ -121,6 +125,14 @@ impl TrafficEvent for ChaseEvent {
                 .add(DVec3::new(p.x - side, p.y + 0.9, p.z), 3.2, self.alarm, 1.7);
             ctx.glints
                 .add(DVec3::new(p.x + side, p.y + 0.9, p.z), 3.2, self.azure, 1.7);
+
+            // Faisceau de la sirène : il balaie la chaussée sous la voiture de police, tant qu'elle est près de la voiture.
+            let car_z = ctx.frame.car.z;
+            if p.z <= car_z + 60.0 && p.z >= car_z - 260.0 && p.y.abs() <= 80.0 {
+                let sway = (ctx.frame.time as f32 * 3.0 + i as f32).sin() * 3.0;
+                let target_x = (p.x as f32 * 0.5 + sway).clamp(-8.0, 8.0);
+                pin(ctx, p, target_x, p.z - 10.0, self.siren);
+            }
         }
         true
     }

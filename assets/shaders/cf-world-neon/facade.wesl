@@ -41,6 +41,9 @@ struct Facade {
     audio: vec4<f32>,
     // x : humidité (`uWet`), y : pluie (`uRain`), z : pouls des fenêtres (`uWinPulse`).
     weather: vec4<f32>,
+    // Front d'une panne de courant (`uPower`) : x position en z du front, y demi-largeur de son fondu, z part des fenêtres
+    // éteintes au-delà du front, w sens (−1 : éteint du côté des z négatifs).
+    power: vec4<f32>,
 }
 
 @group(constants::MATERIAL_BIND_GROUP) @binding(0) var<uniform> facade: Facade;
@@ -222,7 +225,11 @@ fn fragment(in: FacadeVarying) -> @location(0) vec4<f32> {
         let wave_d = (h - travel) / 9.0;
         let wave = select(exp(-wave_d * wave_d), 0.0, far);
         let glow = 0.55 + wave * (1.0 + pulse * 0.9) + pulse * 0.2 + win_pulse * 0.6;
-        col += window_color * lit * mask * glow * (1.0 + 0.45 * wet);
+        // Panne de courant : part de lumière qui reste aux fenêtres derrière le front (1 partout sans panne).
+        let power_edge = max(facade.power.y, 0.001);
+        let behind = smoothstep(-power_edge, power_edge, (in.world.z - facade.power.x) * facade.power.w);
+        let power_left = 1.0 - facade.power.z * behind;
+        col += window_color * lit * mask * glow * (1.0 + 0.45 * wet) * power_left;
 
         // Ruissellement : des filets d'eau qui descendent, éclairés par les fenêtres et la teinte de la tour.
         let run_h = h21(vec2<f32>(floor(uu * 1.7) + seed * 0.3 + face, 3.0));

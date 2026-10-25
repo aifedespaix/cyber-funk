@@ -13,7 +13,7 @@ use std::collections::HashMap;
 
 use cf_render::SceneColor;
 
-pub use jobs::{Baked, Job, MAX_LIVE_SLOTS, bake, bake_all, jobs};
+pub use jobs::{Baked, Job, MAX_LIVE_SLOTS, bake, bake_all, bake_all_measured, jobs, thread_cpu_s};
 
 use super::ads::AdId;
 use super::formats::{CANVAS_H, CANVAS_W, TICKER_H};
@@ -278,12 +278,39 @@ impl Shelf {
     }
 }
 
+/// Ce que la cuisson a coûté, en secondes de temps CPU (voir [`thread_cpu_s`]).
+#[derive(Debug, Clone, Copy, PartialEq, Default)]
+pub struct BuildCost {
+    /// Temps CPU de tous les fils de cuisson ensemble ; `None` si le noyau ne le mesure pas.
+    pub workers_cpu_s: Option<f64>,
+    /// Temps CPU du fil qui range les pages (le fil appelant : les fils de cuisson sont d'autres fils).
+    pub assembly_cpu_s: Option<f64>,
+}
+
+impl BuildCost {
+    /// La durée qu'aurait la cuisson sur `threads` fils sur une machine au repos : le travail réparti également (les
+    /// fils prennent leur prochaine tâche dans une file commune, l'écart est d'une tâche) plus le rangement, qui est
+    /// sériel. `None` si le temps CPU n'est pas mesurable.
+    #[must_use]
+    pub fn idle_wall_s(&self, threads: usize) -> Option<f64> {
+        Some(self.workers_cpu_s? / threads.max(1) as f64 + self.assembly_cpu_s?)
+    }
+}
+
 impl BakedAtlas {
     /// Cuit tout l'atlas pour les créneaux donnés, sur `threads` fils.
     #[must_use]
     pub fn build(slots: &[super::show_signs::SlotNames], threads: usize) -> Self {
+        Self::build_measured(slots, threads).0
+    }
+
+    /// Comme [`BakedAtlas::build`], et rend aussi ce que la cuisson a coûté en temps CPU : le budget de chargement se
+    /// tient sur ce coût, que la charge de la machine ne fausse pas, et non sur le temps mural.
+    #[must_use]
+    pub fn build_measured(slots: &[super::show_signs::SlotNames], threads: usize) -> (Self, BuildCost) {
+        let assembly_start = thread_cpu_s();
         let list = jobs(slots);
-        let baked = bake_all(&list, slots, threads);
+        let (baked, workers_cpu_s) = bake_all_measured(&list, slots, threads);
         let mut rgba = Shelf::new(PageFormat::Rgba, CANVAS_H, CELL_ROWS, COLS);
         let mut r8 = Shelf::new(PageFormat::R8, CANVAS_H, CELL_ROWS, COLS);
         let mut strips = Shelf::new(PageFormat::R8, TICKER_H, STRIP_ROWS, 1);
@@ -347,7 +374,11 @@ impl BakedAtlas {
                 },
             );
         }
-        atlas
+        let cost = BuildCost {
+            workers_cpu_s,
+            assembly_cpu_s: thread_cpu_s().zip(assembly_start).map(|(end, start)| end - start),
+        };
+        (atlas, cost)
     }
 
     /// Mémoire des pages, en octets.

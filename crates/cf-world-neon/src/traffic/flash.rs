@@ -10,9 +10,16 @@
 //! Les gyrophares battent **ensemble** pour tous les véhicules (une horloge commune, au lieu d'une phase par véhicule) :
 //! sans cela, six voitures de police feraient dix-huit départs par seconde sur l'image. Chaque côté part une fois par
 //! période (1 s), gauche puis droite : deux départs par seconde au total, sous le plafond de trois.
+//!
+//! Les événements spectaculaires (J7-05) passent aussi par ici : l'éclair d'orage, l'éclat d'une salve de feu d'artifice
+//! et les variations de lumière de toute la ville (panne de courant) **demandent** un départ dans
+//! [`SceneFx`](super::scene::SceneFx) ; [`TrafficFlash::serve`] les présente au limiteur de leur voie et publie dans
+//! `SceneFx` ce qu'il accorde. Un événement ne règle jamais lui-même un éclat plein écran.
 
 use bevy::ecs::resource::Resource;
 use cf_show::limiter::{Channel, FlashLimiter, FlashRequest};
+
+use super::scene::SceneFx;
 
 /// Période du feu à éclats des gyrophares (s) : un départ rouge et un départ bleu par période. Sillage : 0,385 s
 /// (2,6 Hz) en tout ou rien, ce que le limiteur ne permettrait pas.
@@ -23,6 +30,21 @@ pub const ATTACK_S: f32 = 0.1;
 pub const BEACON_DECAY_S: f32 = 0.25;
 /// Descente du pouls de kick (s).
 pub const KICK_DECAY_S: f32 = 0.25;
+/// Montée et descente d'un éclair d'orage (s). Sillage : 0,42 s en tout, avec un scintillement ; la montée est celle du
+/// limiteur.
+pub const LIGHTNING_ATTACK_S: f32 = 0.1;
+/// Descente de l'éclair, s.
+pub const LIGHTNING_DECAY_S: f32 = 0.32;
+/// Montée et descente de l'éclat d'une salve (s).
+pub const BURST_ATTACK_S: f32 = 0.1;
+/// Descente de l'éclat d'une salve, s.
+pub const BURST_DECAY_S: f32 = 0.2;
+/// Une variation de lumière de toute la ville (début ou fin d'une panne de courant) est présentée à la voie « vague » :
+/// elle compte dans les trois départs par seconde et suit la politique (rien en respiration, rien si les flashs sont
+/// coupés).
+pub const WIDE_ATTACK_S: f32 = 0.3;
+/// Descente du départ « vague » (s) : la voie est de nouveau libre pour le retour de la lumière.
+pub const WIDE_DECAY_S: f32 = 0.5;
 /// Le pouls doit passer de sous `EDGE_LOW` à au-dessus de `EDGE_HIGH` pour compter pour un kick.
 const EDGE_HIGH: f32 = 0.8;
 const EDGE_LOW: f32 = 0.5;
@@ -36,12 +58,16 @@ fn request(attack_s: f32, decay_s: f32) -> FlashRequest {
     }
 }
 
-/// Les trois limiteurs du trafic : le pouls des kicks, le gyrophare gauche (rouge), le droit (bleu).
+/// Les limiteurs du trafic : le pouls des kicks, le gyrophare gauche (rouge), le droit (bleu), puis ceux des événements
+/// spectaculaires : l'éclair d'orage, l'éclat d'une salve, la variation de lumière de toute la ville.
 #[derive(Resource, Debug, Clone, Default)]
 pub struct TrafficFlash {
     kick: FlashLimiter,
     left: FlashLimiter,
     right: FlashLimiter,
+    lightning: FlashLimiter,
+    burst: FlashLimiter,
+    wide: FlashLimiter,
     last_pulse: f32,
     last_left: bool,
     last_right: bool,
@@ -52,7 +78,7 @@ impl TrafficFlash {
     /// scène (s) ; `pulse` : pouls du kick de l'analyse (0 → 1).
     pub fn update(&mut self, dt_s: f32, now: f64, policy: Option<(bool, bool)>, pulse: f32) {
         let (flashes, breathing) = policy.unwrap_or((false, true));
-        for limiter in [&mut self.kick, &mut self.left, &mut self.right] {
+        for limiter in self.limiters_mut() {
             limiter.set_policy(flashes, breathing);
         }
         if pulse > EDGE_HIGH && self.last_pulse < EDGE_LOW {
@@ -72,9 +98,48 @@ impl TrafficFlash {
         self.last_left = left_on;
         self.last_right = right_on;
 
-        for limiter in [&mut self.kick, &mut self.left, &mut self.right] {
+        for limiter in self.limiters_mut() {
             limiter.step(dt_s);
         }
+    }
+
+    fn limiters_mut(&mut self) -> [&mut FlashLimiter; 6] {
+        [
+            &mut self.kick,
+            &mut self.left,
+            &mut self.right,
+            &mut self.lightning,
+            &mut self.burst,
+            &mut self.wide,
+        ]
+    }
+
+    /// Présente les demandes des événements à leurs limiteurs et publie dans `fx` ce qui est accordé : le pouls du kick,
+    /// le blanchissement de l'éclair, l'éclat de la salve (0 → 1 chacun), si les flashs sont permis, et si la dernière
+    /// variation de lumière de toute la ville l'a été. À appeler après [`TrafficFlash::update`], à chaque image.
+    pub fn serve(&mut self, now: f64, fx: &mut SceneFx) {
+        if fx.lightning_request {
+            self.lightning
+                .trigger(request(LIGHTNING_ATTACK_S, LIGHTNING_DECAY_S), now);
+        }
+        if fx.burst_request {
+            self.burst.trigger(request(BURST_ATTACK_S, BURST_DECAY_S), now);
+        }
+        if fx.wide_request {
+            fx.wide_ok = self.wide.trigger(
+                FlashRequest {
+                    channel: Channel::Flash,
+                    peak: Channel::Flash.cap(),
+                    attack_s: WIDE_ATTACK_S,
+                    decay_s: WIDE_DECAY_S,
+                },
+                now,
+            );
+        }
+        fx.kick = self.pulse();
+        fx.lightning = self.lightning.value(Channel::Flash) / Channel::Flash.cap();
+        fx.burst = self.burst.value(Channel::Flash) / Channel::Flash.cap();
+        fx.flashes = self.permitted();
     }
 
     /// Le pouls que montrent les bandes néon, 0 → 1 : le niveau du limiteur ramené au plafond de sa voie.

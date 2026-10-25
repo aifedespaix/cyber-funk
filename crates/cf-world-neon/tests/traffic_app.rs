@@ -62,8 +62,9 @@ fn les_entites_sont_preallouees_au_demarrage_et_ne_changent_plus() {
     let mut app = app(false);
     drive(&mut app, 30);
     let entities = app.world().resource::<TrafficEntities>().entity_count();
-    // 212 véhicules (34×5 + 18 + 6×4), 220 traînées, les points lumineux et les murs.
-    assert_eq!(entities, 212 + 220 + 2);
+    // 212 véhicules (34×5 + 18 + 6×4), 220 traînées, les points lumineux et les murs, les deux couches de panneaux des
+    // structures (plein et lumière).
+    assert_eq!(entities, 212 + 220 + 2 + 2);
     let bodies = app.world_mut().query::<&TrafficBody>().iter(app.world()).count();
     let trails = app.world_mut().query::<&TrafficTrail>().iter(app.world()).count();
     assert_eq!((bodies, trails), (212, 220));

@@ -5,13 +5,13 @@
 //! Écarts (voir la PR) :
 //! - pas de panneaux pendus : [`EventCtx`] ne donne pas accès au gestionnaire d'enseignes (`SignLender`). Le vaisseau vole
 //!   donc sans son palonnier, et l'obstacle est la seule coque (c'est le cas du « mode fantôme » de Sillage) ;
-//! - pas de projecteur blanc qui suit la voiture (faisceaux absents) ;
+//! - le projecteur blanc qui suit la voiture est publié dans la scène (voir `airship`) ;
 //! - le vaisseau part toujours, là où Sillage ne partait que si des panneaux étaient libres.
 
 use bevy::color::LinearRgba;
 use bevy::math::{DVec3, Vec3};
 
-use super::common::{alive, index, pick_tone, range, release, set_pose, smooth, spawn_scripted, tone};
+use super::common::{alive, index, pick_tone, pin, range, release, set_pose, smooth, spawn_scripted, tone};
 use crate::pilot::flight::{Band, Obstruction};
 use crate::traffic::event::{EventCtx, TrafficEvent};
 use crate::traffic::fleet::CraftId;
@@ -46,6 +46,9 @@ pub(crate) struct AdShipEvent {
     vy: f32,
     time: f32,
     ship: DVec3,
+    /// Point visé par le projecteur blanc : il suit la voiture avec du retard.
+    aim_x: f32,
+    aim_z: f64,
     ice: LinearRgba,
     alarm: LinearRgba,
     mint: LinearRgba,
@@ -85,6 +88,8 @@ impl AdShipEvent {
             vy: 0.0,
             time: 0.0,
             ship: origin,
+            aim_x: ctx.frame.car.x as f32,
+            aim_z: ctx.frame.car.z,
             ice: tone(ctx, 2),
             alarm: tone(ctx, 0),
             mint: tone(ctx, 3),
@@ -157,6 +162,7 @@ impl TrafficEvent for AdShipEvent {
         let velocity = Vec3::new(self.vx, self.vy, -ctx.frame.speed - self.vr);
         set_pose(ctx, id, self.ship, velocity);
         self.lights(ctx);
+        self.spot(ctx, dt, t);
         true
     }
 
@@ -167,6 +173,26 @@ impl TrafficEvent for AdShipEvent {
 }
 
 impl AdShipEvent {
+    /// Le projecteur blanc cherche la voiture avec du retard, tremble un peu, et l'éclaire de loin comme de près.
+    fn spot(&mut self, ctx: &mut EventCtx<'_>, dt: f32, t: f32) {
+        if self.r.abs() >= 140.0 {
+            return;
+        }
+        let follow = (dt * 2.2).min(1.0);
+        let car = ctx.frame.car;
+        self.aim_x += (car.x as f32 + (t * 1.9).sin() * 0.9 - self.aim_x) * follow;
+        self.aim_z += (car.z - 2.0 + f64::from((t * 1.3).sin() * 3.5) - self.aim_z) * f64::from(follow);
+        let k = 0.4 + 0.6 * smooth(140.0, 80.0, self.r.abs());
+        let tint = LinearRgba::rgb(self.ice.red * k, self.ice.green * k, self.ice.blue * k);
+        pin(
+            ctx,
+            self.ship - DVec3::new(0.0, f64::from(HULL), 0.0),
+            self.aim_x,
+            self.aim_z,
+            tint,
+        );
+    }
+
     /// Feux de position et phare de ventre, comme le cargo des airs.
     fn lights(&self, ctx: &mut EventCtx<'_>) {
         let p = self.ship;

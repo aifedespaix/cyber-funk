@@ -230,32 +230,61 @@ fn estate_index() -> usize {
     CATALOGUE.iter().position(|a| a.kind == AdKind::Estate).unwrap_or(0)
 }
 
+/// Temps CPU consommé par le fil courant, en secondes, quand le noyau sait le dire (`/proc/thread-self/schedstat` sous
+/// Linux, avec la comptabilité d'ordonnancement) ; `None` sinon. Contrairement au temps mural, il ne gonfle pas quand la
+/// machine est chargée (d'autres tests, une compilation) : c'est ce qu'il faut pour tenir un budget de cuisson.
+#[must_use]
+pub fn thread_cpu_s() -> Option<f64> {
+    let stat = std::fs::read_to_string("/proc/thread-self/schedstat").ok()?;
+    let nanoseconds: u64 = stat.split_whitespace().next()?.parse().ok()?;
+    // Un compteur à zéro, c'est l'absence de comptabilité, pas un fil sans travail.
+    (nanoseconds > 0).then_some(nanoseconds as f64 * 1e-9)
+}
+
 /// Cuit `jobs` sur `threads` fils. Le résultat est dans l'ordre de `jobs`, quel que soit le nombre de fils.
 #[must_use]
 pub fn bake_all(jobs: &[Job], slots: &[SlotNames], threads: usize) -> Vec<Option<Baked>> {
+    bake_all_measured(jobs, slots, threads).0
+}
+
+/// Comme [`bake_all`], et rend aussi le temps CPU total des fils de cuisson, en secondes (`None` si un fil n'a pu être
+/// mesuré, voir [`thread_cpu_s`]).
+#[must_use]
+pub fn bake_all_measured(jobs: &[Job], slots: &[SlotNames], threads: usize) -> (Vec<Option<Baked>>, Option<f64>) {
     let next = AtomicUsize::new(0);
     let threads = threads.clamp(1, 16);
-    let mut done: Vec<(usize, Option<Baked>)> = std::thread::scope(|scope| {
+    let (mut done, cpu): (Vec<(usize, Option<Baked>)>, Option<f64>) = std::thread::scope(|scope| {
         let workers: Vec<_> = (0..threads)
             .map(|_| {
                 scope.spawn(|| {
                     let mut out = Vec::new();
-                    let Some(mut painter) = Painter::new() else { return out };
+                    let start = thread_cpu_s();
+                    let Some(mut painter) = Painter::new() else {
+                        return (out, None);
+                    };
                     loop {
                         let i = next.fetch_add(1, Ordering::Relaxed);
                         let Some(job) = jobs.get(i) else { break };
                         out.push((i, bake(&mut painter, *job, slots)));
                     }
-                    out
+                    let cpu = thread_cpu_s().zip(start).map(|(end, start)| end - start);
+                    (out, cpu)
                 })
             })
             .collect();
-        workers.into_iter().flat_map(|w| w.join().unwrap_or_default()).collect()
+        let mut all = Vec::new();
+        let mut total = Some(0.0);
+        for worker in workers {
+            let (out, cpu) = worker.join().unwrap_or_default();
+            all.extend(out);
+            total = total.zip(cpu).map(|(sum, cpu)| sum + cpu);
+        }
+        (all, total)
     });
     done.sort_by_key(|(i, _)| *i);
     let mut out: Vec<Option<Baked>> = (0..jobs.len()).map(|_| None).collect();
     for (i, baked) in done {
         out[i] = baked;
     }
-    out
+    (out, cpu)
 }

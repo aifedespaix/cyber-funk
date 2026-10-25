@@ -10,6 +10,7 @@ use crate::pilot::rand::Rand;
 use crate::traffic::event::EventCtx;
 use crate::traffic::fleet::CraftId;
 use crate::traffic::motion::Motion;
+use crate::traffic::scene::PinBeam;
 
 /// Rampe lisse de `a` à `b` (`smooth` de `context.ts`) : 0 avant `a`, 1 après `b`.
 pub(crate) fn smooth(a: f32, b: f32, v: f32) -> f32 {
@@ -52,6 +53,17 @@ pub(crate) fn lerp_color(a: LinearRgba, b: LinearRgba, t: f32) -> LinearRgba {
         a.blue + (b.blue - a.blue) * t,
         1.0,
     )
+}
+
+/// Braque un projecteur sur un point de la route (`ctx.pins.push` de Sillage) : d'`origin` (absolue) vers `(target_x,
+/// target_z)`, à la teinte `tint`. Le système de faisceaux du monde (J5-07) les lit dans la scène.
+pub(crate) fn pin(ctx: &mut EventCtx<'_>, origin: DVec3, target_x: f32, target_z: f64, tint: LinearRgba) {
+    ctx.scene.pin(PinBeam {
+        origin,
+        target_x,
+        target_z,
+        tint,
+    });
 }
 
 /// Prend un véhicule du pool, scénarisé à `position` avec la vitesse `velocity`. `None` si le pool est plein.

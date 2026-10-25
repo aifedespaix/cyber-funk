@@ -6,8 +6,8 @@
 //! et l'avancée du titre ([`HoloTitleEvent::pose`]) pour la couche de rendu.
 //!
 //! Écarts (voir la PR) :
-//! - le texte n'est pas celui du DJ : [`EventCtx`] ne transporte pas les noms du spectacle. Le titre est fourni par
-//!   l'appelant (le plugin, [`super::CalmEventsPlugin`]) ;
+//! - le texte est celui que le spectacle donne (`TrafficFrame::dj_title` : le nom du DJ en cours, à défaut celui de
+//!   l'événement, comme les enseignes) ; sans spectacle, le titre du plugin ([`super::CalmEventsPlugin`]) ;
 //! - l'éclat du kick n'agit pas sur le gain (il passerait par le limiteur de flashs, accessible côté matière seulement).
 
 use bevy::color::LinearRgba;
@@ -136,14 +136,21 @@ mod tests {
     #[test]
     fn le_titre_apparait_lettre_a_lettre_puis_s_efface() {
         let frame = TrafficFrame::default();
-        let (mut fleet, mut glints, mut walls, mut rng) =
-            (Fleet::new(), Glints::new(), LightWalls::new(), Rand::new(11));
+        let (mut fleet, mut glints, mut walls, mut rng, mut scene) = (
+            Fleet::new(),
+            Glints::new(),
+            LightWalls::new(),
+            Rand::new(11),
+            crate::traffic::scene::Scene::new(),
+        );
         let mut ctx = EventCtx {
             frame: &frame,
             fleet: &mut fleet,
             glints: &mut glints,
             walls: &mut walls,
             rng: &mut rng,
+            scene: &mut scene,
+            signs: None,
         };
         let mut event = HoloTitleEvent::new(&mut ctx, "DJ TEST");
         assert_eq!(event.title(), "DJ TEST");

@@ -99,6 +99,12 @@ fn le_resultat_ne_depend_pas_du_nombre_de_fils() {
 
 /// Critère de J7-01 : toutes les textures en moins de 2 s au chargement. Mesuré sur la cuisson complète, créneaux du
 /// show compris. En test (profil de développement) la marge est plus large ; `cargo test --release` tient les 2 s.
+///
+/// Ce qu'on mesure est du **temps CPU**, pas du temps mural : les tests tournent en parallèle et d'autres processus
+/// compilent sur la même machine, ce qui faisait dépasser le plafond à des cuissons parfaitement saines (le temps mural
+/// triplait). Le budget porte sur la durée qu'aurait la cuisson sur `threads` fils au repos ([`BuildCost::idle_wall_s`]) :
+/// le travail de tous les fils réparti, plus le rangement des pages. Sans comptabilité CPU du noyau (hors Linux), on
+/// retombe sur le temps mural, avec une marge triple, faute de mieux : le plafond reste un vrai plafond.
 #[test]
 fn la_cuisson_tient_dans_le_budget() {
     let slots = SignShow::names(
@@ -107,15 +113,23 @@ fn la_cuisson_tient_dans_le_budget() {
     );
     let threads = std::thread::available_parallelism().map_or(2, std::num::NonZero::get);
     let start = Instant::now();
-    let atlas = BakedAtlas::build(&slots, threads);
-    let elapsed = start.elapsed().as_secs_f32();
+    let (atlas, cost) = BakedAtlas::build_measured(&slots, threads);
+    let wall = start.elapsed().as_secs_f64();
+    let budget = if cfg!(debug_assertions) { 10.0 } else { 2.0 };
+    let (measured, what) = match cost.idle_wall_s(threads) {
+        Some(idle) => (idle, "temps CPU ramené au repos"),
+        None => (wall / 3.0, "temps mural / 3, faute de temps CPU"),
+    };
     eprintln!(
-        "atlas : {} cellules, {} bandeaux, {} pages, {:.1} Mo, {elapsed:.2} s sur {threads} fils",
+        "atlas : {} cellules, {} bandeaux, {} pages, {:.1} Mo, {wall:.2} s mural, {measured:.2} s ({what}) sur {threads} fils",
         atlas.cells.len(),
         atlas.strips.len(),
         atlas.pages.len(),
         atlas.bytes() as f64 / 1e6,
     );
-    let budget = if cfg!(debug_assertions) { 10.0 } else { 2.0 };
-    assert!(elapsed < budget, "{elapsed:.2} s ≥ {budget} s");
+    assert!(measured < budget, "{measured:.2} s ≥ {budget} s ({what})");
+    // Le coût mesuré est cohérent : la cuisson a bien travaillé (un temps CPU quasi nul serait une mesure cassée).
+    if let Some(cpu) = cost.workers_cpu_s {
+        assert!(cpu > 0.05, "{cpu} s de travail : la mesure est cassée");
+    }
 }

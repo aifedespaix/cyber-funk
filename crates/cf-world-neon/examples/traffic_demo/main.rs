@@ -37,6 +37,11 @@ const PULSE_DECAY_S: f32 = 0.12;
 
 fn main() {
     let check = std::env::var_os("CF_CHECK").is_some();
+    // `CF_EVENT=<slug>` : lance cet événement du trafic (lot A ou B) à la place de la vitrine, pour le juger à l'œil.
+    let event = std::env::var("CF_EVENT")
+        .ok()
+        .and_then(|slug| EventName::from_slug(&slug))
+        .unwrap_or(EventName::Bikes);
     let mut app = App::new();
     app.add_plugins(DefaultPlugins.set(WindowPlugin {
         primary_window: Some(Window {
@@ -90,6 +95,7 @@ fn main() {
         fx_flash: 0.0,
         drop: None,
     }))
+    .insert_resource(DemoEvent(event))
     .add_systems(Update, (beat, force_showcase).in_set(CfSet::Input));
     if check {
         app.init_resource::<check::Check>()
@@ -100,10 +106,14 @@ fn main() {
     app.run();
 }
 
-/// Lance la vitrine une fois : un événement forcé, quelles que soient les portes.
-fn force_showcase(mut director: ResMut<TrafficDirector>, mut done: Local<bool>) {
+/// L'événement que l'exemple lance : la vitrine (`Bikes`) ou, avec `CF_EVENT`, un événement du trafic.
+#[derive(Resource, Clone, Copy)]
+struct DemoEvent(EventName);
+
+/// Lance l'événement une fois : forcé, quelles que soient les portes.
+fn force_showcase(mut director: ResMut<TrafficDirector>, event: Res<DemoEvent>, mut done: Local<bool>) {
     if !*done {
-        director.force(EventName::Bikes);
+        director.force(event.0);
         *done = true;
     }
 }

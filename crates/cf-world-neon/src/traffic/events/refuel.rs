@@ -2,14 +2,15 @@
 //! des plus hauts étages), deux petits engins accrochés à sa coque par des flexibles de lumière dont le carburant circule
 //! en impulsions au tempo. Les engins collés au pétrolier ne descendent jamais jusqu'à la route.
 //!
-//! Écarts (voir la PR) : le projecteur qui balaie la chaussée n'est pas posé (pas de faisceaux dans [`EventCtx`]) ; les
+//! Écarts (voir la PR) : les deux projecteurs qui balaient la chaussée sont publiés dans la scène (voir `airship`) ; les
 //! feux de position ne clignotent pas (le clignotement passerait par le limiteur de flashs, accessible côté matière
 //! seulement) ; l'amplitude de l'impulsion des flexibles est réduite (0,9 + 0,6 × impulsion, au lieu de 0,9 + 2,4 ×).
 
 use bevy::color::LinearRgba;
 use bevy::math::{DVec3, Vec3};
+use cf_render::SceneColor;
 
-use super::common::{alive, index, pick_tone, range, release, set_pose, spawn_scripted, tone};
+use super::common::{alive, index, pick_tone, pin, range, release, set_pose, spawn_scripted, tone};
 use crate::traffic::event::{EventCtx, TrafficEvent};
 use crate::traffic::fleet::{CraftId, Fleet};
 use crate::traffic::variant::CARGO;
@@ -129,6 +130,23 @@ impl TrafficEvent for RefuelEvent {
             self.lamp_right,
             2.2,
         );
+
+        // Projecteurs sur la route tant que le pétrolier est à portée.
+        let car_z = ctx.frame.car.z;
+        let dz = position.z - car_z;
+        if dz < 60.0 && dz > -260.0 {
+            let time = ctx.frame.time as f32;
+            for i in 0..2 {
+                let t = time * 0.4 + self.phase + i as f32 * 2.1;
+                let side = if i == 0 { -1.0 } else { 1.0 };
+                let origin = position + DVec3::new(f64::from(side * scale * 0.3), f64::from(-scale * 0.2), 0.0);
+                let target_z = car_z - 25.0 - 40.0 * f64::from(0.5 + 0.5 * (t * 0.8 + i as f32).sin());
+                let tint = ctx
+                    .frame
+                    .named(if i == 0 { SceneColor::Amber } else { SceneColor::Ice });
+                pin(ctx, origin, t.sin() * 7.0, target_z, tint);
+            }
+        }
 
         // Les engins se tiennent sous le flexible et tanguent doucement.
         let t = self.age;
