@@ -31,5 +31,5 @@ fn vertex(v: BeamIn) -> BeamOut {
 fn fragment(in: BeamOut) -> @location(0) vec4<f32> {
     let scan = 0.55 + 0.45 * sin(in.t * 90.0 - p.frame.x * 14.0);
     let a = p.a.x * (0.04 + 0.06 * scan) * (1.0 - in.t * 0.35);
-    return vec4<f32>(p.mood.rgb * a * city_fade(in.world) * (1.0 + p.frame.y), 1.0);
+    return vec4<f32>(p.mood.rgb * a * city_fade(in.world) * (1.0 + p.frame.y), 0.0);
 }

@@ -303,6 +303,95 @@ mod tests {
         assert!(stage.active().is_none());
     }
 
+    /// Une image de pire cas : un kick tous les quarts de seconde (la cadence maximale du limiteur), des drops fréquents.
+    fn worst_case(i: u32, flashes: Option<bool>) -> TrafficFrame<'static> {
+        use crate::traffic::{TrafficDrive, TrafficShow};
+        let time = f64::from(i) / 60.0;
+        TrafficFrame {
+            time,
+            car: DVec3::new(0.0, 0.0, 0.0),
+            beat: crate::traffic::TrafficBeat {
+                kick: i % 15 == 0,
+                bass: 1.0,
+                high: if i % 2 == 0 { 1.0 } else { 0.0 },
+                pulse: if i % 15 < 3 { 1.0 } else { 0.0 },
+                count: i / 15,
+                bpm: Some(240.0),
+                ..crate::traffic::TrafficBeat::SILENT
+            },
+            drive: TrafficDrive {
+                drop: i % 120 == 60,
+                intensity: 1.0,
+                section: cf_analysis::Section::Peak,
+            },
+            show: flashes.map(|flashes| TrafficShow {
+                level: 5,
+                breathing: false,
+                flashes,
+                ground_traffic: 1.0,
+                event_rate: 1.0,
+                events: &[],
+                city_pulse: 0.0,
+                titles: false,
+                dj_seq: 0,
+                level_seq: 0,
+            }),
+            ..TrafficFrame::default()
+        }
+    }
+
+    #[test]
+    fn au_repos_le_pouls_que_lisent_les_shaders_reste_a_zero_pour_chaque_immeuble() {
+        // Pas de spectacle, ou flashs coupés par le look : rien ne brille d'un coup (règle 7).
+        for flashes in [None, Some(false)] {
+            for kind in LandmarkKind::ALL {
+                let mut stage = LandmarkStage::new();
+                let mut pass = LandmarkPass::begin(&mut stage, kind, 0.0, start(1));
+                for i in 0..600 {
+                    pass.update(&mut stage, &worst_case(i, flashes), 1.0 / 60.0);
+                    assert!(
+                        stage.uniform().pulse.abs() < f32::EPSILON,
+                        "{} : pouls {}",
+                        kind.as_str(),
+                        stage.uniform().pulse
+                    );
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn permis_le_pouls_borne_ne_varie_jamais_plus_vite_que_min_fade_et_reste_sous_trois_departs_par_seconde() {
+        for kind in LandmarkKind::ALL {
+            let mut stage = LandmarkStage::new();
+            let mut pass = LandmarkPass::begin(&mut stage, kind, 0.0, start(1));
+            let (mut last, mut starts) = (0.0_f32, Vec::new());
+            for i in 0..1800 {
+                pass.update(&mut stage, &worst_case(i, Some(true)), 1.0 / 60.0);
+                let pulse = stage.uniform().pulse;
+                assert!(
+                    (pulse - last).abs() <= (1.0 / 60.0) / cf_show::limiter::MIN_FADE + 1e-3,
+                    "{} : saut de {}",
+                    kind.as_str(),
+                    (pulse - last).abs()
+                );
+                if last < 0.5 && pulse >= 0.5 {
+                    starts.push(i);
+                }
+                last = pulse;
+            }
+            for &t in &starts {
+                let in_second = starts.iter().filter(|&&u| u >= t && u < t + 60).count();
+                assert!(in_second <= 3, "{} : {in_second} départs en 1 s", kind.as_str());
+            }
+            assert!(
+                !starts.is_empty(),
+                "{} : le pouls part quand c'est permis",
+                kind.as_str()
+            );
+        }
+    }
+
     #[test]
     fn un_pas_ecrit_la_pose_des_pieces_et_la_phase_suit_le_tempo() {
         let mut stage = LandmarkStage::new();

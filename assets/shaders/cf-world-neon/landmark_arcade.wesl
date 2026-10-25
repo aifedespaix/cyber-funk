@@ -86,5 +86,5 @@ fn fragment(in: HoloOut) -> @location(0) vec4<f32> {
     // Cadre de l'image.
     let b = min(in.uv, 1.0 - in.uv) * vec2<f32>(HOLO_W, HOLO_H);
     col += mood * sstep(0.35, 0.15, min(b.x, b.y)) * (0.4 + front * 0.6);
-    return vec4<f32>(col * city_fade(in.world), 1.0);
+    return vec4<f32>(col * city_fade(in.world), 0.0);
 }

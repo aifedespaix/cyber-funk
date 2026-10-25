@@ -68,3 +68,8 @@ required-features = ["demo"]
 name = "signs_demo"
 path = "examples/signs_demo/main.rs"
 required-features = ["demo"]
+
+[[example]]
+name = "landmarks_demo"
+path = "examples/landmarks_demo/main.rs"
+required-features = ["demo"]

@@ -7,7 +7,8 @@
 //! - **Un bloc d'uniformes** : la palette de la scène (onze couleurs), l'image (temps, pouls, basses…), puis quatre `Vec4` de
 //!   paramètres propres au rendu ; chaque shader documente les siens en tête de fichier.
 //! - **Additif ou opaque** : les rendus de lumière pure (`Look::additive`) ajoutent leur couleur à la scène, sans écrire la
-//!   profondeur ; les deux faces se voient. Les rendus de façade poussent leur profondeur devant le bloc d'immeuble (les
+//!   profondeur ; les deux faces se voient. Mélange « alpha prémultiplié » comme les enseignes : une sortie à **alpha nul**
+//!   s'additionne à la scène (alpha 1 la remplacerait). Les rendus de façade poussent leur profondeur devant le bloc d'immeuble (les
 //!   `polygonOffset` de Sillage).
 
 use bevy::asset::{Asset, Assets, Handle, uuid_handle};
@@ -170,7 +171,7 @@ pub(crate) fn embed_shaders(shaders: &mut Assets<Shader>) {
 impl Material for LandmarkMaterial {
     fn alpha_mode(&self) -> AlphaMode {
         if self.look.additive() {
-            AlphaMode::Add
+            AlphaMode::Premultiplied
         } else {
             AlphaMode::Opaque
         }
@@ -336,7 +337,7 @@ mod tests {
     fn le_mode_de_melange_suit_le_rendu() {
         let additive = LandmarkMaterial::new(Look::Beam, None);
         let opaque = LandmarkMaterial::new(Look::BoardFacade, None);
-        assert!(matches!(additive.alpha_mode(), AlphaMode::Add));
+        assert!(matches!(additive.alpha_mode(), AlphaMode::Premultiplied));
         assert!(matches!(opaque.alpha_mode(), AlphaMode::Opaque));
         assert_ne!(LandmarkKey::from(&additive), LandmarkKey::from(&opaque));
     }

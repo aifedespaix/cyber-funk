@@ -155,7 +155,18 @@ impl TrafficEvent for LandmarkEvent {
 /// À ajouter après les plugins de rendu de Bevy (les shaders sont embarqués à la construction) et, pour l'événement, avec
 /// le trafic ([`TrafficPlugin`](crate::TrafficPlugin)). **Sans rendu (tests)**, seules la logique et le champ sont installés.
 #[derive(Debug, Default, Clone, Copy)]
-pub struct LandmarksPlugin;
+pub struct LandmarksPlugin {
+    /// Installer aussi sans rendu (tests d'intégration) : les entités sont créées, le matériau est seulement déclaré.
+    pub force: bool,
+}
+
+impl LandmarksPlugin {
+    /// Installation complète même sans moteur de rendu.
+    #[must_use]
+    pub const fn always() -> Self {
+        Self { force: true }
+    }
+}
 
 impl Plugin for LandmarksPlugin {
     fn build(&self, app: &mut App) {
@@ -175,7 +186,7 @@ impl Plugin for LandmarksPlugin {
                 Update,
                 (sync_inputs.before(TrafficSet::Step), publish.after(TrafficSet::Step)).in_set(CfSet::Simulate),
             );
-        if rendering {
+        if rendering || self.force {
             app.add_systems(PostStartup, render::spawn_rig).add_systems(
                 Update,
                 render::apply_stage

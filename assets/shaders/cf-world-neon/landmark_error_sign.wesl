@@ -55,5 +55,5 @@ fn fragment(in: SignOut) -> @location(0) vec4<f32> {
     col += alarm * frame * (0.5 + front) * (0.8 + pulse * 1.2) * (1.0 - g * 0.3);
     // Presque pas de brouillard : on doit lire le mot de très loin.
     let far = 1.0 - 0.35 * smoothstep(250.0, 700.0, distance(in.world, view.world_position));
-    return vec4<f32>(col * far, 1.0);
+    return vec4<f32>(col * far, 0.0);
 }

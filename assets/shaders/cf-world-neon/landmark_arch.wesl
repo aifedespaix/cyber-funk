@@ -20,7 +20,7 @@ struct VoxelIn {
     @location(0) position: vec3<f32>,
     @location(1) normal: vec3<f32>,
     @location(2) uv: vec2<f32>,
-    @location(4) target: vec4<f32>,
+    @location(4) place: vec4<f32>,
     @location(5) rnd: vec4<f32>,
 }
 
@@ -54,7 +54,7 @@ fn vertex(v: VoxelIn) -> VoxelOut {
     let away = 1.0 - built;
 
     let centre = vec3<f32>(0.0, SPRING, 0.0);
-    let d = v.target.xyz - centre;
+    let d = v.place.xyz - centre;
     // Tourbillon autour du cœur de l'arche : l'écart, la rotation et l'altitude croissent avec la dispersion.
     let dir = select(-1.0, 1.0, v.rnd.z > 0.5);
     let spin_t = p.c.y;
@@ -74,7 +74,7 @@ fn vertex(v: VoxelIn) -> VoxelOut {
     wp.y *= city_grow(wp.xyz);
     var out: VoxelOut;
     out.uv = v.uv;
-    out.tone = v.target.w;
+    out.tone = v.place.w;
     out.seed = v.rnd.y;
     out.away = away;
     out.shade = 0.6 + 0.4 * abs(v.normal.y) + 0.15 * abs(v.normal.x);
@@ -96,5 +96,5 @@ fn fragment(in: VoxelOut) -> @location(0) vec4<f32> {
     var col = base * in.shade * (0.55 + 0.35 * edge);
     col = mix(col, color(C_ALARM) * 1.1, smoothstep(0.15, 0.7, in.away) * flicker * 0.75);
     col += color(C_ICE) * (1.0 - edge) * (0.25 + pulse * 0.5);
-    return vec4<f32>(col * city_fade(in.world) * (0.7 + (1.0 - in.away) * 0.5), 1.0);
+    return vec4<f32>(col * city_fade(in.world) * (0.7 + (1.0 - in.away) * 0.5), 0.0);
 }

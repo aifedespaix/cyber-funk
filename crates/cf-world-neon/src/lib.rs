@@ -117,7 +117,7 @@ impl Plugin for NeonWorldPlugin {
             FacadePlugin,
             SkyPlugin,
             SignsPlugin::default(),
-            LandmarksPlugin,
+            LandmarksPlugin::default(),
         ))
         .init_resource::<RoutePlan>()
         .init_resource::<RoutePlanner>()

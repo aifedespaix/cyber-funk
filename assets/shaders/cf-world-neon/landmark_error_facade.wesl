@@ -25,5 +25,5 @@ fn fragment(in: PlaneOut) -> @location(0) vec4<f32> {
     let scan = 0.5 + 0.5 * sin(q.y * 4.0 - time * 6.0);
     var col = color(C_ALARM) * (bar * seg * (0.6 + g * 1.4) + scan * 0.04 * (0.4 + p.frame.z));
     col += color(C_MINT) * step(0.98, h11(row + tick * 9.1)) * g * 0.5;
-    return vec4<f32>(col * city_fade(in.world), 1.0);
+    return vec4<f32>(col * city_fade(in.world), 0.0);
 }

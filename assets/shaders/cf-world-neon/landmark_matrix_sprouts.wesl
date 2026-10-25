@@ -42,5 +42,5 @@ fn fragment(in: SproutOut) -> @location(0) vec4<f32> {
     let g = glyph(in.uv, gid, 0.0, p.b.y);
     let fall = fract(in.seed.y - time * 0.05 * in.seed.w);
     let col = flow_color(in.seed.x + time * 0.8, 1.0 + pulse * 1.2) * g * (0.6 + 0.5 * fall);
-    return vec4<f32>(col * city_fade(in.world), 1.0);
+    return vec4<f32>(col * city_fade(in.world), 0.0);
 }
