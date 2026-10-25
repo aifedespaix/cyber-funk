@@ -251,6 +251,9 @@ fn le_materiau_de_facade_suit_la_musique_la_meteo_et_la_palette() {
         features.0.high = 0.6;
         features.0.beat = 17.25;
     }
+    app.world_mut()
+        .resource_mut::<cf_world_neon::WeatherSettings>()
+        .drive_road_look = false;
     app.world_mut().resource_mut::<RoadLook>().wet = 0.5;
     app.world_mut().resource_mut::<RoadLook>().rain = 0.25;
     app.world_mut().resource_mut::<FacadeLook>().build = 0.4;

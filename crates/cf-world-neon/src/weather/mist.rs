@@ -155,10 +155,10 @@ pub(super) fn spawn_mist(
     commands.insert_resource(MistRig { material });
 }
 
-/// Où se pose le plan quand la voiture est en `car` : `(x de la voiture, `MIST_Y`, 0,3 × côté devant elle)`.
+/// Où se pose le plan quand la voiture est en `car` : `(x de la voiture, MIST_Y, 0,3 × côté devant elle)`.
 #[must_use]
 pub fn mist_position(car: bevy::math::DVec3) -> bevy::math::DVec3 {
-    bevy::math::DVec3::new(car.x, f64::from(MIST_Y), car.z - f64::from(SIZE_M) * AHEAD_FRACTION)
+    bevy::math::DVec3::new(car.x, MIST_Y, car.z - f64::from(SIZE_M) * AHEAD_FRACTION)
 }
 
 #[cfg(test)]
@@ -170,7 +170,7 @@ mod tests {
     #[test]
     fn le_plan_se_pose_sous_la_route_devant_la_voiture() {
         let at = mist_position(DVec3::new(4.0, 1.0, -1_000_000.0));
-        assert!((at.y - f64::from(MIST_Y)).abs() < f64::EPSILON && (at.x - 4.0).abs() < f64::EPSILON);
+        assert!((at.y - MIST_Y).abs() < f64::EPSILON && (at.x - 4.0).abs() < f64::EPSILON);
         assert!((at.z - (-1_000_000.0 - 450.0)).abs() < 1e-9, "450 m devant");
     }
 
@@ -179,7 +179,7 @@ mod tests {
         let palette = ScenePalette::default();
         let full = mist_params(&palette, LinearRgb::default(), 6.0 * 3600.0, 0.0, 0.0, false);
         let cheap = mist_params(&palette, LinearRgb::default(), 6.0 * 3600.0, 0.0, 0.0, true);
-        assert!(full.frame.w == 0.0 && cheap.frame.w == 1.0);
+        assert!(full.frame.w < 0.5 && cheap.frame.w > 0.5);
         assert!(full.frame.x < TIME_WRAP_S as f32, "temps replié");
     }
 

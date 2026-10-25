@@ -58,6 +58,10 @@ pub fn show_rain_plan(level: u8) -> RainPlan {
 
 /// Le cycle des averses.
 #[derive(Debug, Clone)]
+#[allow(
+    clippy::struct_excessive_bools,
+    reason = "`enabled`, `raining`, `thundered` et `thunder` sont des bascules indépendantes, comme dans Sillage"
+)]
 pub struct Weather {
     /// Intensité de la pluie qui tombe, 0 → 1.
     pub rain: f32,
@@ -115,10 +119,12 @@ impl Weather {
         self.thunder = false;
         let plan = level.map(show_rain_plan);
         let allowed = self.enabled && plan.is_none_or(|p| p.dry[0] > 0.0);
-        if let Some(p) = plan {
-            if allowed && !self.raining && self.left_s > p.dry[1] {
-                self.left_s = p.dry[1];
-            }
+        if let Some(p) = plan
+            && allowed
+            && !self.raining
+            && self.left_s > p.dry[1]
+        {
+            self.left_s = p.dry[1];
         }
         // Sillage mettait `left = 0` ici, mais le décompte est gelé quand la pluie est interdite : l'averse ne s'arrêtait
         // jamais. On la coupe franchement (voir « Écarts » de la PR J5-04).

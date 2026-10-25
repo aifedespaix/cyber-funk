@@ -40,9 +40,9 @@ pub fn estimate(
     viewport_px: (u32, u32),
     fov_y_rad: f32,
 ) -> RainCost {
-    let (w, h) = (viewport_px.0 as f32, viewport_px.1 as f32);
+    let (width, height) = (viewport_px.0 as f32, viewport_px.1 as f32);
     let tan_half = (fov_y_rad * 0.5).tan();
-    let focal_px = h * 0.5 / tan_half;
+    let focal_px = height * 0.5 / tan_half;
     let center = Vec3::new(camera.x, 0.0, camera.z - BOX_M.z * AHEAD_FRACTION);
     let wrap = |x: f32, y: f32| x - y * (x / y).floor();
     let (mut shown, mut visible, mut fragments) = (0, 0, 0.0_f64);
@@ -65,7 +65,7 @@ pub fn estimate(
             continue;
         }
         let (x, y) = ((p.x - camera.x) / depth * focal_px, (p.y - camera.y) / depth * focal_px);
-        if x.abs() > w * 0.5 || y.abs() > h * 0.5 {
+        if x.abs() > width * 0.5 || y.abs() > height * 0.5 {
             continue;
         }
         visible += 1;
@@ -81,7 +81,7 @@ pub fn estimate(
         triangles: shown * 2,
         drops_visible: visible,
         fragments_px: fragments,
-        overdraw: fragments / f64::from(w * h),
+        overdraw: fragments / f64::from(width * height),
     }
 }
 

@@ -61,7 +61,12 @@ fn tout_ce_que_le_monde_dessine_est_dans_la_couche_monde() {
         .map(|(n, l, _)| (n.to_string(), l.clone()))
         .collect();
     // La route, le point suivi et les six pavés des arches ont un nom ; les pièces des tronçons n'en ont pas (voir `city.rs`).
-    assert_eq!(found.len(), 2 + 6, "la route, le point suivi et les arches : {found:?}");
+    // Plus la pluie et la brume (J5-04) : une entité chacune, créées au démarrage.
+    assert_eq!(
+        found.len(),
+        2 + 6 + 2,
+        "la route, le point suivi, les arches, la pluie et la brume : {found:?}"
+    );
     for (name, layers) in &found {
         assert_eq!(*layers, world_layers, "{name} n'est pas dans la couche monde");
     }
@@ -176,6 +181,9 @@ fn a_400_km_le_plan_reste_pres_de_l_origine_rendue() {
 fn le_materiau_suit_le_pouls_les_basses_et_la_teinte() {
     let mut app = app(0.0, 0.0);
     app.insert_resource(AudioFeatures(cf_analysis::AudioFeatures::NEUTRAL));
+    app.world_mut()
+        .resource_mut::<cf_world_neon::WeatherSettings>()
+        .drive_road_look = false;
     app.world_mut().resource_mut::<RoadLook>().wet = 0.5;
     {
         let mut features = app.world_mut().resource_mut::<AudioFeatures>();

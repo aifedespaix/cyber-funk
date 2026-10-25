@@ -11,6 +11,11 @@
 //!
 //! Sans écran : `xvfb-run -a` et le rendu logiciel de Mesa (`VK_ICD_FILENAMES=/usr/share/vulkan/icd.d/lvp_icd.json`).
 
+#![allow(
+    clippy::print_stderr,
+    reason = "les verdicts du mode CF_CHECK sont écrits sur la sortie d'erreur"
+)]
+
 #[path = "../road_demo/shots.rs"]
 #[allow(
     dead_code,

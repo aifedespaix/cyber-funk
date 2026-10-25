@@ -34,6 +34,9 @@ pub struct WeatherSettings {
     pub enabled: bool,
     /// Graine des averses.
     pub seed: u64,
+    /// La météo écrit l'humidité et la pluie dans `RoadLook`. Faux : `RoadLook` reste à la main de l'appelant (tests et
+    /// captures de référence de la route et des façades, qui fixent eux-mêmes l'humidité).
+    pub drive_road_look: bool,
 }
 
 impl Default for WeatherSettings {
@@ -41,6 +44,7 @@ impl Default for WeatherSettings {
         Self {
             enabled: true,
             seed: 0x7a1_5eed,
+            drive_road_look: true,
         }
     }
 }
@@ -78,6 +82,12 @@ pub struct Thunder;
 /// L'étape où la météo avance (`CfSet::Simulate`).
 #[derive(SystemSet, Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct WeatherSet;
+
+/// Ce que la pluie lit du point suivi : sa position absolue et, si c'est la voiture, son état.
+type RainFocus = (&'static AbsolutePosition, Option<&'static CarState>);
+
+/// L'entité de la pluie (jamais le point suivi).
+type RainEntity = (With<Rain>, Without<StreamFocus>);
 
 /// Densité de gouttes voulue : l'intensité de l'averse, réduite par la qualité adaptative (`rain_density`) ou le mode calme.
 #[must_use]
@@ -135,8 +145,10 @@ pub(super) fn step_weather(
     // Pas d'éclair sans le limiteur : flashs coupés, respiration ou sans spectacle, il reste le tonnerre sonore.
     state.lightning.update(dt, time.elapsed_secs_f64(), rumble, policy);
 
-    road.wet = state.weather.wet;
-    road.rain = state.weather.rain;
+    if settings.drive_road_look {
+        road.wet = state.weather.wet;
+        road.rain = state.weather.rain;
+    }
     // Mode calme (`reducedMotion`) : l'objectif reste sec (`setLens` de `postfx.ts`).
     let calm = sky.is_some_and(|s| s.calm);
     lens.rain = if calm { 0.0 } else { state.weather.rain };
@@ -195,10 +207,10 @@ pub(super) fn update_rain(
     levers: Option<Res<QualityLevers>>,
     sky: Option<Res<SkyLook>>,
     field: Option<Res<CityField>>,
-    car: Query<(&AbsolutePosition, Option<&CarState>), With<StreamFocus>>,
+    car: Query<RainFocus, With<StreamFocus>>,
     rig: Res<RainRig>,
     mut materials: ResMut<Assets<RainMaterial>>,
-    mut rain: Query<(&mut AbsolutePosition, &mut Visibility), (With<Rain>, Without<StreamFocus>)>,
+    mut rain: Query<(&mut AbsolutePosition, &mut Visibility), RainEntity>,
 ) {
     let calm = sky.is_some_and(|s| s.calm);
     let density = rain_density(state.weather.rain, levers.as_deref(), calm);
@@ -271,7 +283,7 @@ mod tests {
             (rain_density(1.0, Some(&full), true) - CALM_RAIN_DENSITY).abs() < 1e-6,
             "mode calme"
         );
-        assert!(rain_density(f32::NAN, Some(&full), false) == 0.0);
+        assert!(rain_density(f32::NAN, Some(&full), false).abs() < f32::EPSILON);
     }
 
     #[test]
