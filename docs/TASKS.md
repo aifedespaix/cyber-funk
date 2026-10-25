@@ -51,7 +51,7 @@ vient de la taille de la tâche et du nombre d'itérations, bien plus que du dé
 ## Statuts
 
 ⬜ à faire · 🟨 en cours · 🟦 PR ouverte · ✅ fusionnée.
-En cours au dernier point : aucune.
+En cours au dernier point : J7-01.
 
 | ID | Tâche | Modèle | Effort | Dépend de | Statut |
 | --- | --- | --- | --- | --- | --- |
@@ -102,7 +102,7 @@ En cours au dernier point : aucune.
 | J6-05 | [Plans, lot C : sujets du monde](tasks/J6.md) | Sonnet 5.5 | `medium` | J6-01 | ✅ |
 | J7-01 | [Système d'enseignes et textures 2D procédurales](tasks/J7.md) | Sonnet 5.5 | `high` | J5-02, J4-07 | ⬜ |
 | J7-02 | [Enseigne géante du DJ](tasks/J7.md) | Sonnet 5.5 | `high` | J7-01, J2-05 | ⬜ |
-| J7-03 | [Trafic : socle](tasks/J7.md) | Sonnet 5.5 | `high` | J5-02 | ⬜ |
+| J7-03 | [Trafic : socle](tasks/J7.md) | Sonnet 5.5 | `high` | J5-02 | ✅ |
 | J7-04 | [Événements du trafic, lot A (calmes et urbains)](tasks/J7.md) | Haiku 5.5 | `medium` | J7-03 | ⬜ |
 | J7-05 | [Événements du trafic, lot B (vol et démesure)](tasks/J7.md) | Sonnet 5.5 | `medium` | J7-03 | ⬜ |
 | J7-06 | [Directeur des cascades](tasks/J7.md) | Sonnet 5.5 | `high` | J5-06 | ⬜ |
