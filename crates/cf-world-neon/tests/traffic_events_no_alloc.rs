@@ -43,7 +43,7 @@ fn frame_at(i: usize) -> TrafficFrame<'static> {
         car: DVec3::new(0.0, 0.0, -400_000.0 - time * 30.0),
         speed: 30.0,
         beat: TrafficBeat {
-            kick: i % 28 == 0,
+            kick: i.is_multiple_of(28),
             bass: 0.7,
             mid: 0.5,
             pulse: if i % 28 < 7 { 1.0 - (i % 28) as f32 / 7.0 } else { 0.0 },

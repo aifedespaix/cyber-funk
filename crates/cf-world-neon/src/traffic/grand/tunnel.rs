@@ -16,6 +16,8 @@ use crate::pilot::flight::Obstruction;
 use crate::traffic::event::{EventCtx, Focus, TrafficEvent};
 use crate::traffic::events::common::{lerp_color, range};
 
+/// Les teintes du cycle prismatique.
+const HUES: i64 = 6;
 /// Nombre maximal d'anneaux.
 pub(crate) const TUNNEL_RINGS: usize = 20;
 const MIN_RINGS: f32 = 12.0;
@@ -32,7 +34,7 @@ const MAX_S: f32 = 60.0;
 pub(crate) struct TunnelEvent {
     zs: Vec<f64>,
     direction: f64,
-    offset: usize,
+    offset: i64,
     start_count: u32,
     age: f32,
 }
@@ -42,7 +44,7 @@ impl TunnelEvent {
         let rings = range(ctx.rng, MIN_RINGS, TUNNEL_RINGS as f32).round() as usize;
         let spacing = range(ctx.rng, 13.0, 19.0);
         let direction = if ctx.rng.coin() { 1.0 } else { -1.0 };
-        let offset = (ctx.rng.unit() * ctx.frame.cycle.len() as f64) as usize;
+        let offset = (ctx.rng.unit() * HUES as f64) as i64;
         let first = ctx.frame.car.z - f64::from(range(ctx.rng, FIRST_MIN_M, FIRST_MAX_M));
         Self {
             zs: (0..rings.min(TUNNEL_RINGS))
@@ -94,14 +96,18 @@ impl TrafficEvent for TunnelEvent {
         let rings = self.zs.len();
         for i in 0..rings {
             // Chenillard : un anneau sur quatre porte le kick, et le motif avance d'un cran à chaque temps.
-            let chaser = if (i as u32 + count) % 4 == 0 { pulse } else { 0.0 };
+            let chaser = if (i as u32 + count).is_multiple_of(4) {
+                pulse
+            } else {
+                0.0
+            };
             // Vague de lumière sur la phrase : elle traverse tout le tunnel une fois par phrase.
             let wave =
                 0.5 + 0.5 * ((i as f64 / rings as f64 - phrase * self.direction) * std::f64::consts::TAU).sin() as f32;
             let level = (IDLE + 0.38 * wave * wave + 0.62 * chaser + 0.2 * pulse) * rise;
             // Vague de couleur : la teinte avance le long du tunnel et d'une phrase à l'autre.
-            let hue = (i as f64 / 3.0 + stage * self.direction).floor() as i64 + self.offset as i64;
-            let at = |k: i64| cycle[k.rem_euclid(cycle.len() as i64) as usize];
+            let hue = (i as f64 / 3.0 + stage * self.direction).floor() as i64 + self.offset;
+            let at = |k: i64| cycle[k.rem_euclid(HUES) as usize];
             let colour = lerp_color(at(hue), at(hue + 1), blend);
             let k = level.min(1.3);
             let colour = LinearRgba::rgb(colour.red * k, colour.green * k, colour.blue * k);

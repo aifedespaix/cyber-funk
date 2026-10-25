@@ -238,7 +238,7 @@ pub fn thread_cpu_s() -> Option<f64> {
     let stat = std::fs::read_to_string("/proc/thread-self/schedstat").ok()?;
     let nanoseconds: u64 = stat.split_whitespace().next()?.parse().ok()?;
     // Un compteur à zéro, c'est l'absence de comptabilité, pas un fil sans travail.
-    (nanoseconds > 0).then(|| nanoseconds as f64 * 1e-9)
+    (nanoseconds > 0).then_some(nanoseconds as f64 * 1e-9)
 }
 
 /// Cuit `jobs` sur `threads` fils. Le résultat est dans l'ordre de `jobs`, quel que soit le nombre de fils.

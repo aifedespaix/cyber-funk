@@ -414,7 +414,7 @@ mod tests {
         rig.end(&mut ev);
         // Rangé : il ne pose plus rien.
         rig.step(&mut ev, 1.0 / 60.0, |_| {});
-        assert!(rig.scene.panels.solid().is_empty());
+        assert_eq!(rig.scene.panels.solid().len(), 0);
     }
 
     #[test]

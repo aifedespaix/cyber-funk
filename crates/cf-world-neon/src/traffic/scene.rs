@@ -49,6 +49,7 @@ pub struct PowerFront {
 }
 
 /// Effets de ville : demandes des événements, niveaux accordés par le limiteur.
+#[allow(clippy::struct_excessive_bools)] // Trois demandes et deux permissions indépendantes : des drapeaux, pas un état.
 #[derive(Debug, Clone, Copy, PartialEq, Default)]
 pub struct SceneFx {
     // --- Écrit par les événements, remis à zéro à chaque image par `Scene::begin` ---
@@ -169,6 +170,6 @@ mod tests {
         }
         assert_eq!(scene.pins().len(), MAX_PINS);
         scene.begin(DVec3::ZERO);
-        assert!(scene.pins().is_empty());
+        assert_eq!(scene.pins().len(), 0);
     }
 }

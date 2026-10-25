@@ -136,7 +136,7 @@ impl TowerEvent {
             PanelKind::Rails,
             DVec3::new(
                 f64::from(self.side * (FACE_X_M - 0.15)),
-                f64::from((TOP_M + BOTTOM_M) * 0.5),
+                f64::from(f32::midpoint(TOP_M, BOTTOM_M)),
                 self.z,
             ),
             Vec3::new(0.0, 0.0, self.side * DEPTH_M * 0.5),

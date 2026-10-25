@@ -182,6 +182,7 @@ pub fn panel_mesh() -> Mesh {
 
 /// Écrit les panneaux de l'image dans le maillage et rend le nombre de panneaux écrits. Les panneaux de l'image précédente
 /// qui ne sont plus là sont rendus dégénérés ; `previous` est ce nombre.
+#[allow(clippy::many_single_char_names)] // n, v, i, k : tampons de sommets, comme `write_glints`.
 pub fn write_panels(mesh: &mut Mesh, panels: &[Panel], previous: usize) -> usize {
     let n = panels.len().min(PANEL_CAPACITY);
     let touched = n.max(previous.min(PANEL_CAPACITY));
@@ -204,7 +205,7 @@ pub fn write_panels(mesh: &mut Mesh, panels: &[Panel], previous: usize) -> usize
             VertexAttributeValues::Float32x2(v) if attribute.id == Mesh::ATTRIBUTE_UV_0.id => {
                 for i in 0..n {
                     for (k, corner) in CORNERS.iter().enumerate() {
-                        v[i * 4 + k] = [(corner[0] + 1.0) * 0.5, (corner[1] + 1.0) * 0.5];
+                        v[i * 4 + k] = [f32::midpoint(corner[0], 1.0), f32::midpoint(corner[1], 1.0)];
                     }
                 }
             }

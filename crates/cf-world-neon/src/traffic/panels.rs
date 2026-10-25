@@ -265,7 +265,7 @@ mod tests {
             0.3,
         );
         assert_eq!(panels.solid().len(), 5);
-        assert!(panels.light().is_empty());
+        assert_eq!(panels.light().len(), 0);
         // Chaque face a une normale unitaire et ses dimensions réelles.
         for panel in panels.solid() {
             assert!((panel.normal().length() - 1.0).abs() < 1e-5);
@@ -288,7 +288,7 @@ mod tests {
             );
         }
         assert_eq!(panels.light().len(), PANEL_CAPACITY);
-        assert!(panels.solid().is_empty());
+        assert_eq!(panels.solid().len(), 0);
         panels.begin(DVec3::ZERO);
         assert_eq!(panels.used(), 0);
     }

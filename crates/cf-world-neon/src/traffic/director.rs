@@ -223,6 +223,7 @@ impl TrafficDirector {
 
     /// Comme [`TrafficDirector::update`], avec le gestionnaire de panneaux de la route prêté aux événements pour cette
     /// image (le vaisseau publicitaire y prend ses écrans).
+    #[allow(clippy::needless_option_as_deref, clippy::manual_map)] // Voir la coercion de `signs` plus bas.
     pub fn update_with_signs(
         &mut self,
         frame: &TrafficFrame<'_>,
@@ -696,7 +697,7 @@ mod tests {
         }
         assert_eq!(director.active_count(), 0, "l'événement est fini (2 s)");
         assert_eq!(leased(&road), 0, "le panneau est rendu à la fin");
-        assert!(director.scene.pins().is_empty());
+        assert_eq!(director.scene.pins().len(), 0);
     }
 
     #[test]
@@ -718,7 +719,7 @@ mod tests {
         director.scene.fx.power.depth = 0.9;
         director.shutdown(&frame);
         assert_eq!(director.active_count(), 0);
-        assert!(director.scene.pins().is_empty());
+        assert_eq!(director.scene.pins().len(), 0);
         assert!(director.scene.fx.power.depth.abs() < f32::EPSILON);
     }
 }

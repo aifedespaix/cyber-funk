@@ -82,7 +82,7 @@ mod tests {
         draw(&mut scene, -300.0, LinearRgba::WHITE, 0.0);
         // Deux montants et la barre : 5 faces chacun, dans la couche pleine ; pas de rideau éteint.
         assert_eq!(scene.panels.solid().len(), 15);
-        assert!(scene.panels.light().is_empty());
+        assert_eq!(scene.panels.light().len(), 0);
         draw(&mut scene, -380.0, LinearRgba::WHITE, 1.0);
         assert_eq!(scene.panels.light().len(), 1);
     }

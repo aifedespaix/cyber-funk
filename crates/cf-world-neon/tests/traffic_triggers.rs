@@ -95,7 +95,7 @@ fn frame(app: &mut App, i: usize, hostile: bool) {
         audio.0.live = true;
         audio.0.section = Section::Peak;
         audio.0.intensity = 0.9;
-        audio.0.kick = i % period == 0;
+        audio.0.kick = i.is_multiple_of(period);
         audio.0.pulse = if i % period < 3 {
             1.0 - (i % period) as f32 / 3.0
         } else {

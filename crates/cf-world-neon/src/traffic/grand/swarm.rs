@@ -36,6 +36,7 @@ fn serpent(i: usize, n: usize) -> Vec3 {
 }
 
 /// Sphère de Fibonacci.
+#[allow(clippy::many_single_char_names)] // i, n, y, r, a : les noms de `swarm.ts`.
 fn sphere(i: usize, n: usize) -> Vec3 {
     let y = 1.0 - i as f32 / (n - 1) as f32 * 2.0;
     let r = (1.0 - y * y).sqrt();

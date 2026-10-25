@@ -124,6 +124,7 @@ impl Plugin for CalmEventsPlugin {
 mod tests {
     use super::*;
     use crate::pilot::rand::Rand;
+    use crate::traffic::events::test_rig::Rig;
     use crate::traffic::fleet::Fleet;
     use crate::traffic::frame::TrafficFrame;
     use crate::traffic::glints::Glints;
@@ -283,25 +284,24 @@ mod tests {
     #[test]
     fn le_titre_holographique_prend_le_nom_du_dj_quand_le_spectacle_le_donne() {
         let mut registry = registry();
-        let mut rig = crate::traffic::events::test_rig::Rig::new(4);
-        let title =
-            |registry: &mut EventRegistry, rig: &mut crate::traffic::events::test_rig::Rig, dj: Option<&str>| {
-                let frame = TrafficFrame {
-                    dj_title: dj,
-                    ..rig.frame()
-                };
-                let mut ctx = EventCtx {
-                    frame: &frame,
-                    fleet: &mut rig.fleet,
-                    glints: &mut rig.glints,
-                    walls: &mut rig.walls,
-                    rng: &mut rig.rng,
-                    scene: &mut rig.scene,
-                    signs: None,
-                };
-                let event = registry.create(EventName::HoloTitle, &mut ctx).expect("inscrit");
-                format!("{event:?}")
+        let mut rig = Rig::new(4);
+        let title = |registry: &mut EventRegistry, rig: &mut Rig, dj: Option<&str>| {
+            let frame = TrafficFrame {
+                dj_title: dj,
+                ..rig.frame()
             };
+            let mut ctx = EventCtx {
+                frame: &frame,
+                fleet: &mut rig.fleet,
+                glints: &mut rig.glints,
+                walls: &mut rig.walls,
+                rng: &mut rig.rng,
+                scene: &mut rig.scene,
+                signs: None,
+            };
+            let event = registry.create(EventName::HoloTitle, &mut ctx).expect("inscrit");
+            format!("{event:?}")
+        };
         assert!(title(&mut registry, &mut rig, Some("DJ AIFE")).contains("DJ AIFE"));
         assert!(title(&mut registry, &mut rig, None).contains(DEFAULT_TITLE));
     }
