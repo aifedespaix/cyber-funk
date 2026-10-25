@@ -41,6 +41,11 @@ rusty_link = "0.4"
 # Voiture (J5-05) : décodage des GLB `EXT_meshopt_compression` + `EXT_texture_webp`, que `bevy_gltf` ne lit pas.
 meshopt = { version = "0.7", default-features = false }
 
+# Enseignes (J7-01) : textures 2D procédurales, rendues sur CPU au chargement (jamais par image).
+tiny-skia = { version = "0.12", default-features = false, features = ["std", "simd"] }
+# Pas de `fontconfig` : les polices sont celles du dépôt (`assets/fonts/`), jamais celles de la machine.
+cosmic-text = { version = "0.19", default-features = false, features = ["std", "swash"] }
+
 # Données, erreurs, journaux, utilitaires
 serde = { version = "1.0", features = ["derive"] }
 ron = "0.12"

@@ -28,8 +28,10 @@ Inventaire des fichiers repris de Sillage (dépôt `aifedespaix/aifedespaix.com`
 | `textures/planets/ice.jpg` | `public/sillage/planets/ice.jpg` | CC0 (voir `textures/planets/LICENCE.md`) | 47 Ko |
 | `textures/planets/moon.jpg` | `public/sillage/planets/moon.jpg` | CC0 (voir `textures/planets/LICENCE.md`) | 17 Ko |
 | `textures/planets/ocean.jpg` | `public/sillage/planets/ocean.jpg` | CC0 (voir `textures/planets/LICENCE.md`) | 48 Ko |
+| `fonts/DejaVuSans-Bold.ttf` | Aucune (police externe, projet DejaVu 2.37, paquet `fonts-dejavu-core`) ; cuisson des enseignes (J7-01) | Bitstream Vera (voir `fonts/LICENCE.md`) | 693 Ko |
+| `fonts/DejaVuSansMono-Bold.ttf` | Aucune (idem) | Bitstream Vera (voir `fonts/LICENCE.md`) | 326 Ko |
 
-Total : ~19 Mo.
+Total : ~20 Mo.
 
 ## Non repris
 

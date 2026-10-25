@@ -127,7 +127,10 @@ impl NeonWorld {
 
 impl World for NeonWorld {
     const ID: &'static str = "neon";
-    type SubjectParam = Option<Res<'static, TrafficDirector>>;
+    type SubjectParam = (
+        Option<Res<'static, TrafficDirector>>,
+        Option<Res<'static, crate::signs::SignRoadRes>>,
+    );
 
     fn layout(&self) -> StreamLayout {
         StreamLayout {
@@ -183,12 +186,28 @@ impl World for NeonWorld {
     fn subjects(
         &self,
         _ctx: &SubjectContext<'_>,
-        traffic: &Option<Res<'_, TrafficDirector>>,
+        (traffic, signs): &(
+            Option<Res<'_, TrafficDirector>>,
+            Option<Res<'_, crate::signs::SignRoadRes>>,
+        ),
         out: &mut SubjectSink<'_>,
     ) {
         if let Some(traffic) = traffic {
             traffic.collect_subjects(|subject| {
                 out.push(subject);
+            });
+        }
+        // Les panneaux lisibles (J7-01) : les plans « enseigne » du réalisateur les filment.
+        if let Some(signs) = signs {
+            signs.0.collect_signs(|id, position, facing, width| {
+                out.push(cf_render::world::Subject {
+                    id,
+                    kind: cf_render::world::SubjectKind::Sign,
+                    position,
+                    velocity: Vec3::ZERO,
+                    size: width,
+                    facing: Some(facing),
+                });
             });
         }
     }

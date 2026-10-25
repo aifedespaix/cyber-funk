@@ -16,11 +16,13 @@ cf-analysis.workspace = true
 cf-cinema.workspace = true
 cf-render.workspace = true
 cf-show.workspace = true
+cosmic-text.workspace = true
 meshopt.workspace = true
 rand_core.workspace = true
 rand_pcg.workspace = true
 serde.workspace = true
 serde_json.workspace = true
+tiny-skia.workspace = true
 thiserror.workspace = true
 tracing.workspace = true
 
@@ -60,4 +62,9 @@ required-features = ["demo"]
 [[example]]
 name = "traffic_demo"
 path = "examples/traffic_demo/main.rs"
+required-features = ["demo"]
+
+[[example]]
+name = "signs_demo"
+path = "examples/signs_demo/main.rs"
 required-features = ["demo"]
