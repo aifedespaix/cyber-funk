@@ -74,7 +74,14 @@ impl Burst {
     /// Demande un départ qui retombe en `decay_s` secondes. Refusé (faux) s'il est interdit ou trop rapproché du
     /// précédent : l'appelant n'a alors rien à montrer.
     pub fn trigger(&mut self, decay_s: f32, now: f64) -> bool {
-        self.limiter.trigger(request(BURST_ATTACK_S, decay_s), now)
+        self.trigger_scaled(1.0, decay_s, now)
+    }
+
+    /// Comme [`Self::trigger`], avec une force de 0 à 1 (la part du plafond de la voie que l'on demande).
+    pub fn trigger_scaled(&mut self, strength: f32, decay_s: f32, now: f64) -> bool {
+        let mut request = request(BURST_ATTACK_S, decay_s);
+        request.peak *= strength.clamp(0.0, 1.0);
+        self.limiter.trigger(request, now)
     }
 
     /// Avance d'une image avec la politique du spectacle.
