@@ -17,10 +17,10 @@ node tools/car/inject-mask.mjs "$SRC/dirty_raw.glb" "$SRC/dirty_bake/paint_mask.
 # high : 2k WebP + meshopt
 $G resize "$T/masked.glb" "$T/h1.glb" --width 2048 --height 2048
 $G webp "$T/h1.glb" "$T/h2.glb" --quality 90
-$G meshopt "$T/h2.glb" "$OUT/car-high.glb" --level high
+$G meshopt "$T/h2.glb" "$OUT/car-dirty-high.glb" --level high
 # low : 1k WebP, 60 % des triangles (la dirty car est déjà légère : ~18 000 triangles) + meshopt
 $G resize "$T/masked.glb" "$T/l1.glb" --width 1024 --height 1024
 $G simplify "$T/l1.glb" "$T/l2.glb" --ratio 0.6 --error 0.002
 $G webp "$T/l2.glb" "$T/l3.glb" --quality 80
-$G meshopt "$T/l3.glb" "$OUT/car-low.glb" --level high
+$G meshopt "$T/l3.glb" "$OUT/car-dirty-low.glb" --level high
 ls -la "$OUT"/*.glb

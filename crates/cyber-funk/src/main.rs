@@ -123,6 +123,7 @@ fn build_app(
         // La voiture se lit dans le dossier des ressources résolu, pas dans `assets/` du dossier de travail.
         CarPlugin {
             assets_dir: cli.assets_dir.clone(),
+            variant: settings.as_ref().map_or_else(Default::default, |plugin| plugin.initial.car.into()),
             ..CarPlugin::default()
         },
         PilotPlugin::default(),

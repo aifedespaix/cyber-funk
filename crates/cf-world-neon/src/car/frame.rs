@@ -156,8 +156,8 @@ mod tests {
     use crate::car::model::Fore;
 
     fn car() -> CarModelAsset {
-        let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../assets/models/car/car-low.glb");
-        CarModelAsset::from_glb(&std::fs::read(path).expect("car-low.glb")).expect("modèle lisible")
+        let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../assets/models/car/car-dirty-low.glb");
+        CarModelAsset::from_glb(&std::fs::read(path).expect("car-dirty-low.glb")).expect("modèle lisible")
     }
 
     #[test]

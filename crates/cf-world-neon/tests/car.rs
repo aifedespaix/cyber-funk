@@ -1,7 +1,7 @@
 //! La voiture dans une vraie `App` Bevy, sans rendu : chargement du GLB par l'`AssetServer`, couches, boîtes englobantes,
 //! lumières qui pulsent sur les kicks, clignotants, absence d'entités créées en régime établi, précision à 400 km.
 //!
-//! Le modèle (`assets/models/car/car-low.glb`, la variante légère) est décodé pour de vrai : meshopt, WebP, tout.
+//! Le modèle (`assets/models/car/car-dirty-low.glb`, la variante légère) est décodé pour de vrai : meshopt, WebP, tout.
 
 #![allow(clippy::expect_used, clippy::panic)]
 
@@ -16,7 +16,7 @@ use cf_render::{
     AbsolutePosition, AudioFeatures, CorePlugin, CurrentShowFx, Layer, ShowFxInput, aabb_encloses_mesh, mesh_aabb,
 };
 use cf_world_neon::car::effects::{CarSmoke, CarTrail};
-use cf_world_neon::car::{Car, CarControls, CarPaintMaterial, CarPlugin, CarRig, CarState, ModelQuality};
+use cf_world_neon::car::{Car, CarControls, CarPaintMaterial, CarPlugin, CarRig, CarState, CarVariant, ModelQuality};
 use cf_world_neon::{ChasePlugin, NeonWorldPlugin, RunnerConfig};
 
 const FRAME: Duration = Duration::from_micros(16_667);
@@ -48,6 +48,7 @@ fn app(start_z_m: f64, speed_mps: f64) -> App {
         },
         CarPlugin {
             quality: ModelQuality::Low,
+            variant: CarVariant::Dirty,
             // Les tests tournent dans `crates/cf-world-neon` : les assets sont à la racine du dépôt.
             assets_dir: "../../assets".into(),
         },

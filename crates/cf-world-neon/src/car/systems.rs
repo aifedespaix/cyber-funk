@@ -72,9 +72,9 @@ impl Default for CarSettings {
 /// Version du modèle à charger (`pickQuality` de Sillage : la légère pour les machines modestes).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum ModelQuality {
-    /// `car-high.glb` : textures 2k, ~85 000 triangles.
+    /// `car-*-high.glb` : textures 2k.
     High,
-    /// `car-low.glb` : textures 1k, ~40 000 triangles.
+    /// `car-*-low.glb` : textures 1k.
     Low,
     /// La légère sur quatre cœurs ou moins (comme Sillage : « peu de mémoire ou de cœurs »), la haute sinon.
     #[default]
@@ -82,18 +82,66 @@ pub enum ModelQuality {
 }
 
 impl ModelQuality {
-    /// Chemin du modèle, relatif au dossier `assets/`.
+    /// La version légère est-elle celle à charger ?
     #[must_use]
-    pub fn path(self) -> &'static str {
-        let low = match self {
+    pub fn is_low(self) -> bool {
+        match self {
             Self::High => false,
             Self::Low => true,
             Self::Auto => std::thread::available_parallelism().is_ok_and(|n| n.get() <= 4),
-        };
-        if low {
-            "models/car/car-low.glb"
-        } else {
-            "models/car/car-high.glb"
+        }
+    }
+}
+
+/// Laquelle des deux voitures est à l'écran.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default)]
+pub enum CarVariant {
+    /// La « dirty car » (volant à gauche), la voiture actuelle.
+    #[default]
+    Dirty,
+    /// La `CyberCar` d'origine de Sillage.
+    Cyber,
+}
+
+impl CarVariant {
+    /// Les deux voitures, dans l'ordre où l'opérateur les voit.
+    pub const ALL: [Self; 2] = [Self::Dirty, Self::Cyber];
+
+    /// Chemin du modèle, relatif au dossier `assets/`.
+    #[must_use]
+    pub fn path(self, quality: ModelQuality) -> &'static str {
+        match (self, quality.is_low()) {
+            (Self::Dirty, false) => "models/car/car-dirty-high.glb",
+            (Self::Dirty, true) => "models/car/car-dirty-low.glb",
+            (Self::Cyber, false) => "models/car/car-cyber-high.glb",
+            (Self::Cyber, true) => "models/car/car-cyber-low.glb",
+        }
+    }
+
+    /// Nom affiché à l'opérateur.
+    #[must_use]
+    pub fn label(self) -> &'static str {
+        match self {
+            Self::Dirty => "Dirty car",
+            Self::Cyber => "CyberCar",
+        }
+    }
+}
+
+impl From<cf_show::persist::CarChoice> for CarVariant {
+    fn from(choice: cf_show::persist::CarChoice) -> Self {
+        match choice {
+            cf_show::persist::CarChoice::Dirty => Self::Dirty,
+            cf_show::persist::CarChoice::Cyber => Self::Cyber,
+        }
+    }
+}
+
+impl From<CarVariant> for cf_show::persist::CarChoice {
+    fn from(variant: CarVariant) -> Self {
+        match variant {
+            CarVariant::Dirty => Self::Dirty,
+            CarVariant::Cyber => Self::Cyber,
         }
     }
 }

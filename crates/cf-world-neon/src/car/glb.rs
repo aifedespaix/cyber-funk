@@ -398,10 +398,16 @@ mod tests {
     /// [−1, 1], normales unitaires (après le filtre octaédrique), indices dans les bornes.
     #[test]
     fn les_glb_de_la_voiture_se_decompressent() {
-        for name in ["car-high.glb", "car-low.glb"] {
+        // (fichier, nombre de nœuds, nombre d'images) : la CyberCar a deux nœuds de moins que la dirty car.
+        for (name, nodes, images) in [
+            ("car-dirty-high.glb", 55, 8),
+            ("car-dirty-low.glb", 55, 8),
+            ("car-cyber-high.glb", 53, 4),
+            ("car-cyber-low.glb", 53, 4),
+        ] {
             let gltf = glb(name);
-            assert_eq!(gltf.nodes().len(), 55, "{name}");
-            assert_eq!(gltf.images().len(), 8, "{name}");
+            assert_eq!(gltf.nodes().len(), nodes, "{name}");
+            assert_eq!(gltf.images().len(), images, "{name}");
             let mut triangles = 0;
             for mesh in gltf.meshes() {
                 for primitive in &mesh.primitives {
@@ -427,11 +433,13 @@ mod tests {
                     triangles += indices.len() / 3;
                 }
             }
-            // ~31 000 triangles en haute définition (la dirty car et ses tubes néon), ~25 000 en basse.
-            let expected = if name.contains("high") {
-                25_000..40_000
-            } else {
-                20_000..30_000
+            // Dirty car : ~31 000 triangles en haute définition (ses tubes néon), ~25 000 en basse.
+            // CyberCar : ~88 000 en haute (CYBERCAR.md §7), ~40 000 en basse.
+            let expected = match (name.contains("cyber"), name.contains("high")) {
+                (false, true) => 25_000..40_000,
+                (false, false) => 20_000..30_000,
+                (true, true) => 80_000..95_000,
+                (true, false) => 35_000..50_000,
             };
             assert!(expected.contains(&triangles), "{name} : {triangles} triangles");
         }

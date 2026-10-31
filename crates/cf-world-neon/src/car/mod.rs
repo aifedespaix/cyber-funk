@@ -48,7 +48,7 @@ pub use glb::{CarModelError, Gltf};
 pub use materials::{CarLightMaterial, CarPaintMaterial};
 pub use model::CarModelAsset;
 pub use rig::{Car, CarRig, CarState};
-pub use systems::{CarControls, CarSettings, ModelQuality};
+pub use systems::{CarControls, CarSettings, CarVariant, ModelQuality};
 
 /// Installe la voiture. À ajouter après les plugins de rendu de Bevy, `CorePlugin` et le monde.
 ///
@@ -61,6 +61,8 @@ pub use systems::{CarControls, CarSettings, ModelQuality};
 pub struct CarPlugin {
     /// Version du modèle à charger.
     pub quality: ModelQuality,
+    /// Voiture à poser au départ.
+    pub variant: CarVariant,
     /// Dossier `assets/` du dépôt.
     pub assets_dir: std::path::PathBuf,
 }
@@ -69,6 +71,7 @@ impl Default for CarPlugin {
     fn default() -> Self {
         Self {
             quality: ModelQuality::default(),
+            variant: CarVariant::default(),
             assets_dir: "assets".into(),
         }
     }
@@ -80,7 +83,7 @@ impl Plugin for CarPlugin {
             return;
         }
         app.insert_resource(systems::CarModelSource {
-            path: self.assets_dir.join(self.quality.path()),
+            path: self.assets_dir.join(self.variant.path(self.quality)),
         })
         .init_resource::<CarControls>()
         .init_resource::<CarSettings>()

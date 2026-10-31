@@ -384,8 +384,37 @@ mod tests {
     }
 
     #[test]
+    fn les_deux_voitures_se_decodent_en_haute_et_basse_qualite_avec_les_noeuds_du_pilote() {
+        for file in [
+            "car-dirty-high.glb",
+            "car-dirty-low.glb",
+            "car-cyber-high.glb",
+            "car-cyber-low.glb",
+        ] {
+            let car = load(file);
+            for name in [
+                "spin_FL",
+                "spin_FR",
+                "spin_RL",
+                "spin_RR",
+                "steer_FL",
+                "steer_FR",
+                "anchor_headlight_L",
+                "anchor_headlight_R",
+                "body",
+            ] {
+                assert!(car.node(name).is_some(), "{file} : nœud {name} absent");
+            }
+            assert!(
+                car.materials.iter().any(|m| m.role == MaterialRole::BodyPaint),
+                "{file} : pas de peinture"
+            );
+        }
+    }
+
+    #[test]
     fn le_modele_porte_les_noeuds_et_materiaux_que_le_code_pilote() {
-        let car = load("car-low.glb");
+        let car = load("car-dirty-low.glb");
         for name in [
             "spin_FL",
             "spin_FR",
@@ -424,7 +453,7 @@ mod tests {
     #[test]
     fn le_masque_de_peinture_est_decode_en_non_srgb_et_la_couleur_en_srgb() {
         use bevy::render::render_resource::TextureFormat;
-        let car = load("car-low.glb");
+        let car = load("car-dirty-low.glb");
         let paint = car
             .materials
             .iter()
