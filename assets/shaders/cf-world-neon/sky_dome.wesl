@@ -96,5 +96,23 @@ fn fragment(in: VertexOutput) -> @location(0) vec4<f32> {
     let band = exp(-(across * across));
     let dust = smoothstep(0.35, 0.75, fbm3(d * 9.0));
     col += mix(azure, violet, 0.5 + 0.5 * cloud_a) * band * (0.2 - 0.12 * dust) * (1.0 + pulse * 0.25);
+
+    // Soleil synthwave : un grand disque bas sur l'horizon, droit devant (-z), rayé de bandes qui s'épaississent vers le
+    // bas. Discret (la ville le cache en grande partie) : il donne un point focal chaud à la route et respire avec le kick.
+    let sun_dir = normalize(vec3<f32>(0.0, 0.07, -1.0));
+    let sun_radius = 0.2;
+    let to_sun = d - sun_dir;
+    // Coordonnées dans le disque : x latéral, y vertical (rayon d'arc en radians, assez petit pour être plan).
+    let sx = to_sun.x;
+    let sy = to_sun.y;
+    let disc = 1.0 - smoothstep(sun_radius * 0.96, sun_radius, sqrt(sx * sx + sy * sy));
+    // Bandes : absentes en haut, de plus en plus larges vers le bas (les derniers étages sont presque coupés).
+    let down = clamp((sun_radius - sy) / (2.0 * sun_radius), 0.0, 1.0);
+    let stripe = smoothstep(0.0, 0.08, abs(fract(sy * 28.0 / sun_radius * 0.25) - 0.5) * 2.0 - down * 0.9);
+    let sun_mask = disc * mix(1.0, stripe, smoothstep(0.35, 0.55, down));
+    let sun_col = mix(rose, violet, down) * 1.6 + azure * 0.15;
+    col += sun_col * sun_mask * (0.55 + pulse * 0.2) * step(0.0, -d.z);
+    // Halo diffus autour du disque.
+    col += mix(rose, violet, 0.5) * exp(-dot(to_sun, to_sun) / (sun_radius * sun_radius * 2.5)) * 0.08;
     return vec4<f32>(col * reveal, reveal);
 }
