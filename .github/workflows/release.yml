@@ -61,6 +61,10 @@ jobs:
           - os: macos-latest # Apple Silicon (arm64)
             formats: dmg
     runs-on: ${{ matrix.os }}
+    # bash partout : sous Windows le shell par défaut est PowerShell, où "$VAR" ne se développe pas.
+    defaults:
+      run:
+        shell: bash
     env:
       VERSION: ${{ needs.checks.outputs.version }}
     steps:
