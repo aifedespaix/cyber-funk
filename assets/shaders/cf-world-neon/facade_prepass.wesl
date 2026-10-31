@@ -14,7 +14,8 @@ fn vertex(vertex_in: Vertex) -> VertexOutput {
     let vertex = decompress_vertex(vertex_in, vertex_in.instance_index);
     let m = get_world_from_local(vertex_in.instance_index);
     var wp = m * vec4<f32>(vertex.position, 1.0);
-    wp.y *= 1.0 - smoothstep(300.0, 440.0, distance(wp.xz, view.world_position.xz));
+    let vista = 1.0 + 1.6 * smoothstep(35.0, 140.0, view.world_position.y);
+    wp.y *= 1.0 - smoothstep(300.0 * vista, 440.0 * vista, distance(wp.xz, view.world_position.xz));
     out.world_position = wp;
     out.position = position_world_to_clip(wp.xyz);
 @if(VERTEX_UVS_A)

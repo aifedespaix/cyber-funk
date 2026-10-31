@@ -102,17 +102,22 @@ fn fbm(q_in: vec2<f32>) -> f32 {
 
 // Comme les gratte-ciel : les structures « poussent » du sol entre 300 et 440 m (aucune apparition brutale), et le
 // brouillard les avale au loin.
+fn city_vista() -> f32 {
+    return 1.0 + 1.6 * smoothstep(35.0, 140.0, view.world_position.y);
+}
+
 fn city_grow(world: vec3<f32>) -> f32 {
-    return 1.0 - smoothstep(300.0, 440.0, distance(world.xz, view.world_position.xz));
+    let v = city_vista();
+    return 1.0 - smoothstep(300.0 * v, 440.0 * v, distance(world.xz, view.world_position.xz));
 }
 
 fn city_fog(col: vec3<f32>, world: vec3<f32>) -> vec3<f32> {
-    let f = smoothstep(90.0, 380.0, distance(world, view.world_position));
+    let f = smoothstep(90.0 * city_vista(), 380.0 * city_vista(), distance(world, view.world_position));
     return mix(col, color(C_INK) + color(C_VIOLET) * 0.05, f);
 }
 
 fn city_fade(world: vec3<f32>) -> f32 {
-    return 1.0 - smoothstep(110.0, 400.0, distance(world, view.world_position));
+    return 1.0 - smoothstep(110.0 * city_vista(), 400.0 * city_vista(), distance(world, view.world_position));
 }
 
 // Position monde -> repère de la pièce, pour une matrice « rotation × échelle uniforme ».

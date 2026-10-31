@@ -33,7 +33,7 @@ const SHOWER_CHANCE: f64 = 0.4;
 /// Un astre ne parcourt jamais plus que ça entre deux tests de collision (m) : il ne traverse pas un mur mince.
 const MAX_STEP: f64 = 3.0;
 /// Un astre plus loin que ça derrière la voiture est recyclé (m).
-const RECYCLE_BEHIND_M: f64 = 160.0;
+const RECYCLE_BEHIND_M: f64 = 420.0;
 
 /// Le pool d'astres, leurs anneaux de brume et le minuteur des lancers.
 #[derive(Debug, Clone)]

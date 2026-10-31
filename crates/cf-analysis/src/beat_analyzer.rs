@@ -15,6 +15,7 @@ use crate::beat::{BeatDetector, BeatState};
 use crate::events::{AudioEventKind, EventSink};
 use crate::features::AudioFeatures;
 use crate::sections::SectionTracker;
+use crate::texture::TextureAnalyzer;
 
 /// Durée d'une image de référence de Sillage (s) : le gain du micro compte son temps en images à 60 i/s.
 const REFERENCE_FRAME_S: f64 = 1.0 / 60.0;
@@ -25,6 +26,7 @@ pub struct BeatAnalyzer {
     analyser: AnalyserEmulation,
     detector: BeatDetector,
     sections: SectionTracker,
+    texture: TextureAnalyzer,
     mic_gain: MicGain,
     /// La source analysée est une capture : le gain automatique s'applique.
     capture: bool,
@@ -50,6 +52,7 @@ impl BeatAnalyzer {
             analyser: AnalyserEmulation::new(smoothing),
             detector: BeatDetector::new(),
             sections: SectionTracker::new(),
+            texture: TextureAnalyzer::new(),
             mic_gain: MicGain::new(ANALYSIS_SAMPLE_RATE),
             capture: false,
             auto_gain: true,
@@ -103,6 +106,12 @@ impl BeatAnalyzer {
         out.bpm = state.bpm;
         out.section = self.sections.section();
         out.intensity = self.sections.intensity() as f32;
+        let texture = self.texture.state();
+        out.flux = texture.flux;
+        out.onset = texture.onset;
+        out.hat = texture.hat;
+        out.brightness = texture.brightness;
+        out.noisiness = texture.noisiness;
     }
 }
 
@@ -132,6 +141,7 @@ impl Analyzer for BeatAnalyzer {
             f64::from(ctx.dt_s),
         );
         let kick = state.kick;
+        self.texture.update(spectrum, ctx.sample_rate, ctx.dt_s);
         let changed = self.sections.update(state.loud, f64::from(ctx.dt_s));
         // `state` emprunte le détecteur : on le relit après avoir avancé les sections, qui sont un autre champ.
         let state = *self.detector.state();
@@ -147,6 +157,7 @@ impl Analyzer for BeatAnalyzer {
 
     fn idle(&mut self, out: &mut AudioFeatures) {
         self.detector.rest();
+        self.texture.rest();
         let state = *self.detector.state();
         self.publish(&state, out);
     }
@@ -171,6 +182,7 @@ impl Analyzer for BeatAnalyzer {
         self.detector.reset();
         self.analyser.reset();
         self.sections.reset();
+        self.texture.reset();
         self.mic_gain.reset();
     }
 }

@@ -1,5 +1,14 @@
 //! La séquence de la géante à anneau (`cinema/shots/ringworld.ts`) : on monte au-dessus de la ville, on voyage jusqu'à la
 //! planète, on survole son anneau, on en fait le tour, puis on replonge. Aucune lumière touchée (règle 7).
+//!
+//! # Le voyage est réel, la planète reste à l'infini
+//!
+//! La planète vit dans la couche du ciel : on ne s'en approche qu'en décalant le ciel (`sky_drift`). Pour que ce soit la
+//! **caméra** qui parte, elle décrit en plus un vrai cercle de 240 à 300 m de rayon autour de la ville, jusqu'à ~480 m
+//! d'altitude, pendant que le ciel se décale. Le subterfuge qui garde la ville présente : la fenêtre de tronçons et la
+//! brume sont assez larges (`vista` des shaders, `FOG_END_M`) pour qu'elle s'étale sous la caméra jusqu'à l'horizon, et
+//! le regard garde une part de la ville (`CITY_LOOK`) : elle reste dans le cadre pendant tout le tour, jamais un décor
+//! que la caméra aurait quitté. Rien n'est tiré pour l'occasion : la ville est celle que la voiture traverse.
 
 use bevy::math::{DVec3, Vec3};
 use cf_render::CameraPose;
@@ -20,7 +29,16 @@ const LOOP: f32 = 5.5;
 const DIVE: f32 = 7.0;
 const TOTAL: f32 = CLIMB + APPROACH + GLIDE + LOOP + DIVE;
 /// Hauteur (m) au-dessus de la voiture où la ville se noie dans la brume.
-const CEILING: f32 = 280.0;
+const CEILING: f32 = 480.0;
+/// Rayon (m) du cercle que la caméra décrit autour de la voiture pendant la glissade et le tour, et angle (rad) où elle le
+/// quitte : trois quarts de tour environ, de sorte que la plongée finale ramène la caméra devant la voiture.
+const ORBIT_R_M: f32 = 240.0;
+const ORBIT_R_END_M: f32 = 300.0;
+const ANGLE_APPROACH_END: f32 = 0.35;
+const ANGLE_GLIDE_END: f32 = 2.5;
+const ANGLE_LOOP_END: f32 = 4.4;
+/// Part du regard qui reste sur la ville (0 : tout le ciel) pendant la glissade et le tour.
+const CITY_LOOK: f32 = 0.25;
 /// Demi-tour d'anneau survolé et distance au centre de la planète (m, repère du ciel).
 const PHI_START: f32 = -0.9;
 const PHI_GLIDE_END: f32 = 0.2;
@@ -63,14 +81,25 @@ impl RingBasis {
     }
 }
 
-/// Pose haute au-dessus de la voiture, entre la montée et la plongée.
-fn high_position(frame: &CinemaFrame<'_>, lift: f32, behind: f32) -> DVec3 {
+/// Pose haute sur un cercle de rayon `radius` autour de la voiture, à l'angle `angle` (0 : derrière elle, ce qui redonne la
+/// pose de montée de Sillage avec `radius` = 30).
+fn high_position(frame: &CinemaFrame<'_>, lift: f32, radius: f32, angle: f32) -> DVec3 {
     let car = frame.car;
-    DVec3::new(car.x * 0.4, car.y + f64::from(lift), car.z + f64::from(behind))
+    DVec3::new(
+        car.x * 0.4 + f64::from(radius * angle.sin()),
+        car.y + f64::from(lift),
+        car.z + f64::from(radius * angle.cos()),
+    )
 }
 
 /// Raideurs de suivi (position, ciel, regard) en 1/s.
 type Rates = [f32; 3];
+
+/// Ce que le regard garde de la ville pendant le tour : un point sur la route, un peu devant la voiture.
+fn car_focus(frame: &CinemaFrame<'_>) -> DVec3 {
+    let car = frame.car;
+    DVec3::new(car.x * 0.35, car.y, car.z - 60.0)
+}
 
 /// Séquence épique : on monte au-dessus de la ville, on voyage jusqu'à la géante à anneau, on la survole, puis on replonge.
 #[derive(Debug, Clone, Copy, Default)]
@@ -91,6 +120,9 @@ impl ShotSpec for Ringworld {
     }
     fn max_seconds(&self) -> f32 {
         TOTAL + 4.0
+    }
+    fn wide_view(&self) -> bool {
+        true
     }
     fn scripted(&self) -> bool {
         true
@@ -137,7 +169,7 @@ struct RingworldShot {
 
 /// Montée : on quitte la voiture des yeux pour s'élever et regarder la planète. La ville file en brume.
 fn climb(frame: &CinemaFrame<'_>, u: f32, goal: &mut TripGoal) -> Rates {
-    goal.pos = high_position(frame, lerp(8.0, CEILING, smootherstep(u)), lerp(8.0, 30.0, u));
+    goal.pos = high_position(frame, lerp(8.0, CEILING, smootherstep(u)), lerp(8.0, 30.0, u), 0.0);
     goal.drift = Vec3::ZERO;
     goal.sky_look = smoothstep((u - 0.2) / 0.7);
     goal.fov = lerp(62.0, 72.0, u);
@@ -146,7 +178,13 @@ fn climb(frame: &CinemaFrame<'_>, u: f32, goal: &mut TripGoal) -> Rates {
 
 /// Approche : le ciel glisse vers la planète, qui grossit jusqu'à remplir le cadre.
 fn approach(frame: &CinemaFrame<'_>, ring: &RingBasis, u: f32, goal: &mut TripGoal) -> Rates {
-    goal.pos = high_position(frame, CEILING, 30.0);
+    let e = smootherstep(u);
+    goal.pos = high_position(
+        frame,
+        CEILING,
+        lerp(30.0, ORBIT_R_M, e),
+        lerp(0.0, ANGLE_APPROACH_END, e),
+    );
     goal.drift = ring.sky_point(PHI_START, RING_RADIUS, 40.0) * smootherstep(u);
     goal.sky_look = 1.0;
     goal.fov = lerp(72.0, 80.0, u);
@@ -156,13 +194,15 @@ fn approach(frame: &CinemaFrame<'_>, ring: &RingBasis, u: f32, goal: &mut TripGo
 
 /// Glissade : on file juste au-dessus du plan de l'anneau, qui défile sous la caméra ; la planète roule dans le cadre.
 fn glide(frame: &CinemaFrame<'_>, ring: &RingBasis, u: f32, goal: &mut TripGoal) -> Rates {
-    goal.pos = high_position(frame, CEILING, 30.0);
+    let e = smootherstep(u);
+    goal.pos = high_position(frame, CEILING, ORBIT_R_M, lerp(ANGLE_APPROACH_END, ANGLE_GLIDE_END, e));
+    goal.car_target = car_focus(frame);
+    goal.sky_look = 1.0 - CITY_LOOK;
     let phi = lerp(PHI_START, PHI_GLIDE_END, smootherstep(u));
     goal.drift = ring.sky_point(phi, RING_RADIUS, lerp(40.0, 22.0, u));
     // Regard entre le sens de marche et la planète : elle reste grosse, un peu décentrée.
     let ahead = (ring.e1 * -phi.sin() + ring.e2 * phi.cos()) * 220.0 + goal.drift;
     goal.sky_target = ring.center.lerp(ahead, 0.4);
-    goal.sky_look = 1.0;
     goal.fov = 80.0;
     goal.roll = 0.14 * (u * std::f32::consts::TAU).sin();
     [3.0, 6.0, 3.5]
@@ -170,14 +210,20 @@ fn glide(frame: &CinemaFrame<'_>, ring: &RingBasis, u: f32, goal: &mut TripGoal)
 
 /// Tour partiel : on s'écarte et l'on monte au-dessus de la planète, le regard fixé sur elle.
 fn orbit_loop(frame: &CinemaFrame<'_>, ring: &RingBasis, u: f32, goal: &mut TripGoal) -> Rates {
-    goal.pos = high_position(frame, CEILING, 30.0);
     let e = smootherstep(u);
+    goal.pos = high_position(
+        frame,
+        lerp(CEILING, CEILING * 0.8, e),
+        lerp(ORBIT_R_M, ORBIT_R_END_M, e),
+        lerp(ANGLE_GLIDE_END, ANGLE_LOOP_END, e),
+    );
+    goal.car_target = car_focus(frame);
     goal.drift = ring.sky_point(
         lerp(PHI_GLIDE_END, PHI_LOOP_END, e),
         lerp(RING_RADIUS, 310.0, e),
         lerp(22.0, 110.0, e),
     );
-    goal.sky_look = 1.0;
+    goal.sky_look = 1.0 - CITY_LOOK;
     goal.fov = lerp(80.0, 72.0, u);
     goal.roll = -0.12 * (u * std::f32::consts::PI).sin();
     [3.0, 6.0, 3.5]
@@ -188,7 +234,7 @@ fn dive(frame: &CinemaFrame<'_>, ring: &RingBasis, u: f32, goal: &mut TripGoal) 
     let e = f64::from(smootherstep((u - 0.08) / 0.85));
     let far = ring.sky_point(PHI_LOOP_END, 310.0, 110.0);
     goal.drift = far * (1.0 - smootherstep(u * 1.05));
-    let eye = high_position(frame, CEILING, 30.0);
+    let eye = high_position(frame, CEILING * 0.8, ORBIT_R_END_M, ANGLE_LOOP_END);
     // Même pose que la caméra de poursuite : la prochaine transition du réalisateur est sans à-coup.
     let car = frame.car;
     let low = DVec3::new(car.x * 0.55, 2.3 + f64::from(frame.altitude) * 1.04, car.z + 6.2);

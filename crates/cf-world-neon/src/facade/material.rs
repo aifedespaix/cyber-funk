@@ -61,6 +61,8 @@ pub struct FacadeParams {
     /// Front d'une panne de courant (`uPower`) : `x` position en z du front (monde rendu, m), `y` demi-largeur de son fondu
     /// (m), `z` part des fenêtres éteintes au-delà du front (0 : rien), `w` sens (−1 : éteint du côté des z négatifs).
     pub power: Vec4,
+    /// Texture du son (hors kick) : `x` transitoire large bande (`onset`), `y` charleston (`hat`), `z` brillance, `w` bruit.
+    pub texture: Vec4,
 }
 
 /// Matériau des immeubles et des arches. Un seul exemplaire dans le monde : il porte l'état de l'image (temps, musique,

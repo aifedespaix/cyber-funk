@@ -48,6 +48,8 @@ struct Facade {
     // Front d'une panne de courant (`uPower`) : x position en z du front, y demi-largeur de son fondu, z part des fenêtres
     // éteintes au-delà du front, w sens (−1 : éteint du côté des z négatifs).
     power: vec4<f32>,
+    // Texture du son hors kick : x transitoire large bande (caisse claire, clap), y charleston, z brillance, w bruit.
+    texture: vec4<f32>,
 }
 
 @group(constants::MATERIAL_BIND_GROUP) @binding(0) var<uniform> facade: Facade;
@@ -84,10 +86,18 @@ fn vnoise(p: vec2<f32>) -> f32 {
     );
 }
 
+// Facteur de vue lointaine : 1 au ras du sol, jusqu'à 2,6 quand la caméra est haut (plans larges, tour de planète). La
+// brume et la pousse des tours reculent d'autant : la ville reste visible à l'horizon. Même formule dans
+// `facade_prepass.wesl` et `landmark_common.wesl`, et `VISTA_MAX` côté Rust (portée de culling).
+fn vista() -> f32 {
+    return 1.0 + 1.6 * smoothstep(35.0, 140.0, view.world_position.y);
+}
+
 // Les tours « poussent » du sol entre 300 et 440 m : aucune apparition brutale (`cityGrow`). Même formule dans
 // `facade_prepass.wesl`.
 fn grow_at(world: vec3<f32>) -> f32 {
-    return 1.0 - smoothstep(300.0, 440.0, distance(world.xz, view.world_position.xz));
+    let v = vista();
+    return 1.0 - smoothstep(300.0 * v, 440.0 * v, distance(world.xz, view.world_position.xz));
 }
 
 struct FacadeVertex {
@@ -119,6 +129,10 @@ fn vertex(v: FacadeVertex) -> FacadeVarying {
     out.normal_w = normalize((m * vec4<f32>(v.normal, 0.0)).xyz);
     var wp = m * vec4<f32>(v.position, 1.0);
     wp.y *= grow_at(wp.xyz);
+    // Une tour sur quatre respire d'un pour cent avec le kick : assez pour sentir le poids du beat, trop peu pour faire dessin
+    // animé. Le passage de profondeur ignore ce gonflement (il n'écarte que la pointe, jamais un voisin).
+    let breath_seed = f32(tag & 0x3FFu);
+    wp.y *= 1.0 + 0.012 * facade.frame.y * step(h21(vec2<f32>(breath_seed, 7.0)), 0.25);
     out.world = wp.xyz;
     let spot_floor = (tag >> 16u) & 0xFFu;
     let spot_y = select(-1.0, (f32(spot_floor) - 0.5) * FLOOR_HEIGHT, spot_floor > 0u);
@@ -141,6 +155,10 @@ fn fragment(in: FacadeVarying) -> @location(0) vec4<f32> {
     let wet = facade.weather.x;
     let rain = facade.weather.y;
     let win_pulse = facade.weather.z;
+    let onset = facade.texture.x;
+    let hat = facade.texture.y;
+    let bright = facade.texture.z;
+    let noisy = facade.texture.w;
     let ink = facade.ink.rgb;
     let ice = facade.ice.rgb;
     let amber = facade.amber.rgb;
@@ -175,12 +193,16 @@ fn fragment(in: FacadeVarying) -> @location(0) vec4<f32> {
     let haze = ink + facade.haze.rgb * 0.05;
     let far = tier > 2.5;
     let dist = length(in.world - cam);
+    // Entièrement dans la brume : pas la peine de calculer fenêtres et ruissellement (les dérivées sont déjà prises).
+    if dist > (380.0 - 100.0 * facade.weather.y) * vista() {
+        return vec4<f32>(haze, 1.0);
+    }
 
     // Antenne : un trait lumineux dont la pointe bat avec le kick.
     if tier > 1.5 && !far {
         let tip = smoothstep(0.6, 1.0, in.local.y / in.size.y);
         let c = v_c * (0.5 + tip * (2.2 + pulse * 3.0));
-        let f = smoothstep(120.0, 380.0, dist);
+        let f = smoothstep(120.0 * vista(), 380.0 * vista(), dist);
         return vec4<f32>(mix(c, haze, f), 1.0);
     }
 
@@ -202,7 +224,7 @@ fn fragment(in: FacadeVarying) -> @location(0) vec4<f32> {
         // Fenêtres : plus il y a d'aigus, plus il y en a d'allumées.
         let cell = vec2<f32>(floor(uu), floor_id);
         let window_rnd = h21(cell + vec2<f32>(seed * 0.37 + face * 3.1, seed * 0.11));
-        let lit_chance = 0.5 + high * 0.25 + 0.2 * h21(vec2<f32>(seed * 0.29, floor_id));
+        let lit_chance = 0.5 + high * 0.25 + noisy * 0.12 + 0.2 * h21(vec2<f32>(seed * 0.29, floor_id));
         var lit = step(window_rnd, lit_chance) * (1.0 - dead);
         if far {
             // Plages de lumière sur de larges blocs de façade : rien ne scintille quand les fenêtres deviennent sous-pixel.
@@ -213,6 +235,9 @@ fn fragment(in: FacadeVarying) -> @location(0) vec4<f32> {
         let blink = select(step(0.93, h21(cell + 9.7 + seed * 0.13)), 0.0, far);
         lit *= mix(1.0, step(0.5, fract(time * 1.5 + window_rnd * 6.0)) * (0.4 + mid), blink);
 
+        // Charleston : une poignée de fenêtres crépite, différente à chaque tranche de 40 ms.
+        lit = max(lit, hat * step(h21(cell + 5.1 + floor(time * 25.0) * 3.7), 0.07) * (1.0 - dead));
+
         // Pouls de la ville : sur chaque temps, un autre lot de fenêtres éteintes s'allume (événement « city-pulse »).
         lit = max(lit, win_pulse * step(h21(cell + 13.3 + floor(beat) * 1.7), 0.55) * (1.0 - dead));
 
@@ -222,7 +247,8 @@ fn fragment(in: FacadeVarying) -> @location(0) vec4<f32> {
         let mask = mix(frame, 0.34, fade_out);
 
         let warm = mix(v_c, amber, step(0.7, h21(cell + 31.0)));
-        let window_color = mix(warm, ice, step(0.9, h21(cell + 57.0)));
+        // La brillance du son refroidit les fenêtres : un filtre qui s'ouvre fait virer la ville vers la glace.
+        let window_color = mix(mix(warm, ice, step(0.9, h21(cell + 57.0))), ice, bright * 0.35);
 
         // Vague de lumière qui monte d'un cran à chaque kick.
         let travel = fract(beat / 8.0 + seed * 0.0371) * 190.0;
@@ -234,6 +260,16 @@ fn fragment(in: FacadeVarying) -> @location(0) vec4<f32> {
         let behind = smoothstep(-power_edge, power_edge, (in.world.z - facade.power.x) * facade.power.w);
         let power_left = 1.0 - facade.power.z * behind;
         col += window_color * lit * mask * glow * (1.0 + 0.45 * wet) * power_left;
+
+        // Caisse claire : sur environ un tiers des tours, une bande de lumière tombe du sommet vers le pied pendant que
+        // l'impulsion retombe (le kick, lui, fait monter la vague : les deux se croisent).
+        if !far {
+            let reacts = step(h21(vec2<f32>(seed, 31.0)), 0.33);
+            let fall = 1.0 - onset;
+            let band_y = mix(in.size.y * 1.1, 0.0, fall * fall);
+            let band_d = (in.local.y - band_y) / 2.2;
+            col += mix(ice, v_c, 0.5) * exp(-band_d * band_d) * onset * reacts * 0.9;
+        }
 
         // Ruissellement : des filets d'eau qui descendent, éclairés par les fenêtres et la teinte de la tour.
         let run_h = h21(vec2<f32>(floor(uu * 1.7) + seed * 0.3 + face, 3.0));
@@ -263,7 +299,7 @@ fn fragment(in: FacadeVarying) -> @location(0) vec4<f32> {
         // Toit : bordure néon et lueur sourde.
         let half_size = in.size.xz * 0.5;
         let rim = sstep(0.35, 0.0, min(half_size.x - abs(in.local.x), half_size.y - abs(in.local.z)));
-        col += v_c * rim * (0.7 + pulse * 1.3);
+        col += v_c * rim * (0.7 + pulse * 1.3 + noisy * 0.8);
     } else {
         // Dessous (tablier des arches) : rampes lumineuses transversales.
         let ramp = sstep(0.05, 0.0, abs(fract(in.local.z / 6.0) - 0.5) - 0.42);
@@ -292,6 +328,6 @@ fn fragment(in: FacadeVarying) -> @location(0) vec4<f32> {
         col += scan * (exp(-d * d) * 3.0 + 0.3 * smoothstep(build_top - 22.0, build_top, in.world.y));
     }
 
-    let fog = smoothstep(90.0 - 30.0 * rain, 380.0 - 100.0 * rain, dist);
+    let fog = smoothstep((90.0 - 30.0 * rain) * vista(), (380.0 - 100.0 * rain) * vista(), dist);
     return vec4<f32>(mix(col, haze, fog), 1.0);
 }

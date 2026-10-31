@@ -48,7 +48,15 @@ pub(crate) use plan::plan_row;
 
 /// Distance de l'`Aabb` d'une pièce à la caméra au-delà de laquelle elle n'est plus dessinée : la distance où la brume a
 /// tout avalé ([`cf_render::FOG_FULL_M`], `smoothstep(90, 380, d)` de `building-material.ts`).
-pub const FOG_END_M: f32 = cf_render::FOG_FULL_M;
+/// Facteur maximal de la vue lointaine : les shaders reculent la brume et la pousse des tours jusqu'à ×2,6 quand la caméra
+/// est haut (`vista()` de `facade.wesl`). La portée de culling doit couvrir ce maximum, sinon une tour encore visible
+/// disparaîtrait d'un coup.
+pub const VISTA_MAX: f32 = 2.6;
+
+/// Portée de culling d'une pièce : brume la plus lointaine ([`cf_render::FOG_FULL_M`] × [`VISTA_MAX`]). Au ras du sol
+/// les tours du lointain sont déjà de la couleur de la brume (sortie anticipée du fragment shader) et aplaties par la
+/// pousse : elles ne coûtent presque rien.
+pub const FOG_END_M: f32 = cf_render::FOG_FULL_M * VISTA_MAX;
 
 /// Plage de visibilité d'une pièce : abrupte à [`FOG_END_M`], mesurée à son `Aabb`.
 ///

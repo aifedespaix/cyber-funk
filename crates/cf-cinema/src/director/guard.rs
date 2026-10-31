@@ -8,14 +8,20 @@ use super::CinemaDirector;
 /// La caméra ne recule jamais au-delà de cette distance derrière la voiture (m) : la ville y est bien fournie et noyée
 /// de brume.
 pub const MAX_BEHIND: f64 = 90.0;
-/// Et devant elle (m) : la ville s'étend sur ~490 m devant la voiture, au-delà de 190 m on verrait son bord avant la
-/// brume.
+/// Et devant elle (m) : au-delà de 190 m on verrait le bord de la ville avant la brume (hors plans « larges »).
 pub const MAX_AHEAD: f64 = 190.0;
 /// Altitude maximale de la caméra au-dessus du sol sous la voiture (m).
 pub const MAX_HEIGHT: f64 = 170.0;
 /// Rayon (m) de la sphère qui doit rester libre autour de l'objectif : le plan proche de la caméra (≈ 0,1 m) et un peu
 /// de marge, pour qu'aucune façade ne remplisse l'image.
 pub const CAMERA_RADIUS: f64 = 0.6;
+/// Bornes des plans qui demandent la vue large ([`ShotSpec::wide_view`]) : la ville garde ~1 000 m de tronçons de chaque
+/// côté de la voiture et la brume recule avec l'altitude, la caméra peut donc s'éloigner sans voir le bord du décor.
+pub const WIDE_BEHIND: f64 = 420.0;
+/// Idem devant la voiture.
+pub const WIDE_AHEAD: f64 = 450.0;
+/// Idem en altitude.
+pub const WIDE_HEIGHT: f64 = 520.0;
 /// L'Ascension monte au-delà du plafond ordinaire : la caméra la suit jusqu'à cette hauteur au-dessus de la voiture.
 const ASCENSION_HEADROOM: f64 = 60.0;
 /// Dégagement d'un mur : nombre de pas, rapprochement de l'axe de la route et montée par pas (`keepClear` de Sillage).
@@ -24,15 +30,27 @@ const WALL_PULL: f64 = 0.72;
 const WALL_LIFT: f64 = 2.5;
 
 impl CinemaDirector {
+    /// Le plan à l'antenne (ou celui qui entre) demande-t-il la vue large ?
+    fn wide_view(&self) -> bool {
+        let wide = |spec: Option<usize>| spec.and_then(|i| self.catalog.get(i)).is_some_and(|s| s.wide_view());
+        wide(self.current.spec) || (self.transition.active && wide(self.incoming.spec))
+    }
+
     /// La ville n'existe qu'autour de la voiture : la caméra reste là où elle est complète, jamais devant son bord
     /// effacé.
     pub(super) fn confine(&mut self, frame: &CinemaFrame<'_>) {
+        let wide = self.wide_view();
+        let (behind, ahead, height) = if wide {
+            (WIDE_BEHIND, WIDE_AHEAD, WIDE_HEIGHT)
+        } else {
+            (MAX_BEHIND, MAX_AHEAD, MAX_HEIGHT)
+        };
         let p = &mut self.out.position;
-        p.z = p.z.clamp(frame.car.z - MAX_AHEAD, frame.car.z + MAX_BEHIND);
+        p.z = p.z.clamp(frame.car.z - ahead, frame.car.z + behind);
         let ground = frame.ground();
         let ceiling = match frame.stunt {
-            Some(stunt) if stunt.kind == "ascension" => MAX_HEIGHT.max(frame.car.y - ground + ASCENSION_HEADROOM),
-            _ => MAX_HEIGHT,
+            Some(stunt) if stunt.kind == "ascension" => height.max(frame.car.y - ground + ASCENSION_HEADROOM),
+            _ => height,
         };
         p.y = p.y.min(ground + ceiling);
     }

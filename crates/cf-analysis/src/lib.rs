@@ -29,6 +29,7 @@ mod features;
 mod offline;
 mod sections;
 mod tempo;
+mod texture;
 mod thread;
 
 pub use analyser_emulation::AnalyserEmulation;
@@ -46,6 +47,7 @@ pub use sections::SectionTracker;
 pub use tempo::{
     AudioBeatGrid, BEATS_PER_BAR, BEATS_PER_PHRASE, CATCH_UP_BEATS, EXTERNAL_LOSS_S, TempoArbiter, TempoReading,
 };
+pub use texture::{TextureAnalyzer, TextureState};
 pub use thread::{
     AnalysisConfig, AnalysisControl, AnalysisError, AnalysisOutputs, AnalysisStats, AnalysisStatsSnapshot,
     AnalysisThread, FeaturesReader, LATENCY_TARGET,

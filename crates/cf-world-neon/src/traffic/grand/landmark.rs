@@ -21,7 +21,7 @@ use crate::traffic::panels::PanelKind;
 /// Distance à laquelle l'immeuble apparaît devant la voiture, m.
 const AHEAD_M: f64 = 400.0;
 /// Distance derrière la voiture à laquelle il disparaît, m.
-const BEHIND_M: f64 = 160.0;
+const BEHIND_M: f64 = 420.0;
 /// Marge de la zone dégagée de chaque côté de l'immeuble, m.
 const CLEARING_MARGIN_M: f64 = 14.0;
 
@@ -409,8 +409,8 @@ mod tests {
             assert!(frames < 60 * 60);
             assert_eq!(rig.scene.panels.solid().len(), 5);
         }
-        // 400 m d'approche, la demi-largeur, puis 160 m derrière : de 15 à 25 s à 30 m/s.
-        assert!((15 * 60..25 * 60).contains(&frames), "{frames}");
+        // 400 m d'approche, la demi-largeur, puis 420 m derrière : de 25 à 35 s à 30 m/s.
+        assert!((25 * 60..35 * 60).contains(&frames), "{frames}");
         rig.end(&mut ev);
         // Rangé : il ne pose plus rien.
         rig.step(&mut ev, 1.0 / 60.0, |_| {});

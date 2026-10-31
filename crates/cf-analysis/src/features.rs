@@ -84,6 +84,16 @@ pub struct AudioFeatures {
     pub bar: u32,
     /// Numéro de phrase (seize temps, quatre mesures).
     pub phrase: u32,
+    /// Force des attaques en cours (part du spectre qui vient de monter), lissée, 0..1. Voir `texture`.
+    pub flux: f32,
+    /// Impulsion après un transitoire large bande (caisse claire, clap), 1 → 0 : un impact distinct du kick.
+    pub onset: f32,
+    /// Impulsion après un transitoire d'aigus (charleston, shaker), 1 → 0.
+    pub hat: f32,
+    /// Brillance du spectre, 0 (sourd) → 1 (cristallin) : un filtre qui s'ouvre la fait monter.
+    pub brightness: f32,
+    /// Bruit : platitude du spectre, 0 (note tenue) → 1 (souffle, montée de bruit blanc avant un drop).
+    pub noisiness: f32,
 }
 
 impl AudioFeatures {
@@ -109,6 +119,11 @@ impl AudioFeatures {
         phase: 0.0,
         bar: 0,
         phrase: 0,
+        flux: 0.0,
+        onset: 0.0,
+        hat: 0.0,
+        brightness: 0.0,
+        noisiness: 0.0,
     };
 
     /// Met les énergies instantanées au repos (signal interrompu) sans toucher au tempo ni à la section : ce sont
@@ -121,6 +136,11 @@ impl AudioFeatures {
         self.high = 0.0;
         self.loud = 0.0;
         self.pulse = 0.0;
+        self.flux = 0.0;
+        self.onset = 0.0;
+        self.hat = 0.0;
+        self.brightness = 0.0;
+        self.noisiness = 0.0;
     }
 }
 

@@ -33,7 +33,7 @@ use crate::types::{CueKind, TransitionKind};
 use crate::world::CinemaFrame;
 
 pub use crate::choreo::MAX_CUTS_PER_SECOND;
-pub use guard::{CAMERA_RADIUS, MAX_AHEAD, MAX_BEHIND, MAX_HEIGHT};
+pub use guard::{CAMERA_RADIUS, MAX_AHEAD, MAX_BEHIND, MAX_HEIGHT, WIDE_AHEAD, WIDE_BEHIND, WIDE_HEIGHT};
 pub use stats::DirectorStats;
 
 /// Un plan et sa pose : la pose reste attachée à son plan quand les rôles (sortant / entrant) s'échangent.

@@ -57,6 +57,11 @@ pub trait ShotSpec: Send + Sync + std::fmt::Debug {
     fn scripted(&self) -> bool {
         false
     }
+    /// Plan qui s'éloigne de la voiture bien au-delà des bornes ordinaires (tour de la planète) : le réalisateur lui
+    /// laisse alors la vue large (`WIDE_*` de `director::guard`).
+    fn wide_view(&self) -> bool {
+        false
+    }
     /// Plan qui joue une animation de la voiture (décollage, atterrissage, esquive) : le réalisateur y bascule dès
     /// qu'elle commence, sans attendre un temps musical, et y entre en panoramique éclair.
     fn reactive(&self) -> bool {

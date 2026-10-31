@@ -6,10 +6,12 @@
 //! régime établi : les tampons gardent leur capacité.
 
 use crate::scenery::{Row, SPACING_M, SceneryConfig, SpotAnchor};
-use crate::world::BEHIND;
 
 use super::field::MAX_BEAMS;
 
+/// Rangées gardées derrière la voiture pour les projecteurs (`BEHIND` de `scenery.ts`) : la fenêtre des faisceaux reste celle
+/// de Sillage, indépendante de la ville affichée (plus large).
+const BEHIND: u32 = 15;
 /// Rangées de la fenêtre de ville (`ROWS` de `scenery.ts`) : `BEHIND` derrière la voiture, la rangée courante, le reste devant.
 pub const ROWS: usize = 34;
 /// [`ROWS`] en `i64`, pour les index de rangées (signés : la route file vers les z négatifs).

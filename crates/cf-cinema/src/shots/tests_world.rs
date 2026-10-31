@@ -19,7 +19,7 @@ use crate::pose::is_finite;
 use crate::rng::CinemaRng;
 use crate::shot::{Shot, ShotSpec};
 use crate::shots::Chase;
-use crate::testkit::{BoxCity, DT, Sim, check_pose};
+use crate::testkit::{BoxCity, DT, Sim, check_pose_in};
 use crate::types::{MeteorBlast, RingPlanet, Section, TransitionKind};
 use crate::world::{CinemaFrame, CinemaWorld, NoObstacles, Obstacles};
 
@@ -569,7 +569,7 @@ fn play(id: &str, seconds: f64, drops: bool) -> Report {
             force_drops(&mut night);
         }
         let pose = *director.update(&night.frame());
-        check_pose(&pose, &night.frame());
+        check_pose_in(&pose, &night.frame(), id == "ringworld");
         if director.take_meteor_launch() {
             night.launch();
         }
@@ -765,7 +765,7 @@ fn les_plans_du_lot_c_respectent_le_plafond_de_coupes() {
             night.launch();
         }
         let frame = night.frame();
-        check_pose(&pose, &frame);
+        check_pose_in(&pose, &frame, true);
         // Un panoramique éclair (`Whip`) balaie l'écran par construction : c'est une transition, pas une coupe.
         let whip = director.transition() == Some(TransitionKind::Whip);
         if is_jump(&previous, previous_car, &pose, frame.car, frame.dt) && !whip {

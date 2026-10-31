@@ -3,10 +3,11 @@
 use bevy::math::Vec4;
 use bevy::prelude::*;
 use cf_render::palette::LinearRgb;
-use cf_render::{AudioFeatures, FloatingOrigin, SceneColor, ScenePalette};
+use cf_render::{AudioFeatures, CurrentShowFx, FloatingOrigin, SceneColor, ScenePalette};
 
 use super::material::{FacadeParams, TINT_COUNT};
 use super::{FacadeLook, FacadeMaterial};
+use crate::beams::BeamPulse;
 use crate::landmarks::field::{CityField, FieldParams};
 use crate::road::RoadLook;
 
@@ -32,6 +33,14 @@ pub struct FrameInputs {
     pub high: f32,
     /// Temps musical continu (`b.beat`) : le numéro du temps plus une montée douce de 0 à 1.
     pub beat: f64,
+    /// Impulsion d'un transitoire large bande (caisse claire, clap), 1 → 0.
+    pub onset: f32,
+    /// Impulsion d'un transitoire d'aigus (charleston), 1 → 0.
+    pub hat: f32,
+    /// Brillance du spectre, 0..1.
+    pub brightness: f32,
+    /// Bruit (platitude du spectre), 0..1.
+    pub noisiness: f32,
 }
 
 impl Default for FrameInputs {
@@ -43,6 +52,10 @@ impl Default for FrameInputs {
             mid: 0.0,
             high: 0.0,
             beat: 0.0,
+            onset: 0.0,
+            hat: 0.0,
+            brightness: 0.0,
+            noisiness: 0.0,
         }
     }
 }
@@ -118,7 +131,22 @@ pub fn build_params(
             look.power.z.clamp(0.0, 1.0),
             look.power.w,
         ),
+        texture: Vec4::new(
+            frame.onset.clamp(0.0, 1.0),
+            frame.hat.clamp(0.0, 1.0),
+            frame.brightness.clamp(0.0, 1.0),
+            frame.noisiness.clamp(0.0, 1.0),
+        ),
     }
+}
+
+/// Les deux voies de flash des façades : transitoire large bande et charleston. Les deux passent par le limiteur
+/// photosensible (règle 7 de `CLAUDE.md`, WCAG 2.3.1), comme le pouls des faisceaux : 3 départs par seconde au plus, jamais
+/// de front plus raide que `MIN_FADE`, rien sans spectacle ni en mode respiration.
+#[derive(Debug, Default)]
+pub(super) struct TextureFlash {
+    onset: BeamPulse,
+    hat: BeamPulse,
 }
 
 /// `CfSet::Present` : remplit le matériau (temps, musique, météo, palette). Le matériau n'est touché que si quelque chose a
@@ -134,6 +162,8 @@ pub(super) fn update_material(
     scenery: Option<Res<crate::scenery::SceneryAssets>>,
     origin: Option<Res<FloatingOrigin>>,
     field: Option<Res<CityField>>,
+    show_fx: Option<Res<CurrentShowFx>>,
+    mut flash: Local<TextureFlash>,
 ) {
     let (Some(mut materials), Some(scenery)) = (materials, scenery) else {
         return;
@@ -145,9 +175,20 @@ pub(super) fn update_material(
         mid: f.0.mid,
         high: f.0.high,
         beat: f.0.beat,
+        onset: f.0.onset,
+        hat: f.0.hat,
+        brightness: f.0.brightness,
+        noisiness: f.0.noisiness,
     });
+    let now_s = look.clock_s.unwrap_or_else(|| time.elapsed_secs_f64());
+    let policy = show_fx.map(|s| (s.0.flashes, s.0.breathing));
+    let dt_s = time.delta_secs();
+    flash.onset.update(dt_s, now_s, policy, frame.onset);
+    flash.hat.update(dt_s, now_s, policy, frame.hat);
     let frame = FrameInputs {
-        time_s: look.clock_s.unwrap_or_else(|| time.elapsed_secs_f64()),
+        time_s: now_s,
+        onset: flash.onset.pulse(),
+        hat: flash.hat.pulse(),
         ..frame
     };
     let params = build_params(&palette, &look, road.wet, road.rain, &frame);

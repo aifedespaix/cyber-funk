@@ -5,7 +5,7 @@ use bevy::math::{DVec3, Vec3};
 use cf_render::CameraPose;
 use cf_show::model::CutGrid;
 
-use crate::director::{CAMERA_RADIUS, MAX_AHEAD, MAX_BEHIND, MAX_HEIGHT};
+use crate::director::{CAMERA_RADIUS, MAX_AHEAD, MAX_BEHIND, MAX_HEIGHT, WIDE_AHEAD, WIDE_BEHIND, WIDE_HEIGHT};
 use crate::rng::CinemaRng;
 use crate::types::{FlightPhase, Section, ShowView};
 use crate::world::{CinemaFrame, CinemaWorld, Obstacles};
@@ -149,6 +149,16 @@ impl Sim {
 
 /// Vérifie une pose : finie, hors des murs, dans les bornes.
 pub(crate) fn check_pose(pose: &CameraPose, frame: &CinemaFrame<'_>) {
+    check_pose_in(pose, frame, false);
+}
+
+/// Comme [`check_pose`], avec les bornes de la vue large quand `wide` (plans qui demandent `ShotSpec::wide_view`).
+pub(crate) fn check_pose_in(pose: &CameraPose, frame: &CinemaFrame<'_>, wide: bool) {
+    let (behind, ahead, height) = if wide {
+        (WIDE_BEHIND, WIDE_AHEAD, WIDE_HEIGHT)
+    } else {
+        (MAX_BEHIND, MAX_AHEAD, MAX_HEIGHT)
+    };
     let p = pose.position;
     assert!(crate::pose::is_finite(pose), "pose non finie à t={}", frame.time);
     assert!(
@@ -157,8 +167,8 @@ pub(crate) fn check_pose(pose: &CameraPose, frame: &CinemaFrame<'_>) {
         frame.time
     );
     assert!(
-        p.z >= frame.car.z - MAX_AHEAD - 1e-6 && p.z <= frame.car.z + MAX_BEHIND + 1e-6,
+        p.z >= frame.car.z - ahead - 1e-6 && p.z <= frame.car.z + behind + 1e-6,
         "hors bornes : {p}"
     );
-    assert!(p.y <= frame.ground() + MAX_HEIGHT + 1e-6, "trop haut : {p}");
+    assert!(p.y <= frame.ground() + height + 1e-6, "trop haut : {p}");
 }

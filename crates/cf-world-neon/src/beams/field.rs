@@ -30,6 +30,14 @@ pub const MID_TAU_S: f32 = 0.25;
 /// Constante de temps du lissage du compteur de temps (s) : le « cran » du balayage devient une glissade.
 pub const BEAT_TAU_S: f32 = 0.12;
 
+/// Montée et retombée (s) du lissage de l'impulsion de transitoire : le projecteur « se jette » de côté en ~0,1 s puis
+/// revient en ~0,35 s. Le pas par image reste sous 1 m (règle 7).
+const ONSET_RISE_TAU_S: f32 = 0.08;
+const ONSET_FALL_TAU_S: f32 = 0.35;
+/// Amplitude (m) du coup de balai d'un transitoire, en x (alterné d'un projecteur à l'autre) et en z (vers la voiture).
+const ONSET_SWING_X_M: f64 = 4.0;
+const ONSET_SWING_Z_M: f64 = 7.0;
+
 /// Vitesse du balayage lent en x (rad/s, `time × 0,55`).
 const SWEEP_X_RATE: f64 = 0.55;
 /// Vitesse du balayage lent en z (rad/s, `time × 0,37`).
@@ -71,6 +79,9 @@ pub struct BeamInput<'a> {
     pub mid: f32,
     /// Pouls du kick **tel que le limiteur le laisse passer**, 0..1 (nul sans spectacle, en respiration, flashs coupés).
     pub kick: f32,
+    /// Impulsion d'un transitoire (caisse claire, clap), 1 → 0. Elle ne touche que la **position** des taches, jamais
+    /// leur luminosité : le limiteur de flashs n'a rien à en dire.
+    pub onset: f32,
     /// Points d'attache des balayeurs (façades des tours).
     pub anchors: &'a [SpotAnchor],
     /// Projecteurs épinglés par les événements.
@@ -88,6 +99,7 @@ pub struct BeamField {
     pinned: usize,
     mid: f32,
     beat: f64,
+    onset: f32,
     primed: bool,
     cone_level: f32,
     pool_level: f32,
@@ -103,6 +115,7 @@ impl Default for BeamField {
             pinned: 0,
             mid: 0.0,
             beat: 0.0,
+            onset: 0.0,
             primed: false,
             cone_level: 0.0,
             pool_level: 0.0,
@@ -169,6 +182,13 @@ impl BeamField {
             self.beat = input.beat;
             self.primed = true;
         }
+        let onset_in = input.onset.clamp(0.0, 1.0);
+        let tau = if onset_in > self.onset {
+            ONSET_RISE_TAU_S
+        } else {
+            ONSET_FALL_TAU_S
+        };
+        self.onset += (onset_in - self.onset) * (1.0 - (-dt / tau).exp());
         let kick = input.kick.clamp(0.0, 1.0);
         self.cone_level = 0.12 + kick * 0.3 + self.mid * 0.3;
         self.pool_level = 0.35 + kick * 0.8 + self.mid * 0.5;
@@ -193,6 +213,11 @@ impl BeamField {
                 let sweep_x = (input.time_s * SWEEP_X_RATE + phase).sin() * 6.0
                     + (self.beat * SWEEP_BEAT_RATE + phase * 3.0).sin() * 2.8;
                 let sweep_z = (input.time_s * SWEEP_Z_RATE + phase * 2.0).sin() * 11.0 - 6.0;
+                // Transitoire : le faisceau est jeté de côté (sens alterné selon la tour) et ramené vers la voiture.
+                let fling = f64::from(self.onset);
+                let side = if a.side >= 0 { 1.0 } else { -1.0 };
+                let sweep_x = sweep_x - side * fling * ONSET_SWING_X_M;
+                let sweep_z = sweep_z + fling * ONSET_SWING_Z_M;
                 (
                     DVec3::new(f64::from(a.x), f64::from(a.y), a.z),
                     DVec3::new(sweep_x, TARGET_Y_M, a.z + sweep_z),
@@ -248,6 +273,7 @@ mod tests {
             beat,
             mid: 0.4,
             kick: 0.0,
+            onset: 0.0,
             anchors,
             pins,
             cycle: CYCLE,
@@ -308,6 +334,31 @@ mod tests {
         // Lisse : un temps qui saute d'un cran ne déplace jamais le point visé de plus de ~1 m par image.
         let max_step = xs.windows(2).map(|w| (w[1] - w[0]).abs()).fold(0.0, f64::max);
         assert!(max_step < 1.0, "pas de {max_step} m");
+    }
+
+    #[test]
+    fn un_transitoire_jette_le_faisceau_de_cote_en_douceur_puis_le_rend() {
+        let anchors = [anchor(-300.0, 1.0)];
+        let mut field = BeamField::new();
+        field.update(&input(0.0, 0.0, &anchors, &[]));
+        let rest = field.slots()[0].target;
+        let mut xs = Vec::new();
+        for frame in 0..120 {
+            let mut i = input(0.0, 0.0, &anchors, &[]);
+            // Un seul transitoire, à la première image, qui retombe comme l'analyse le publie (0,2 s).
+            i.onset = (-(frame as f32) * DT / 0.2).exp();
+            field.update(&i);
+            xs.push(field.slots()[0].target);
+        }
+        let farthest = xs.iter().map(|t| (t.x - rest.x).abs()).fold(0.0, f64::max);
+        assert!(farthest > 1.0, "le faisceau bouge : {farthest} m");
+        let max_step = xs.windows(2).map(|w| (w[1].x - w[0].x).abs()).fold(0.0, f64::max);
+        assert!(max_step < 1.0, "pas de {max_step} m");
+        let end = xs.last().copied().unwrap_or_default();
+        assert!(
+            (end.x - rest.x).abs() < 0.2 && (end.z - rest.z).abs() < 0.4,
+            "revient : {end:?} / {rest:?}"
+        );
     }
 
     #[test]

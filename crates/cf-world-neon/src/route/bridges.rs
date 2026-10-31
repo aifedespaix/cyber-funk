@@ -28,8 +28,8 @@ pub const DEPTH: f64 = 16.0;
 /// Distance devant la voiture à partir de laquelle une arche est affichée, en m (`VISIBLE` de `bridges.ts`) : la ville
 /// la fait « pousser » au loin, dans la brume.
 pub const VISIBLE: f64 = 520.0;
-/// Distance derrière la voiture jusqu'où une arche reste affichée, en m (le `carZ + 40` de `update`).
-pub const KEEP_BEHIND: f64 = 40.0;
+/// Distance derrière la voiture jusqu'où une arche reste affichée, en m (`carZ + 40` dans Sillage, portée à 320 m : une caméra qui regarde en arrière voit encore l'arche).
+pub const KEEP_BEHIND: f64 = 320.0;
 /// Arches affichées en même temps (`SLOTS`).
 pub const SLOTS: usize = 2;
 /// Nombre de teintes du cycle prismatique (`prismaticCycle` : cyan, azur, violet, cyan, rose, glace).

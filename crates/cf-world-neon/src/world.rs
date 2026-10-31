@@ -19,12 +19,12 @@ use crate::traffic::TrafficDirector;
 
 /// Longueur d'un tronçon : l'écart entre deux rangées d'immeubles (`SPACING` de `scenery.ts`), en m.
 pub const CHUNK_LENGTH_M: f32 = 26.0;
-/// Rangées gardées derrière la voiture (`BEHIND` de `scenery.ts`) : 390 m. La caméra ne recule pas à plus de 90 m
-/// derrière la voiture (`MAX_BEHIND` de `cinema/director.ts`).
-pub const BEHIND: u32 = 15;
-/// Rangées devant : `ROWS` (34) − `BEHIND` − la rangée courante. La ville s'étend à ~494 m devant ; la caméra n'avance
-/// pas à plus de 190 m devant la voiture (`MAX_AHEAD`).
-pub const AHEAD: u32 = 18;
+/// Rangées gardées derrière la voiture : 988 m (Sillage : 15 rangées, 390 m). Plus large que Sillage pour que les plans
+/// qui regardent en arrière ou de haut voient encore la ville : la portée de culling (`FOG_END_M`) borne le coût.
+pub const BEHIND: u32 = 38;
+/// Rangées devant : 1 196 m (Sillage : 18 rangées). La caméra avance jusqu'à 190 m devant la voiture (`MAX_AHEAD`) et
+/// voit jusqu'à `FOG_END_M` (988 m) au-delà.
+pub const AHEAD: u32 = 46;
 /// Graine du monde par défaut.
 pub const DEFAULT_SEED: u64 = 0x0000_4E30_C17E;
 

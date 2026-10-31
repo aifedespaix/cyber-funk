@@ -35,7 +35,7 @@ const FADE_OUT_S: f32 = 1.1;
 /// Au-delà de cette altitude (m) la voiture vole : le sol se vide.
 const AIR_LIMIT_M: f32 = 1.0;
 /// Distance (m) derrière la voiture à partir de laquelle un véhicule dépassé s'efface.
-const BEHIND_M: f64 = 30.0;
+const BEHIND_M: f64 = 300.0;
 
 #[derive(Debug, Clone, Copy)]
 struct Slot {

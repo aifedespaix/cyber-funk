@@ -21,8 +21,8 @@ use cf_world_neon::scenery::{FOG_END_M, SceneryAssets};
 use cf_world_neon::{ChasePlugin, FacadeLook, FacadeMaterial, NeonWorld, NeonWorldPlugin, RoadLook, RunnerConfig};
 
 const FRAME: Duration = Duration::from_micros(16_667);
-/// Tronçons vivants : 15 derrière, 1, 18 devant (`BEHIND`, `AHEAD`).
-const CHUNKS: usize = 34;
+/// Tronçons vivants : 38 derrière, 1, 46 devant (`BEHIND`, `AHEAD`).
+const CHUNKS: usize = 85;
 
 fn app(plugin: NeonWorldPlugin, start_z_m: f64, speed_mps: f64) -> App {
     let mut app = App::new();

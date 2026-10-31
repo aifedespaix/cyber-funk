@@ -39,6 +39,7 @@ pub(super) fn step_beams(
         beat: features.beat,
         mid: features.mid,
         kick: pulse.pulse(),
+        onset: features.onset,
         anchors,
         pins,
         cycle,
