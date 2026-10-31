@@ -51,7 +51,7 @@ vient de la taille de la tâche et du nombre d'itérations, bien plus que du dé
 ## Statuts
 
 ⬜ à faire · 🟨 en cours · 🟦 PR ouverte · ✅ fusionnée.
-En cours au dernier point : J7-02 (aucune branche ni PR au 2026-10-25 : à relancer).
+Aucune tâche en cours au 2026-10-31.
 
 ✅* J7-07 : 12 cascades portées et testées ; critère « jouable par l'opérateur (debug) » non rempli (aucun ordre « lancer la cascade X » dans cf-show/cf-operator) : à câbler en J8.
 
@@ -67,7 +67,7 @@ En cours au dernier point : J7-02 (aucune branche ni PR au 2026-10-25 : à relan
 | J1-04 | [Détecteur de kicks et tempo (portage de `beat.ts`)](tasks/J1.md) | Sonnet 5.5 | `high` | J1-01, J1-03 | ✅ |
 | J1-05 | [Sections, intensité, gain automatique du micro](tasks/J1.md) | Sonnet 5.5 | `medium` | J1-04 | ✅ |
 | J1-06 | [Pont Bevy et panneau audio de l'opérateur](tasks/J1.md) | Sonnet 5.5 | `medium` | J0-02, J1-02, J1-05 | ✅ |
-| J1-07 | [Analyse hors ligne des démos (grille de temps en cache)](tasks/J1.md) | Sonnet 5.5 | `medium` | J1-04 | ⬜ |
+| J1-07 | [Analyse hors ligne des démos (grille de temps en cache)](tasks/J1.md) | Sonnet 5.5 | `medium` | J1-04 | ✅ |
 | J2-01 | [Modèle de données et format RON](tasks/J2.md) | Opus 5.5 | `high` | J0-01 | ✅ |
 | J2-02 | [Les 6 looks de Sillage et le fondu des portes](tasks/J2.md) | Sonnet 5.5 | `medium` | J2-01 | ✅ |
 | J2-03 | [Fraîcheur, ralenti du monde, attente de la musique](tasks/J2.md) | Sonnet 5.5 | `medium` | J0-01 | ✅ |
@@ -103,7 +103,7 @@ En cours au dernier point : J7-02 (aucune branche ni PR au 2026-10-25 : à relan
 | J6-04 | [Plans, lot B : vol, cascades, vitesse](tasks/J6.md) | Sonnet 5.5 | `medium` | J6-01, J5-06 | ✅ |
 | J6-05 | [Plans, lot C : sujets du monde](tasks/J6.md) | Sonnet 5.5 | `medium` | J6-01 | ✅ |
 | J7-01 | [Système d'enseignes et textures 2D procédurales](tasks/J7.md) | Sonnet 5.5 | `high` | J5-02, J4-07 | ✅ |
-| J7-02 | [Enseigne géante du DJ](tasks/J7.md) | Sonnet 5.5 | `high` | J7-01, J2-05 | ⬜ |
+| J7-02 | [Enseigne géante du DJ](tasks/J7.md) | Sonnet 5.5 | `high` | J7-01, J2-05 | ✅ |
 | J7-03 | [Trafic : socle](tasks/J7.md) | Sonnet 5.5 | `high` | J5-02 | ✅ |
 | J7-04 | [Événements du trafic, lot A (calmes et urbains)](tasks/J7.md) | Haiku 5.5 | `medium` | J7-03 | ✅ |
 | J7-05 | [Événements du trafic, lot B (vol et démesure)](tasks/J7.md) | Sonnet 5.5 | `medium` | J7-03 | ✅ |
@@ -112,7 +112,7 @@ En cours au dernier point : J7-02 (aucune branche ni PR au 2026-10-25 : à relan
 | J7-08 | [Landmarks : registre et bâtiments spéciaux](tasks/J7.md) | Sonnet 5.5 | `high` | J5-02 | ✅ |
 | J7-09 | [Landmarks vitrines](tasks/J7.md) | Sonnet 5.5 | `medium` | J7-08 | ✅ |
 | J7-10 | [Météores et impacts](tasks/J7.md) | Sonnet 5.5 | `medium` | J5-02, J5-03 | ✅ |
-| J7-11 | [Pré-intro et cartons-titres](tasks/J7.md) | Sonnet 5.5 | `medium` | J5-03, J4-01, J2-05 | ⬜ |
+| J7-11 | [Pré-intro et cartons-titres](tasks/J7.md) | Sonnet 5.5 | `medium` | J5-03, J4-01, J2-05 | ✅ |
 | J8-01 | [Vue Live](tasks/J8.md) | Sonnet 5.5 | `high` | J2-05, J3-06, J4-05 | ✅ |
 | J8-02 | [Préparation : événement, créneaux, cues](tasks/J8.md) | Sonnet 5.5 | `medium` | J8-01, J2-07 | ⬜ |
 | J8-03 | [Éditeur de looks avec aperçu](tasks/J8.md) | Sonnet 5.5 | `medium` | J8-02, J4-08 | ⬜ |
