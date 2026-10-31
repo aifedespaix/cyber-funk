@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="fr">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Banc d'essai voiture</title>
+    <style>
+      html, body { margin: 0; height: 100%; background: #05050a; overflow: hidden; font-family: system-ui, sans-serif; }
+      canvas { display: block; width: 100%; height: 100%; }
+      #check { position: fixed; left: 8px; bottom: 8px; max-height: 55vh; overflow: auto; width: 330px; padding: 8px 10px;
+        background: #000c; color: #ddd; font: 12px/1.45 ui-monospace, monospace; border: 1px solid #333; border-radius: 6px; }
+      #check summary { cursor: pointer; font-weight: 600; }
+      #check h4 { margin: 6px 0 2px; color: #7ad; font-size: 12px; }
+      #check .ok { color: #6d6; } #check .ko { color: #f66; } #check .dim { color: #888; }
+      #status { position: fixed; right: 8px; bottom: 8px; padding: 4px 8px; background: #000c; color: #aaa;
+        font: 12px ui-monospace, monospace; border-radius: 6px; }
+      #hint { position: fixed; left: 8px; top: 8px; color: #8899; font: 12px ui-monospace, monospace; pointer-events: none; }
+    </style>
+  </head>
+  <body>
+    <canvas id="view"></canvas>
+    <div id="hint">V : vue FPS / orbite · glisser en FPS : regarder autour</div>
+    <details id="check" open></details>
+    <div id="status">chargement…</div>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>
