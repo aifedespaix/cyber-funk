@@ -29,6 +29,8 @@ mod error;
 mod keyboard;
 mod mapper;
 mod midi;
+#[cfg(feature = "osc")]
+mod osc;
 mod profile;
 mod raw;
 mod source;
@@ -48,6 +50,8 @@ pub use midi::{
     MidiStats, MidirBackend, PortEvent, PortMatch, PortSelection, PortsSnapshot, canonical_port_name, dispatch,
     match_port_name, port_names_match,
 };
+#[cfg(feature = "osc")]
+pub use osc::{DEFAULT_OSC_PORT, OscInput, OscStats, action_from_message};
 pub use profile::{Binding, ControlProfile, ProfileIssue};
 pub use raw::{PortId, RawEvent, RawInput};
 pub use source::{CC14_LSB_OFFSET, CC14_MSB_MAX, InputSource, MIDI_CHANNEL_MAX, MIDI_DATA_MAX, RelativeEncoding};

@@ -10,12 +10,18 @@ publish.workspace = true
 [lints]
 workspace = true
 
+[features]
+# Entrée OSC par UDP (adresses `/cf/...`, voir docs/osc.md).
+osc = ["dep:rosc"]
+
 [dependencies]
 # `rc` : les identifiants de titres et de déclencheurs sont des `Arc<str>`, pour que cloner une `Action` n'alloue pas.
 serde = { workspace = true, features = ["rc"] }
 ron.workspace = true
 thiserror.workspace = true
 midir.workspace = true
+# Serveur OSC (J3-05), derrière la feature `osc`.
+rosc = { workspace = true, optional = true }
 tracing.workspace = true
 crossbeam-channel.workspace = true
 # Le callback MIDI est un chemin temps réel : il s'exécute sous `assert_no_alloc` (voir `midi::callback`).
