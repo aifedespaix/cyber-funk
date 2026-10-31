@@ -50,7 +50,7 @@ pub const AABB_MARGIN_M: f32 = 3.0;
 /// montre pas.
 pub const TIME_WRAP_S: f64 = 600.0;
 
-const RAIN_SHADER: Handle<Shader> = uuid_handle!("6d1c8a30-7b34-4e59-8f0a-2c9e5d7b1a50");
+const RAIN_SHADER: Handle<Shader> = uuid_handle!("9c4e2f17-3a8b-4d65-b1e0-5f7a2c9d8e13");
 const RAIN_SOURCE: &str = concat!(
     include_str!("../../../../../assets/shaders/cf-world-neon/weather_rain.wesl"),
     "\n",

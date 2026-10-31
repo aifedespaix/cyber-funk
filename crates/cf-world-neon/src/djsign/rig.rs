@@ -128,10 +128,7 @@ pub(crate) fn spawn_rig(
             (entity, material)
         })
         .collect();
-    let frame_mesh = meshes.add(Mesh::new(
-        bevy::mesh::PrimitiveTopology::TriangleList,
-        bevy::asset::RenderAssetUsages::default(),
-    ));
+    let frame_mesh = meshes.add(placeholder_mesh());
     let frame_material = standard.add(StandardMaterial {
         metallic: 0.95,
         perceptual_roughness: 0.36,
@@ -248,15 +245,7 @@ pub(crate) fn apply_sign(
                 commands.entity(rig.frame).insert(aabb);
             }
             None => {
-                meshes
-                    .insert(
-                        rig.frame_mesh.id(),
-                        Mesh::new(
-                            bevy::mesh::PrimitiveTopology::TriangleList,
-                            bevy::asset::RenderAssetUsages::default(),
-                        ),
-                    )
-                    .ok();
+                meshes.insert(rig.frame_mesh.id(), placeholder_mesh()).ok();
             }
         }
     }
@@ -326,4 +315,16 @@ fn hide_all(rig: &DjSignRig, pool: &mut PoolQuery) {
             visibility.set_if_neq(Visibility::Hidden);
         }
     }
+}
+
+/// Maillage de remplacement quand l'ossature n'a aucune pièce : un triangle dégénéré (trois sommets confondus), qui ne
+/// dessine rien. Un maillage sans aucun attribut n'a pas de position : le prépasse et les ombres de `StandardMaterial`
+/// exigent `Vertex_Position` et la validation du pipeline fait quitter l'application.
+fn placeholder_mesh() -> Mesh {
+    Mesh::new(
+        bevy::mesh::PrimitiveTopology::TriangleList,
+        bevy::asset::RenderAssetUsages::default(),
+    )
+    .with_inserted_attribute(Mesh::ATTRIBUTE_POSITION, vec![[0.0_f32; 3]; 3])
+    .with_inserted_attribute(Mesh::ATTRIBUTE_NORMAL, vec![[0.0_f32, 0.0, 1.0]; 3])
 }
