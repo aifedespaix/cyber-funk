@@ -6,6 +6,7 @@
 
 mod audio_panel;
 mod controls_panel;
+mod debug_panel;
 mod diagnostics;
 mod freecam;
 mod learn_panel;
@@ -53,6 +54,7 @@ impl Plugin for OperatorPlugin {
             .add_systems(Startup, prepare::init_session);
         // Le binaire écrit l'état de la mise à jour (J9-06) ; l'opérateur ne fait que l'afficher.
         app.init_resource::<UpdateStatus>().add_message::<InstallUpdate>();
+        app.init_resource::<debug_panel::DebugState>();
         live::build(app);
         preview::build(app);
         freecam::build(app);
@@ -63,6 +65,7 @@ impl Plugin for OperatorPlugin {
                 live::live_input,
                 ui::main_panel,
                 diagnostics::diagnostics_window,
+                debug_panel::debug_window,
                 live::mode_dialog,
                 ui::quit_dialog,
                 live::flush_orders,

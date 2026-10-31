@@ -2,6 +2,7 @@
 //! post-process, streaming du monde, culling, qualité adaptative et palettes.
 
 pub mod audio;
+mod car_selection;
 pub mod controls;
 pub mod culling;
 pub mod diagnostics;
@@ -23,6 +24,7 @@ pub use audio::{
     AudioCommand, AudioConfig, AudioFeatures, AudioSource, AudioStatus, CfAudioPlugin, InputBackendChoice, Kick,
     OutputChoice, SectionChanged, VisualLatency,
 };
+pub use car_selection::{CarOption, CarSelection};
 pub use controls::{
     ControlAction, ControlBridge, ControllerLibrary, ControlsConfig, ControlsPlugin, ControlsStatus, LastInput,
     LearnCommand, LibraryError, MidiChoice, TextInputFocus, submit_action,

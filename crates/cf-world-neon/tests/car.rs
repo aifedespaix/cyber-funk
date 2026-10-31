@@ -644,3 +644,28 @@ fn un_modele_refuse_garde_la_voiture_saine() {
     let mut rigs = app.world_mut().query_filtered::<Entity, With<CarRig>>();
     assert_eq!(rigs.iter(app.world()).count(), 1, "la voiture saine reste");
 }
+
+#[test]
+fn la_selection_de_l_operateur_change_la_voiture_une_fois_prete() {
+    let mut app = built(0.0, 0.0);
+    // Avant que la seconde voiture soit décodée, la demande est refusée par la sélection elle-même.
+    run_until(&mut app, "seconde voiture prête", |app| {
+        app.world()
+            .resource::<cf_render::CarSelection>()
+            .options
+            .iter()
+            .all(|o| o.ready)
+    });
+    assert!(
+        app.world_mut()
+            .resource_mut::<cf_render::CarSelection>()
+            .request("cyber")
+    );
+    run_until(&mut app, "voiture changée", |app| {
+        app.world().resource::<ActiveCar>().0 == CarVariant::Cyber
+    });
+    for _ in 0..3 {
+        app.update();
+    }
+    assert_eq!(app.world().resource::<cf_render::CarSelection>().active, "cyber");
+}

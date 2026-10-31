@@ -12,7 +12,7 @@ use bevy::prelude::*;
 use super::rig::{Car, CarPart, CarRig};
 use super::spawn::{CarAssets, spawn_car};
 use super::systems::{CarVariant, car_palette};
-use cf_render::ScenePalette;
+use cf_render::{CarSelection, ScenePalette};
 
 /// La voiture que l'opérateur veut. Écrite par la fenêtre opérateur ; [`switch_car`] la met en œuvre.
 #[derive(Resource, Debug, Clone, Copy, PartialEq, Eq)]
@@ -38,6 +38,29 @@ impl CarModels {
     pub fn has(&self, variant: CarVariant) -> bool {
         self.models.contains_key(&variant)
     }
+}
+
+/// `CfSet::Simulate`, avant [`switch_car`] : met `CarSelection` (lue par la fenêtre opérateur) à jour avec ce que le
+/// monde sait, et traduit la demande de l'opérateur en [`CarChoiceRequest`].
+pub(super) fn sync_selection(
+    mut selection: ResMut<CarSelection>,
+    active: Res<ActiveCar>,
+    models: Res<CarModels>,
+    mut request: ResMut<CarChoiceRequest>,
+) {
+    // L'opérateur a écrit la sélection (et nous seulement par `bypass_change_detection` ci-dessous) : sa demande passe.
+    // Sans cela, une demande posée directement dans `CarChoiceRequest` serait écrasée par une sélection restée en arrière.
+    if selection.is_changed()
+        && let Some(wanted) = CarVariant::from_key(selection.requested)
+        && wanted != request.0
+    {
+        request.0 = wanted;
+    }
+    let state = selection.bypass_change_detection();
+    for option in &mut state.options {
+        option.ready = CarVariant::from_key(option.key).is_some_and(|variant| models.has(variant));
+    }
+    state.active = active.0.key();
 }
 
 /// La voiture déjà posée : la racine `Car` qui porte un `CarRig`.

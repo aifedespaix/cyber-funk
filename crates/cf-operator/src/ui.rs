@@ -6,6 +6,7 @@ use bevy_egui::{EguiContext, PrimaryEguiContext, egui};
 use cf_render::audio::{AudioCommand, AudioFeatures, AudioStatus, VisualLatency};
 use cf_render::{ControlsStatus, LearnCommand};
 
+use crate::debug_panel::{self, DebugState};
 use crate::live::{self, LiveParams};
 use crate::loading::{self, LoadingView};
 use crate::prepare::{self, PrepSession};
@@ -33,6 +34,7 @@ pub(crate) fn main_panel(
     mut learn: MessageWriter<LearnCommand>,
     update: Res<UpdateStatus>,
     mut install: MessageWriter<InstallUpdate>,
+    mut debug: ResMut<DebugState>,
 ) {
     // Depuis egui 0.36 les panneaux se posent dans un `Ui` racine, pas directement sur le contexte.
     let ctx = context.get_mut();
@@ -97,12 +99,16 @@ pub(crate) fn main_panel(
         }
         if let Some(session) = prep.as_deref_mut() {
             let library_ids = controls.as_deref().map_or(&[][..], |c| c.library_ids.as_slice());
-            prepare::draw(ui, session, library_ids, |ui| live::mode_button(ui, &mut live));
+            prepare::draw(ui, session, library_ids, |ui| {
+                live::mode_button(ui, &mut live);
+                debug_panel::toggle_button(ui, &mut debug);
+            });
             return;
         }
         ui.horizontal(|ui| {
             ui.heading("cyber-funk");
             live::mode_button(ui, &mut live);
+            debug_panel::toggle_button(ui, &mut debug);
         });
         egui::ScrollArea::vertical().show(ui, |ui| {
             draw_controls(ui, live.show(), controls.as_deref(), features_copy);

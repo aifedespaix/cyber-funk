@@ -95,6 +95,18 @@ impl Plugin for CarPlugin {
         .insert_resource(ActiveCar(self.variant))
         .insert_resource(CarChoiceRequest(self.variant))
         .init_resource::<CarModels>()
+        .insert_resource(cf_render::CarSelection {
+            options: CarVariant::ALL
+                .into_iter()
+                .map(|variant| cf_render::CarOption {
+                    key: variant.key(),
+                    label: variant.label(),
+                    ready: false,
+                })
+                .collect(),
+            active: self.variant.key(),
+            requested: self.variant.key(),
+        })
         .init_resource::<CarControls>()
         .init_resource::<CarSettings>()
         .init_resource::<crate::RoadLook>();
@@ -125,6 +137,7 @@ impl Plugin for CarPlugin {
                 (
                     systems::build_car,
                     systems::receive_standby,
+                    switch::sync_selection,
                     switch::switch_car,
                     systems::drive_car,
                     systems::advance_look,

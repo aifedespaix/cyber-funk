@@ -119,6 +119,21 @@ impl CarVariant {
         }
     }
 
+    /// Identifiant stable (celui des réglages sauvegardés et de [`CarSelection`](cf_render::CarSelection)).
+    #[must_use]
+    pub fn key(self) -> &'static str {
+        match self {
+            Self::Dirty => "dirty",
+            Self::Cyber => "cyber",
+        }
+    }
+
+    /// La voiture qu'un identifiant désigne.
+    #[must_use]
+    pub fn from_key(key: &str) -> Option<Self> {
+        Self::ALL.into_iter().find(|variant| variant.key() == key)
+    }
+
     /// Nom affiché à l'opérateur.
     #[must_use]
     pub fn label(self) -> &'static str {
