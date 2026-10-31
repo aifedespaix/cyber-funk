@@ -16,7 +16,10 @@ use cf_render::{
     AbsolutePosition, AudioFeatures, CorePlugin, CurrentShowFx, Layer, ShowFxInput, aabb_encloses_mesh, mesh_aabb,
 };
 use cf_world_neon::car::effects::{CarSmoke, CarTrail};
-use cf_world_neon::car::{Car, CarControls, CarPaintMaterial, CarPlugin, CarRig, CarState, CarVariant, ModelQuality};
+use cf_world_neon::car::{
+    ActiveCar, Car, CarChoiceRequest, CarControls, CarModels, CarPaintMaterial, CarPlugin, CarRig, CarState,
+    CarVariant, ModelQuality,
+};
 use cf_world_neon::{ChasePlugin, NeonWorldPlugin, RunnerConfig};
 
 const FRAME: Duration = Duration::from_micros(16_667);
@@ -36,6 +39,10 @@ fn show(flashes: bool, breathing: bool) -> CurrentShowFx {
 }
 
 fn app(start_z_m: f64, speed_mps: f64) -> App {
+    app_with(start_z_m, speed_mps, CarVariant::Dirty, "../../assets".into())
+}
+
+fn app_with(start_z_m: f64, speed_mps: f64, variant: CarVariant, assets_dir: std::path::PathBuf) -> App {
     let mut app = App::new();
     app.add_plugins((
         MinimalPlugins,
@@ -48,9 +55,9 @@ fn app(start_z_m: f64, speed_mps: f64) -> App {
         },
         CarPlugin {
             quality: ModelQuality::Low,
-            variant: CarVariant::Dirty,
+            variant,
             // Les tests tournent dans `crates/cf-world-neon` : les assets sont à la racine du dépôt.
-            assets_dir: "../../assets".into(),
+            assets_dir,
         },
     ))
     .init_asset::<Image>()
@@ -64,7 +71,10 @@ fn app(start_z_m: f64, speed_mps: f64) -> App {
 
 /// Fait tourner l'application jusqu'à ce que la voiture soit posée (le décodage se fait dans un fil à part).
 fn built(start_z_m: f64, speed_mps: f64) -> App {
-    let mut app = app(start_z_m, speed_mps);
+    built_with(app(start_z_m, speed_mps))
+}
+
+fn built_with(mut app: App) -> App {
     for _ in 0..4000 {
         app.update();
         let mut rigs = app.world_mut().query_filtered::<Entity, With<CarRig>>();
@@ -516,4 +526,121 @@ fn la_voiture_n_est_pas_necessaire_au_monde_sans_modele() {
     }
     let mut runner = app.world_mut().query_filtered::<&Mesh3d, With<cf_world_neon::Runner>>();
     assert_eq!(runner.iter(app.world()).count(), 1, "le pavé reste");
+}
+
+// --- Changer de voiture à chaud ---
+
+/// Fait tourner jusqu'à ce que `done` soit vrai (les modèles se décodent dans des fils à part).
+fn run_until(app: &mut App, what: &str, done: impl Fn(&App) -> bool) {
+    for _ in 0..4000 {
+        app.update();
+        if done(app) {
+            return;
+        }
+        std::thread::sleep(Duration::from_millis(5));
+    }
+    panic!("{what} : jamais arrivé");
+}
+
+fn switch_to(app: &mut App, variant: CarVariant) {
+    run_until(app, "seconde voiture décodée", |app| {
+        app.world().resource::<CarModels>().has(variant)
+    });
+    app.world_mut().insert_resource(CarChoiceRequest(variant));
+    run_until(app, "changement de voiture", |app| {
+        app.world().resource::<ActiveCar>().0 == variant
+    });
+    // Les commandes différées (destruction, pose) sont appliquées, puis un régime établi.
+    for _ in 0..5 {
+        app.update();
+    }
+}
+
+fn named(app: &mut App, name: &str) -> usize {
+    let mut query = app.world_mut().query::<&Name>();
+    query.iter(app.world()).filter(|n| n.as_str() == name).count()
+}
+
+#[test]
+fn changer_de_voiture_detruit_toutes_les_entites_de_l_ancienne() {
+    // Une construction neuve de la CyberCar sert de mesure : le changement doit laisser exactement la même arborescence.
+    let mut fresh = built_with(app_with(0.0, 0.0, CarVariant::Cyber, "../../assets".into()));
+    let fresh_root = car(&mut fresh);
+    let expected = tree(&fresh, fresh_root).len();
+
+    let mut app = built(0.0, 0.0);
+    switch_to(&mut app, CarVariant::Cyber);
+    let root = car(&mut app);
+    assert_eq!(
+        tree(&app, root).len(),
+        expected,
+        "arborescence d'une construction neuve"
+    );
+    assert_eq!(named(&mut app, "carrosserie"), 1, "une seule carrosserie");
+    // Un aller-retour ne laisse rien non plus.
+    switch_to(&mut app, CarVariant::Dirty);
+    let mut dirty = built(0.0, 0.0);
+    let dirty_root = car(&mut dirty);
+    let app_root = car(&mut app);
+    assert_eq!(tree(&app, app_root).len(), tree(&dirty, dirty_root).len());
+    assert_eq!(named(&mut app, "carrosserie"), 1);
+}
+
+#[test]
+fn la_position_et_la_vitesse_sont_gardees_au_changement() {
+    let mut app = built(0.0, 40.0);
+    for _ in 0..30 {
+        app.update();
+    }
+    let root = car(&mut app);
+    let before_speed = app.world().get::<CarState>(root).expect("état").speed_mps;
+    let before_z = app.world().get::<AbsolutePosition>(root).expect("position").0.z;
+    assert!(before_speed > 20.0, "la voiture roule : {before_speed}");
+    switch_to(&mut app, CarVariant::Cyber);
+    let root = car(&mut app);
+    let after_speed = app.world().get::<CarState>(root).expect("état").speed_mps;
+    let after_z = app.world().get::<AbsolutePosition>(root).expect("position").0.z;
+    assert!(
+        (after_speed - before_speed).abs() < 2.0,
+        "vitesse {before_speed} → {after_speed}"
+    );
+    assert!(after_z < before_z, "elle a continué d'avancer (la route va vers −z)");
+}
+
+#[test]
+fn demander_la_voiture_en_place_ne_reconstruit_rien() {
+    let mut app = built(0.0, 0.0);
+    let root = car(&mut app);
+    let mut before = tree(&app, root);
+    before.sort();
+    app.world_mut().insert_resource(CarChoiceRequest(CarVariant::Dirty));
+    for _ in 0..30 {
+        app.update();
+    }
+    let mut after = tree(&app, root);
+    after.sort();
+    assert_eq!(before, after, "mêmes entités");
+}
+
+#[test]
+fn un_modele_refuse_garde_la_voiture_saine() {
+    // Un dossier d'assets où seule la dirty car existe : la CyberCar est introuvable.
+    let dir = tempfile::tempdir().expect("dossier temporaire");
+    let models = dir.path().join("models/car");
+    std::fs::create_dir_all(&models).expect("dossiers");
+    std::fs::copy(
+        "../../assets/models/car/car-dirty-low.glb",
+        models.join("car-dirty-low.glb"),
+    )
+    .expect("copie");
+    let mut app = built_with(app_with(0.0, 0.0, CarVariant::Dirty, dir.path().to_path_buf()));
+    app.world_mut().insert_resource(CarChoiceRequest(CarVariant::Cyber));
+    for _ in 0..300 {
+        app.update();
+        std::thread::sleep(Duration::from_millis(2));
+    }
+    assert_eq!(app.world().resource::<ActiveCar>().0, CarVariant::Dirty);
+    assert!(!app.world().resource::<CarModels>().has(CarVariant::Cyber));
+    let mut rigs = app.world_mut().query_filtered::<Entity, With<CarRig>>();
+    assert_eq!(rigs.iter(app.world()).count(), 1, "la voiture saine reste");
 }

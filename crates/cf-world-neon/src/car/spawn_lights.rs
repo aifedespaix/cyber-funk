@@ -16,7 +16,7 @@ use super::frame::CarFrame;
 use super::glow::NEON_INTENSITY;
 use super::materials::{CarLightMaterial, LightKind};
 use super::model::{CarModelAsset, Fore, MaterialRole, Side};
-use super::rig::{Emissive, HaloRig, LightRig, SignalRig};
+use super::rig::{CarPart, Emissive, HaloRig, LightRig, SignalRig};
 use super::shapes;
 use super::spawn::CarAssets;
 
@@ -105,6 +105,7 @@ fn ground_light(
             Transform::from_translation(at).with_scale(scale),
             Visibility::default(),
             WorldLayer,
+            CarPart,
             ChildOf(scene.root),
         ))
         .id()

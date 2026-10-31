@@ -112,6 +112,11 @@ pub struct ModelMaterials {
     pub glass: Option<Handle<StandardMaterial>>,
 }
 
+/// Marque les entités que `spawn_car` pose directement sous la racine : changer de voiture les détruit (avec tout ce
+/// qui en descend) avant de poser la suivante.
+#[derive(Component, Debug, Default, Clone, Copy)]
+pub struct CarPart;
+
 /// Tout ce que les systèmes de la voiture touchent, sur l'entité racine.
 #[derive(Component, Debug)]
 pub struct CarRig {

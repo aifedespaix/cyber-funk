@@ -18,7 +18,7 @@ use super::glow::CarPalette;
 use super::materials::{CarLightMaterial, CarPaintExt, CarPaintMaterial, PaintParams};
 use super::model::{Alpha, CarModelAsset, Fore, MaterialData, MaterialRole, Side};
 use super::paint::PAINT_REF_HUE;
-use super::rig::{CarRig, Emissive, ModelMaterials};
+use super::rig::{CarPart, CarRig, Emissive, ModelMaterials};
 use super::screens::{SCREEN_EMISSIVE, ScreenKind, ScreenRig, blank_image};
 use super::spawn_lights::{Lamps, LightScene, spawn_lights};
 
@@ -201,6 +201,7 @@ pub fn spawn_car(
             .id()
     };
     let body = group("carrosserie", Transform::IDENTITY, root, commands);
+    commands.entity(body).insert(CarPart);
     let holder = group("repère du modèle", frame.to_car, body, commands);
     let chassis = group("châssis", Transform::IDENTITY, holder, commands);
 

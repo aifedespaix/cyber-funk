@@ -153,7 +153,9 @@ pub struct NodeData {
 }
 
 /// Le modèle décodé, rempli hors du fil principal (tâche de fond du plugin).
-#[derive(Debug)]
+///
+/// `Clone` : le plugin garde un exemplaire intact de chaque voiture pour pouvoir la reposer sans rien recharger.
+#[derive(Debug, Clone)]
 pub struct CarModelAsset {
     /// Un maillage par primitive du GLB.
     pub meshes: Vec<Mesh>,

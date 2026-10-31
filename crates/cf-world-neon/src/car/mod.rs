@@ -36,6 +36,7 @@ pub mod shapes;
 pub mod smoke;
 pub mod spawn;
 mod spawn_lights;
+pub mod switch;
 pub mod systems;
 pub mod trail;
 
@@ -48,6 +49,7 @@ pub use glb::{CarModelError, Gltf};
 pub use materials::{CarLightMaterial, CarPaintMaterial};
 pub use model::CarModelAsset;
 pub use rig::{Car, CarRig, CarState};
+pub use switch::{ActiveCar, CarChoiceRequest, CarModels};
 pub use systems::{CarControls, CarSettings, CarVariant, ModelQuality};
 
 /// Installe la voiture. À ajouter après les plugins de rendu de Bevy, `CorePlugin` et le monde.
@@ -82,9 +84,17 @@ impl Plugin for CarPlugin {
         if !app.is_plugin_added::<AssetPlugin>() {
             return;
         }
+        let other = match self.variant {
+            CarVariant::Dirty => CarVariant::Cyber,
+            CarVariant::Cyber => CarVariant::Dirty,
+        };
         app.insert_resource(systems::CarModelSource {
-            path: self.assets_dir.join(self.variant.path(self.quality)),
+            active: (self.variant, self.assets_dir.join(self.variant.path(self.quality))),
+            standby: (other, self.assets_dir.join(other.path(self.quality))),
         })
+        .insert_resource(ActiveCar(self.variant))
+        .insert_resource(CarChoiceRequest(self.variant))
+        .init_resource::<CarModels>()
         .init_resource::<CarControls>()
         .init_resource::<CarSettings>()
         .init_resource::<crate::RoadLook>();
@@ -114,6 +124,8 @@ impl Plugin for CarPlugin {
                 Update,
                 (
                     systems::build_car,
+                    systems::receive_standby,
+                    switch::switch_car,
                     systems::drive_car,
                     systems::advance_look,
                     systems::apply_model_lights,

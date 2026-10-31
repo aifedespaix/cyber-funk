@@ -21,6 +21,7 @@ use super::motion::{MotionInput, MotionPose};
 use super::paint::paint_scales;
 use super::rig::{Car, CarRig, CarState, Emissive, Look};
 use super::spawn::{CarAssets, spawn_car};
+use super::switch::{ActiveCar, CarModels};
 use crate::RoadLook;
 use crate::chase::Runner;
 
@@ -146,10 +147,12 @@ impl From<CarVariant> for cf_show::persist::CarChoice {
     }
 }
 
-/// Où lire le modèle : posé par le plugin.
+/// Où lire les deux modèles : posé par le plugin. Celui de la voiture de départ est décodé d'abord, l'autre juste
+/// derrière : les deux sont prêts à l'ouverture (règle 8), le changement de voiture ne charge rien.
 #[derive(Resource, Debug, Clone)]
 pub(super) struct CarModelSource {
-    pub(super) path: std::path::PathBuf,
+    pub(super) active: (CarVariant, std::path::PathBuf),
+    pub(super) standby: (CarVariant, std::path::PathBuf),
 }
 
 /// Le décodage en cours, dans une tâche de fond : retiré quand la voiture est construite (ou que le modèle est refusé).
@@ -160,18 +163,70 @@ pub(super) struct CarModelTask {
     step: Option<StepId>,
 }
 
-/// `Startup` : lance la lecture et le décodage du modèle (hors du fil principal).
-pub(super) fn load_model(mut commands: Commands, source: Res<CarModelSource>, tracker: Option<ResMut<LoadTracker>>) {
-    let path = source.path.clone();
-    let task = AsyncComputeTaskPool::get().spawn(async move {
+/// Le décodage de l'autre voiture, en tâche de fond lui aussi.
+#[derive(Resource)]
+pub(super) struct CarStandbyTask {
+    variant: CarVariant,
+    task: Task<Result<CarModelAsset, CarModelError>>,
+    step: Option<StepId>,
+}
+
+fn decode_in_background(path: std::path::PathBuf) -> Task<Result<CarModelAsset, CarModelError>> {
+    AsyncComputeTaskPool::get().spawn(async move {
         let bytes = std::fs::read(&path).map_err(|source| CarModelError::Read {
             path: path.display().to_string(),
             source,
         })?;
         CarModelAsset::from_glb(&bytes)
-    });
-    let step = tracker.map(|mut tracker| tracker.register("Voiture (modèle GLB)"));
+    })
+}
+
+/// `Startup` : lance la lecture et le décodage des deux modèles (hors du fil principal).
+pub(super) fn load_model(mut commands: Commands, source: Res<CarModelSource>, tracker: Option<ResMut<LoadTracker>>) {
+    let mut tracker = tracker;
+    let task = decode_in_background(source.active.1.clone());
+    let step = tracker.as_mut().map(|tracker| tracker.register("Voiture (modèle GLB)"));
     commands.insert_resource(CarModelTask { task, step });
+    let standby = decode_in_background(source.standby.1.clone());
+    let standby_step = tracker
+        .as_mut()
+        .map(|tracker| tracker.register("Voiture (seconde voiture)"));
+    commands.insert_resource(CarStandbyTask {
+        variant: source.standby.0,
+        task: standby,
+        step: standby_step,
+    });
+}
+
+/// `CfSet::Simulate` : quand la seconde voiture est décodée, la range à côté de la première. Un modèle refusé ne gêne
+/// pas l'autre : on le dit au carnet de chargement et le choix de cette voiture reste sans effet.
+pub(super) fn receive_standby(
+    mut commands: Commands,
+    task: Option<ResMut<CarStandbyTask>>,
+    mut models: ResMut<CarModels>,
+    tracker: Option<ResMut<LoadTracker>>,
+) {
+    let Some(mut task) = task else { return };
+    let Some(result) = future::block_on(future::poll_once(&mut task.task)) else {
+        return;
+    };
+    let (variant, step) = (task.variant, task.step);
+    commands.remove_resource::<CarStandbyTask>();
+    let mut tracker = tracker;
+    match result {
+        Ok(model) => {
+            models.store(variant, model);
+            if let (Some(step), Some(tracker)) = (step, tracker.as_mut()) {
+                tracker.finish(step);
+            }
+        }
+        Err(error) => {
+            if let (Some(step), Some(tracker)) = (step, tracker.as_mut()) {
+                tracker.fail(step, format!("voiture ({}) : {error}", variant.label()));
+            }
+            tracing::error!(%error, voiture = variant.label(), "voiture : seconde voiture illisible, elle ne sera pas proposée");
+        }
+    }
 }
 
 fn color(c: cf_render::palette::LinearRgb) -> LinearRgba {
@@ -204,6 +259,8 @@ pub(super) fn build_car(
     runner: Query<Entity, (With<Runner>, Without<Car>)>,
     mut positions: Query<&mut AbsolutePosition>,
     tracker: Option<ResMut<LoadTracker>>,
+    active: Res<ActiveCar>,
+    mut models: ResMut<CarModels>,
 ) {
     let Some(mut task) = task else { return };
     let Some(result) = future::block_on(future::poll_once(&mut task.task)) else {
@@ -225,6 +282,8 @@ pub(super) fn build_car(
         }
     };
 
+    // Un exemplaire intact reste de côté : changer de voiture puis revenir repose celle-ci sans la relire.
+    models.store(active.0, model.clone());
     let palette = car_palette(&scene);
     let rig = spawn_car(&mut commands, root, model, &mut assets, &palette, palette.violet);
     // Le point suivi provisoire est un pavé : la voiture le remplace. Elle pose ses pneus à y = 0 (le pavé était posé
