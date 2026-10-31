@@ -43,6 +43,12 @@ pub struct ControlBridge {
     /// Base profil du bas de la pile : le clavier par défaut de Sillage.
     pub(super) keyboard: ControlProfile,
     pub(super) library: super::ControllerLibrary,
+    /// Le profil de l'opérateur (MIDI learn), empilé en dernier.
+    pub(super) user: super::user::UserControls,
+    /// Dernier créneau chargé : la pile de profils à reconstruire en dépend.
+    pub(super) slot: Option<usize>,
+    /// Le dernier binding appris et ce qu'il a remplacé, en attente du message complet de `rebuild`.
+    pub(super) last_learned: Option<(cf_control::Binding, Vec<cf_control::Binding>)>,
     /// Origine de l'horloge des contrôles ; la même que l'`epoch` du MIDI, pour que tous les `time_s` s'accordent.
     epoch: Instant,
     last_status_s: f64,
@@ -54,10 +60,15 @@ impl ControlBridge {
     pub(super) fn new(
         midi: Option<MidiInput>,
         library: super::ControllerLibrary,
+        user: super::user::UserControls,
         epoch: Instant,
     ) -> Result<Self, cf_control::Error> {
         let keyboard = ControlProfile::sillage_keyboard();
-        let (mapper, _overrides) = Mapper::from_profiles(&[&keyboard])?;
+        let (mapper, _overrides) = if user.profile.bindings.is_empty() {
+            Mapper::from_profiles(&[&keyboard])?
+        } else {
+            Mapper::from_profiles(&[&keyboard, &user.profile])?
+        };
         Ok(Self {
             mapper,
             learner: Learner::new(),
@@ -68,6 +79,9 @@ impl ControlBridge {
             grid: AudioBeatGrid::new(),
             keyboard,
             library,
+            user,
+            slot: None,
+            last_learned: None,
             epoch,
             last_status_s: f64::NEG_INFINITY,
             released: Vec::new(),
@@ -174,8 +188,8 @@ pub(super) fn read_midi(
                 emitter.emit(timed);
             }
             Dispatch::Learned(binding) => {
-                // Le panneau d'apprentissage arrive avec l'interface de préparation ; en attendant, la trace suffit.
                 tracing::info!(source = ?binding.source, "MIDI learn : geste reconnu");
+                super::user::record_learned(emitter.bridge, emitter.status, binding);
             }
             Dispatch::Port(PortEvent::Disconnected { port, .. }) => {
                 // L'horloge d'un port qui disparaît ne doit pas rester en roue libre sur de vieilles impulsions.

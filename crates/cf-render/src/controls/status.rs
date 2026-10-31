@@ -38,6 +38,14 @@ pub struct ControlsStatus {
     pub tap_bpm: Option<f64>,
     /// Remarques à montrer (démarrage MIDI impossible, profil refusé…).
     pub notes: Vec<String>,
+    /// L'action dont on attend le geste MIDI (MIDI learn en écoute).
+    pub learning: Option<cf_control::ActionTemplate>,
+    /// Le profil de l'opérateur (bindings appris), tel qu'enregistré.
+    pub user_profile: cf_control::ControlProfile,
+    /// Résultat du dernier apprentissage ou import : ce qui a été remplacé ou masqué, ou pourquoi c'est refusé.
+    pub learn_notice: Option<String>,
+    /// Identifiants des profils livrés (`assets/controllers`), à proposer à l'événement et aux créneaux.
+    pub library_ids: Vec<String>,
 }
 
 impl Default for ControlsStatus {
@@ -53,6 +61,10 @@ impl Default for ControlsStatus {
             transport: Transport::Unknown,
             tap_bpm: None,
             notes: Vec::new(),
+            learning: None,
+            user_profile: cf_control::ControlProfile::new(super::user::USER_PROFILE_NAME),
+            learn_notice: None,
+            library_ids: Vec::new(),
         }
     }
 }

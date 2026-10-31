@@ -23,7 +23,7 @@ pub use audio::{
 };
 pub use controls::{
     ControlAction, ControlBridge, ControllerLibrary, ControlsConfig, ControlsPlugin, ControlsStatus, LastInput,
-    LibraryError, MidiChoice, TextInputFocus, submit_action,
+    LearnCommand, LibraryError, MidiChoice, TextInputFocus, submit_action,
 };
 pub use culling::{
     Cadence, CullingPlugin, CullingSet, CullingSettings, CullingView, FOG_FULL_M, LodBands, LodClock, SimulationLod,

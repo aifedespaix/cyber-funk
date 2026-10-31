@@ -61,6 +61,8 @@ pub fn controls_plugin(cli: &Cli) -> anyhow::Result<ControlsPlugin> {
             MidiChoice::System
         },
         library: library(&dir)?,
+        // Hors du dossier des profils livrés (versionné) : ce que l'opérateur apprend lui appartient.
+        user_profile_path: Some(cli.assets_dir.join("local/user-controls.ron")),
     }))
 }
 

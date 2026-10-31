@@ -57,6 +57,7 @@ fn collect_facts(mut facts: ResMut<Facts>, mut events: MessageReader<ShowEventMe
 fn app(controls: &[&str], midi: MidiChoice) -> App {
     let mut app = controls_app_with(
         ControlsConfig {
+            user_profile_path: None,
             midi,
             library: library(),
         },
@@ -264,6 +265,7 @@ fn l_horloge_midi_prend_la_main_et_se_publie() {
 fn sans_show_les_controles_tournent_quand_meme() {
     let mut app = controls_app_with(
         ControlsConfig {
+            user_profile_path: None,
             midi: MidiChoice::Off,
             library: ControllerLibrary::new(),
         },

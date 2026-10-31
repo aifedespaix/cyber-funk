@@ -15,6 +15,7 @@ mod keyboard;
 mod library;
 mod profiles;
 mod status;
+mod user;
 
 use std::time::Instant;
 
@@ -26,6 +27,7 @@ pub use keyboard::{key_code, key_event, logical_char, modifiers};
 pub use library::{ControllerLibrary, LibraryError};
 pub(crate) use profiles::apply_slot_profiles;
 pub use status::{ControlsStatus, LastInput};
+pub use user::{LearnCommand, USER_PROFILE_NAME};
 
 use crate::CfSet;
 use crate::audio::{AudioCommand, AudioPump};
@@ -59,6 +61,9 @@ pub struct ControlsConfig {
     pub midi: MidiChoice,
     /// Profils de contrôle livrés (`assets/controllers`), pour ceux que l'événement et les créneaux désignent.
     pub library: ControllerLibrary,
+    /// Fichier du profil de l'opérateur (MIDI learn), relu au démarrage et réécrit à chaque changement. `None` : le
+    /// profil vit en mémoire seulement.
+    pub user_profile_path: Option<std::path::PathBuf>,
 }
 
 /// Branche les contrôles. À ajouter après `CorePlugin` et `CfAudioPlugin` (qui déclarent `CfSet::Input` et
@@ -81,6 +86,7 @@ impl Plugin for ControlsPlugin {
     fn build(&self, app: &mut App) {
         app.add_message::<ControlAction>()
             .add_message::<AudioCommand>()
+            .add_message::<LearnCommand>()
             .init_resource::<TextInputFocus>()
             .init_resource::<ControlsStatus>();
         // Même origine pour le MIDI et le reste : tous les `time_s` (MIDI, tap, arbitre) sont sur une seule horloge.
@@ -105,7 +111,14 @@ impl Plugin for ControlsPlugin {
                 None
             }
         };
-        match ControlBridge::new(midi, self.config.library.clone(), epoch) {
+        let (user, user_note) = user::UserControls::load(self.config.user_profile_path.as_deref());
+        {
+            let mut status = app.world_mut().resource_mut::<ControlsStatus>();
+            status.notes.extend(user_note);
+            status.user_profile = user.profile.clone();
+            status.library_ids = self.config.library.ids();
+        }
+        match ControlBridge::new(midi, self.config.library.clone(), user, epoch) {
             Ok(bridge) => {
                 app.insert_resource(bridge);
             }
@@ -119,7 +132,9 @@ impl Plugin for ControlsPlugin {
             Update,
             (
                 keyboard::read_keyboard,
+                user::handle_commands,
                 bridge::read_midi,
+                user::rebuild,
                 bridge::update_tempo,
                 forward_playback,
             )

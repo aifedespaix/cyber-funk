@@ -3,14 +3,14 @@
 use bevy::prelude::*;
 use bevy_egui::{EguiContext, PrimaryEguiContext, egui};
 
-use cf_render::ControlsStatus;
 use cf_render::audio::{AudioCommand, AudioFeatures, AudioStatus, VisualLatency};
+use cf_render::{ControlsStatus, LearnCommand};
 
 use crate::live::{self, LiveParams};
 use crate::loading::{self, LoadingView};
 use crate::prepare::{self, PrepSession};
 use crate::quit::{QuitDecision, QuitPrompt, QuitSource};
-use crate::{audio_panel, controls_panel};
+use crate::{audio_panel, controls_panel, learn_panel};
 
 /// Largeur initiale du panneau audio (points egui) : assez pour les vumètres et la ligne des compteurs.
 const AUDIO_PANEL_WIDTH: f32 = 560.0;
@@ -29,6 +29,7 @@ pub(crate) fn main_panel(
     loading: LoadingView,
     mut live: LiveParams,
     mut prep: Option<ResMut<PrepSession>>,
+    mut learn: MessageWriter<LearnCommand>,
 ) {
     // Depuis egui 0.36 les panneaux se posent dans un `Ui` racine, pas directement sur le contexte.
     let ctx = context.get_mut();
@@ -70,6 +71,12 @@ pub(crate) fn main_panel(
                     .show(ui, |ui| {
                         egui::ScrollArea::vertical().max_height(260.0).show(ui, |ui| {
                             draw_controls(ui, live.show(), controls.as_deref(), features_copy);
+                            if let Some(status) = controls.as_deref() {
+                                ui.separator();
+                                let mut orders = Vec::new();
+                                learn_panel::draw(ui, status, &mut orders);
+                                learn.write_batch(orders);
+                            }
                         });
                     });
             });
@@ -82,7 +89,8 @@ pub(crate) fn main_panel(
         }
         loading::draw_late_warning(ui, loading.late_pipelines());
         if let Some(session) = prep.as_deref_mut() {
-            prepare::draw(ui, session, |ui| live::mode_button(ui, &mut live));
+            let library_ids = controls.as_deref().map_or(&[][..], |c| c.library_ids.as_slice());
+            prepare::draw(ui, session, library_ids, |ui| live::mode_button(ui, &mut live));
             return;
         }
         ui.horizontal(|ui| {

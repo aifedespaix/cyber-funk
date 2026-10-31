@@ -6,6 +6,9 @@
 # Pistes personnelles non distribuables (voir assets/music/README.md)
 /assets/music/local/
 
+# Réglages personnels de l'opérateur (profil MIDI appris)
+/assets/local/
+
 # Sauvegardes de show en cours et journaux
 /autosave/
 *.log
@@ -23,3 +26,7 @@ Thumbs.db
 
 # Worktrees temporaires des agents Claude Code
 /.claude/worktrees/
+
+# Sources lourdes de la voiture (voir assets/car-src/README.md)
+/assets/car-src/*
+!/assets/car-src/README.md

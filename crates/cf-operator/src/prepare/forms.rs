@@ -21,7 +21,13 @@ const PRESETS: [(PresetTheme, &str); 6] = [
 ];
 
 /// Réglages de l'événement : nom, flashs, latence, écran, look de secours, enseignes, profils, langue.
-pub(super) fn event_form(ui: &mut egui::Ui, event: &mut Event, looks: &[LookId], touch: &mut Touch) {
+pub(super) fn event_form(
+    ui: &mut egui::Ui,
+    event: &mut Event,
+    looks: &[LookId],
+    library_ids: &[String],
+    touch: &mut Touch,
+) {
     let s = &mut event.settings;
     row(ui, "Nom", |ui| {
         text_field(ui, touch, &mut s.name, MAX_EVENT_NAME);
@@ -72,12 +78,12 @@ pub(super) fn event_form(ui: &mut egui::Ui, event: &mut Event, looks: &[LookId],
         );
     });
     row(ui, "Profils de contrôle", |ui| {
-        profile_list(ui, touch, "event_controls", &mut s.controls);
+        profile_list(ui, touch, "event_controls", library_ids, &mut s.controls);
     });
 }
 
 /// Créneau d'un DJ : identité, horaires, thème, mode, profil audio, profils de contrôle.
-pub(super) fn slot_form(ui: &mut egui::Ui, slot: &mut DjSlot, touch: &mut Touch) {
+pub(super) fn slot_form(ui: &mut egui::Ui, slot: &mut DjSlot, library_ids: &[String], touch: &mut Touch) {
     row(ui, "Identifiant", |ui| {
         ui.label(slot.id.as_str());
     });
@@ -142,7 +148,7 @@ pub(super) fn slot_form(ui: &mut egui::Ui, slot: &mut DjSlot, touch: &mut Touch)
     });
     ui.separator();
     row(ui, "Profils de contrôle", |ui| {
-        profile_list(ui, touch, "slot_controls", &mut slot.controls);
+        profile_list(ui, touch, "slot_controls", library_ids, &mut slot.controls);
     });
 }
 
@@ -280,7 +286,13 @@ fn time_field(ui: &mut egui::Ui, touch: &mut Touch, time: &mut ClockTime) {
 }
 
 /// Liste de profils de contrôle : retirer d'un clic, ajouter par identifiant.
-fn profile_list(ui: &mut egui::Ui, touch: &mut Touch, salt: &str, list: &mut Vec<ControlProfileId>) {
+fn profile_list(
+    ui: &mut egui::Ui,
+    touch: &mut Touch,
+    salt: &str,
+    library_ids: &[String],
+    list: &mut Vec<ControlProfileId>,
+) {
     ui.vertical(|ui| {
         let mut remove = None;
         for (i, id) in list.iter().enumerate() {
@@ -294,6 +306,23 @@ fn profile_list(ui: &mut egui::Ui, touch: &mut Touch, salt: &str, list: &mut Vec
         if let Some(i) = remove {
             list.remove(i);
             touch.structural();
+        }
+        // Les profils livrés (`assets/controllers`) se choisissent d'un clic ; la saisie reste pour un profil à venir.
+        let missing: Vec<ControlProfileId> = library_ids
+            .iter()
+            .filter_map(|id| ControlProfileId::new(id.clone()).ok())
+            .filter(|id| !list.contains(id))
+            .collect();
+        if !missing.is_empty() {
+            ui.menu_button("+ Profil livré", |ui| {
+                for id in missing {
+                    if ui.button(id.as_str()).clicked() {
+                        list.push(id);
+                        touch.structural();
+                        ui.close();
+                    }
+                }
+            });
         }
         let buffer_id = ui.id().with(salt);
         let mut text: String = ui.data_mut(|d| d.get_temp(buffer_id).unwrap_or_default());

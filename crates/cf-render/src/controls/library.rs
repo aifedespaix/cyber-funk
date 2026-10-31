@@ -76,6 +76,12 @@ impl ControllerLibrary {
         self.profiles.insert(id.into(), profile);
     }
 
+    /// Les identifiants des profils, par ordre alphabétique.
+    #[must_use]
+    pub fn ids(&self) -> Vec<String> {
+        self.profiles.keys().cloned().collect()
+    }
+
     /// Le profil d'identifiant `id`.
     #[must_use]
     pub fn get(&self, id: &str) -> Option<&ControlProfile> {

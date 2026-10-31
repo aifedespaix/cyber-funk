@@ -34,7 +34,12 @@ enum Op {
 }
 
 /// Dessine la Préparation. `mode_button` ajoute le bouton « Passer en Live » à la barre.
-pub(crate) fn draw(ui: &mut egui::Ui, session: &mut PrepSession, mode_button: impl FnOnce(&mut egui::Ui)) {
+pub(crate) fn draw(
+    ui: &mut egui::Ui,
+    session: &mut PrepSession,
+    library_ids: &[String],
+    mode_button: impl FnOnce(&mut egui::Ui),
+) {
     shortcuts(ui.ctx(), session);
     toolbar(ui, session, mode_button);
     messages(ui, session);
@@ -51,7 +56,9 @@ pub(crate) fn draw(ui: &mut egui::Ui, session: &mut PrepSession, mode_button: im
         .default_size(280.0)
         .show(ui, |ui| lists(ui, &draft, &mut selection, &flagged, &mut ops));
     egui::CentralPanel::default().show(ui, |ui| {
-        egui::ScrollArea::vertical().show(ui, |ui| editor(ui, &mut draft, selection, &looks, &mut touch, &mut ops));
+        egui::ScrollArea::vertical().show(ui, |ui| {
+            editor(ui, &mut draft, selection, &looks, library_ids, &mut touch, &mut ops);
+        });
     });
 
     for op in ops {
@@ -267,12 +274,13 @@ fn editor(
     event: &mut Event,
     selection: Selection,
     looks: &[cf_show::model::LookId],
+    library_ids: &[String],
     touch: &mut Touch,
     ops: &mut Vec<Op>,
 ) {
     if selection.event {
         ui.heading("Événement");
-        event_form(ui, event, looks, touch);
+        event_form(ui, event, looks, library_ids, touch);
         return;
     }
     let slot_index = selection.slot;
@@ -301,7 +309,7 @@ fn editor(
                     ops.push(Op::MoveSlot(slot_index, slot_index + 1));
                 }
             });
-            slot_form(ui, slot, touch);
+            slot_form(ui, slot, library_ids, touch);
         }
         Some(cue_index) => {
             let cues_len = slot.cues.len();

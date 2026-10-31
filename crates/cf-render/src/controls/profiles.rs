@@ -36,7 +36,8 @@ pub(crate) fn apply_slot_profiles(
             out: &mut out,
         };
         let mut released = Vec::new();
-        let reloaded = reload(&mut emitter, &controls, slot, now, &mut released);
+        emitter.bridge.slot = Some(slot);
+        let reloaded = reload(&mut emitter, Some(&controls), Some(slot), now, &mut released);
         for action in released {
             emitter.emit(action);
         }
@@ -53,19 +54,20 @@ pub(crate) fn apply_slot_profiles(
 }
 
 /// Recharge la table du créneau `slot` ; rend la raison en clair si un profil manque ou est refusé.
-fn reload(
+pub(super) fn reload(
     emitter: &mut Emitter<'_, '_>,
-    controls: &ShowControls,
-    slot: usize,
+    controls: Option<&ShowControls>,
+    slot: Option<usize>,
     now_s: f64,
     released: &mut Vec<TimedAction>,
-) -> Result<(), String> {
+) -> Result<Vec<cf_control::Override>, String> {
     let bridge = &mut *emitter.bridge;
     let mut stack: Vec<&ControlProfile> = vec![&bridge.keyboard];
-    let wanted = controls
-        .event
-        .iter()
-        .chain(controls.slots.get(slot).into_iter().flatten());
+    let wanted = controls.into_iter().flat_map(|c| {
+        c.event
+            .iter()
+            .chain(slot.and_then(|s| c.slots.get(s)).into_iter().flatten())
+    });
     for id in wanted {
         let profile = bridge
             .library
@@ -73,15 +75,18 @@ fn reload(
             .ok_or_else(|| format!("profil de contrôle « {id} » introuvable dans assets/controllers"))?;
         stack.push(profile);
     }
+    if !bridge.user.profile.bindings.is_empty() {
+        stack.push(&bridge.user.profile);
+    }
     let overrides = bridge
         .mapper
         .reload(&stack, now_s, released)
         .map_err(|error| error.to_string())?;
     tracing::debug!(
-        slot,
+        ?slot,
         profils = stack.len(),
         remplacements = overrides.len(),
         "contrôles : table rechargée"
     );
-    Ok(())
+    Ok(overrides)
 }

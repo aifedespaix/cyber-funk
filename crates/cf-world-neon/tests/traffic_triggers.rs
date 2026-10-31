@@ -54,6 +54,7 @@ fn app() -> App {
         .add_plugins((
             CullingPlugin::default(),
             ControlsPlugin::new(ControlsConfig {
+                user_profile_path: None,
                 midi: MidiChoice::Off,
                 library: ControllerLibrary::new(),
             }),

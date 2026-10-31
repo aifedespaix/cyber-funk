@@ -76,6 +76,7 @@ pub(crate) fn seen(app: &App) -> &[Action] {
 #[test]
 fn fleche_droite_donne_go_dans_les_deux_fenetres() {
     let mut app = controls_app(ControlsConfig {
+        user_profile_path: None,
         midi: MidiChoice::Off,
         ..ControlsConfig::default()
     });
@@ -93,6 +94,7 @@ fn fleche_droite_donne_go_dans_les_deux_fenetres() {
 #[test]
 fn les_lettres_suivent_la_disposition_du_clavier() {
     let mut app = controls_app(ControlsConfig {
+        user_profile_path: None,
         midi: MidiChoice::Off,
         ..ControlsConfig::default()
     });
@@ -105,6 +107,7 @@ fn les_lettres_suivent_la_disposition_du_clavier() {
 #[test]
 fn taper_dans_un_champ_texte_ne_declenche_rien() {
     let mut app = controls_app(ControlsConfig {
+        user_profile_path: None,
         midi: MidiChoice::Off,
         ..ControlsConfig::default()
     });
@@ -144,6 +147,7 @@ fn perdre_le_focus_de_la_fenetre_relache_les_boutons_tenus() {
         )
     });
     let mut app = controls_app(ControlsConfig {
+        user_profile_path: None,
         midi: MidiChoice::Off,
         ..ControlsConfig::default()
     });
@@ -164,4 +168,116 @@ fn perdre_le_focus_de_la_fenetre_relache_les_boutons_tenus() {
         [Action::Blackout(Switch::On), Action::Blackout(Switch::Off)],
         "la fenêtre perd le clavier : le noir ne reste pas allumé"
     );
+}
+
+/// Fait tourner l'application jusqu'à ce que `done` soit vrai (3 s au plus : le MIDI passe par un autre fil).
+fn until_true(app: &mut App, what: &str, done: impl Fn(&App) -> bool) {
+    for _ in 0..180 {
+        app.update();
+        if done(app) {
+            return;
+        }
+        std::thread::sleep(Duration::from_millis(16));
+    }
+    unreachable!("délai dépassé : {what}");
+}
+
+#[test]
+fn un_pad_appris_a_go_survit_a_un_redemarrage() {
+    use cf_control::ActionTemplate;
+
+    let dir = tempfile::tempdir().expect("dossier temporaire");
+    let path = dir.path().join("user-controls.ron");
+    let fake = FakeMidi::new();
+    fake.plug("Pads");
+    let config = |fake: &FakeMidi| ControlsConfig {
+        midi: MidiChoice::Fake(fake.clone()),
+        user_profile_path: Some(path.clone()),
+        ..ControlsConfig::default()
+    };
+
+    // Session 1 : l'opérateur choisit GO, appuie sur un pad.
+    let mut app = controls_app(config(&fake));
+    until_true(&mut app, "ouverture du port", |_| !fake.open_ports().is_empty());
+    app.world_mut().write_message(LearnCommand::Start(ActionTemplate::Go));
+    app.update();
+    assert_eq!(
+        app.world().resource::<ControlsStatus>().learning,
+        Some(ActionTemplate::Go)
+    );
+    assert!(fake.send("Pads", &[0x90, 40, 100]));
+    until_true(&mut app, "binding appris", |a| {
+        a.world().resource::<ControlsStatus>().learning.is_none()
+    });
+    app.update();
+    assert!(path.is_file(), "le profil est enregistré");
+    assert_eq!(app.world().resource::<ControlsStatus>().user_profile.bindings.len(), 1);
+    // Pendant l'écoute le pad n'a rien déclenché ; maintenant il joue GO.
+    assert_eq!(seen(&app), []);
+    assert!(fake.send("Pads", &[0x80, 40, 0]));
+    assert!(fake.send("Pads", &[0x90, 40, 100]));
+    until_true(&mut app, "GO par le pad", |a| seen(a).contains(&Action::Go));
+    drop(app);
+
+    // Session 2 : redémarrage, le profil est relu et le pad joue encore GO.
+    let fake = FakeMidi::new();
+    fake.plug("Pads");
+    let mut app = controls_app(config(&fake));
+    assert_eq!(app.world().resource::<ControlsStatus>().user_profile.bindings.len(), 1);
+    until_true(&mut app, "ouverture du port", |_| !fake.open_ports().is_empty());
+    assert!(fake.send("Pads", &[0x90, 40, 100]));
+    until_true(&mut app, "GO après redémarrage", |a| seen(a).contains(&Action::Go));
+}
+
+#[test]
+fn retirer_une_ligne_du_profil_la_supprime_du_mapper_et_du_fichier() {
+    use cf_control::ActionTemplate;
+
+    let dir = tempfile::tempdir().expect("dossier temporaire");
+    let path = dir.path().join("user.ron");
+    let fake = FakeMidi::new();
+    fake.plug("Pads");
+    let mut app = controls_app(ControlsConfig {
+        midi: MidiChoice::Fake(fake.clone()),
+        user_profile_path: Some(path.clone()),
+        ..ControlsConfig::default()
+    });
+    until_true(&mut app, "ouverture du port", |_| !fake.open_ports().is_empty());
+    app.world_mut().write_message(LearnCommand::Start(ActionTemplate::Go));
+    app.update();
+    assert!(fake.send("Pads", &[0x90, 41, 100]));
+    until_true(&mut app, "binding appris", |a| {
+        a.world().resource::<ControlsStatus>().learning.is_none()
+    });
+    app.update();
+    app.world_mut().write_message(LearnCommand::Remove(0));
+    app.update();
+    app.update();
+    assert_eq!(app.world().resource::<ControlsStatus>().user_profile.bindings, []);
+    let saved = ControlProfile::from_ron(&std::fs::read_to_string(&path).expect("fichier")).expect("profil");
+    assert_eq!(saved.bindings, []);
+}
+
+#[test]
+fn importer_un_profil_invalide_est_refuse() {
+    use cf_control::ActionTemplate;
+
+    let mut app = controls_app(ControlsConfig {
+        midi: MidiChoice::Off,
+        user_profile_path: None,
+        ..ControlsConfig::default()
+    });
+    let source = InputSource::MidiNote {
+        port: None,
+        channel: 0,
+        note: 1,
+    };
+    let mut bad = ControlProfile::new("import");
+    bad.bindings.push(Binding::new(source.clone(), ActionTemplate::Go));
+    bad.bindings.push(Binding::new(source, ActionTemplate::Back));
+    app.world_mut().write_message(LearnCommand::Import(bad));
+    app.update();
+    let status = app.world().resource::<ControlsStatus>();
+    assert!(status.learn_notice.as_deref().is_some_and(|n| n.contains("refusé")));
+    assert_eq!(status.user_profile.bindings, []);
 }

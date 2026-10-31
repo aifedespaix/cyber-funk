@@ -60,6 +60,7 @@ fn app() -> App {
         .insert_resource(TimeUpdateStrategy::ManualDuration(Duration::from_secs_f64(1.0 / 60.0)))
         .add_plugins((
             ControlsPlugin::new(ControlsConfig {
+                user_profile_path: None,
                 midi: MidiChoice::Off,
                 ..ControlsConfig::default()
             }),

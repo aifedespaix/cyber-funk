@@ -8,6 +8,7 @@ mod audio_panel;
 mod controls_panel;
 mod diagnostics;
 mod freecam;
+mod learn_panel;
 mod live;
 mod loading;
 mod prepare;
