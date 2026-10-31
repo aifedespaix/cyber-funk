@@ -1,6 +1,6 @@
 //! Colonne de droite de la vue Live : tempo et source, vumètres, section, drop préparé, santé (i/s, GPU, MIDI).
 //!
-//! L'aperçu de la sortie (J8-05) viendra se placer au-dessus.
+//! L'aperçu de la sortie (J8-05, `crate::preview`) se place au-dessus.
 
 use bevy_egui::egui::{self, RichText};
 use cf_control::Action;
@@ -16,6 +16,7 @@ use super::widgets::{WARN_TEXT, action_button, level_bar};
 const LOW_FPS: f32 = 50.0;
 
 pub(crate) fn draw(ui: &mut egui::Ui, data: &LiveData<'_>, ctx: &CommandContext<'_>, orders: &mut Vec<Action>) {
+    card(ui, crate::preview::card);
     card(ui, |ui| tempo_card(ui, data, ctx, orders));
     card(ui, |ui| meters_card(ui, data.features));
     card(ui, |ui| drop_card(ui, data.drop_plan, data.state.drop_now));

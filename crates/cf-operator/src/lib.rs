@@ -11,6 +11,7 @@ mod freecam;
 mod live;
 mod loading;
 mod prepare;
+mod preview;
 mod quit;
 mod ui;
 mod window;
@@ -48,10 +49,12 @@ impl Plugin for OperatorPlugin {
         app.init_resource::<PrepConfig>()
             .add_systems(Startup, prepare::init_session);
         live::build(app);
+        preview::build(app);
         freecam::build(app);
         app.add_systems(Startup, window::spawn_operator_window).add_systems(
             EguiPrimaryContextPass,
             (
+                preview::sync_egui,
                 live::live_input,
                 ui::main_panel,
                 diagnostics::diagnostics_window,
