@@ -28,6 +28,7 @@ pub mod materials;
 pub mod model;
 pub mod motion;
 pub mod paint;
+pub mod plate;
 pub mod rig;
 pub mod safety;
 pub mod screens;

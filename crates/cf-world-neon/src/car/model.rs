@@ -87,7 +87,7 @@ impl MaterialRole {
             "signal_RR" => Self::Signal(Side::Right, Fore::Rear),
             "logo_rear_neon" => Self::LogoRear,
             "glass" => Self::Glass,
-            "screen_speed" | "screen_radio" | "screen_mirror" => Self::Screen,
+            "screen_speed" | "screen_radio" | "screen_plate" | "screen_mirror" => Self::Screen,
             "rain_glass" => Self::RainGlass,
             other => match other.strip_prefix("neon_grad_").and_then(|n| n.parse::<u8>().ok()) {
                 Some(index) if index < NEON_GRAD_COUNT => Self::NeonGrad(index),

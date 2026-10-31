@@ -15,8 +15,9 @@ use bevy::color::LinearRgba;
 use bevy::image::Image;
 use bevy::prelude::*;
 use bevy::render::render_resource::{Extent3d, TextureDimension, TextureFormat};
-use cf_render::{AudioFeatures, CurrentShowFx};
+use cf_render::{AudioFeatures, CurrentShow, CurrentShowFx, ShowSheet};
 
+use super::plate::{PLATE_H, PLATE_W, draw_plate, plate_text};
 use super::rig::{CarRig, CarState};
 
 /// Largeur du compteur, px.
@@ -41,6 +42,8 @@ pub enum ScreenKind {
     Speed,
     /// Autoradio.
     Radio,
+    /// Plaque d'immatriculation : le nom du DJ en cours, qui défile.
+    Plate,
 }
 
 impl ScreenKind {
@@ -50,6 +53,7 @@ impl ScreenKind {
         match name {
             "screen_speed" => Some(Self::Speed),
             "screen_radio" => Some(Self::Radio),
+            "screen_plate" => Some(Self::Plate),
             _ => None,
         }
     }
@@ -60,6 +64,7 @@ impl ScreenKind {
         match self {
             Self::Speed => (SPEED_W, SPEED_H),
             Self::Radio => (RADIO_W, RADIO_H),
+            Self::Plate => (PLATE_W, PLATE_H),
         }
     }
 }
@@ -91,21 +96,21 @@ pub fn blank_image(kind: ScreenKind) -> Image {
 }
 
 /// Un écran RGBA8 en cours de dessin.
-struct Pen<'a> {
-    data: &'a mut [u8],
-    width: i32,
-    height: i32,
+pub(super) struct Pen<'a> {
+    pub(super) data: &'a mut [u8],
+    pub(super) width: i32,
+    pub(super) height: i32,
 }
 
 impl Pen<'_> {
-    fn clear(&mut self, rgb: [u8; 3]) {
+    pub(super) fn clear(&mut self, rgb: [u8; 3]) {
         for px in self.data.as_chunks_mut::<4>().0 {
             *px = [rgb[0], rgb[1], rgb[2], 255];
         }
     }
 
     /// Rectangle plein, rogné aux bords de l'image.
-    fn rect(&mut self, x: i32, y: i32, w: i32, h: i32, rgb: [u8; 3]) {
+    pub(super) fn rect(&mut self, x: i32, y: i32, w: i32, h: i32, rgb: [u8; 3]) {
         let x0 = x.clamp(0, self.width);
         let x1 = (x + w).clamp(0, self.width);
         let stride = usize::try_from(self.width).unwrap_or(0);
@@ -276,11 +281,14 @@ pub fn bar_targets(bass: f32, mid: f32, high: f32) -> [f32; BARS] {
     out
 }
 
-/// `CfSet::Present` : redessine le compteur quand le chiffre change et l'autoradio à 15 Hz au plus.
+/// `CfSet::Present` : redessine le compteur quand le chiffre change, l'autoradio et la plaque à 15 Hz au plus.
+#[allow(clippy::too_many_arguments)] // Les paramètres d'un système Bevy : ressources et requêtes.
 pub(super) fn update_screens(
     time: Res<Time>,
     features: Option<Res<AudioFeatures>>,
     show: Option<Res<CurrentShowFx>>,
+    current: Option<Res<CurrentShow>>,
+    sheet: Option<Res<ShowSheet>>,
     cars: Query<(&CarRig, &CarState)>,
     mut images: ResMut<Assets<Image>>,
     mut clock: Local<ScreenClock>,
@@ -303,6 +311,14 @@ pub(super) fn update_screens(
         *bar += (target - *bar).clamp(-step, step);
     }
     let bars = clock.bars;
+    // Le DJ du créneau en cours : le nom de la feuille de conduite, ou « DJ n ».
+    let slot = current.as_deref().map_or(0, |c| c.0.slot);
+    let name = sheet
+        .as_deref()
+        .and_then(|s| s.slot(slot))
+        .map_or("", |s| s.dj.as_str());
+    let plate = plate_text(name, slot);
+    let seconds = time.elapsed_secs();
     for (rig, state) in &cars {
         // Couleurs du thème (la lueur du moment et son second néon), ramenées à pleine luminosité : l'écran garde la
         // teinte de la voiture quand le thème change, sans devenir plus clair que ses voisins.
@@ -318,6 +334,7 @@ pub(super) fn update_screens(
             match screen.kind {
                 ScreenKind::Speed if clock.last_kmh != Some(kmh) => draw_speed(data, kmh, accent, hot),
                 ScreenKind::Radio => draw_radio(data, &bars, hot, scale(hot, 0.55)),
+                ScreenKind::Plate => draw_plate(data, &plate, seconds, accent, hot),
                 ScreenKind::Speed => {}
             }
         }
