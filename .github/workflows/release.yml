@@ -7,11 +7,18 @@ name: Release
 on:
   push:
     tags: ["v*"]
+  # Lancement manuel (onglet Actions) : crée le tag sur le commit choisi puis publie dans Releases.
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Tag à créer (ex. v0.1.0), doit correspondre à la version de Cargo.toml"
+        required: true
 
 permissions:
   contents: read
 
 env:
+  RELEASE_TAG: ${{ inputs.tag || github.ref_name }}
   CARGO_TERM_COLOR: always
   CARGO_INCREMENTAL: 0
   # Version de cargo-packager épinglée : le format de configuration change d'une version à l'autre.
@@ -25,10 +32,10 @@ jobs:
       - name: Le tag correspond à la version du workspace
         run: |
           version="$(grep -m1 '^version' Cargo.toml | sed -E 's/.*"([^"]+)".*/\1/')"
-          tag="${GITHUB_REF_NAME#v}"
+          tag="${RELEASE_TAG#v}"
           case "$tag" in
             "$version"|"$version"-*) ;;
-            *) echo "::error::Le tag $GITHUB_REF_NAME ne correspond pas à la version $version de Cargo.toml"; exit 1 ;;
+            *) echo "::error::Le tag $RELEASE_TAG ne correspond pas à la version $version de Cargo.toml"; exit 1 ;;
           esac
           json_version="$(sed -nE 's/.*"version": *"([^"]+)".*/\1/p' packager.json)"
           if [ "$json_version" != "$version" ]; then
@@ -74,7 +81,7 @@ jobs:
       - name: Archive tar.gz portable (Linux)
         if: runner.os == 'Linux'
         run: |
-          name="cyber-funk-${GITHUB_REF_NAME}-linux-x86_64"
+          name="cyber-funk-${RELEASE_TAG}-linux-x86_64"
           mkdir -p "dist/$name"
           cp target/release/cyber-funk "dist/$name/"
           cp -r assets "dist/$name/assets"
@@ -106,8 +113,9 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release create "$GITHUB_REF_NAME" paquets/* \
+          gh release create "$RELEASE_TAG" paquets/* \
             --repo "$GITHUB_REPOSITORY" \
+            --target "$GITHUB_SHA" \
             --draft --prerelease \
-            --title "$GITHUB_REF_NAME" \
+            --title "$RELEASE_TAG" \
             --notes "Brouillon : ne pas publier avant confirmation de la licence de la CyberCar (assets/README.md) et test d'installation sur chaque OS (docs/distribution.md)."
