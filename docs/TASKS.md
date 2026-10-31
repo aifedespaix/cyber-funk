@@ -114,7 +114,7 @@ Aucune tâche en cours au 2026-10-31.
 | J7-10 | [Météores et impacts](tasks/J7.md) | Sonnet 5.5 | `medium` | J5-02, J5-03 | ✅ |
 | J7-11 | [Pré-intro et cartons-titres](tasks/J7.md) | Sonnet 5.5 | `medium` | J5-03, J4-01, J2-05 | ✅ |
 | J8-01 | [Vue Live](tasks/J8.md) | Sonnet 5.5 | `high` | J2-05, J3-06, J4-05 | ✅ |
-| J8-02 | [Préparation : événement, créneaux, cues](tasks/J8.md) | Sonnet 5.5 | `medium` | J8-01, J2-07 | ⬜ |
+| J8-02 | [Préparation : événement, créneaux, cues](tasks/J8.md) | Sonnet 5.5 | `medium` | J8-01, J2-07 | ✅ |
 | J8-03 | [Éditeur de looks avec aperçu](tasks/J8.md) | Sonnet 5.5 | `medium` | J8-02, J4-08 | ⬜ |
 | J8-04 | [MIDI learn et profils de contrôle](tasks/J8.md) | Sonnet 5.5 | `medium` | J3-02, J8-01 | ⬜ |
 | J8-05 | [Aperçu de la sortie dans la fenêtre opérateur](tasks/J8.md) | Sonnet 5.5 | `medium` | J8-01, J4-06 | ⬜ |

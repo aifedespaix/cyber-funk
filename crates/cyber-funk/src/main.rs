@@ -19,7 +19,7 @@ use bevy::log::LogPlugin;
 use bevy::prelude::*;
 use bevy::winit::WinitSettings;
 use cf_cinema::CinemaPlugin;
-use cf_operator::{OperatorPlugin, QuitGuardPlugin};
+use cf_operator::{OperatorPlugin, PrepConfig, QuitGuardPlugin};
 use cf_render::{
     AudioConfig, CfAudioPlugin, ControlsPlugin, CorePlugin, CullingPlugin, DiagnosticsPlugin, LayersPlugin,
     OutputChoice, PalettePlugin, PostFxPlugin, QualityPlugin, ShowPlugin, TitlesPlugin, WarmupPlugin,
@@ -130,7 +130,11 @@ fn build_app(cli: &Cli, controls: ControlsPlugin, show: ShowPlugin, preload: Pre
         // Sans fenêtre opérateur, pas d'interface pour confirmer : double fermeture à la place du dialogue.
         app.add_plugins(QuitGuardPlugin::double_close());
     } else {
-        app.add_plugins(OperatorPlugin);
+        app.insert_resource(PrepConfig {
+            assets_dir: cli.assets_dir.clone(),
+            show_path: cli.show.clone(),
+        })
+        .add_plugins(OperatorPlugin);
     }
     app
 }

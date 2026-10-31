@@ -8,6 +8,7 @@ use cf_render::audio::{AudioCommand, AudioFeatures, AudioStatus, VisualLatency};
 
 use crate::live::{self, LiveParams};
 use crate::loading::{self, LoadingView};
+use crate::prepare::{self, PrepSession};
 use crate::quit::{QuitDecision, QuitPrompt, QuitSource};
 use crate::{audio_panel, controls_panel};
 
@@ -17,6 +18,7 @@ const AUDIO_PANEL_WIDTH: f32 = 560.0;
 /// Panneau de l'opérateur : l'audio pour l'instant (J1-06) ; les autres panneaux arrivent avec les tâches suivantes.
 ///
 /// Sans `CfAudioPlugin`, les ressources audio manquent : le panneau le dit au lieu de s'afficher à vide.
+#[allow(clippy::too_many_arguments)] // Paramètres de système Bevy : chacun est une ressource distincte.
 pub(crate) fn main_panel(
     mut context: Single<&mut EguiContext, With<PrimaryEguiContext>>,
     status: Option<Res<AudioStatus>>,
@@ -26,6 +28,7 @@ pub(crate) fn main_panel(
     controls: Option<Res<ControlsStatus>>,
     loading: LoadingView,
     mut live: LiveParams,
+    mut prep: Option<ResMut<PrepSession>>,
 ) {
     // Depuis egui 0.36 les panneaux se posent dans un `Ui` racine, pas directement sur le contexte.
     let ctx = context.get_mut();
@@ -57,26 +60,54 @@ pub(crate) fn main_panel(
                 }
             });
         });
+    // Avec une session de préparation, les contrôles passent dans un volet du bas repliable : le centre est à l'éditeur.
+    if prep.is_some() && !loading.is_loading() {
+        egui::Panel::bottom("controls_panel")
+            .resizable(true)
+            .show(&mut root, |ui| {
+                egui::CollapsingHeader::new("Contrôles et MIDI")
+                    .default_open(false)
+                    .show(ui, |ui| {
+                        egui::ScrollArea::vertical().max_height(260.0).show(ui, |ui| {
+                            draw_controls(ui, live.show(), controls.as_deref(), features_copy);
+                        });
+                    });
+            });
+    }
     egui::CentralPanel::default().show(&mut root, |ui| {
         // Pendant le chargement, la progression remplace le pupitre : rien à piloter tant que le show n'est pas prêt.
         if loading.is_loading() {
             loading::draw(ui, &loading);
             return;
         }
+        loading::draw_late_warning(ui, loading.late_pipelines());
+        if let Some(session) = prep.as_deref_mut() {
+            prepare::draw(ui, session, |ui| live::mode_button(ui, &mut live));
+            return;
+        }
         ui.horizontal(|ui| {
             ui.heading("cyber-funk");
             live::mode_button(ui, &mut live);
         });
-        loading::draw_late_warning(ui, loading.late_pipelines());
-        egui::ScrollArea::vertical().show(ui, |ui| match (controls, features_copy) {
-            (Some(controls), Some(features)) => {
-                controls_panel::draw(ui, live.show(), &controls, &features);
-            }
-            _ => {
-                ui.weak("Contrôles non branchés (ControlsPlugin absent).");
-            }
+        egui::ScrollArea::vertical().show(ui, |ui| {
+            draw_controls(ui, live.show(), controls.as_deref(), features_copy);
         });
     });
+}
+
+/// Le panneau des contrôles, ou la raison de son absence.
+fn draw_controls(
+    ui: &mut egui::Ui,
+    show: Option<&cf_show::director::ShowState>,
+    controls: Option<&ControlsStatus>,
+    features: Option<AudioFeatures>,
+) {
+    match (controls, features) {
+        (Some(controls), Some(features)) => controls_panel::draw(ui, show, controls, &features),
+        _ => {
+            ui.weak("Contrôles non branchés (ControlsPlugin absent).");
+        }
+    }
 }
 
 /// Dialogue de confirmation de sortie, affiché tant qu'une fermeture est en attente.

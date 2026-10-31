@@ -10,11 +10,13 @@ mod diagnostics;
 mod freecam;
 mod live;
 mod loading;
+mod prepare;
 mod quit;
 mod ui;
 mod window;
 
 pub use live::OperatorMode;
+pub use prepare::PrepConfig;
 pub use quit::{QuitConfirmation, QuitDecision, QuitGuardPlugin, QuitPrompt, QuitSource};
 pub use window::OperatorWindow;
 
@@ -42,6 +44,9 @@ impl Plugin for OperatorPlugin {
         // Quand un champ texte d'egui a le focus, le clavier n'est plus une commande (voir `cf_render::controls`).
         app.init_resource::<TextInputFocus>()
             .add_systems(Update, sync_text_focus.before(CfSet::Input));
+        // Où chercher les looks et quel événement ouvrir en Préparation (le binaire peut l'avoir posé avant).
+        app.init_resource::<PrepConfig>()
+            .add_systems(Startup, prepare::init_session);
         live::build(app);
         freecam::build(app);
         app.add_systems(Startup, window::spawn_operator_window).add_systems(
