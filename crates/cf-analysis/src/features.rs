@@ -6,7 +6,7 @@
 //! [`TempoArbiter::publish`](crate::TempoArbiter::publish), qui arbitre entre horloge MIDI, Link, audio et tap.
 
 /// Section du morceau (`Section` de `sections.ts`).
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default, serde::Serialize, serde::Deserialize)]
 pub enum Section {
     /// Intro, break : énergie basse.
     Calm,
@@ -24,6 +24,9 @@ pub enum TempoSource {
     Clock,
     /// Ableton Link.
     Link,
+    /// Grille d'une piste de démo analysée hors ligne (tempo et phase exacts, cache de J1-07). Plus sûre que la
+    /// détection en direct, moins que l'horloge d'un DJ.
+    File,
     /// Détection des kicks sur l'entrée audio (portage de `beat.ts`). Valeur par défaut, avec une confiance nulle
     /// tant qu'aucun tempo n'est détecté.
     #[default]

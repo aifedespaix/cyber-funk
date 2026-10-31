@@ -175,6 +175,7 @@ pub enum TempoPreference {
 enum TempoSourceDef {
     Clock,
     Link,
+    File,
     Audio,
     Tap,
 }

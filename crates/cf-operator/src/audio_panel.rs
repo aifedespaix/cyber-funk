@@ -263,6 +263,7 @@ fn tempo_source_text(source: TempoSource) -> &'static str {
     match source {
         TempoSource::Clock => "horloge MIDI",
         TempoSource::Link => "Link",
+        TempoSource::File => "fichier",
         TempoSource::Audio => "audio",
         TempoSource::Tap => "tap",
     }

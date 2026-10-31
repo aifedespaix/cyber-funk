@@ -44,7 +44,7 @@ struct CatchUp {
 /// Arbitre des sources de tempo. Voir le module et [`super`].
 #[derive(Debug, Clone)]
 pub struct TempoArbiter {
-    readings: [Option<TempoReading>; 4],
+    readings: [Option<TempoReading>; 5],
     preferred: Option<TempoSource>,
     active: Option<TempoSource>,
     /// Dernière source active : publiée pendant la roue libre.
@@ -74,7 +74,7 @@ impl TempoArbiter {
     #[must_use]
     pub const fn new() -> Self {
         Self {
-            readings: [None; 4],
+            readings: [None; 5],
             preferred: None,
             active: None,
             shown: TempoSource::Audio,

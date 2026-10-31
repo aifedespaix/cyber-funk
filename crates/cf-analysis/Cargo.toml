@@ -18,6 +18,10 @@ thiserror.workspace = true
 tracing.workspace = true
 assert_no_alloc.workspace = true
 realfft.workspace = true
+# Cache de la grille d'une piste (J1-07) : RON dans le dossier de cache.
+serde.workspace = true
+ron.workspace = true
+dirs.workspace = true
 
 [dev-dependencies]
 # Tests de bout en bout de l'arbitrage avec le vrai décodeur de MIDI Clock (dépendance de test seulement : en
@@ -25,7 +29,6 @@ realfft.workspace = true
 cf-control.workspace = true
 tracing-subscriber.workspace = true
 criterion.workspace = true
-serde.workspace = true
 serde_json.workspace = true
 # Décodage des pistes CC0 pour les tests golden (le décodage de production arrive avec le lecteur de démos).
 symphonia = { workspace = true, features = ["mp3", "id3v1", "id3v2"] }

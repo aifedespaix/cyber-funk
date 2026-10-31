@@ -20,6 +20,7 @@
 mod analysis;
 mod engine;
 pub mod error;
+mod offline;
 pub mod output;
 mod render;
 mod resample;
@@ -37,6 +38,7 @@ use crate::source::SourceKind;
 
 pub use analysis::DeviceErrorReporter;
 pub use error::{PlayerError, Result};
+pub use offline::decode_mono;
 pub use output::{ActiveOutput, CpalOutput, ManualDriver, ManualOutput, NullOutput, OutputBackend};
 pub use render::Renderer;
 

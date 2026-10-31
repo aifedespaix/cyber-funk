@@ -26,6 +26,7 @@ mod beat;
 mod beat_analyzer;
 mod events;
 mod features;
+mod offline;
 mod sections;
 mod tempo;
 mod thread;
@@ -37,6 +38,10 @@ pub use beat::{BeatDetector, BeatState};
 pub use beat_analyzer::BeatAnalyzer;
 pub use events::{AudioEvent, AudioEventKind, EventSink};
 pub use features::{AudioFeatures, Section, TempoSource};
+pub use offline::{
+    CacheStatus, GRID_VERSION, GridCache, GridError, GridJob, SectionSpan, TrackGrid, analyse_file, analyse_pcm,
+    hash_file, spawn_analysis,
+};
 pub use sections::SectionTracker;
 pub use tempo::{
     AudioBeatGrid, BEATS_PER_BAR, BEATS_PER_PHRASE, CATCH_UP_BEATS, EXTERNAL_LOSS_S, TempoArbiter, TempoReading,

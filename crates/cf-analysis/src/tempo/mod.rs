@@ -56,9 +56,10 @@ impl TempoReading {
 }
 
 /// Rang de priorité par défaut (0 = le plus sûr).
-pub(crate) const PRIORITY: [TempoSource; 4] = [
+pub(crate) const PRIORITY: [TempoSource; 5] = [
     TempoSource::Clock,
     TempoSource::Link,
+    TempoSource::File,
     TempoSource::Audio,
     TempoSource::Tap,
 ];
@@ -67,7 +68,8 @@ pub(crate) fn slot(source: TempoSource) -> usize {
     match source {
         TempoSource::Clock => 0,
         TempoSource::Link => 1,
-        TempoSource::Audio => 2,
-        TempoSource::Tap => 3,
+        TempoSource::File => 2,
+        TempoSource::Audio => 3,
+        TempoSource::Tap => 4,
     }
 }
