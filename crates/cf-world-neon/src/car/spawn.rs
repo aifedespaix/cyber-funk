@@ -19,6 +19,7 @@ use super::materials::{CarLightMaterial, CarPaintExt, CarPaintMaterial, PaintPar
 use super::model::{Alpha, CarModelAsset, Fore, MaterialData, MaterialRole, Side};
 use super::paint::PAINT_REF_HUE;
 use super::rig::{CarRig, Emissive, ModelMaterials};
+use super::screens::{SCREEN_EMISSIVE, ScreenKind, ScreenRig, blank_image};
 use super::spawn_lights::{Lamps, LightScene, spawn_lights};
 
 /// Les collections d'assets où la voiture dépose ses maillages, images et matériaux.
@@ -105,15 +106,19 @@ enum Built {
     Skip,
 }
 
+/// Ce que construit [`build_materials`] : matériaux, poignées pilotées, clignotants, écrans.
+type BuiltMaterials = (Vec<Built>, ModelMaterials, Vec<(Side, Fore, Emissive)>, Vec<ScreenRig>);
+
 /// Les matériaux du modèle : un par définition du GLB, plus les poignées que les systèmes repeignent ou allument.
 fn build_materials(
     model: &CarModelAsset,
     assets: &mut CarAssets,
     images: &[Handle<Image>],
     palette: &CarPalette,
-) -> (Vec<Built>, ModelMaterials, Vec<(Side, Fore, Emissive)>) {
+) -> BuiltMaterials {
     let mut handles = ModelMaterials::default();
     let mut signal_mats: Vec<(Side, Fore, Emissive)> = Vec::new();
+    let mut screens: Vec<ScreenRig> = Vec::new();
     let built: Vec<Built> = model
         .materials
         .iter()
@@ -130,8 +135,15 @@ fn build_materials(
                     _ => standard_material(def, images),
                 };
                 if role == MaterialRole::Screen {
-                    // Écrans éteints : Sillage y dessine compteur et autoradio (jeu), pas repris en mode cinéma.
+                    // Compteur et autoradio : une image propre, redessinée par `screens::update_screens`. Un autre écran
+                    // (le rétroviseur) reste éteint : Sillage y dessine la vue arrière (jeu), pas reprise en mode cinéma.
                     material.emissive = LinearRgba::BLACK;
+                    if let Some(kind) = ScreenKind::from_material(&def.name) {
+                        let image = assets.images.add(blank_image(kind));
+                        material.emissive = SCREEN_EMISSIVE;
+                        material.emissive_texture = Some(image.clone());
+                        screens.push(ScreenRig { kind, image });
+                    }
                 }
                 let handle = assets.standard.add(material);
                 let emissive = Emissive {
@@ -153,7 +165,7 @@ fn build_materials(
             }
         })
         .collect();
-    (built, handles, signal_mats)
+    (built, handles, signal_mats, screens)
 }
 
 /// Pose la voiture sous `root` : retourne le [`CarRig`] à poser sur l'entité racine.
@@ -171,7 +183,7 @@ pub fn spawn_car(
     let lamps = Lamps::measure(&model, &frame);
     let images: Vec<Handle<Image>> = model.images.drain(..).map(|i| assets.images.add(i)).collect();
     let meshes: Vec<Handle<Mesh>> = model.meshes.drain(..).map(|m| assets.meshes.add(m)).collect();
-    let (built, handles, signal_mats) = build_materials(&model, assets, &images, palette);
+    let (built, handles, signal_mats, screens) = build_materials(&model, assets, &images, palette);
 
     let layer = WorldLayer;
     let group = |name: &str, transform: Transform, parent: Entity, commands: &mut Commands| {
@@ -262,6 +274,7 @@ pub fn spawn_car(
         spin,
         steer,
         logo,
+        screens,
         materials: handles,
         signals,
         lights,

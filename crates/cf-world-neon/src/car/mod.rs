@@ -30,6 +30,7 @@ pub mod motion;
 pub mod paint;
 pub mod rig;
 pub mod safety;
+pub mod screens;
 pub mod shapes;
 pub mod smoke;
 pub mod spawn;
@@ -120,7 +121,7 @@ impl Plugin for CarPlugin {
             )
             .add_systems(
                 Update,
-                (effects::update_trail, effects::update_smoke).in_set(CfSet::Present),
+                (effects::update_trail, effects::update_smoke, screens::update_screens).in_set(CfSet::Present),
             );
     }
 }

@@ -121,6 +121,8 @@ pub struct CarRig {
     pub steer: Vec<Entity>,
     /// Le logo arrière et son échelle de repos.
     pub logo: Option<(Entity, Vec3)>,
+    /// Écrans de l'habitacle (compteur, autoradio) : leurs images sont redessinées par `screens::update_screens`.
+    pub screens: Vec<super::screens::ScreenRig>,
     /// Matériaux repeints ou allumés à chaque image.
     pub materials: ModelMaterials,
     /// Les quatre clignotants.
