@@ -4,6 +4,9 @@ name: Release
 # Version = MAJEUR.MINEUR de Cargo.toml + numéro de run comme patch (ex. v0.1.57) : elle croît à chaque push, ce que
 # l'outil de mise à jour automatique exige. Le patch est injecté au build, il n'est pas écrit dans le dépôt.
 # Changer MAJEUR.MINEUR = modifier `version` dans Cargo.toml et packager.json (ex. 0.2.0).
+#
+# Mise à jour automatique (J9-06) : les paquets applicables par l'application (.exe, .AppImage, .app.tar.gz) sont signés
+# avec la clé privée du secret `UPDATER_PRIVATE_KEY` ; `latest.json` les décrit. Voir docs/distribution.md.
 
 on:
   push:
@@ -47,6 +50,13 @@ jobs:
           if [ -d assets/music/local ] && [ -n "$(ls -A assets/music/local)" ]; then
             echo "::error::assets/music/local n'est pas vide : ces pistes ne doivent jamais être distribuées"; exit 1
           fi
+      - name: Clé de signature des mises à jour présente
+        env:
+          KEY: ${{ secrets.UPDATER_PRIVATE_KEY }}
+        run: |
+          if [ -z "$KEY" ]; then
+            echo "::error::secret UPDATER_PRIVATE_KEY absent (Settings, Secrets and variables, Actions). Voir docs/distribution.md"; exit 1
+          fi
 
   package:
     needs: checks
@@ -58,8 +68,8 @@ jobs:
             formats: appimage
           - os: windows-latest
             formats: nsis
-          - os: macos-latest # Apple Silicon (arm64)
-            formats: dmg
+          - os: macos-latest # Apple Silicon (arm64) ; `app` sert à la mise à jour automatique, `dmg` à l'installation
+            formats: dmg,app
     runs-on: ${{ matrix.os }}
     # bash partout : sous Windows le shell par défaut est PowerShell, où "$VAR" ne se développe pas.
     defaults:
@@ -74,7 +84,6 @@ jobs:
         with:
           shared-key: release
       - name: Injecter la version de release
-        shell: bash
         run: |
           base="$(grep -m1 '^version' Cargo.toml | cut -d'"' -f2)"
           sed -i.bak "s/^version = \"$base\"/version = \"$VERSION\"/" Cargo.toml
@@ -89,6 +98,9 @@ jobs:
         run: cargo build --release --locked -p cyber-funk
       - name: Créer les paquets
         run: cargo packager --release --formats ${{ matrix.formats }}
+      - name: Archive du .app pour la mise à jour (macOS)
+        if: runner.os == 'macOS'
+        run: tar -C dist -czf "dist/cyber-funk_${VERSION}_aarch64.app.tar.gz" cyber-funk.app
       - name: Archive tar.gz portable (Linux)
         if: runner.os == 'Linux'
         run: |
@@ -98,6 +110,15 @@ jobs:
           cp -r assets "dist/$name/assets"
           tar -C dist -czf "dist/$name.tar.gz" "$name"
           rm -rf "dist/$name"
+      - name: Signer les paquets de mise à jour
+        env:
+          CARGO_PACKAGER_SIGN_PRIVATE_KEY: ${{ secrets.UPDATER_PRIVATE_KEY }}
+          CARGO_PACKAGER_SIGN_PRIVATE_KEY_PASSWORD: ${{ secrets.UPDATER_PRIVATE_KEY_PASSWORD }}
+        run: |
+          for f in dist/*.AppImage dist/*-setup.exe dist/*.app.tar.gz; do
+            [ -f "$f" ] && cargo packager signer sign "$f"
+          done
+          ls dist/*.sig
       - uses: actions/upload-artifact@v4
         with:
           name: paquet-${{ matrix.os }}
@@ -106,6 +127,7 @@ jobs:
             dist/*.tar.gz
             dist/*.exe
             dist/*.dmg
+            dist/*.sig
           if-no-files-found: error
 
   release:
@@ -113,17 +135,34 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
+    env:
+      VERSION: ${{ needs.checks.outputs.version }}
     steps:
       - uses: actions/download-artifact@v4
         with:
           path: paquets
           merge-multiple: true
+      - name: Manifeste de mise à jour (latest.json)
+        working-directory: paquets
+        run: |
+          base="https://github.com/$GITHUB_REPOSITORY/releases/download/v$VERSION"
+          entry() { # $1 = fichier, $2 = format de mise à jour
+            jq -n --arg url "$base/$1" --arg sig "$(cat "$1.sig")" --arg fmt "$2" \
+              '{url: $url, signature: $sig, format: $fmt}'
+          }
+          win="$(entry "$(ls ./*-setup.exe | xargs -n1 basename)" nsis)"
+          lin="$(entry "$(ls ./*.AppImage | xargs -n1 basename)" appimage)"
+          mac="$(entry "$(ls ./*.app.tar.gz | xargs -n1 basename)" app)"
+          jq -n --arg v "$VERSION" --arg d "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+            --argjson win "$win" --argjson lin "$lin" --argjson mac "$mac" \
+            '{version: $v, pub_date: $d, platforms: {
+              "windows-x86_64": $win, "linux-x86_64": $lin, "macos-aarch64": $mac, "darwin-aarch64": $mac}}' > latest.json
+          cat latest.json
       - name: Somme de contrôle
         run: cd paquets && sha256sum * > SHA256SUMS.txt
       - name: Release GitHub publique
         env:
           GH_TOKEN: ${{ github.token }}
-          VERSION: ${{ needs.checks.outputs.version }}
         run: |
           gh release create "v$VERSION" paquets/* \
             --repo "$GITHUB_REPOSITORY" \

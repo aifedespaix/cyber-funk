@@ -10,6 +10,7 @@ use crate::live::{self, LiveParams};
 use crate::loading::{self, LoadingView};
 use crate::prepare::{self, PrepSession};
 use crate::quit::{QuitDecision, QuitPrompt, QuitSource};
+use crate::update_panel::{self, InstallUpdate, UpdateStatus};
 use crate::{audio_panel, controls_panel, learn_panel};
 
 /// Largeur initiale du panneau audio (points egui) : assez pour les vumètres et la ligne des compteurs.
@@ -30,6 +31,8 @@ pub(crate) fn main_panel(
     mut live: LiveParams,
     mut prep: Option<ResMut<PrepSession>>,
     mut learn: MessageWriter<LearnCommand>,
+    update: Res<UpdateStatus>,
+    mut install: MessageWriter<InstallUpdate>,
 ) {
     // Depuis egui 0.36 les panneaux se posent dans un `Ui` racine, pas directement sur le contexte.
     let ctx = context.get_mut();
@@ -88,6 +91,10 @@ pub(crate) fn main_panel(
             return;
         }
         loading::draw_late_warning(ui, loading.late_pipelines());
+        // Hors vue Live seulement (elle a déjà rendu la main plus haut) : jamais de mise à jour proposée en show.
+        if update_panel::draw(ui, &update) {
+            install.write(InstallUpdate);
+        }
         if let Some(session) = prep.as_deref_mut() {
             let library_ids = controls.as_deref().map_or(&[][..], |c| c.library_ids.as_slice());
             prepare::draw(ui, session, library_ids, |ui| live::mode_button(ui, &mut live));

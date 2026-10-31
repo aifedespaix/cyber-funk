@@ -9,6 +9,7 @@ mod logging;
 mod preload;
 mod projector;
 mod show_setup;
+mod update;
 mod wiring;
 
 use std::path::PathBuf;
@@ -134,7 +135,7 @@ fn build_app(cli: &Cli, controls: ControlsPlugin, show: ShowPlugin, preload: Pre
             assets_dir: cli.assets_dir.clone(),
             show_path: cli.show.clone(),
         })
-        .add_plugins(OperatorPlugin);
+        .add_plugins((OperatorPlugin, update::UpdatePlugin));
     }
     app
 }
