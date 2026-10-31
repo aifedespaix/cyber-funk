@@ -11,6 +11,7 @@ pub mod palette;
 pub mod postfx;
 pub mod quality;
 mod schedule;
+pub mod settings;
 pub mod show;
 pub mod streaming;
 pub mod titles;
@@ -48,6 +49,7 @@ pub use quality::{
     QualityPlugin, levers_for,
 };
 pub use schedule::{CfSet, CorePlugin};
+pub use settings::{Settings, SettingsPlugin};
 pub use show::{CurrentShow, SheetCue, SheetSlot, ShowControls, ShowEventMessage, ShowPlugin, ShowRuntime, ShowSheet};
 pub use streaming::{ChunkInfo, ChunkPlan, ChunkStream, EntityPool, PieceRegistry, StreamLayout, StreamStats};
 pub use titles::{ActiveTitle, TitleCard, TitleKind, TitleSettings, TitlesPlugin};
