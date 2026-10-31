@@ -90,3 +90,33 @@ secret du dépôt, jamais en clair.
 ### Linux
 
 Pas de signature obligatoire. Les `SHA256SUMS.txt` de la release permettent de vérifier les téléchargements.
+
+## Mise à jour automatique (J9-06)
+
+Au démarrage (en release seulement), l'application interroge
+`https://github.com/aifedespaix/cyber-funk/releases/latest/download/latest.json` sur un thread à part (délai de 10 s,
+échec silencieux sans réseau). Si la version publiée est plus récente, un bandeau « Version X disponible » apparaît en
+**vue de préparation** avec un bouton « Installer et quitter ». Rien n'est jamais proposé ni installé en vue Live.
+
+| Système | Ce qui est téléchargé | Remplacement |
+| --- | --- | --- |
+| Windows | `*-setup.exe` (NSIS) | l'installateur est lancé puis l'application se ferme |
+| Linux | `*.AppImage` | seulement si l'application tourne depuis un AppImage ; sinon simple avertissement |
+| macOS | `*.app.tar.gz` | seulement depuis un `.app` ; sinon simple avertissement |
+
+Chaque paquet est **signé** : l'application refuse tout fichier dont la signature ne correspond pas à la clé publique
+`packaging/updater.pub`. La clé privée n'est que dans les secrets GitHub.
+
+Variables d'environnement : `CF_NO_UPDATE=1` coupe la vérification ; `CF_UPDATE_CHECK=1` l'active en build de
+développement (désactivée par défaut, la version `0.1.0` y serait toujours périmée).
+
+### Mise en place (une fois, par le propriétaire du dépôt)
+
+1. Générer la paire de clés : `cargo packager signer generate --ci --password "" --path updater.key`.
+2. Remplacer `packaging/updater.pub` par le contenu de `updater.key.pub` (commit).
+3. Créer le secret `UPDATER_PRIVATE_KEY` (contenu de `updater.key`) dans Settings, Secrets and variables, Actions ;
+   `UPDATER_PRIVATE_KEY_PASSWORD` seulement si la clé a un mot de passe.
+4. Supprimer `updater.key` de la machine. Perdre la clé privée oblige à republier une version de l'application avec une
+   nouvelle clé publique, installée à la main : les anciennes installations ne pourront plus se mettre à jour.
+
+Le workflow de release échoue d'emblée (étape `checks`) si le secret manque.

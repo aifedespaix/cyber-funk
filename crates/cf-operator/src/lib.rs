@@ -15,11 +15,13 @@ mod prepare;
 mod preview;
 mod quit;
 mod ui;
+mod update_panel;
 mod window;
 
 pub use live::OperatorMode;
 pub use prepare::PrepConfig;
 pub use quit::{QuitConfirmation, QuitDecision, QuitGuardPlugin, QuitPrompt, QuitSource};
+pub use update_panel::{InstallUpdate, UpdateStatus};
 pub use window::OperatorWindow;
 
 use bevy::prelude::*;
@@ -49,6 +51,8 @@ impl Plugin for OperatorPlugin {
         // Où chercher les looks et quel événement ouvrir en Préparation (le binaire peut l'avoir posé avant).
         app.init_resource::<PrepConfig>()
             .add_systems(Startup, prepare::init_session);
+        // Le binaire écrit l'état de la mise à jour (J9-06) ; l'opérateur ne fait que l'afficher.
+        app.init_resource::<UpdateStatus>().add_message::<InstallUpdate>();
         live::build(app);
         preview::build(app);
         freecam::build(app);
