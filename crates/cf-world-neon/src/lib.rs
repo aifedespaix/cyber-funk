@@ -23,6 +23,7 @@
 //! - [`traffic`] (J7-03) : le trafic (véhicules volants, voitures au sol, registre d'événements pour J7-04 et J7-05) ;
 //! - [`beams`] (J5-07) : les projecteurs du décor (balayeurs des façades, projecteurs épinglés par les événements) ;
 //! - [`dropfx`] (J5-07) : le paquet du drop (ondes de choc et gerbe, sur l'image du `drop_now`) ;
+//! - [`intro`] (J7-11) : la pré-intro du niveau 0 (la ville se construit avant le départ) ;
 //! - [`car`] (J5-05) : la voiture (`CyberCar` de Sillage), ses lumières, sa traînée, la fumée de ses pneus. Elle prend la
 //!   place du pavé du point suivi provisoire.
 //!
@@ -40,6 +41,7 @@ pub mod cinema;
 pub mod djsign;
 pub mod dropfx;
 pub mod facade;
+pub mod intro;
 pub mod landmarks;
 pub mod meteors;
 pub mod pilot;
@@ -137,6 +139,7 @@ impl Plugin for NeonWorldPlugin {
             WeatherPlugin,
             BeamsPlugin,
             DropFxPlugin,
+            intro::IntroPlugin,
         ))
         .init_resource::<RoutePlan>()
         .init_resource::<RoutePlanner>()

@@ -22,7 +22,7 @@ use cf_cinema::CinemaPlugin;
 use cf_operator::{OperatorPlugin, QuitGuardPlugin};
 use cf_render::{
     AudioConfig, CfAudioPlugin, ControlsPlugin, CorePlugin, CullingPlugin, DiagnosticsPlugin, LayersPlugin,
-    OutputChoice, PalettePlugin, PostFxPlugin, QualityPlugin, ShowPlugin, WarmupPlugin,
+    OutputChoice, PalettePlugin, PostFxPlugin, QualityPlugin, ShowPlugin, TitlesPlugin, WarmupPlugin,
 };
 use cf_world_neon::{CarPlugin, NeonCinemaPlugin, NeonWorldPlugin, PilotPlugin, TrafficPlugin};
 use clap::Parser as _;
@@ -95,6 +95,8 @@ fn build_app(cli: &Cli, controls: ControlsPlugin, show: ShowPlugin, preload: Pre
         PostFxPlugin,
         PalettePlugin,
         QualityPlugin,
+        // Les cartons-titres (niveau, DJ, drop) sur la surcouche 2D.
+        TitlesPlugin,
     ))
     .add_plugins((
         DiagnosticsPlugin::default(),

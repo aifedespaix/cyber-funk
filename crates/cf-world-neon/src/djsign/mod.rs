@@ -30,6 +30,7 @@ pub mod sign;
 pub use director::{DjSignDirector, ShowView, SignContext, SitePlan};
 pub use layout::{SIGN_LAYOUT, SignLayout, layout_sign};
 pub use material::{LetterMaterial, LetterParams};
+pub(crate) use plugin::step_sign;
 pub use plugin::{DjSignIntro, DjSignPlugin, DjSignPulse, DjSignRes, DjSignSettings};
 pub use rig::{DjSignGlyphs, DjSignRig};
 pub use sign::{DjSign, LetterPose, SignInput};

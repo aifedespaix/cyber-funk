@@ -13,6 +13,7 @@ pub mod quality;
 mod schedule;
 pub mod show;
 pub mod streaming;
+pub mod titles;
 pub mod warmup;
 pub mod world;
 
@@ -49,6 +50,7 @@ pub use quality::{
 pub use schedule::{CfSet, CorePlugin};
 pub use show::{CurrentShow, SheetCue, SheetSlot, ShowControls, ShowEventMessage, ShowPlugin, ShowRuntime, ShowSheet};
 pub use streaming::{ChunkInfo, ChunkPlan, ChunkStream, EntityPool, PieceRegistry, StreamLayout, StreamStats};
+pub use titles::{ActiveTitle, TitleCard, TitleKind, TitleSettings, TitlesPlugin};
 pub use warmup::{
     AppState, LatePipelines, LoadTracker, WarmupAppExt, WarmupPlugin, WarmupProgress, WarmupRegistry, show_may_run,
 };

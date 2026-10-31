@@ -72,6 +72,7 @@ pub(super) fn drive_pilot(
         steer: frame.steer as f32,
         brake: frame.brake as f32,
         lit: controls.lit,
+        light_scale: controls.light_scale,
     });
     animation.set_if_neq(frame.animation);
 }

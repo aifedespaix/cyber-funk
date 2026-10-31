@@ -38,6 +38,8 @@ pub struct CarControls {
     /// Couleur du faisceau que la voiture traverse (`beams.sample`) : la lumière migre vers elle en 0,5 s. `None` :
     /// le violet de la palette.
     pub lit: Option<LinearRgba>,
+    /// Part des phares allumée, 0 à 1 (`setLightLevel` de Sillage) : la pré-intro les allume avant le départ. 1 : normal.
+    pub light_scale: f32,
 }
 
 impl Default for CarControls {
@@ -46,6 +48,7 @@ impl Default for CarControls {
             steer: 0.0,
             brake: 0.0,
             lit: None,
+            light_scale: 1.0,
         }
     }
 }
@@ -348,7 +351,9 @@ pub(super) fn advance_look(
         state.logo.update(dt, pulse, animated);
         let high_beams = speed_ratio > HIGH_BEAMS_RATIO;
         let target = if high_beams { HIGH_BEAMS_LEVEL } else { HEADLIGHT_LEVEL };
-        let level = state.level.toward(target, dt, HIGH_BEAMS_LEVEL - HEADLIGHT_LEVEL);
+        // `light_scale` multiplie le niveau après la rampe : la pré-intro règle les phares, la rampe suit la vitesse.
+        let level =
+            state.level.toward(target, dt, HIGH_BEAMS_LEVEL - HEADLIGHT_LEVEL) * controls.light_scale.clamp(0.0, 1.0);
         let inputs = LightInputs {
             glow,
             pulse,
