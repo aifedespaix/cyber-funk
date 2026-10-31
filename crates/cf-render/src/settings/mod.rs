@@ -5,6 +5,7 @@
 //! une seconde après le dernier changement, sur le pool d'E/S (jamais sur le fil d'image, skill `live-safety`).
 
 mod debounce;
+mod remember;
 mod systems;
 
 use std::path::PathBuf;
@@ -13,6 +14,7 @@ use bevy::prelude::*;
 use cf_show::persist::AppSettings;
 
 pub use debounce::{Debounce, QUIET_S};
+pub use remember::{apply_audio, audio_source_from_name, audio_source_name, quality_from_name, quality_name};
 
 /// Les réglages en cours et le fichier où ils vivent.
 #[derive(Resource, Debug)]
@@ -47,8 +49,21 @@ pub struct SettingsPlugin {
 
 impl Plugin for SettingsPlugin {
     fn build(&self, app: &mut App) {
+        // Le plugin audio enregistre le même message (idempotent) : on lit ses ordres sans dépendre de l'ordre d'ajout.
+        app.add_message::<crate::audio::AudioCommand>();
         app.insert_resource(Settings::new(self.initial.clone(), self.path.clone()))
             .init_resource::<systems::WriteState>()
+            .add_systems(
+                Startup,
+                remember::restore_quality.run_if(resource_exists::<crate::quality::QualityMode>),
+            )
+            .add_systems(
+                Update,
+                (
+                    remember::remember_audio,
+                    remember::remember_quality.run_if(resource_exists::<crate::quality::QualityMode>),
+                ),
+            )
             .add_systems(Last, systems::save_when_changed);
     }
 }

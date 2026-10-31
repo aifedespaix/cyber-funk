@@ -63,3 +63,24 @@ fn sans_changement_aucun_fichier_n_est_cree() {
         );
     }
 }
+
+#[test]
+fn le_choix_de_source_et_de_peripherique_de_l_operateur_est_retenu() {
+    use crate::audio::{AudioCommand, AudioSource};
+    use cf_audio::capture::DeviceSelector;
+
+    let dir = tempfile::tempdir().unwrap();
+    let path = dir.path().join("settings.ron");
+    let mut app = app(path.clone());
+    app.world_mut()
+        .write_message(AudioCommand::SelectSource(AudioSource::Line));
+    app.world_mut().write_message(AudioCommand::SelectDevice {
+        source: AudioSource::Line,
+        device: DeviceSelector::Name("Focusrite".into()),
+    });
+    run(&mut app, 3.0);
+    let saved = AppSettings::load(&path);
+    assert_eq!(saved.audio_source.as_deref(), Some("Line"));
+    assert_eq!(saved.line_device.as_deref(), Some("Focusrite"));
+    assert_eq!(saved.mic_device, None);
+}

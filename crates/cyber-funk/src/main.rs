@@ -23,9 +23,11 @@ use bevy::winit::WinitSettings;
 use cf_cinema::CinemaPlugin;
 use cf_operator::{OperatorPlugin, PrepConfig, QuitGuardPlugin};
 use cf_render::{
-    AudioConfig, CfAudioPlugin, ControlsPlugin, CorePlugin, CullingPlugin, DiagnosticsPlugin, LayersPlugin,
-    OutputChoice, PalettePlugin, PostFxPlugin, QualityPlugin, ShowPlugin, TitlesPlugin, WarmupPlugin,
+    AudioConfig, AudioSource, CfAudioPlugin, ControlsPlugin, CorePlugin, CullingPlugin, DiagnosticsPlugin,
+    LayersPlugin, OutputChoice, PalettePlugin, PostFxPlugin, QualityPlugin, SettingsPlugin, ShowPlugin, TitlesPlugin,
+    WarmupPlugin, settings,
 };
+use cf_show::persist::AppSettings;
 use cf_world_neon::{CarPlugin, NeonCinemaPlugin, NeonWorldPlugin, PilotPlugin, TrafficPlugin};
 use clap::Parser as _;
 
@@ -59,14 +61,21 @@ fn main() -> anyhow::Result<ExitCode> {
     let show = show_setup::show_plugin(&cli)?;
     let controls = show_setup::controls_plugin(&cli)?;
     let preload = PreloadPlan::new(&cli, show.show.as_ref());
+    let settings = load_settings(&cli);
 
-    let exit = build_app(&cli, controls, show, preload).run();
+    let exit = build_app(&cli, controls, show, preload, settings).run();
     tracing::info!(?exit, "cyber-funk s'arrête");
     Ok(exit_code(&exit))
 }
 
 /// Assemble l'application : les plugins de cyber-funk, les fenêtres et la scène de test.
-fn build_app(cli: &Cli, controls: ControlsPlugin, show: ShowPlugin, preload: PreloadPlan) -> App {
+fn build_app(
+    cli: &Cli,
+    controls: ControlsPlugin,
+    show: ShowPlugin,
+    preload: PreloadPlan,
+    settings: Option<SettingsPlugin>,
+) -> App {
     let projector = ProjectorConfig {
         monitor: cli.projector_monitor.clone().unwrap_or_default(),
         windowed: cli.windowed,
@@ -102,7 +111,7 @@ fn build_app(cli: &Cli, controls: ControlsPlugin, show: ShowPlugin, preload: Pre
     ))
     .add_plugins((
         DiagnosticsPlugin::default(),
-        CfAudioPlugin::new(audio_config(cli)),
+        CfAudioPlugin::new(audio_config(cli, settings.as_ref().map(|plugin| &plugin.initial))),
         // Après l'audio (`AudioPump`), avant le spectacle : les actions de l'image sont prêtes quand le chef les lit.
         controls,
         show,
@@ -128,6 +137,11 @@ fn build_app(cli: &Cli, controls: ControlsPlugin, show: ShowPlugin, preload: Pre
 
     app.add_systems(Startup, preload::start_preload);
 
+    // Les réglages retenus d'un lancement à l'autre (audio, qualité, voiture, panneaux).
+    if let Some(plugin) = settings {
+        app.add_plugins(plugin);
+    }
+
     if let Some(hours) = cli.soak {
         app.add_plugins(soak::SoakPlugin {
             hours,
@@ -149,9 +163,9 @@ fn build_app(cli: &Cli, controls: ControlsPlugin, show: ShowPlugin, preload: Pre
 }
 
 /// Réglages audio tirés de la ligne de commande.
-fn audio_config(cli: &Cli) -> AudioConfig {
-    AudioConfig {
-        initial_source: cli.audio_source.into(),
+fn audio_config(cli: &Cli, settings: Option<&AppSettings>) -> AudioConfig {
+    let mut config = AudioConfig {
+        initial_source: AudioSource::Demo,
         music_dir: cli.music_dir.clone(),
         latency_ms: cli.latency_ms,
         output: if cli.null_audio_output {
@@ -160,7 +174,28 @@ fn audio_config(cli: &Cli) -> AudioConfig {
             OutputChoice::Default
         },
         ..AudioConfig::default()
+    };
+    // Les réglages sauvegardés donnent la source et les périphériques ; la ligne de commande garde le dernier mot.
+    if let Some(settings) = settings {
+        settings::apply_audio(settings, &mut config, cli.audio_source.map(AudioSource::from));
+    } else if let Some(source) = cli.audio_source {
+        config.initial_source = source.into();
     }
+    config
+}
+
+/// Relit les réglages sauvegardés. Sans dossier de configuration, ou en `--soak` (une mesure ne doit ni lire ni écrire
+/// les réglages de l'opérateur), rien n'est retenu.
+fn load_settings(cli: &Cli) -> Option<SettingsPlugin> {
+    if cli.soak.is_some() {
+        return None;
+    }
+    let path = dirs::config_dir()?.join("cyber-funk").join("settings.ron");
+    let (initial, problem) = AppSettings::load_reporting(&path);
+    if let Some(problem) = problem {
+        tracing::warn!("{problem}");
+    }
+    Some(SettingsPlugin { path, initial })
 }
 
 /// Traduit la sortie de Bevy en code de retour du processus.

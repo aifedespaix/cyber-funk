@@ -109,9 +109,10 @@ pub struct Cli {
     #[arg(long, value_enum, value_name = "NIVEAU")]
     pub log: Option<LogLevel>,
 
-    /// Source audio de départ ; l'opérateur en change ensuite à chaud.
-    #[arg(long, value_enum, value_name = "SOURCE", default_value = "demo")]
-    pub audio_source: AudioSourceArg,
+    /// Source audio de départ ; l'opérateur en change ensuite à chaud. Sans cette option : la dernière source choisie
+    /// (réglages sauvegardés), sinon les pistes de démo.
+    #[arg(long, value_enum, value_name = "SOURCE")]
+    pub audio_source: Option<AudioSourceArg>,
 
     /// Dossier des pistes de démo (le sous-dossier `local/` est lu aussi).
     #[arg(long, value_name = "DOSSIER", default_value_os_t = crate::assets::default_music_dir())]
@@ -159,7 +160,7 @@ mod tests {
         assert_eq!(cli.projector_monitor, None);
         assert!(!cli.windowed && !cli.no_operator);
         assert_eq!(cli.log, None);
-        assert_eq!(cli.audio_source, AudioSourceArg::Demo);
+        assert_eq!(cli.audio_source, None);
         assert_eq!(cli.music_dir, crate::assets::default_music_dir());
         assert!(!cli.null_audio_output);
         assert_eq!(cli.assets_dir, crate::assets::default_assets_dir());
@@ -169,7 +170,7 @@ mod tests {
     #[test]
     fn les_options_audio_se_lisent() {
         let cli = parse(&["--audio-source", "line", "--latency-ms", "80", "--null-audio-output"]);
-        assert_eq!(AudioSource::from(cli.audio_source), AudioSource::Line);
+        assert_eq!(cli.audio_source.map(AudioSource::from), Some(AudioSource::Line));
         assert!((cli.latency_ms - 80.0).abs() < f32::EPSILON);
         assert!(cli.null_audio_output);
     }
