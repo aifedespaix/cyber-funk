@@ -73,6 +73,7 @@ pub(super) fn drive_pilot(
         brake: frame.brake as f32,
         lit: controls.lit,
         light_scale: controls.light_scale,
+        wet: controls.wet,
     });
     animation.set_if_neq(frame.animation);
 }

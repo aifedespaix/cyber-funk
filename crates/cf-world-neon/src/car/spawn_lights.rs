@@ -214,7 +214,7 @@ pub(super) fn spawn_lights(
         .map(|&c| halo(commands, assets, scene, &quad, (c, 0.12, 0.9, "halo de feu stop")))
         .collect();
     let signals = spawn_signals(commands, assets, scene, &quad, &ground_quad);
-    let (spots, under_light, logo_light) = spawn_projectors(commands, model, scene);
+    let (spots, under_light, logo_light, cabin_light) = spawn_projectors(commands, model, scene);
     (
         LightRig {
             beam,
@@ -229,6 +229,7 @@ pub(super) fn spawn_lights(
             spots,
             under_light,
             logo_light,
+            cabin_light,
         },
         signals,
     )
@@ -294,7 +295,7 @@ fn spawn_projectors(
     commands: &mut Commands,
     model: &CarModelAsset,
     scene: &LightScene,
-) -> (Vec<Entity>, Option<Entity>, Option<Entity>) {
+) -> (Vec<Entity>, Option<Entity>, Option<Entity>, Option<Entity>) {
     let layers: RenderLayers = Layer::World.render_layers();
     let mut spots = Vec::new();
     for name in ["anchor_headlight_L", "anchor_headlight_R"] {
@@ -352,5 +353,6 @@ fn spawn_projectors(
         "lumière sous la caisse",
     );
     let logo = point("anchor_rear_logo_light", 0.7, 2.5, "lumière du logo arrière");
-    (spots, under, logo)
+    let cabin = point("anchor_cabin_light", 0.12, 3.0, "lumière de l'habitacle");
+    (spots, under, logo, cabin)
 }

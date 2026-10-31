@@ -400,7 +400,7 @@ mod tests {
     fn les_glb_de_la_voiture_se_decompressent() {
         for name in ["car-high.glb", "car-low.glb"] {
             let gltf = glb(name);
-            assert_eq!(gltf.nodes().len(), 42, "{name}");
+            assert_eq!(gltf.nodes().len(), 53, "{name}");
             assert_eq!(gltf.images().len(), 8, "{name}");
             let mut triangles = 0;
             for mesh in gltf.meshes() {
@@ -427,11 +427,11 @@ mod tests {
                     triangles += indices.len() / 3;
                 }
             }
-            // ~18 000 triangles en haute définition (la dirty car d'origine), ~11 000 en basse.
+            // ~31 000 triangles en haute définition (la dirty car et ses tubes néon), ~25 000 en basse.
             let expected = if name.contains("high") {
-                15_000..25_000
+                25_000..40_000
             } else {
-                8_000..16_000
+                20_000..30_000
             };
             assert!(expected.contains(&triangles), "{name} : {triangles} triangles");
         }

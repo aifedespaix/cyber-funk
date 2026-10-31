@@ -19,6 +19,9 @@ use super::glb::{CarModelError, Gltf};
 
 type Result<T> = std::result::Result<T, CarModelError>;
 
+/// Nombre de secteurs du dégradé du néon de caisse (`neon_grad_0` … `neon_grad_7`).
+pub const NEON_GRAD_COUNT: u8 = 8;
+
 /// Rôle d'un matériau de la voiture : c'est le nom du matériau dans le GLB (`CYBERCAR.md` §6) qui le décide.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum MaterialRole {
@@ -28,6 +31,9 @@ pub enum MaterialRole {
     NeonPrimary,
     /// `neon_secondary` : bandes de portes, accents (la lueur mêlée de corail).
     NeonSecondary,
+    /// `neon_grad_0` … `neon_grad_7` : les huit secteurs du néon de caisse, dont la couleur voyage du primaire au
+    /// secondaire (dégradé animé, sans variation de luminance).
+    NeonGrad(u8),
     /// `light_head` : les barres des phares.
     LightHead,
     /// `light_brake` : les barres des feux stop.
@@ -83,7 +89,10 @@ impl MaterialRole {
             "glass" => Self::Glass,
             "screen_speed" | "screen_radio" | "screen_mirror" => Self::Screen,
             "rain_glass" => Self::RainGlass,
-            _ => Self::Plain,
+            other => match other.strip_prefix("neon_grad_").and_then(|n| n.parse::<u8>().ok()) {
+                Some(index) if index < NEON_GRAD_COUNT => Self::NeonGrad(index),
+                _ => Self::Plain,
+            },
         }
     }
 }
@@ -426,5 +435,15 @@ mod tests {
         assert_eq!(color.texture_descriptor.format, TextureFormat::Rgba8UnormSrgb);
         assert_eq!(mask.texture_descriptor.format, TextureFormat::Rgba8Unorm);
         assert_eq!(color.width(), 1024, "variante légère : textures 1k (CYBERCAR.md §7)");
+    }
+
+    #[test]
+    fn les_secteurs_du_degrade_se_reconnaissent_a_leur_indice() {
+        assert_eq!(MaterialRole::from_name("neon_grad_0"), MaterialRole::NeonGrad(0));
+        assert_eq!(MaterialRole::from_name("neon_grad_7"), MaterialRole::NeonGrad(7));
+        // Hors de la plage ou mal écrit : un matériau ordinaire, jamais un panique.
+        assert_eq!(MaterialRole::from_name("neon_grad_8"), MaterialRole::Plain);
+        assert_eq!(MaterialRole::from_name("neon_grad_x"), MaterialRole::Plain);
+        assert_eq!(MaterialRole::from_name("neon_core"), MaterialRole::Plain);
     }
 }

@@ -87,6 +87,8 @@ pub struct LightRig {
     pub under_light: Option<Entity>,
     /// Lumière derrière le logo arrière : elle pulse avec lui.
     pub logo_light: Option<Entity>,
+    /// Lumière douce de l'habitacle (`anchor_cabin_light`) : elle porte les liserés intérieurs sur le cuir et le verre.
+    pub cabin_light: Option<Entity>,
 }
 
 /// Matériaux du modèle que l'on repeint ou que l'on allume à chaque image.
@@ -98,6 +100,8 @@ pub struct ModelMaterials {
     pub neon_primary: Option<Emissive>,
     /// `neon_secondary` : la lueur mêlée de corail.
     pub neon_secondary: Option<Emissive>,
+    /// `neon_grad_*` : les secteurs du néon de caisse, dans l'ordre de leur indice.
+    pub neon_grad: Vec<(u8, Emissive)>,
     /// `light_head`.
     pub head: Option<Emissive>,
     /// `light_brake`.

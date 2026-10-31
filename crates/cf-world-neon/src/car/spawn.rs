@@ -75,6 +75,8 @@ fn glass(def: &MaterialData) -> StandardMaterial {
     let c = def.base_color;
     material.base_color = Color::LinearRgba(LinearRgba::new(c.red, c.green, c.blue, 0.3));
     material.perceptual_roughness = 0.1;
+    // Reflets nets des néons dans le pare-brise : réflectance maximale (0,5 par défaut) et verre lisse.
+    material.reflectance = 1.0;
     material
 }
 
@@ -154,6 +156,7 @@ fn build_materials(
                 match role {
                     MaterialRole::NeonPrimary => handles.neon_primary = Some(emissive),
                     MaterialRole::NeonSecondary => handles.neon_secondary = Some(emissive),
+                    MaterialRole::NeonGrad(index) => handles.neon_grad.push((index, emissive)),
                     MaterialRole::LightHead => handles.head = Some(emissive),
                     MaterialRole::LightBrake => handles.brake = Some(emissive),
                     MaterialRole::LogoRear => handles.logo = Some(emissive),

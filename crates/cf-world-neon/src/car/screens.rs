@@ -166,7 +166,8 @@ fn scale(rgb: [u8; 3], k: f32) -> [u8; 3] {
     ]
 }
 
-/// Compteur : trois chiffres de km/h et une barre de 16 segments (la vitesse sur [`SPEED_FULL_KMH`]).
+/// Compteur : trois chiffres de km/h au centre et un arc de 270° autour (la vitesse sur [`SPEED_FULL_KMH`]), sa fin
+/// en `warn` au-delà de 80 %.
 pub fn draw_speed(data: &mut [u8], kmh: u32, accent: [u8; 3], warn: [u8; 3]) {
     let mut pen = Pen {
         data,
@@ -181,21 +182,36 @@ pub fn draw_speed(data: &mut [u8], kmh: u32, accent: [u8; 3], warn: [u8; 3]) {
         let shown = i == 2 || kmh >= if i == 0 { 100 } else { 10 };
         digit(
             &mut pen,
-            8 + i * 38,
-            22,
-            (32, 58),
+            24 + i * 27,
+            42,
+            (22, 42),
             shown.then_some(d),
             (accent, scale(accent, 0.08)),
         );
     }
-    let lit = ((kmh as f32 / SPEED_FULL_KMH).clamp(0.0, 1.0) * 16.0).round() as i32;
-    for i in 0..16 {
-        let color = match (i < lit, i >= 13) {
-            (true, true) => warn,
-            (true, false) => accent,
-            (false, _) => scale(accent, 0.08),
-        };
-        pen.rect(6 + i * 7, 98, 5, 16, color);
+    let fraction = (kmh as f32 / SPEED_FULL_KMH).clamp(0.0, 1.0);
+    let stride = usize::try_from(SPEED_W).unwrap_or(0);
+    for (row, y) in (0..SPEED_H).enumerate() {
+        for (col, x) in (0..SPEED_W).enumerate() {
+            let (dx, dy) = ((x - SPEED_W / 2) as f32 + 0.5, (y - SPEED_H / 2) as f32 + 0.5);
+            let radius = dx.hypot(dy);
+            if !(52.0..60.0).contains(&radius) {
+                continue;
+            }
+            // Angle en degrés depuis le bas à gauche (135°), dans le sens des aiguilles d'une montre.
+            let relative = (dy.atan2(dx).to_degrees() - 135.0).rem_euclid(360.0);
+            if relative > 270.0 {
+                continue;
+            }
+            let t = relative / 270.0;
+            let color = match (t <= fraction, t > 0.8) {
+                (true, true) => warn,
+                (true, false) => accent,
+                (false, _) => scale(accent, 0.1),
+            };
+            let at = (row * stride + col) * 4;
+            pen.data[at..at + 4].copy_from_slice(&[color[0], color[1], color[2], 255]);
+        }
     }
 }
 
@@ -287,9 +303,12 @@ pub(super) fn update_screens(
         *bar += (target - *bar).clamp(-step, step);
     }
     let bars = clock.bars;
-    let accent = [0, 230, 255];
-    let hot = [255, 13, 115];
     for (rig, state) in &cars {
+        // Couleurs du thème (la lueur du moment et son second néon), ramenées à pleine luminosité : l'écran garde la
+        // teinte de la voiture quand le thème change, sans devenir plus clair que ses voisins.
+        let (accent, hot) = state.look.map_or(([0, 230, 255], [255, 13, 115]), |look| {
+            (screen_rgb(look.glow), screen_rgb(look.secondary))
+        });
         let kmh = (state.speed_mps.max(0.0) * 3.6).round() as u32;
         for screen in &rig.screens {
             let Some(mut image) = images.get_mut(&screen.image) else {
@@ -304,6 +323,13 @@ pub(super) fn update_screens(
         }
         clock.last_kmh = Some(kmh);
     }
+}
+
+/// Couleur d'écran (sRGB 8 bits) d'une lueur linéaire, normalisée à son canal le plus fort.
+fn screen_rgb(color: LinearRgba) -> [u8; 3] {
+    let srgb = Srgba::from(color);
+    let peak = srgb.red.max(srgb.green).max(srgb.blue).max(1e-3);
+    [srgb.red, srgb.green, srgb.blue].map(|c| (c / peak * 255.0).clamp(0.0, 255.0) as u8)
 }
 
 /// Couleur linéaire de l'émission d'un écran allumé : blanc, la couleur vient de l'image.

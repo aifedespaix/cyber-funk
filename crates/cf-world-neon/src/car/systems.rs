@@ -16,7 +16,7 @@ use super::glow::{
     CarPalette, HEADLIGHT_LEVEL, HIGH_BEAMS_LEVEL, HIGH_BEAMS_RATIO, LightInputs, LightLevels, NEON_INTENSITY, Tinted,
 };
 use super::materials::{CarLightMaterial, CarPaintMaterial};
-use super::model::{CarModelAsset, Side};
+use super::model::{CarModelAsset, NEON_GRAD_COUNT, Side};
 use super::motion::{MotionInput, MotionPose};
 use super::paint::paint_scales;
 use super::rig::{Car, CarRig, CarState, Emissive, Look};
@@ -40,6 +40,8 @@ pub struct CarControls {
     pub lit: Option<LinearRgba>,
     /// Part des phares allumée, 0 à 1 (`setLightLevel` de Sillage) : la pré-intro les allume avant le départ. 1 : normal.
     pub light_scale: f32,
+    /// Chaussée mouillée, 0 à 1 : la peinture se lisse et reflète plus fort le liseré néon (mode pluie).
+    pub wet: f32,
 }
 
 impl Default for CarControls {
@@ -49,6 +51,7 @@ impl Default for CarControls {
             brake: 0.0,
             lit: None,
             light_scale: 1.0,
+            wet: 0.0,
         }
     }
 }
@@ -384,6 +387,8 @@ pub(super) fn advance_look(
 /// `CfSet::Simulate` : applique la lumière de l'image aux matériaux du modèle : néons, optiques, clignotants, logo
 /// arrière, peinture.
 pub(super) fn apply_model_lights(
+    time: Res<Time>,
+    controls: Res<CarControls>,
     mut cars: Query<(&CarRig, &CarState)>,
     mut standard: ResMut<Assets<StandardMaterial>>,
     mut paint: ResMut<Assets<CarPaintMaterial>>,
@@ -397,6 +402,14 @@ pub(super) fn apply_model_lights(
         // Néons : la lueur du moment, et la même mêlée de corail pour les accents.
         neon(&mut standard, m.neon_primary.as_ref(), look.glow);
         neon(&mut standard, m.neon_secondary.as_ref(), look.secondary);
+        // Néon de caisse : un dégradé qui voyage autour de la voiture. Seule la teinte change (la luminance reste celle
+        // du néon), et lentement (un tour en ~12 s) : rien n'y clignote, le limiteur n'a rien à borner.
+        let phase = time.elapsed_secs() * 0.08;
+        for (index, sector) in &m.neon_grad {
+            let wave =
+                0.5 + 0.5 * (std::f32::consts::TAU * (f32::from(*index) / f32::from(NEON_GRAD_COUNT) - phase)).sin();
+            neon(&mut standard, Some(sector), mix_color(look.glow, look.secondary, wave));
+        }
         // Optiques du modèle : phares allumés (plus fort en feux de route), feux stop au freinage.
         if let Some(head) = &m.head {
             emit(&mut standard, head, if look.high_beams { 1.35 } else { 1.0 });
@@ -418,7 +431,7 @@ pub(super) fn apply_model_lights(
             glow_material(&mut lights, &mut visibility, &signal.pool, signal.pool_entity, pool);
         }
         apply_logo(rig, state, &look, &mut standard, &mut transforms);
-        apply_paint(rig, &look, &mut paint);
+        apply_paint(rig, &look, controls.wet, &mut paint);
     }
 }
 
@@ -453,16 +466,35 @@ fn apply_logo(
 }
 
 /// Peinture : teinte du thème, liseré néon qui pulse sur les kicks.
-fn apply_paint(rig: &CarRig, look: &Look, paint: &mut Assets<CarPaintMaterial>) {
+/// Mélange linéaire de deux lueurs.
+fn mix_color(a: LinearRgba, b: LinearRgba, t: f32) -> LinearRgba {
+    LinearRgba::rgb(
+        a.red + (b.red - a.red) * t,
+        a.green + (b.green - a.green) * t,
+        a.blue + (b.blue - a.blue) * t,
+    )
+}
+
+/// Rugosité de la peinture sèche (`finish.x` de la finition « metallic »).
+const PAINT_ROUGHNESS: f32 = 0.32;
+
+fn apply_paint(rig: &CarRig, look: &Look, wet: f32, paint: &mut Assets<CarPaintMaterial>) {
     let Some(handle) = &rig.materials.paint else { return };
     let (hue, sat, val) = paint_scales(look.palette.violet);
     let rim = Vec4::new(look.glow.red, look.glow.green, look.glow.blue, 1.0);
     let rim_b = Vec4::new(look.secondary.red, look.secondary.green, look.secondary.blue, 1.0);
-    let strength = 0.35 * (1.0 + look.pulse * 1.6);
+    // Mouillée, la tôle est plus lisse (rugosité −60 %) et le liseré néon s'y reflète plus fort (+80 %).
+    let wet = wet.clamp(0.0, 1.0);
+    let roughness = PAINT_ROUGHNESS * (1.0 - 0.6 * wet);
+    let strength = 0.35 * (1.0 + look.pulse * 1.6) * (1.0 + 0.8 * wet);
     let wanted = Vec3::new(hue, sat, val);
     let differs = |x: &CarPaintMaterial| {
         let p = &x.extension.params;
-        p.paint.truncate() != wanted || p.rim_a != rim || p.rim_b != rim_b || (p.finish.w - strength).abs() > 1e-4
+        p.paint.truncate() != wanted
+            || p.rim_a != rim
+            || p.rim_b != rim_b
+            || (p.finish.w - strength).abs() > 1e-4
+            || (p.finish.x - roughness).abs() > 1e-4
     };
     set_if_different(paint, handle, differs, |x| {
         let p = &mut x.extension.params;
@@ -470,6 +502,7 @@ fn apply_paint(rig: &CarRig, look: &Look, paint: &mut Assets<CarPaintMaterial>) 
         p.rim_a = rim;
         p.rim_b = rim_b;
         p.finish.w = strength;
+        p.finish.x = roughness;
     });
 }
 
@@ -549,6 +582,12 @@ pub(super) fn apply_rig_lights(
             && let Ok(mut light) = points.get_mut(entity)
         {
             light.color = Color::LinearRgba(look.glow);
+        }
+        if let Some(entity) = rig.lights.cabin_light
+            && let Ok(mut light) = points.get_mut(entity)
+        {
+            // Douce et stable : le liseré du pavillon et du tableau de bord, couleur du second néon.
+            light.color = Color::LinearRgba(look.secondary);
         }
         if let Some(entity) = rig.lights.logo_light
             && let Ok(mut light) = points.get_mut(entity)
