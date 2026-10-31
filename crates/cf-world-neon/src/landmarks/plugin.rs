@@ -17,7 +17,7 @@ use std::sync::{Arc, Mutex, MutexGuard, PoisonError};
 use bevy::asset::Assets;
 use bevy::prelude::*;
 use bevy::shader::Shader;
-use cf_render::{CfSet, SceneMood, ScenePalette, ShowRuntime, WarmupAppExt};
+use cf_render::{CfSet, SceneMood, ScenePalette, ShowRuntime, WarmupAppExt, WorldEventAppExt};
 
 use super::adapter::StageLandmark;
 use super::field::CityField;
@@ -90,8 +90,14 @@ impl Plugin for LandmarksPlugin {
             .init_resource::<CityField>()
             .add_systems(
                 Update,
-                (sync_inputs.before(TrafficSet::Step), publish.after(TrafficSet::Step)).in_set(CfSet::Simulate),
-            );
+                (
+                    sync_inputs.before(TrafficSet::Step),
+                    super::catalog::take_landmark_triggers.before(TrafficSet::Step),
+                    publish.after(TrafficSet::Step),
+                )
+                    .in_set(CfSet::Simulate),
+            )
+            .register_world_events(super::catalog::world_events());
         if rendering || self.force {
             app.add_systems(PostStartup, render::spawn_rig).add_systems(
                 Update,

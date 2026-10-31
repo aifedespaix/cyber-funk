@@ -41,6 +41,7 @@
 
 pub mod air_lanes;
 pub mod bike_patterns;
+pub mod catalog;
 pub mod director;
 pub mod event;
 pub mod events;
@@ -66,7 +67,7 @@ use std::path::PathBuf;
 use bevy::pbr::PbrPlugin;
 use bevy::prelude::*;
 use bevy::shader::Shader;
-use cf_render::{CfSet, CullingSet, ScenePalette, ThemeLibrary, WarmupAppExt, WorldSet};
+use cf_render::{CfSet, CullingSet, ScenePalette, ThemeLibrary, WarmupAppExt, WorldEventAppExt, WorldSet};
 
 pub use director::TrafficDirector;
 pub use event::{EventCtx, EventFactory, EventRegistry, Focus, SignLender, TrafficAppExt, TrafficEvent};
@@ -132,6 +133,7 @@ impl Plugin for TrafficPlugin {
                 models_dir: self.assets_dir.join("models/crafts"),
             })
             .init_resource::<EventRegistry>()
+            .register_world_events(catalog::world_events())
             .add_plugins((events::CalmEventsPlugin::default(), GrandEventsPlugin::default()))
             .init_resource::<TrafficFlash>()
             .init_resource::<TrafficStats>()

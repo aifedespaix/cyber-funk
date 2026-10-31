@@ -32,6 +32,18 @@ fn run(app: &mut App, seconds: f32) {
     }
 }
 
+/// Fait tourner jusqu'à ce que le fichier relu satisfasse `done` : l'écriture part sur le pool d'E/S, son terme dépend
+/// de la charge de la machine (jusqu'à 4 s réelles avant d'abandonner).
+fn run_until_saved(app: &mut App, path: &std::path::Path, done: impl Fn(&AppSettings) -> bool) {
+    for _ in 0..400 {
+        app.update();
+        std::thread::sleep(Duration::from_millis(10));
+        if path.exists() && done(&AppSettings::load(path)) {
+            return;
+        }
+    }
+}
+
 #[test]
 fn un_changement_est_ecrit_apres_le_calme() {
     let dir = tempfile::tempdir().unwrap();
@@ -41,7 +53,7 @@ fn un_changement_est_ecrit_apres_le_calme() {
     app.world_mut().resource_mut::<Settings>().value.car = CarChoice::Cyber;
     run(&mut app, 0.5);
     assert!(!path.exists(), "pas d'écriture avant la seconde de calme");
-    run(&mut app, 2.0);
+    run_until_saved(&mut app, &path, |saved| saved.car == CarChoice::Cyber);
     assert_eq!(AppSettings::load(&path).car, CarChoice::Cyber);
 }
 
@@ -78,7 +90,7 @@ fn le_choix_de_source_et_de_peripherique_de_l_operateur_est_retenu() {
         source: AudioSource::Line,
         device: DeviceSelector::Name("Focusrite".into()),
     });
-    run(&mut app, 3.0);
+    run_until_saved(&mut app, &path, |saved| saved.line_device.is_some());
     let saved = AppSettings::load(&path);
     assert_eq!(saved.audio_source.as_deref(), Some("Line"));
     assert_eq!(saved.line_device.as_deref(), Some("Focusrite"));

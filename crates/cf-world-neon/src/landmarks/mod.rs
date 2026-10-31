@@ -53,6 +53,7 @@ pub mod arcade;
 pub mod arcade_game;
 pub mod arch;
 pub mod board;
+pub mod catalog;
 pub mod error;
 pub mod error_atlas;
 pub mod field;
