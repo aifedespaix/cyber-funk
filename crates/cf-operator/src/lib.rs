@@ -7,6 +7,7 @@
 mod audio_panel;
 mod controls_panel;
 mod diagnostics;
+mod freecam;
 mod live;
 mod loading;
 mod quit;
@@ -42,6 +43,7 @@ impl Plugin for OperatorPlugin {
         app.init_resource::<TextInputFocus>()
             .add_systems(Update, sync_text_focus.before(CfSet::Input));
         live::build(app);
+        freecam::build(app);
         app.add_systems(Startup, window::spawn_operator_window).add_systems(
             EguiPrimaryContextPass,
             (

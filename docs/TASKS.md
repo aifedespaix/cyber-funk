@@ -118,7 +118,7 @@ Aucune tâche en cours au 2026-10-31.
 | J8-03 | [Éditeur de looks avec aperçu](tasks/J8.md) | Sonnet 5.5 | `medium` | J8-02, J4-08 | ⬜ |
 | J8-04 | [MIDI learn et profils de contrôle](tasks/J8.md) | Sonnet 5.5 | `medium` | J3-02, J8-01 | ⬜ |
 | J8-05 | [Aperçu de la sortie dans la fenêtre opérateur](tasks/J8.md) | Sonnet 5.5 | `medium` | J8-01, J4-06 | ⬜ |
-| J8-06 | [Caméra libre de préparation](tasks/J8.md) | Haiku 5.5 | `low` | J6-01 | ⬜ |
+| J8-06 | [Caméra libre de préparation](tasks/J8.md) | Haiku 5.5 | `low` | J6-01 | ✅ |
 | J8-07 | [Raccord du binaire : assemblage des plugins et du chef du spectacle](tasks/J8.md) | Sonnet 5.5 | `high` | J8-01, J6-02, J4-06, J4-07, J4-02, J4-08 | ✅ |
 | J9-01 | [Tests d'endurance](tasks/J9.md) | Sonnet 5.5 | `high` | J8-01, J7 terminé | ⬜ |
 | J9-02 | [Pertes de sources et replis](tasks/J9.md) | Sonnet 5.5 | `high` | J3-03, J2-05 | ⬜ |
