@@ -133,6 +133,15 @@ pub struct Cli {
     /// N'ouvre aucun port MIDI (le clavier reste actif).
     #[arg(long)]
     pub no_midi: bool,
+
+    /// Test d'endurance : joue le show en boucle avec des actions aléatoires pendant ce nombre d'heures, écrit un
+    /// CSV de mesures (voir `--soak-csv`) puis ferme l'application.
+    #[arg(long, value_name = "HEURES")]
+    pub soak: Option<f64>,
+
+    /// Fichier CSV du test d'endurance.
+    #[arg(long, value_name = "FICHIER", default_value = "soak.csv", requires = "soak")]
+    pub soak_csv: PathBuf,
 }
 
 #[cfg(test)]

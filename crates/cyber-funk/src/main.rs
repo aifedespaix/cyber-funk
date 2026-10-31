@@ -9,6 +9,7 @@ mod logging;
 mod preload;
 mod projector;
 mod show_setup;
+mod soak;
 mod update;
 mod wiring;
 
@@ -126,6 +127,13 @@ fn build_app(cli: &Cli, controls: ControlsPlugin, show: ShowPlugin, preload: Pre
     ));
 
     app.add_systems(Startup, preload::start_preload);
+
+    if let Some(hours) = cli.soak {
+        app.add_plugins(soak::SoakPlugin {
+            hours,
+            csv: cli.soak_csv.clone(),
+        });
+    }
 
     if cli.no_operator {
         // Sans fenêtre opérateur, pas d'interface pour confirmer : double fermeture à la place du dialogue.

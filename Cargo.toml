@@ -60,6 +60,7 @@ rand_core = "0.10"
 rand_pcg = "0.10"
 clap = { version = "4.6", features = ["derive"] }
 dirs = "7.0"
+sysinfo = { version = "0.40", default-features = false, features = ["system"] }
 cargo-packager-updater = "0.2"
 
 # Tests et mesures
