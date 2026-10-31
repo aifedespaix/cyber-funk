@@ -1,0 +1,1 @@
+{"name":"cybercar-tools","private":true,"type":"module","dependencies":{"@gltf-transform/core":"^4","@gltf-transform/extensions":"^4.5.1"}}
