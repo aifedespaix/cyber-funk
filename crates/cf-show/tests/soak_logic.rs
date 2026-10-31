@@ -43,7 +43,7 @@ fn six_hours_of_random_operation_stay_coherent() {
     let show = demo();
     let slot_cues: Vec<usize> = show.event().slots.iter().map(|s| s.cues.len()).collect();
     let mut rig = Rig::with_seed(&show, Music::Kicks(124.0), 42);
-    let mut rng = Pcg32::seed_from_u64(0xC0FFEE);
+    let mut rng = Pcg32::seed_from_u64(0x00C0_FFEE);
 
     let frames = (HOURS * 3600.0 / f64::from(DT)) as u64;
     let mut last_elapsed = 0.0_f64;
@@ -53,10 +53,10 @@ fn six_hours_of_random_operation_stay_coherent() {
 
     for frame in 0..frames {
         // Toutes les ~2 s, une chance d'action ; toutes les 10 min, la musique change (kicks, break, silence).
-        if frame % 120 == 0 {
-            if let Some(action) = random_action(&mut rng) {
-                rig.act(action);
-            }
+        if frame % 120 == 0
+            && let Some(action) = random_action(&mut rng)
+        {
+            rig.act(action);
         }
         if frame % 36_000 == 0 {
             rig.music = match rng.next_u32() % 4 {
@@ -89,14 +89,14 @@ fn six_hours_of_random_operation_stay_coherent() {
             "image {frame} : temps non fini"
         );
         // `elapsed` compte depuis le chargement du créneau : il repart à zéro à chaque passation, jamais ailleurs.
-        if state.slot_seq != last_slot_seq {
-            handovers += 1;
-            last_slot_seq = state.slot_seq;
-        } else {
+        if state.slot_seq == last_slot_seq {
             assert!(
                 state.elapsed >= last_elapsed,
                 "image {frame} : le temps du créneau recule"
             );
+        } else {
+            handovers += 1;
+            last_slot_seq = state.slot_seq;
         }
         last_elapsed = state.elapsed;
         assert!(
