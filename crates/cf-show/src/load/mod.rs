@@ -16,7 +16,7 @@ pub use version::{parse_event, parse_look};
 
 pub(crate) use version::{check_version, deserialize};
 
-use crate::model::{Cue, Event, Look, LookId};
+use crate::model::{Cue, Event, Look, LookId, LookOverrides};
 use crate::validate::validate_event;
 
 /// Écrit un événement en RON (format courant, lisible, relu à l'identique par [`parse_event`]).
@@ -56,6 +56,17 @@ pub struct ResolvedLook {
     pub look: Look,
     /// Bibliothèque ou événement.
     pub origin: LookOrigin,
+}
+
+/// Un cue dont le look manquait ou était corrompu, remplacé par le look calme de l'événement.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct LookSubstitution {
+    /// Index du créneau.
+    pub slot: usize,
+    /// Index du cue dans le créneau.
+    pub cue: usize,
+    /// Le look demandé, introuvable.
+    pub wanted: LookId,
 }
 
 /// Un événement validé et tous les looks qu'il peut jouer (bibliothèque + looks embarqués, ceux de l'événement
@@ -123,6 +134,42 @@ impl LoadedShow {
             });
         }
         Ok(Self { event, looks })
+    }
+
+    /// Comme [`Self::new`], mais un cue qui référence un look introuvable (fichier corrompu écarté par
+    /// [`LookLibrary::load_dir_lenient`], supprimé…) joue le look calme de l'événement au lieu de refuser
+    /// l'ouverture. Les surcharges du cue, écrites pour l'autre look, sont abandonnées. Chaque remplacement est
+    /// rapporté pour que l'opérateur le voie avant le show.
+    ///
+    /// # Errors
+    ///
+    /// [`LoadError::Invalid`] pour tout autre problème, y compris un look calme lui-même introuvable : il n'y a
+    /// alors aucun repli possible.
+    pub fn new_resilient(
+        mut event: Event,
+        library: &LookLibrary,
+        origin: &str,
+    ) -> Result<(Self, Vec<LookSubstitution>), LoadError> {
+        let known = |id: &LookId| library.contains(id) || event.looks.iter().any(|look| &look.id == id);
+        let safe = event.settings.safe_look.clone();
+        let mut missing = Vec::new();
+        if known(&safe) {
+            for (slot, dj_slot) in event.slots.iter().enumerate() {
+                for (cue, entry) in dj_slot.cues.iter().enumerate() {
+                    if !known(&entry.look) {
+                        missing.push((slot, cue, entry.look.clone()));
+                    }
+                }
+            }
+        }
+        let mut substitutions = Vec::with_capacity(missing.len());
+        for (slot, cue, wanted) in missing {
+            let entry = &mut event.slots[slot].cues[cue];
+            entry.look = safe.clone();
+            entry.overrides = LookOverrides::default();
+            substitutions.push(LookSubstitution { slot, cue, wanted });
+        }
+        Self::new(event, library, origin).map(|show| (show, substitutions))
     }
 
     /// L'événement validé.

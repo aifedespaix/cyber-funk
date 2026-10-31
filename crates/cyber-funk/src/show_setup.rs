@@ -28,9 +28,26 @@ pub fn show_plugin(cli: &Cli) -> anyhow::Result<ShowPlugin> {
             utc_offset_s: 0.0,
         });
     };
-    let looks = LookLibrary::load_dir(&cli.assets_dir.join("looks"))
+    // Un look corrompu ne doit pas empêcher d'ouvrir le show : il est écarté et dit au journal, les cues qui le
+    // jouent retombent sur le look calme (skill `live-safety`).
+    let (looks, rejected) = LookLibrary::load_dir_lenient(&cli.assets_dir.join("looks"))
         .with_context(|| format!("looks de {}", cli.assets_dir.display()))?;
-    let show = LoadedShow::load(path, &looks).with_context(|| format!("show {}", path.display()))?;
+    for error in &rejected {
+        tracing::error!(%error, "look illisible écarté");
+    }
+    let event_text = std::fs::read_to_string(path).with_context(|| format!("show {}", path.display()))?;
+    let event = cf_show::load::parse_event(&event_text, &path.display().to_string())
+        .with_context(|| format!("show {}", path.display()))?;
+    let (show, substitutions) = LoadedShow::new_resilient(event, &looks, &path.display().to_string())
+        .with_context(|| format!("show {}", path.display()))?;
+    for s in &substitutions {
+        tracing::error!(
+            slot = s.slot,
+            cue = s.cue,
+            wanted = %s.wanted,
+            "look introuvable : le cue joue le look calme"
+        );
+    }
     let titles_path = cli.assets_dir.join("titles/drop-titles.ron");
     let titles = if titles_path.is_file() {
         DropTitles::load(&titles_path).with_context(|| format!("titres {}", titles_path.display()))?

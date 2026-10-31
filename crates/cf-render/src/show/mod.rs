@@ -20,6 +20,7 @@ use bevy::prelude::*;
 use cf_control::Action;
 use cf_show::director::{ShowDirector, ShowEvent, ShowInput, ShowState};
 use cf_show::drop::DropTitles;
+use cf_show::guard::{Guard, GuardOutcome};
 use cf_show::load::LoadedShow;
 use cf_show::model::ControlProfileId;
 use rand_pcg::Pcg32;
@@ -82,6 +83,8 @@ pub struct ShowRuntime {
     /// Actions de l'image, réutilisées d'une image à l'autre (aucune allocation en régime établi).
     actions: Vec<Action>,
     utc_offset_s: f64,
+    /// Isole une panique du chef du spectacle : le show garde le dernier état publié (skill `live-safety`).
+    guard: Guard,
 }
 
 impl fmt::Debug for ShowRuntime {
@@ -157,6 +160,8 @@ impl Plugin for ShowPlugin {
                         director,
                         actions: Vec::new(),
                         utc_offset_s: self.utc_offset_s,
+                        // 3 images de suite en panique : le chef est désactivé, le show garde son dernier état.
+                        guard: Guard::new(3),
                     });
                 app.add_systems(
                     Update,
@@ -204,8 +209,17 @@ fn run_show(
         real_drop: false,
         actions: &runtime.actions,
     };
-    current.0.clone_from(runtime.director.update(&input));
-    for event in runtime.director.drain_events() {
+    let ShowRuntime { director, guard, .. } = runtime;
+    let outcome = guard.run(|| current.0.clone_from(director.update(&input)));
+    match outcome {
+        GuardOutcome::Ran => {}
+        GuardOutcome::Panicked { streak } => tracing::error!(streak, "panique du chef du spectacle, image ignorée"),
+        GuardOutcome::Disabled => {
+            tracing::error!("le chef du spectacle a paniqué trop souvent : désactivé, le dernier état reste affiché");
+        }
+        GuardOutcome::Skipped => return,
+    }
+    for event in director.drain_events() {
         events.write(ShowEventMessage(event));
     }
 }

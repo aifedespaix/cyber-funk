@@ -7,8 +7,11 @@
 
 pub mod director;
 pub mod drop;
+#[cfg(any(test, feature = "fault-injection"))]
+pub mod fault;
 pub mod freshness;
 pub mod gates;
+pub mod guard;
 pub mod limiter;
 pub mod load;
 pub mod model;

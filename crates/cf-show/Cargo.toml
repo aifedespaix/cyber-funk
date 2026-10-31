@@ -10,6 +10,10 @@ publish.workspace = true
 [lints]
 workspace = true
 
+[features]
+# Injecteurs de pannes pour les tests de repli (J9-02) ; jamais activée dans le binaire livré.
+fault-injection = []
+
 [dependencies]
 cf-analysis.workspace = true
 cf-control.workspace = true

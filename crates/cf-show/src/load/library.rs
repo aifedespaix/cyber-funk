@@ -37,6 +37,26 @@ impl LookLibrary {
     ///
     /// Dossier illisible, ou premier fichier invalide (lecture, version, validation, nom de fichier).
     pub fn load_dir(dir: &Path) -> Result<Self, LoadError> {
+        let (library, mut rejected) = Self::scan_dir(dir)?;
+        if rejected.is_empty() {
+            Ok(library)
+        } else {
+            Err(rejected.remove(0))
+        }
+    }
+
+    /// Comme [`Self::load_dir`], mais un fichier invalide ne fait pas échouer les autres : il est écarté et
+    /// rapporté. Un look corrompu ne doit pas empêcher d'ouvrir le show (les cues qui le jouent retomberont sur
+    /// le look calme, voir [`crate::load::LoadedShow::new_resilient`]).
+    ///
+    /// # Errors
+    ///
+    /// Dossier illisible seulement.
+    pub fn load_dir_lenient(dir: &Path) -> Result<(Self, Vec<LoadError>), LoadError> {
+        Self::scan_dir(dir)
+    }
+
+    fn scan_dir(dir: &Path) -> Result<(Self, Vec<LoadError>), LoadError> {
         let io_error = |source| LoadError::Io {
             path: dir.to_path_buf(),
             source,
@@ -50,14 +70,19 @@ impl LookLibrary {
         }
         paths.sort();
         let mut library = Self::new();
+        let mut rejected = Vec::new();
         for path in paths {
-            let text = std::fs::read_to_string(&path).map_err(|source| LoadError::Io {
-                path: path.clone(),
-                source,
-            })?;
-            library.insert_file(&path, &text)?;
+            let loaded = std::fs::read_to_string(&path)
+                .map_err(|source| LoadError::Io {
+                    path: path.clone(),
+                    source,
+                })
+                .and_then(|text| library.insert_file(&path, &text));
+            if let Err(error) = loaded {
+                rejected.push(error);
+            }
         }
-        Ok(library)
+        Ok((library, rejected))
     }
 
     /// Ajoute (ou remplace) le look lu dans `text`, venu du fichier `path` : lecture, migration, validation, et
