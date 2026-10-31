@@ -30,3 +30,6 @@ Thumbs.db
 # Sources lourdes de la voiture (voir assets/car-src/README.md)
 /assets/car-src/*
 !/assets/car-src/README.md
+
+# Dépendances npm des outils de la voiture
+/tools/car/node_modules/

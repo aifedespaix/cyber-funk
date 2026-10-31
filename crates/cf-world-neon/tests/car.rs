@@ -133,8 +133,8 @@ fn tout_ce_que_la_voiture_dessine_est_dans_la_couche_monde_sans_no_frustum_culli
             app.world().get::<Name>(entity)
         );
     }
-    // 62 primitives du GLB (moins la pluie sur le pare-brise), ~20 pièces de lumière, 2 projecteurs, 2 lumières néon.
-    assert!(checked > 60, "{checked} entités dessinées ou éclairantes");
+    // ~35 primitives du GLB (la dirty car est un modèle léger), ~20 pièces de lumière, 2 projecteurs, 2 lumières néon.
+    assert!(checked > 35, "{checked} entités dessinées ou éclairantes");
     // Traînée et fumée : roots à part, dans la couche monde aussi.
     for entity in app
         .world_mut()
@@ -176,7 +176,7 @@ fn la_voiture_reste_dans_son_budget_d_entites() {
     eprintln!(
         "voiture : {meshes} entités à maillage (dont traînée et fumée), {spots} projecteurs, {points} lumières ponctuelles"
     );
-    assert!((70..100).contains(&meshes), "{meshes} entités à maillage");
+    assert!((30..60).contains(&meshes), "{meshes} entités à maillage");
     assert_eq!(spots, 2, "deux phares");
     assert_eq!(points, 2, "sous la caisse et logo arrière");
 }

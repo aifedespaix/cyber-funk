@@ -400,8 +400,8 @@ mod tests {
     fn les_glb_de_la_voiture_se_decompressent() {
         for name in ["car-high.glb", "car-low.glb"] {
             let gltf = glb(name);
-            assert_eq!(gltf.nodes().len(), 53, "{name}");
-            assert_eq!(gltf.images().len(), 4, "{name}");
+            assert_eq!(gltf.nodes().len(), 35, "{name}");
+            assert_eq!(gltf.images().len(), 8, "{name}");
             let mut triangles = 0;
             for mesh in gltf.meshes() {
                 for primitive in &mesh.primitives {
@@ -427,11 +427,11 @@ mod tests {
                     triangles += indices.len() / 3;
                 }
             }
-            // ~85 000 triangles en haute définition, ~40 000 en basse (CYBERCAR.md §1).
+            // ~18 000 triangles en haute définition (la dirty car d'origine), ~11 000 en basse.
             let expected = if name.contains("high") {
-                70_000..100_000
+                15_000..25_000
             } else {
-                30_000..50_000
+                8_000..16_000
             };
             assert!(expected.contains(&triangles), "{name} : {triangles} triangles");
         }

@@ -167,10 +167,10 @@ mod tests {
         let size = frame.bounds.size();
         assert!(frame.bounds.min.y.abs() < 1e-4, "les pneus touchent y = 0");
         assert!(frame.bounds.center().x.abs() < 1e-4 && frame.bounds.center().z.abs() < 1e-4);
-        // Quatre à cinq mètres de long (empattement 2,76 m), ~2 m de large, ~1,3 m de haut.
-        assert!((4.0..5.5).contains(&size.z), "longueur {}", size.z);
-        assert!((1.6..2.4).contains(&size.x), "largeur {}", size.x);
-        assert!((1.0..1.8).contains(&size.y), "hauteur {}", size.y);
+        // Une grande berline : ~6 m de long (empattement 3,55 m), ~2,6 m de large rétroviseurs compris, ~1,8 m de haut.
+        assert!((5.5..6.5).contains(&size.z), "longueur {}", size.z);
+        assert!((2.0..2.8).contains(&size.x), "largeur {}", size.x);
+        assert!((1.4..2.0).contains(&size.y), "hauteur {}", size.y);
         assert!((frame.half_length() * 2.0 - size.z).abs() < 1e-5);
     }
 
