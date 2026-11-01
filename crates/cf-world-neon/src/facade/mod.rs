@@ -13,6 +13,7 @@
 mod material;
 mod systems;
 mod temperament;
+mod trail;
 
 #[cfg(test)]
 mod motion_tests;
@@ -26,6 +27,7 @@ use cf_render::{CfSet, ScenePalette, ThemeLibrary, WarmupAppExt};
 pub use material::{FacadeMaterial, FacadeParams, TINT_COUNT};
 pub use systems::{FrameInputs, MotionDrive, MotionFlash, build_params, tint_rank};
 pub use temperament::{LightShape, MotionKind, TEMPER_COUNT, TEMPERAMENTS, Temperament, temper_of};
+pub use trail::{CAR_FOLLOW, CarTrail, FALLOFF_M, MIN_STEP_M, TRAIL_LIFETIME_S, TRAIL_POINTS};
 
 /// Le front de panne de courant au repos : profondeur nulle, la ville est entièrement éclairée.
 pub const NO_BLACKOUT: Vec4 = Vec4::new(0.0, 1.0, 0.0, 1.0);
@@ -84,7 +86,13 @@ impl Plugin for FacadePlugin {
             app.insert_resource(velvet_palette());
         }
         app.init_resource::<FacadeLook>()
-            .add_systems(Update, systems::update_material.in_set(CfSet::Present));
+            .init_resource::<CarTrail>()
+            .add_systems(
+                Update,
+                (trail::record_car_trail, systems::update_material)
+                    .chain()
+                    .in_set(CfSet::Present),
+            );
     }
 }
 

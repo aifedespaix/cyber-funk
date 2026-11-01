@@ -57,6 +57,10 @@ struct Facade {
     // Mouvements de lumière (`facade_motion.wesl`) : x voie rapide déjà limitée (0..1), y part de mouvement rapide
     // autorisée (0..1), z et w réservés.
     motion: vec4<f32>,
+    // Traîne de la voiture (`facade_trail.wesl`) : 16 points, xyz en repère rendu, w intensité restante (0 : vide).
+    trail: array<vec4<f32>, 16>,
+    // Couleur de la voiture (xyz) et force de la traîne (w).
+    car_tint: vec4<f32>,
 }
 
 @group(constants::MATERIAL_BIND_GROUP) @binding(0) var<uniform> facade: Facade;
@@ -288,6 +292,10 @@ fn fragment(in: FacadeVarying) -> @location(0) vec4<f32> {
         // Mouvement du tempérament (vague, dérive, balayage, pulsation) ; rien au loin : pas de scintillement sous-pixel.
         let motion = select(motion_gain(temper_b.y, h, u, seed, time, beat, facade.motion.x), 1.0, far);
         col += window_color * lit * mask * glow * motion * (1.0 + 0.45 * wet) * power_left;
+        // Traîne de la voiture : la lumière des fenêtres déjà allumées s'attarde là où elle est passée (rien au loin).
+        if !far {
+            col += trail_window_light(in.world, window_color) * lit * mask * (1.0 + 0.45 * wet) * power_left;
+        }
 
         // Caisse claire : sur environ un tiers des tours, une bande de lumière tombe du sommet vers le pied pendant que
         // l'impulsion retombe (le kick, lui, fait monter la vague : les deux se croisent).

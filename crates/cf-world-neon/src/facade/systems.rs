@@ -7,6 +7,8 @@ use cf_render::{AudioFeatures, CurrentShowFx, FloatingOrigin, SceneColor, SceneP
 
 use super::material::{FacadeParams, TINT_COUNT};
 use super::temperament::{TEMPER_COUNT, TEMPERAMENTS};
+use super::trail::TRAIL_POINTS;
+use super::trail::{CarTrail, trail_uniforms};
 use super::{FacadeLook, FacadeMaterial};
 use cf_show::limiter::MIN_FADE;
 
@@ -164,6 +166,9 @@ pub fn build_params(
             0.0,
             0.0,
         ),
+        // La traîne de la voiture dépend de l'origine flottante : `update_material` la remplit.
+        trail: [Vec4::ZERO; TRAIL_POINTS],
+        car_tint: Vec4::ZERO,
     }
 }
 
@@ -222,6 +227,7 @@ pub(super) fn update_material(
     scenery: Option<Res<crate::scenery::SceneryAssets>>,
     origin: Option<Res<FloatingOrigin>>,
     field: Option<Res<CityField>>,
+    trail: Option<Res<CarTrail>>,
     show_fx: Option<Res<CurrentShowFx>>,
     mut flash: Local<TextureFlash>,
     mut motion: Local<MotionFlash>,
@@ -256,7 +262,11 @@ pub(super) fn update_material(
         hat: flash.hat.pulse(),
         ..frame
     };
-    let params = build_params(&palette, &look, road.wet, road.rain, &frame);
+    let mut params = build_params(&palette, &look, road.wet, road.rain, &frame);
+    // La traîne de la voiture, en repère rendu ; sans voiture ni origine flottante, elle reste éteinte.
+    if let Some(trail) = trail.as_deref() {
+        (params.trail, params.car_tint) = trail_uniforms(trail, origin.as_deref(), now_s);
+    }
     // Le champ de la ville (J7-08) : lumières des immeubles-vitrines, zone de glitch, panne de courant, en repère rendu.
     let field_params = field
         .as_deref()
