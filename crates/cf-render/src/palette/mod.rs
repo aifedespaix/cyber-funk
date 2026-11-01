@@ -227,8 +227,15 @@ pub fn drive_palette(
     }
 
     // 5. L'étalonnage de quartier : sa cible attend un temps fort, puis il glisse linéairement (jamais d'à-coup).
-    grade.tick_pending(dt_s, frame.kick, frame.count);
-    let district = grade.update(dt_s);
+    // Garde lecture seule : sans cible ni fondu, on ne prend pas `DerefMut` (pas de détection de changement inutile).
+    if grade.is_pending() {
+        grade.tick_pending(dt_s, frame.kick, frame.count);
+    }
+    let district = if grade.is_fading() {
+        grade.update(dt_s)
+    } else {
+        grade.settled()
+    };
 
     // 6. La palette à l'écran : le fondu, tourné de la teinte du look, puis nuancé par le quartier. Sans cible,
     //    l'étalonnage est neutre et la palette sort exactement comme avant.

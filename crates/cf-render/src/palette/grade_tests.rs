@@ -1,7 +1,7 @@
 //! Tests de l'étalonnage de quartier : neutre exact, bornes, écart plus petit qu'un changement de thème, luminance
 //! voisine (règle 7), fondu continu, attente d'un temps fort, RON livré.
 
-#![allow(clippy::unwrap_used)]
+#![allow(clippy::unwrap_used, clippy::expect_used)]
 
 use cf_show::district::{DistrictId, DistrictKind};
 use cf_show::model::PresetTheme;
@@ -147,7 +147,8 @@ fn les_etalonnages_se_voient_et_les_variantes_different() {
 
 /// Règle 7 : la luminance moyenne d'un même type varie de moins de 10 %, et un fondu entre deux étalonnages
 /// quelconques (même de types différents) change la luminance moyenne de moins de 10 % : un fondu d'étalonnage ne peut
-/// pas devenir un flash.
+/// pas devenir un flash. Cette garantie vient des valeurs livrées de `district_grades.ron`, vérifiées ici : les bornes
+/// de teinte, luminosité et accents ne la donnent pas à elles seules.
 #[test]
 fn luminance_voisine() {
     const TOLERATED: f32 = 0.10;
@@ -336,4 +337,42 @@ fn le_rouge_d_alarme_n_est_pas_touche() {
     for (_, grade) in all_grades() {
         assert_eq!(base.graded(&grade).get(SceneColor::Alarm), base.get(SceneColor::Alarm));
     }
+}
+
+#[test]
+fn set_target_repete_ne_repousse_pas_le_repli() {
+    let id = DistrictId {
+        kind: DistrictKind::Suburb,
+        variant: 1,
+    };
+    let mut state = DistrictGradeState::default();
+    let mut started_at = None;
+    // 6 s sans aucun kick, la demande ré-émise toutes les 0,5 s.
+    for frame in 0..(6 * 60) {
+        if frame % 30 == 0 {
+            state.set_target(id, 4.0);
+        }
+        state.tick_pending(DT, false, 0);
+        if started_at.is_none() && !state.is_pending() {
+            started_at = Some(frame);
+        }
+    }
+    let frame = started_at.expect("le repli doit partir");
+    assert!(frame <= 4 * 60 + 2, "départ à l'image {frame}");
+}
+
+#[test]
+fn viser_l_etalonnage_courant_ne_lance_aucun_fondu() {
+    let id = DistrictId {
+        kind: DistrictKind::Residential,
+        variant: 2,
+    };
+    let mut state = DistrictGradeState::default();
+    state.set_target(id, 0.0);
+    state.tick_pending(DT, true, 4);
+    state.update(DT);
+    assert!(!state.is_fading());
+    state.set_target(id, 8.0);
+    assert!(!state.is_pending());
+    assert!(!state.is_fading());
 }

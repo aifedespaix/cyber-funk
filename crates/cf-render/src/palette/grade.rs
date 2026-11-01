@@ -23,9 +23,10 @@ pub const ACCENT_ROLES: [SceneColor; 4] = [SceneColor::Mint, SceneColor::Rose, S
 pub const MAX_HUE_DEG: f32 = 30.0;
 /// Bornes du facteur de saturation.
 pub const SATURATION_RANGE: (f32, f32) = (0.8, 1.2);
-/// Bornes du facteur de luminosité.
+/// Bornes du facteur de luminosité. Ces bornes seules ne garantissent pas les 10 % de luminance (règle 7) : c'est
+/// vérifié sur les valeurs livrées de `district_grades.ron` (test `luminance_voisine`).
 pub const LIGHTNESS_RANGE: (f32, f32) = (0.9, 1.1);
-/// Bornes du poids d'un accent.
+/// Bornes du poids d'un accent (même remarque que [`LIGHTNESS_RANGE`] pour la luminance).
 pub const ACCENT_RANGE: (f32, f32) = (0.8, 1.25);
 /// Nombre de variantes par type, au minimum et au maximum.
 pub const VARIANTS_RANGE: (usize, usize) = (6, 8);
@@ -223,13 +224,28 @@ impl DistrictGradeState {
     /// Demande l'étalonnage du quartier `id`, en `fade_s` secondes (borné à [`MAX_FADE`]). Le fondu démarre au
     /// prochain temps fort (au plus [`MAX_WAIT`] s d'attente) ; une nouvelle demande remplace celle qui attend.
     pub fn set_target(&mut self, id: DistrictId, fade_s: f32) {
+        let grade = self.library.grade(id);
+        let fade_s = if fade_s.is_finite() {
+            fade_s.clamp(0.0, MAX_FADE)
+        } else {
+            MAX_FADE
+        };
+        // Déjà sur cet étalonnage et rien ne glisse : pas de fondu inutile entre deux étalonnages identiques.
+        if !self.is_fading() && grade == self.to {
+            self.pending = None;
+            return;
+        }
+        // Même cible déjà en attente (l'appelant peut ré-émettre à chaque image) : on garde l'attente écoulée, sinon
+        // le repli de MAX_WAIT secondes ne partirait jamais.
+        if let Some(pending) = self.pending.as_mut()
+            && pending.grade == grade
+        {
+            pending.fade_s = fade_s;
+            return;
+        }
         self.pending = Some(PendingGrade {
-            grade: self.library.grade(id),
-            fade_s: if fade_s.is_finite() {
-                fade_s.clamp(0.0, MAX_FADE)
-            } else {
-                MAX_FADE
-            },
+            grade,
+            fade_s,
             waited_s: 0.0,
         });
     }
@@ -252,7 +268,7 @@ impl DistrictGradeState {
         let Some(pending) = self.pending.as_mut() else {
             return;
         };
-        pending.waited_s += dt_s;
+        pending.waited_s += dt_s.max(0.0);
         if (kick && count.is_multiple_of(DOWNBEAT_EVERY)) || pending.waited_s >= MAX_WAIT {
             let pending = *pending;
             self.pending = None;
@@ -269,6 +285,12 @@ impl DistrictGradeState {
             return self.to;
         }
         self.from.lerp(&self.to, self.elapsed_s / self.fade_s)
+    }
+
+    /// L'étalonnage courant, sans rien avancer (lecture seule).
+    #[must_use]
+    pub fn settled(&self) -> DistrictGrade {
+        self.current()
     }
 
     /// Avance le fondu de `dt_s` et rend l'étalonnage courant (interpolation linéaire, jamais d'à-coup).
