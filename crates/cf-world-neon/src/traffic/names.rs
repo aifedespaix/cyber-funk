@@ -56,10 +56,12 @@ pub enum EventName {
     CityPulse,
     /// Titre holographique.
     HoloTitle,
+    /// Saut de moto d'un immeuble à l'autre, par-dessus la route.
+    MotoJump,
 }
 
 /// Nombre d'événements du catalogue.
-pub const EVENT_COUNT: usize = 23;
+pub const EVENT_COUNT: usize = 24;
 
 /// Après un changement de DJ ou de niveau, le titre holographique est tiré en priorité pendant ce temps (s).
 pub const TITLE_WINDOW_S: f64 = 70.0;
@@ -93,6 +95,7 @@ impl EventName {
         Self::Tunnel,
         Self::CityPulse,
         Self::HoloTitle,
+        Self::MotoJump,
     ];
 
     /// Le slug écrit dans les looks (`"chase"`, `"city-pulse"`…).
@@ -122,6 +125,7 @@ impl EventName {
             Self::Tunnel => "tunnel",
             Self::CityPulse => "city-pulse",
             Self::HoloTitle => "holo-title",
+            Self::MotoJump => "moto-jump",
         }
     }
 
@@ -152,6 +156,7 @@ impl EventName {
             Self::Tunnel => "event:tunnel",
             Self::CityPulse => "event:city-pulse",
             Self::HoloTitle => "event:holo-title",
+            Self::MotoJump => "event:moto-jump",
         }
     }
 
@@ -178,7 +183,7 @@ impl EventName {
             Self::Swarm | Self::Lanterns | Self::Fireworks => 1.6,
             Self::Escort | Self::Adship => 2.2,
             Self::Landmark => 3.6,
-            Self::Bikes => 2.4,
+            Self::Bikes | Self::MotoJump => 2.4,
             Self::Aurora | Self::Race | Self::Toll | Self::HoloTitle => 1.4,
             Self::Blackout => 1.0,
             Self::Refuel => 1.3,
@@ -191,7 +196,14 @@ impl EventName {
     pub const fn is_structure_kind(self) -> bool {
         matches!(
             self,
-            Self::Crossroad | Self::Tower | Self::Landmark | Self::Race | Self::Dancer | Self::Toll | Self::Tunnel
+            Self::Crossroad
+                | Self::Tower
+                | Self::Landmark
+                | Self::Race
+                | Self::Dancer
+                | Self::Toll
+                | Self::Tunnel
+                | Self::MotoJump
         )
     }
 
@@ -247,6 +259,8 @@ impl EventName {
             Self::Escort | Self::Race => Some(1.5),
             Self::Swarm => Some(14.0),
             Self::Adship => Some(18.0),
+            // Les toits font de 20 à 46 m : une voiture haute les raserait.
+            Self::MotoJump => Some(12.0),
             _ => None,
         }
     }
@@ -258,7 +272,7 @@ impl EventName {
         match section {
             Section::Calm => match self {
                 Self::HoloTitle => 1.3,
-                Self::Tunnel | Self::Storm | Self::Race | Self::Chase => 0.5,
+                Self::Tunnel | Self::Storm | Self::Race | Self::Chase | Self::MotoJump => 0.5,
                 Self::CityPulse => 0.2,
                 Self::Aurora => 1.9,
                 Self::Lanterns => 1.8,
@@ -281,6 +295,7 @@ impl EventName {
                 Self::Fireworks => 1.9,
                 Self::Storm => 1.6,
                 Self::Swarm | Self::Bikes => 1.4,
+                Self::MotoJump => 1.3,
                 Self::Convoy | Self::Dancer => 1.2,
                 Self::Aurora | Self::Lanterns | Self::Fish => 0.5,
                 Self::Refuel => 0.6,
@@ -310,13 +325,13 @@ mod tests {
         let show_only = EventName::ALL.into_iter().filter(|n| n.is_show_only()).count();
         let breathing = EventName::ALL.into_iter().filter(|n| n.is_breathing_ok()).count();
         let calm = EventName::ALL.into_iter().filter(|n| n.is_calm_ok()).count();
-        assert_eq!((structures, sky, show_only, breathing, calm), (7, 5, 3, 6, 11));
+        assert_eq!((structures, sky, show_only, breathing, calm), (8, 5, 3, 6, 11));
     }
 
     #[test]
     fn le_poids_total_et_quelques_humeurs_sont_ceux_de_sillage() {
         let total: f64 = EventName::ALL.into_iter().map(EventName::weight).sum();
-        assert!((total - 41.0).abs() < 1e-9, "{total}");
+        assert!((total - 43.4).abs() < 1e-9, "{total}");
         assert!((EventName::Landmark.weight() - 3.6).abs() < f64::EPSILON);
         assert!((EventName::Aurora.section_bias(Section::Calm) - 1.9).abs() < f64::EPSILON);
         assert!((EventName::Fireworks.section_bias(Section::Peak) - 1.9).abs() < f64::EPSILON);
