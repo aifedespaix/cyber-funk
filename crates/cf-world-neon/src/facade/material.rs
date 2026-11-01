@@ -12,10 +12,12 @@ use crate::landmarks::field::FieldParams;
 
 /// Le shader des façades, embarqué dans le binaire : aucun fichier lu pendant un show (règle 8 de `CLAUDE.md`).
 pub(crate) const FACADE_SHADER: Handle<Shader> = uuid_handle!("2b8c5e1d-7a43-4f9b-86d0-c3e17a5b9d24");
-/// Source du shader (`assets/shaders/cf-world-neon/facade.wesl`), suivie du champ de la ville (`field.wesl`, partagé avec la
+/// Source du shader (`assets/shaders/cf-world-neon/facade.wesl`), suivie des formes de lumière (`facade_shapes.wesl`) et du champ de la ville (`field.wesl`, partagé avec la
 /// route : lumières des immeubles-vitrines, zone de glitch, panne de courant).
 pub(crate) const FACADE_SOURCE: &str = concat!(
     include_str!("../../../../assets/shaders/cf-world-neon/facade.wesl"),
+    "\n",
+    include_str!("../../../../assets/shaders/cf-world-neon/facade_shapes.wesl"),
     "\n",
     include_str!("../../../../assets/shaders/cf-world-neon/field.wesl")
 );

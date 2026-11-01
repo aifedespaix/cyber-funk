@@ -73,12 +73,13 @@ fn sstep(edge0: f32, edge1: f32, x: f32) -> f32 {
     return 1.0 - smoothstep(edge1, edge0, x);
 }
 
-// Décale la teinte d'une couleur de `deg` degrés par une rotation autour de l'axe des gris (1,1,1) : la luminance est
-// conservée, et 0° rend la couleur à l'identique (cos = 1, sin = 0).
+// Décale la teinte d'une couleur de `deg` degrés par une rotation autour de l'axe des gris (1,1,1) : la somme des canaux
+// est conservée (pas la luminance), et 0° rend la couleur à l'identique (cos = 1, sin = 0). Une couleur saturée peut
+// sortir de [0,1] d'un canal : on borne à 0 par le bas.
 fn hue_shifted(color: vec3<f32>, deg: f32) -> vec3<f32> {
     let a = radians(deg);
     let k = vec3<f32>(0.57735027);
-    return color * cos(a) + cross(k, color) * sin(a) + k * dot(k, color) * (1.0 - cos(a));
+    return max(color * cos(a) + cross(k, color) * sin(a) + k * dot(k, color) * (1.0 - cos(a)), vec3<f32>(0.0));
 }
 
 fn h21(p_in: vec2<f32>) -> f32 {
@@ -181,6 +182,7 @@ fn fragment(in: FacadeVarying) -> @location(0) vec4<f32> {
     let scan = facade.scan.rgb;
     let v_c = in.tint;
     let temper_a = facade.tempers[in.temper * 2u];
+    let temper_b = facade.tempers[in.temper * 2u + 1u];
     let cam = view.world_position;
 
     // Coordonnées de façade (travées, étages), calculées pour toutes les faces : les dérivées exigent un flot uniforme.
@@ -259,8 +261,9 @@ fn fragment(in: FacadeVarying) -> @location(0) vec4<f32> {
 
         // Plus loin, les fenêtres se fondent en une teinte moyenne (pas de scintillement).
         let fade_out = select(smoothstep(0.12, 0.45, px), 1.0, far);
-        let frame = step(0.16, f.x) * step(f.x, 0.84) * step(0.2, f.y) * step(f.y, 0.8);
-        let mask = mix(frame, 0.34, fade_out);
+        // La forme de lumière du tempérament (fenêtres, bandeaux, colonnes, enseigne, écran, étage teinté) ; elle se
+        // fond elle-même en la teinte moyenne par `fade_out` (voir `facade_shapes.wesl`).
+        let mask = shape_mask(temper_b.x, cell, f, seed, fade_out);
 
         // Camaïeu : la teinte de la fenêtre est celle de la tour décalée dans ±étendue/2 selon son hachage (le tempérament 0
         // a une étendue nulle : la teinte de la tour, inchangée). Les parts d'ambre et de glace viennent de la table ; pour

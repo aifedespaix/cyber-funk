@@ -14,6 +14,9 @@ mod material;
 mod systems;
 mod temperament;
 
+#[cfg(test)]
+mod shapes_tests;
+
 use bevy::prelude::*;
 use bevy::shader::Shader;
 use cf_render::{CfSet, ScenePalette, ThemeLibrary, WarmupAppExt};
