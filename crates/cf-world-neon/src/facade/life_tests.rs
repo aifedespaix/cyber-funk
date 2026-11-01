@@ -26,7 +26,7 @@ fn life_is_part_of_the_facade_source() {
         "facade_life.wesl n'est pas concaténé"
     );
     assert!(
-        FACADE_SOURCE.contains("window_life(cell, seed, time, temper_b.z, facade.motion.y)"),
+        FACADE_SOURCE.contains("window_life(cell, seed, time, temper_b.z * facade.motion.z, facade.motion.y)"),
         "facade.wesl n'appelle pas window_life"
     );
     assert!(

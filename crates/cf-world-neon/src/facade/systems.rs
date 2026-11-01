@@ -3,7 +3,7 @@
 use bevy::math::Vec4;
 use bevy::prelude::*;
 use cf_render::palette::LinearRgb;
-use cf_render::{AudioFeatures, CurrentShowFx, FloatingOrigin, SceneColor, ScenePalette};
+use cf_render::{AudioFeatures, CurrentShowFx, FloatingOrigin, QualityLevers, SceneColor, ScenePalette};
 
 use super::material::{FacadeParams, TINT_COUNT};
 use super::temperament::{TEMPER_COUNT, TEMPERAMENTS};
@@ -22,6 +22,10 @@ use crate::road::RoadLook;
 /// heures. 2 400 s × 1,5 = 3 600 : un nombre entier de périodes du clignotement des fenêtres, qui revient donc à
 /// l'identique. Seuls les filets d'eau (pluie), dont la vitesse varie d'un filet à l'autre, repartent d'un coup.
 const TIME_WRAP_S: f64 = 2400.0;
+
+/// Niveau de qualité (`QualityLevers::level`) à partir duquel les façades abandonnent traîne, scintillement rapide, vie des
+/// fenêtres et écrans qui défilent. Le niveau 2 est celui où le bloom tombe et où la ville perd une couronne lointaine.
+pub const LOW_QUALITY_LEVEL: usize = 2;
 
 /// Ce que le shader lit de l'image.
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -50,6 +54,8 @@ pub struct FrameInputs {
     pub motion_sweep: f32,
     /// Part de mouvement rapide autorisée (`MotionDrive::flicker`), 0 à 1.
     pub motion_flicker: f32,
+    /// Qualité basse : plus de traîne, de scintillement rapide, de vie des fenêtres ni d'écrans qui défilent.
+    pub low_quality: bool,
 }
 
 impl Default for FrameInputs {
@@ -67,6 +73,7 @@ impl Default for FrameInputs {
             noisiness: 0.0,
             motion_sweep: 0.0,
             motion_flicker: 0.0,
+            low_quality: false,
         }
     }
 }
@@ -160,16 +167,52 @@ pub fn build_params(
             frame.brightness.clamp(0.0, 1.0),
             frame.noisiness.clamp(0.0, 1.0),
         ),
-        motion: Vec4::new(
-            frame.motion_sweep.clamp(0.0, 1.0),
-            frame.motion_flicker.clamp(0.0, 1.0),
-            0.0,
-            0.0,
-        ),
+        // z : part de vie des fenêtres (réglage opérateur), w : 1 coupe les écrans qui défilent (qualité basse). En qualité
+        // basse, le scintillement rapide et la vie des fenêtres tombent à zéro ; la voie lente des mouvements reste.
+        motion: if frame.low_quality {
+            Vec4::new(frame.motion_sweep.clamp(0.0, 1.0), 0.0, 0.0, 1.0)
+        } else {
+            Vec4::new(
+                frame.motion_sweep.clamp(0.0, 1.0),
+                frame.motion_flicker.clamp(0.0, 1.0),
+                unit(look.window_life),
+                0.0,
+            )
+        },
         // La traîne de la voiture dépend de l'origine flottante : `update_material` la remplit.
         trail: [Vec4::ZERO; TRAIL_POINTS],
         car_tint: Vec4::ZERO,
     }
+}
+
+/// Un réglage de 0 à 1 ; tout ce qui n'est pas un nombre vaut 0 (pas de lumière plutôt qu'une lumière folle).
+pub(super) fn unit(value: f32) -> f32 {
+    if value.is_finite() { value.clamp(0.0, 1.0) } else { 0.0 }
+}
+
+/// Les uniformes de la traîne, éteints en qualité basse (la lueur de chaque point coûte à chaque fragment de façade).
+pub(super) fn trail_for_quality(
+    trail: &CarTrail,
+    origin: Option<&FloatingOrigin>,
+    now_s: f64,
+    low_quality: bool,
+) -> ([Vec4; TRAIL_POINTS], Vec4) {
+    if low_quality {
+        ([Vec4::ZERO; TRAIL_POINTS], Vec4::ZERO)
+    } else {
+        trail_uniforms(trail, origin, now_s)
+    }
+}
+
+/// `CfSet::Present`, avant la traîne : recopie les curseurs de l'opérateur dans `FacadeLook` (seulement s'ils changent,
+/// pour ne pas réveiller les systèmes qui lisent `FacadeLook`).
+pub(super) fn apply_tuning(tuning: Res<cf_render::FacadeTuning>, mut look: ResMut<FacadeLook>) {
+    let t = tuning.clamped();
+    look.set_if_neq(FacadeLook {
+        car_follow: t.car_follow,
+        window_life: t.window_life,
+        ..*look
+    });
 }
 
 /// Les deux voies de flash des façades : transitoire large bande et charleston. Les deux passent par le limiteur
@@ -229,6 +272,7 @@ pub(super) fn update_material(
     field: Option<Res<CityField>>,
     trail: Option<Res<CarTrail>>,
     show_fx: Option<Res<CurrentShowFx>>,
+    quality: Option<Res<QualityLevers>>,
     mut flash: Local<TextureFlash>,
     mut motion: Local<MotionFlash>,
 ) {
@@ -258,6 +302,7 @@ pub(super) fn update_material(
         time_s: now_s,
         motion_sweep: drive.sweep,
         motion_flicker: drive.flicker,
+        low_quality: quality.is_some_and(|q| q.level >= LOW_QUALITY_LEVEL),
         onset: flash.onset.pulse(),
         hat: flash.hat.pulse(),
         ..frame
@@ -265,7 +310,7 @@ pub(super) fn update_material(
     let mut params = build_params(&palette, &look, road.wet, road.rain, &frame);
     // La traîne de la voiture, en repère rendu ; sans voiture ni origine flottante, elle reste éteinte.
     if let Some(trail) = trail.as_deref() {
-        (params.trail, params.car_tint) = trail_uniforms(trail, origin.as_deref(), now_s);
+        (params.trail, params.car_tint) = trail_for_quality(trail, origin.as_deref(), now_s, frame.low_quality);
     }
     // Le champ de la ville (J7-08) : lumières des immeubles-vitrines, zone de glitch, panne de courant, en repère rendu.
     let field_params = field
@@ -412,7 +457,7 @@ mod tests {
             ..FrameInputs::default()
         };
         let p = build_params(&ScenePalette::default(), &FacadeLook::default(), 0.0, 0.0, &frame);
-        assert_eq!(p.motion, Vec4::new(0.5, 1.0, 0.0, 0.0));
-        assert_eq!(params().motion, Vec4::ZERO);
+        assert_eq!(p.motion, Vec4::new(0.5, 1.0, 1.0, 0.0));
+        assert_eq!(params().motion, Vec4::new(0.0, 0.0, 1.0, 0.0));
     }
 }

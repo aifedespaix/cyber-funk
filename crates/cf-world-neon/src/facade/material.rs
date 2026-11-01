@@ -77,7 +77,7 @@ pub struct FacadeParams {
     /// ice_share)` puis `(forme, mouvement, spark_rate, 0)`.
     pub tempers: [Vec4; 2 * TEMPER_COUNT],
     /// Mouvements de lumière : `x` voie rapide déjà passée par le limiteur de flashs (0..1), `y` part de mouvement rapide
-    /// autorisée (0 sans flashs), `z` et `w` réservés.
+    /// autorisée (0 sans flashs), `z` part de vie des fenêtres (curseur opérateur), `w` 1 en qualité basse (écrans coupés).
     pub motion: Vec4,
     /// La traîne de la voiture (`facade_trail.wesl`) : les 16 derniers points de passage, `xyz` en repère rendu, `w`
     /// intensité restante 0..1 (0 : emplacement vide ou éteint).

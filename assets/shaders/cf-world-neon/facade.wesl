@@ -55,7 +55,8 @@ struct Facade {
     // w part glace. [2i+1] : x forme, y mouvement, z taux d'étincelles (formes et mouvements : rang des énumérations Rust).
     tempers: array<vec4<f32>, 16>,
     // Mouvements de lumière (`facade_motion.wesl`) : x voie rapide déjà limitée (0..1), y part de mouvement rapide
-    // autorisée (0..1), z et w réservés.
+    // autorisée (0..1), z part de vie des fenêtres (0..1, curseur opérateur, 0 en qualité basse), w 1 en qualité basse (écrans
+    // qui défilent coupés).
     motion: vec4<f32>,
     // Traîne de la voiture (`facade_trail.wesl`) : 16 points, xyz en repère rendu, w intensité restante (0 : vide).
     trail: array<vec4<f32>, 16>,
@@ -261,7 +262,7 @@ fn fragment(in: FacadeVarying) -> @location(0) vec4<f32> {
         lit *= mix(1.0, step(0.5, fract(time * 1.5 + window_rnd * 6.0)) * (0.4 + mid), blink);
 
         // Vie propre : télé qui papillote, extinction lente, néon qui grésille, toujours aux mêmes fenêtres (rien au loin).
-        lit *= select(window_life(cell, seed, time, temper_b.z, facade.motion.y), 1.0, far);
+        lit *= select(window_life(cell, seed, time, temper_b.z * facade.motion.z, facade.motion.y), 1.0, far);
 
         // Charleston : une poignée de fenêtres crépite, différente à chaque tranche de 40 ms.
         lit = max(lit, hat * step(h21(cell + 5.1 + floor(time * 25.0) * 3.7), 0.07) * (1.0 - dead));

@@ -17,6 +17,7 @@ pub mod settings;
 pub mod show;
 pub mod streaming;
 pub mod titles;
+mod tuning;
 pub mod warmup;
 pub mod world;
 
@@ -57,6 +58,7 @@ pub use settings::{Settings, SettingsPlugin};
 pub use show::{CurrentShow, SheetCue, SheetSlot, ShowControls, ShowEventMessage, ShowPlugin, ShowRuntime, ShowSheet};
 pub use streaming::{ChunkInfo, ChunkPlan, ChunkStream, EntityPool, PieceRegistry, StreamLayout, StreamStats};
 pub use titles::{ActiveTitle, TitleCard, TitleKind, TitleSettings, TitlesPlugin};
+pub use tuning::{CAR_FOLLOW_KEY, FacadeTuning, WINDOW_LIFE_KEY, store_tuning, tuning_from_entries};
 pub use warmup::{
     AppState, LatePipelines, LoadTracker, WarmupAppExt, WarmupPlugin, WarmupProgress, WarmupRegistry, show_may_run,
 };

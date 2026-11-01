@@ -20,6 +20,7 @@ use bevy::prelude::*;
 use cf_render::{AbsolutePosition, FloatingOrigin};
 
 use super::FacadeLook;
+use super::systems::unit;
 use crate::car::{Car, CarState};
 
 /// Nombre de points gardés (la taille du tableau d'uniformes du shader).
@@ -37,8 +38,6 @@ pub const TELEPORT_M: f64 = 500.0;
 pub const CLOCK_JUMP_S: f64 = 30.0;
 /// Demi-largeur de la lueur autour d'un point, en m (le `40` de `facade_trail.wesl`).
 pub const FALLOFF_M: f32 = 40.0;
-/// Force de la traîne (`car_tint.w`), 0 à 1. Constante tant que `FacadeLook` n'a pas son champ `car_follow`.
-pub const CAR_FOLLOW: f32 = 1.0;
 
 /// Les derniers points de passage de la voiture.
 #[derive(Resource, Debug, Clone, Copy, PartialEq)]
@@ -162,7 +161,7 @@ pub(super) fn record_car_trail(
     let now_s = look.clock_s.unwrap_or_else(|| time.elapsed_secs_f64());
     trail.record(position.0, now_s);
     let glow = state.glow.current();
-    trail.set_tint(Vec3::new(glow.red, glow.green, glow.blue), CAR_FOLLOW);
+    trail.set_tint(Vec3::new(glow.red, glow.green, glow.blue), unit(look.car_follow));
 }
 
 /// Les uniformes `trail` et `car_tint` de l'image, ou des zéros sans origine flottante.

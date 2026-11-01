@@ -19,7 +19,12 @@ fn rect(f: vec2<f32>, lo: vec2<f32>, hi: vec2<f32>) -> f32 {
 }
 
 // `cell` : (travée, étage) entiers ; `f` : position dans la cellule, 0..1.
-fn shape_mask(shape: f32, cell: vec2<f32>, f: vec2<f32>, seed: f32, fade_out: f32) -> f32 {
+fn shape_mask(shape_in: f32, cell: vec2<f32>, f: vec2<f32>, seed: f32, fade_out: f32) -> f32 {
+    // Qualité basse : l'écran qui défile (forme 4) redevient une fenêtre simple.
+    var shape = shape_in;
+    if shape > 3.5 && shape < 4.5 && facade.motion.w > 0.5 {
+        shape = 0.0;
+    }
     var m = rect(f, vec2<f32>(0.16, 0.2), vec2<f32>(0.84, 0.8));
     if shape > 4.5 {
         // Étage teinté : la bande de l'étage d'un seul tenant, sans montant entre les travées.

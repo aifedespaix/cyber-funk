@@ -21,15 +21,17 @@ mod life_tests;
 mod motion_tests;
 #[cfg(test)]
 mod shapes_tests;
+#[cfg(test)]
+mod tuning_tests;
 
 use bevy::prelude::*;
 use bevy::shader::Shader;
 use cf_render::{CfSet, ScenePalette, ThemeLibrary, WarmupAppExt};
 
 pub use material::{FacadeMaterial, FacadeParams, TINT_COUNT};
-pub use systems::{FrameInputs, MotionDrive, MotionFlash, build_params, tint_rank};
+pub use systems::{FrameInputs, LOW_QUALITY_LEVEL, MotionDrive, MotionFlash, build_params, tint_rank};
 pub use temperament::{LightShape, MotionKind, TEMPER_COUNT, TEMPERAMENTS, Temperament, temper_of};
-pub use trail::{CAR_FOLLOW, CarTrail, FALLOFF_M, MIN_STEP_M, TRAIL_LIFETIME_S, TRAIL_POINTS};
+pub use trail::{CarTrail, FALLOFF_M, MIN_STEP_M, TRAIL_LIFETIME_S, TRAIL_POINTS};
 
 /// Le front de panne de courant au repos : profondeur nulle, la ville est entièrement éclairée.
 pub const NO_BLACKOUT: Vec4 = Vec4::new(0.0, 1.0, 0.0, 1.0);
@@ -51,6 +53,11 @@ pub struct FacadeLook {
     pub power: Vec4,
     /// Temps imposé au shader, en s (tests et captures de référence). `None` : l'horloge réelle.
     pub clock_s: Option<f64>,
+    /// Force de la traîne lumineuse de la voiture, 0 à 1 (réglage de l'opérateur, `car_tint.w`). 1 : plein effet.
+    pub car_follow: f32,
+    /// Part des fenêtres qui ont leur vie propre, 0 à 1 (réglage de l'opérateur, `facade.motion.z`) : multiplie le taux
+    /// d'étincelles de chaque tempérament. 1 : plein effet.
+    pub window_life: f32,
 }
 
 impl Default for FacadeLook {
@@ -61,6 +68,8 @@ impl Default for FacadeLook {
             win_pulse: 0.0,
             power: NO_BLACKOUT,
             clock_s: None,
+            car_follow: 1.0,
+            window_life: 1.0,
         }
     }
 }
@@ -89,9 +98,10 @@ impl Plugin for FacadePlugin {
         }
         app.init_resource::<FacadeLook>()
             .init_resource::<CarTrail>()
+            .init_resource::<cf_render::FacadeTuning>()
             .add_systems(
                 Update,
-                (trail::record_car_trail, systems::update_material)
+                (systems::apply_tuning, trail::record_car_trail, systems::update_material)
                     .chain()
                     .in_set(CfSet::Present),
             );
