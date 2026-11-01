@@ -24,6 +24,7 @@ use cf_render::{
 use cf_show::limiter::{MAX_FLASH_PEAK, MAX_FLASHES_PER_SECOND, MAX_SWEEP_PEAK, MIN_FADE};
 use cf_show::load::{LoadedShow, LookLibrary};
 use cf_world_neon::car::safety::CarFlash;
+use cf_world_neon::facade::MotionFlash;
 
 const FRAME_S: f32 = 1.0 / 60.0;
 /// Marge numérique sur les plafonds (flottants).
@@ -70,12 +71,17 @@ struct Output {
     sweep: f32,
     car_kick: f32,
     car_blink: f32,
+    /// Voie rapide des mouvements de lumière des façades (`MotionFlash`).
+    facade: f32,
+    /// Part de mouvement rapide autorisée pour les façades.
+    facade_flicker: f32,
 }
 
 /// Les sorties d'une charge hostile de `seconds`, avec `FlashKill` envoyé à `kill_at` (s) s'il y en a un.
 fn run(seconds: f32, kill_at: Option<f32>) -> Vec<Output> {
     let mut app = app();
     let mut car = CarFlash::default();
+    let mut facade = MotionFlash::default();
     let mut outputs = Vec::new();
     let frames = (seconds / FRAME_S) as usize;
     let mut pulse = 0.0_f32;
@@ -109,12 +115,15 @@ fn run(seconds: f32, kill_at: Option<f32>) -> Vec<Output> {
         let policy = Some((fx.flashes, fx.breathing));
         // Le clignotant bat à 10 Hz aussi (le vrai est à 1,5 Hz) : pire cas.
         car.update(FRAME_S, now, policy, pulse, (frame / 3) % 2 == 0);
+        let motion = facade.update(FRAME_S, now, policy, pulse);
         let post = app.world().resource::<PostFxState>().show_fx().clone();
         outputs.push(Output {
             flash: post.flash(),
             sweep: post.sweep(),
             car_kick: car.kick(),
             car_blink: car.blink(),
+            facade: motion.sweep,
+            facade_flicker: motion.flicker,
         });
     }
     outputs
@@ -162,6 +171,8 @@ fn la_sortie_finale_tient_le_plafond_sous_une_charge_hostile() {
     let sweep: Vec<f32> = outputs.iter().map(|o| o.sweep).collect();
     let kick: Vec<f32> = outputs.iter().map(|o| o.car_kick).collect();
     let blink: Vec<f32> = outputs.iter().map(|o| o.car_blink).collect();
+    let facade: Vec<f32> = outputs.iter().map(|o| o.facade).collect();
+    let facade_flicker: Vec<f32> = outputs.iter().map(|o| o.facade_flicker).collect();
 
     // Pas vide : des flashs ont bien eu lieu, sinon le plafond ne prouverait rien.
     assert!(
@@ -202,6 +213,28 @@ fn la_sortie_finale_tient_le_plafond_sous_une_charge_hostile() {
         "pouls de la voiture trop brusque"
     );
     assert!(max_step(blink.iter().copied(), 1.0) <= limit, "clignotant trop brusque");
+    // Façades : la luminance qu'ajoutent les mouvements est au plus la voie rapide (<= 1) multipliée par la part
+    // autorisée, jamais plus raide que `MIN_FADE`, et la voie n'a pas plus de 3 départs par seconde.
+    assert!(
+        facade.iter().copied().fold(0.0, f32::max) > 0.05,
+        "aucun mouvement de façade"
+    );
+    assert!(
+        facade.iter().chain(&facade_flicker).all(|&v| v <= 1.0 + EPS),
+        "façades au-dessus de leur plafond"
+    );
+    assert!(
+        max_step(facade.iter().copied(), 1.0) <= limit,
+        "mouvement de façade trop brusque"
+    );
+    assert!(
+        max_step(facade_flicker.iter().copied(), 1.0) <= limit,
+        "part rapide des façades trop brusque"
+    );
+    assert!(
+        max_starts_per_second(&[facade]) <= MAX_FLASHES_PER_SECOND,
+        "mouvements de façade trop rapides"
+    );
 
     // Cadence : au plus 3 départs par seconde glissante (flash et vague du post-process ensemble ; chaque limiteur de la
     // voiture à part, voir `car::safety`).
@@ -228,13 +261,20 @@ fn flash_kill_eteint_tout_en_un_fondu_et_le_garde_eteint() {
     let settled = ((kill_at + 4.0 * MIN_FADE) / FRAME_S) as usize;
     for (i, out) in outputs.iter().enumerate().skip(settled) {
         assert!(
-            out.flash < EPS && out.sweep < EPS && out.car_kick < EPS && out.car_blink < EPS,
-            "lumière après FlashKill à l'image {i} ({} s) : {} {} {} {}",
+            out.flash < EPS
+                && out.sweep < EPS
+                && out.car_kick < EPS
+                && out.car_blink < EPS
+                && out.facade < EPS
+                && out.facade_flicker < EPS,
+            "lumière après FlashKill à l'image {i} ({} s) : {} {} {} {} {} {}",
             i as f32 * FRAME_S,
             out.flash,
             out.sweep,
             out.car_kick,
-            out.car_blink
+            out.car_blink,
+            out.facade,
+            out.facade_flicker
         );
     }
     // Et avant le `FlashKill`, il y avait bien des flashs.

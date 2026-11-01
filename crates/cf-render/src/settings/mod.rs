@@ -55,13 +55,17 @@ impl Plugin for SettingsPlugin {
             .init_resource::<systems::WriteState>()
             .add_systems(
                 Startup,
-                remember::restore_quality.run_if(resource_exists::<crate::quality::QualityMode>),
+                (
+                    remember::restore_quality.run_if(resource_exists::<crate::quality::QualityMode>),
+                    remember::restore_tuning.run_if(resource_exists::<crate::tuning::FacadeTuning>),
+                ),
             )
             .add_systems(
                 Update,
                 (
                     remember::remember_audio,
                     remember::remember_quality.run_if(resource_exists::<crate::quality::QualityMode>),
+                    remember::remember_tuning.run_if(resource_exists::<crate::tuning::FacadeTuning>),
                 ),
             )
             .add_systems(Last, systems::save_when_changed);

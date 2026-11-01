@@ -3,11 +3,15 @@
 use bevy::math::Vec4;
 use bevy::prelude::*;
 use cf_render::palette::LinearRgb;
-use cf_render::{AudioFeatures, CurrentShowFx, FloatingOrigin, SceneColor, ScenePalette};
+use cf_render::{AudioFeatures, CurrentShowFx, FloatingOrigin, QualityLevers, SceneColor, ScenePalette};
 
 use super::material::{FacadeParams, TINT_COUNT};
 use super::temperament::{TEMPER_COUNT, TEMPERAMENTS};
+use super::trail::TRAIL_POINTS;
+use super::trail::{CarTrail, trail_uniforms};
 use super::{FacadeLook, FacadeMaterial};
+use cf_show::limiter::MIN_FADE;
+
 use crate::beams::BeamPulse;
 use crate::landmarks::field::{CityField, FieldParams};
 use crate::road::RoadLook;
@@ -18,6 +22,10 @@ use crate::road::RoadLook;
 /// heures. 2 400 s × 1,5 = 3 600 : un nombre entier de périodes du clignotement des fenêtres, qui revient donc à
 /// l'identique. Seuls les filets d'eau (pluie), dont la vitesse varie d'un filet à l'autre, repartent d'un coup.
 const TIME_WRAP_S: f64 = 2400.0;
+
+/// Niveau de qualité (`QualityLevers::level`) à partir duquel les façades abandonnent traîne, scintillement rapide, vie des
+/// fenêtres et écrans qui défilent. Le niveau 2 est celui où le bloom tombe et où la ville perd une couronne lointaine.
+pub const LOW_QUALITY_LEVEL: usize = 2;
 
 /// Ce que le shader lit de l'image.
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -42,6 +50,13 @@ pub struct FrameInputs {
     pub brightness: f32,
     /// Bruit (platitude du spectre), 0..1.
     pub noisiness: f32,
+    /// Voie rapide des mouvements, déjà passée par le limiteur (`MotionDrive::sweep`), 0 à 1.
+    pub motion_sweep: f32,
+    /// Part de mouvement rapide autorisée (`MotionDrive::flicker`), 0 à 1.
+    pub motion_flicker: f32,
+    /// Repli de qualité basse, 0 (qualité haute, rendu d'avant) à 1 (repli complet : plus de traîne, de scintillement
+    /// rapide, de vie des fenêtres ni d'écrans qui défilent). Il glisse en [`LOW_QUALITY_FADE_S`] (voir [`LowQualityMix`]).
+    pub low_mix: f32,
 }
 
 impl Default for FrameInputs {
@@ -57,6 +72,9 @@ impl Default for FrameInputs {
             hat: 0.0,
             brightness: 0.0,
             noisiness: 0.0,
+            motion_sweep: 0.0,
+            motion_flicker: 0.0,
+            low_mix: 0.0,
         }
     }
 }
@@ -150,7 +168,79 @@ pub fn build_params(
             frame.brightness.clamp(0.0, 1.0),
             frame.noisiness.clamp(0.0, 1.0),
         ),
+        // z : part de vie des fenêtres (réglage opérateur), w : part du repli de qualité basse qui fond les écrans qui
+        // défilent en fenêtres simples. Le repli (`low_mix`) réduit y et z de façon continue. Tout mouvement rapide est
+        // multiplié par y dans le shader : en repli complet il ne reste que la dérive, la base du projecteur et la
+        // respiration (lents).
+        motion: {
+            let keep = 1.0 - unit(frame.low_mix);
+            Vec4::new(
+                frame.motion_sweep.clamp(0.0, 1.0),
+                frame.motion_flicker.clamp(0.0, 1.0) * keep,
+                unit(look.window_life) * keep,
+                unit(frame.low_mix),
+            )
+        },
+        // La traîne de la voiture dépend de l'origine flottante : `update_material` la remplit.
+        trail: [Vec4::ZERO; TRAIL_POINTS],
+        car_tint: Vec4::ZERO,
     }
+}
+
+/// Un réglage de 0 à 1 ; tout ce qui n'est pas un nombre vaut 0 (pas de lumière plutôt qu'une lumière folle).
+pub(super) fn unit(value: f32) -> f32 {
+    if value.is_finite() { value.clamp(0.0, 1.0) } else { 0.0 }
+}
+
+/// Durée, en s, du glissement vers (ou depuis) le repli de qualité basse : celle du bloom (`BLOOM_FADE_S`), pour qu'aucun
+/// effet ne disparaisse d'un coup (règle 7 : pas de saut de luminance).
+pub const LOW_QUALITY_FADE_S: f32 = 1.5;
+
+/// Le repli de qualité basse, lissé : 0 en qualité haute, 1 en repli complet, rampe linéaire dans les deux sens.
+///
+/// Par image à 60 i/s le pas est de 1/90 (≈ 0,011) ; le pas d'une image n'excède jamais `0,1 / 1,5` (≈ 0,067), même
+/// après un à-coup d'horloge.
+#[derive(Debug, Default, Clone, Copy, PartialEq)]
+pub struct LowQualityMix {
+    value: f32,
+}
+
+impl LowQualityMix {
+    /// Avance d'une image vers `low` (vrai : repli) et renvoie le repli courant, 0 à 1.
+    pub fn update(&mut self, dt_s: f32, low: bool) -> f32 {
+        let step = dt_s.clamp(0.0, 0.1) / LOW_QUALITY_FADE_S;
+        let target = if low { 1.0 } else { 0.0 };
+        self.value += (target - self.value).clamp(-step, step);
+        self.value
+    }
+}
+
+/// Les uniformes de la traîne, atténués par le repli de qualité basse (la lueur de chaque point coûte à chaque fragment
+/// de façade). `low_mix` 0 : inchangés ; 1 : éteints.
+pub(super) fn trail_for_quality(
+    trail: &CarTrail,
+    origin: Option<&FloatingOrigin>,
+    now_s: f64,
+    low_mix: f32,
+) -> ([Vec4; TRAIL_POINTS], Vec4) {
+    let keep = 1.0 - unit(low_mix);
+    if keep <= 0.0 {
+        return ([Vec4::ZERO; TRAIL_POINTS], Vec4::ZERO);
+    }
+    let (points, mut tint) = trail_uniforms(trail, origin, now_s);
+    tint.w *= keep;
+    (points, tint)
+}
+
+/// `CfSet::Present`, avant la traîne : recopie les curseurs de l'opérateur dans `FacadeLook` (seulement s'ils changent,
+/// pour ne pas réveiller les systèmes qui lisent `FacadeLook`).
+pub(super) fn apply_tuning(tuning: Res<cf_render::FacadeTuning>, mut look: ResMut<FacadeLook>) {
+    let t = tuning.clamped();
+    look.set_if_neq(FacadeLook {
+        car_follow: t.car_follow,
+        window_life: t.window_life,
+        ..*look
+    });
 }
 
 /// Les deux voies de flash des façades : transitoire large bande et charleston. Les deux passent par le limiteur
@@ -160,6 +250,39 @@ pub fn build_params(
 pub(super) struct TextureFlash {
     onset: BeamPulse,
     hat: BeamPulse,
+}
+
+/// Ce que les mouvements de lumière ont le droit de montrer à cette image.
+#[derive(Debug, Clone, Copy, Default, PartialEq)]
+pub struct MotionDrive {
+    /// Voie rapide limitée, 0 à 1 : le niveau du limiteur (3 départs par seconde au plus, jamais plus raide que `MIN_FADE`).
+    pub sweep: f32,
+    /// Part de mouvement rapide autorisée, 0 à 1 : 0 sans spectacle, flashs coupés ou en respiration ; elle monte et
+    /// descend en `MIN_FADE` au moins (jamais de saut de luminance).
+    pub flicker: f32,
+}
+
+/// La voie de flash des mouvements de lumière (vagues, balayages, pulsation) : le pouls du kick passe par le limiteur
+/// photosensible (règle 7 de `CLAUDE.md`), comme [`TextureFlash`]. Le mouvement lent et lisse du shader n'en dépend pas.
+#[derive(Debug, Default)]
+pub struct MotionFlash {
+    pulse: BeamPulse,
+    flicker: f32,
+}
+
+impl MotionFlash {
+    /// Avance d'une image. `policy` : `(flashes, breathing)` du spectacle, `None` sans spectacle ; `now_s` : horloge de la
+    /// scène (s) ; `drive` : pouls du kick, 0 à 1.
+    pub fn update(&mut self, dt_s: f32, now_s: f64, policy: Option<(bool, bool)>, drive: f32) -> MotionDrive {
+        self.pulse.update(dt_s, now_s, policy, drive);
+        let target = if self.pulse.permitted() { 1.0 } else { 0.0 };
+        let step = dt_s.max(0.0) / MIN_FADE;
+        self.flicker += (target - self.flicker).clamp(-step, step);
+        MotionDrive {
+            sweep: self.pulse.pulse(),
+            flicker: self.flicker,
+        }
+    }
 }
 
 /// `CfSet::Present` : remplit le matériau (temps, musique, météo, palette). Le matériau n'est touché que si quelque chose a
@@ -175,8 +298,12 @@ pub(super) fn update_material(
     scenery: Option<Res<crate::scenery::SceneryAssets>>,
     origin: Option<Res<FloatingOrigin>>,
     field: Option<Res<CityField>>,
+    trail: Option<Res<CarTrail>>,
     show_fx: Option<Res<CurrentShowFx>>,
+    quality: Option<Res<QualityLevers>>,
     mut flash: Local<TextureFlash>,
+    mut motion: Local<MotionFlash>,
+    mut low: Local<LowQualityMix>,
 ) {
     let (Some(mut materials), Some(scenery)) = (materials, scenery) else {
         return;
@@ -192,19 +319,28 @@ pub(super) fn update_material(
         hat: f.0.hat,
         brightness: f.0.brightness,
         noisiness: f.0.noisiness,
+        ..FrameInputs::default()
     });
     let now_s = look.clock_s.unwrap_or_else(|| time.elapsed_secs_f64());
     let policy = show_fx.map(|s| (s.0.flashes, s.0.breathing));
     let dt_s = time.delta_secs();
     flash.onset.update(dt_s, now_s, policy, frame.onset);
     flash.hat.update(dt_s, now_s, policy, frame.hat);
+    let drive = motion.update(dt_s, now_s, policy, frame.pulse);
     let frame = FrameInputs {
         time_s: now_s,
+        motion_sweep: drive.sweep,
+        motion_flicker: drive.flicker,
+        low_mix: low.update(dt_s, quality.is_some_and(|q| q.level >= LOW_QUALITY_LEVEL)),
         onset: flash.onset.pulse(),
         hat: flash.hat.pulse(),
         ..frame
     };
-    let params = build_params(&palette, &look, road.wet, road.rain, &frame);
+    let mut params = build_params(&palette, &look, road.wet, road.rain, &frame);
+    // La traîne de la voiture, en repère rendu ; sans voiture ni origine flottante, elle reste éteinte.
+    if let Some(trail) = trail.as_deref() {
+        (params.trail, params.car_tint) = trail_for_quality(trail, origin.as_deref(), now_s, frame.low_mix);
+    }
     // Le champ de la ville (J7-08) : lumières des immeubles-vitrines, zone de glitch, panne de courant, en repère rendu.
     let field_params = field
         .as_deref()
@@ -263,5 +399,94 @@ mod tests {
         assert_eq!(p.tempers[1], Vec4::ZERO, "Panes, Steady, sans étincelles");
         assert_eq!(1.0_f32 - p.tempers[0].z, 0.7);
         assert_eq!(1.0_f32 - p.tempers[0].w, 0.9);
+    }
+
+    const DT: f32 = 1.0 / 60.0;
+
+    /// Rejoue `seconds` s avec une entrée à 10 Hz (le pire cas) ; rend la sortie de chaque image.
+    fn run_motion(policy: Option<(bool, bool)>, seconds: f32) -> Vec<MotionDrive> {
+        let mut flash = MotionFlash::default();
+        (0..(seconds / DT) as usize)
+            .map(|i| {
+                let raw = if i % 6 == 0 { 1.0 } else { 0.0 };
+                flash.update(DT, f64::from(DT) * i as f64, policy, raw)
+            })
+            .collect()
+    }
+
+    #[test]
+    fn motion_flash_caps_rate() {
+        let out = run_motion(Some((true, false)), 10.0);
+        let levels: Vec<f32> = out.iter().map(|m| m.sweep).collect();
+        assert!(
+            levels.iter().copied().fold(0.0, f32::max) > 0.5,
+            "la voie ne part jamais"
+        );
+        let starts: Vec<usize> = (1..levels.len())
+            .filter(|&i| levels[i] > 0.0 && levels[i - 1] == 0.0)
+            .collect();
+        assert!(starts.len() >= 8, "des départs ont lieu : {}", starts.len());
+        let window = (1.0 / DT) as usize;
+        for &s in &starts {
+            let n = starts.iter().filter(|&&t| t >= s && t < s + window).count();
+            assert!(n <= 3, "{n} départs en 1 s");
+        }
+        let max_step = DT / MIN_FADE + 1e-3;
+        for pair in levels.windows(2) {
+            assert!(
+                (pair[0] - pair[1]).abs() <= max_step,
+                "saut de {}",
+                (pair[0] - pair[1]).abs()
+            );
+        }
+        // La part rapide autorisée monte sans saut elle aussi.
+        for pair in out.windows(2) {
+            assert!((pair[0].flicker - pair[1].flicker).abs() <= max_step);
+        }
+        assert!(out.iter().all(|m| m.sweep <= 1.0 + 1e-6 && m.flicker <= 1.0));
+    }
+
+    #[test]
+    fn motion_flash_off_without_flashes_policy() {
+        for policy in [None, Some((false, false)), Some((false, true)), Some((true, true))] {
+            let out = run_motion(policy, 5.0);
+            assert!(
+                out.iter().all(|m| m.sweep == 0.0 && m.flicker == 0.0),
+                "{policy:?} : de la lumière rapide malgré la politique"
+            );
+        }
+    }
+
+    #[test]
+    fn motion_flash_fades_out_when_flashes_are_cut() {
+        let mut flash = MotionFlash::default();
+        for i in 0..120 {
+            flash.update(
+                DT,
+                f64::from(DT) * f64::from(i),
+                Some((true, false)),
+                if i % 6 == 0 { 1.0 } else { 0.0 },
+            );
+        }
+        let mut last = MotionDrive {
+            sweep: 1.0,
+            flicker: 1.0,
+        };
+        for i in 120..200 {
+            last = flash.update(DT, f64::from(DT) * f64::from(i), Some((false, false)), 1.0);
+        }
+        assert!(last.sweep == 0.0 && last.flicker == 0.0, "{last:?}");
+    }
+
+    #[test]
+    fn build_params_carries_the_motion_drive() {
+        let frame = FrameInputs {
+            motion_sweep: 0.5,
+            motion_flicker: 1.0,
+            ..FrameInputs::default()
+        };
+        let p = build_params(&ScenePalette::default(), &FacadeLook::default(), 0.0, 0.0, &frame);
+        assert_eq!(p.motion, Vec4::new(0.5, 1.0, 1.0, 0.0));
+        assert_eq!(params().motion, Vec4::new(0.0, 0.0, 1.0, 0.0));
     }
 }
