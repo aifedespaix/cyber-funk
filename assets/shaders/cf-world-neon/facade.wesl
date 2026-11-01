@@ -260,6 +260,9 @@ fn fragment(in: FacadeVarying) -> @location(0) vec4<f32> {
         let blink = select(step(0.93, h21(cell + 9.7 + seed * 0.13)), 0.0, far);
         lit *= mix(1.0, step(0.5, fract(time * 1.5 + window_rnd * 6.0)) * (0.4 + mid), blink);
 
+        // Vie propre : télé qui papillote, extinction lente, néon qui grésille, toujours aux mêmes fenêtres (rien au loin).
+        lit *= select(window_life(cell, seed, time, temper_b.z, facade.motion.y), 1.0, far);
+
         // Charleston : une poignée de fenêtres crépite, différente à chaque tranche de 40 ms.
         lit = max(lit, hat * step(h21(cell + 5.1 + floor(time * 25.0) * 3.7), 0.07) * (1.0 - dead));
 

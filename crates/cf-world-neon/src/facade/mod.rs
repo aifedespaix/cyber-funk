@@ -16,6 +16,8 @@ mod temperament;
 mod trail;
 
 #[cfg(test)]
+mod life_tests;
+#[cfg(test)]
 mod motion_tests;
 #[cfg(test)]
 mod shapes_tests;

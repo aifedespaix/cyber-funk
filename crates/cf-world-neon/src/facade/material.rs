@@ -24,6 +24,8 @@ pub(crate) const FACADE_SOURCE: &str = concat!(
     "\n",
     include_str!("../../../../assets/shaders/cf-world-neon/facade_trail.wesl"),
     "\n",
+    include_str!("../../../../assets/shaders/cf-world-neon/facade_life.wesl"),
+    "\n",
     include_str!("../../../../assets/shaders/cf-world-neon/field.wesl")
 );
 /// Chemin logique du shader (messages d'erreur de Bevy, imports).
