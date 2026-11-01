@@ -54,6 +54,9 @@ struct Facade {
     // Table des tempéraments, deux vec4 par entrée. [2i] : x étendue des teintes (degrés), y biais d'allumage, z part ambre,
     // w part glace. [2i+1] : x forme, y mouvement, z taux d'étincelles (formes et mouvements : rang des énumérations Rust).
     tempers: array<vec4<f32>, 16>,
+    // Mouvements de lumière (`facade_motion.wesl`) : x voie rapide déjà limitée (0..1), y part de mouvement rapide
+    // autorisée (0..1), z et w réservés.
+    motion: vec4<f32>,
 }
 
 @group(constants::MATERIAL_BIND_GROUP) @binding(0) var<uniform> facade: Facade;
@@ -282,7 +285,9 @@ fn fragment(in: FacadeVarying) -> @location(0) vec4<f32> {
         let power_edge = max(facade.power.y, 0.001);
         let behind = smoothstep(-power_edge, power_edge, (in.world.z - facade.power.x) * facade.power.w);
         let power_left = 1.0 - facade.power.z * behind;
-        col += window_color * lit * mask * glow * (1.0 + 0.45 * wet) * power_left;
+        // Mouvement du tempérament (vague, dérive, balayage, pulsation) ; rien au loin : pas de scintillement sous-pixel.
+        let motion = select(motion_gain(temper_b.y, h, u, seed, time, beat, facade.motion.x), 1.0, far);
+        col += window_color * lit * mask * glow * motion * (1.0 + 0.45 * wet) * power_left;
 
         // Caisse claire : sur environ un tiers des tours, une bande de lumière tombe du sommet vers le pied pendant que
         // l'impulsion retombe (le kick, lui, fait monter la vague : les deux se croisent).

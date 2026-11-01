@@ -19,6 +19,8 @@ pub(crate) const FACADE_SOURCE: &str = concat!(
     "\n",
     include_str!("../../../../assets/shaders/cf-world-neon/facade_shapes.wesl"),
     "\n",
+    include_str!("../../../../assets/shaders/cf-world-neon/facade_motion.wesl"),
+    "\n",
     include_str!("../../../../assets/shaders/cf-world-neon/field.wesl")
 );
 /// Chemin logique du shader (messages d'erreur de Bevy, imports).
@@ -69,6 +71,9 @@ pub struct FacadeParams {
     /// La table des tempéraments (`TEMPERAMENTS`), deux `Vec4` par entrée : `(hue_span_deg, lit_bias, amber_share,
     /// ice_share)` puis `(forme, mouvement, spark_rate, 0)`.
     pub tempers: [Vec4; 2 * TEMPER_COUNT],
+    /// Mouvements de lumière : `x` voie rapide déjà passée par le limiteur de flashs (0..1), `y` part de mouvement rapide
+    /// autorisée (0 sans flashs), `z` et `w` réservés.
+    pub motion: Vec4,
 }
 
 /// Matériau des immeubles et des arches. Un seul exemplaire dans le monde : il porte l'état de l'image (temps, musique,

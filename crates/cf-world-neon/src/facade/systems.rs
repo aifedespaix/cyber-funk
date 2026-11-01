@@ -8,6 +8,8 @@ use cf_render::{AudioFeatures, CurrentShowFx, FloatingOrigin, SceneColor, SceneP
 use super::material::{FacadeParams, TINT_COUNT};
 use super::temperament::{TEMPER_COUNT, TEMPERAMENTS};
 use super::{FacadeLook, FacadeMaterial};
+use cf_show::limiter::MIN_FADE;
+
 use crate::beams::BeamPulse;
 use crate::landmarks::field::{CityField, FieldParams};
 use crate::road::RoadLook;
@@ -42,6 +44,10 @@ pub struct FrameInputs {
     pub brightness: f32,
     /// Bruit (platitude du spectre), 0..1.
     pub noisiness: f32,
+    /// Voie rapide des mouvements, déjà passée par le limiteur (`MotionDrive::sweep`), 0 à 1.
+    pub motion_sweep: f32,
+    /// Part de mouvement rapide autorisée (`MotionDrive::flicker`), 0 à 1.
+    pub motion_flicker: f32,
 }
 
 impl Default for FrameInputs {
@@ -57,6 +63,8 @@ impl Default for FrameInputs {
             hat: 0.0,
             brightness: 0.0,
             noisiness: 0.0,
+            motion_sweep: 0.0,
+            motion_flicker: 0.0,
         }
     }
 }
@@ -150,6 +158,12 @@ pub fn build_params(
             frame.brightness.clamp(0.0, 1.0),
             frame.noisiness.clamp(0.0, 1.0),
         ),
+        motion: Vec4::new(
+            frame.motion_sweep.clamp(0.0, 1.0),
+            frame.motion_flicker.clamp(0.0, 1.0),
+            0.0,
+            0.0,
+        ),
     }
 }
 
@@ -160,6 +174,39 @@ pub fn build_params(
 pub(super) struct TextureFlash {
     onset: BeamPulse,
     hat: BeamPulse,
+}
+
+/// Ce que les mouvements de lumière ont le droit de montrer à cette image.
+#[derive(Debug, Clone, Copy, Default, PartialEq)]
+pub struct MotionDrive {
+    /// Voie rapide limitée, 0 à 1 : le niveau du limiteur (3 départs par seconde au plus, jamais plus raide que `MIN_FADE`).
+    pub sweep: f32,
+    /// Part de mouvement rapide autorisée, 0 à 1 : 0 sans spectacle, flashs coupés ou en respiration ; elle monte et
+    /// descend en `MIN_FADE` au moins (jamais de saut de luminance).
+    pub flicker: f32,
+}
+
+/// La voie de flash des mouvements de lumière (vagues, balayages, pulsation) : le pouls du kick passe par le limiteur
+/// photosensible (règle 7 de `CLAUDE.md`), comme [`TextureFlash`]. Le mouvement lent et lisse du shader n'en dépend pas.
+#[derive(Debug, Default)]
+pub struct MotionFlash {
+    pulse: BeamPulse,
+    flicker: f32,
+}
+
+impl MotionFlash {
+    /// Avance d'une image. `policy` : `(flashes, breathing)` du spectacle, `None` sans spectacle ; `now_s` : horloge de la
+    /// scène (s) ; `drive` : pouls du kick, 0 à 1.
+    pub fn update(&mut self, dt_s: f32, now_s: f64, policy: Option<(bool, bool)>, drive: f32) -> MotionDrive {
+        self.pulse.update(dt_s, now_s, policy, drive);
+        let target = if self.pulse.permitted() { 1.0 } else { 0.0 };
+        let step = dt_s.max(0.0) / MIN_FADE;
+        self.flicker += (target - self.flicker).clamp(-step, step);
+        MotionDrive {
+            sweep: self.pulse.pulse(),
+            flicker: self.flicker,
+        }
+    }
 }
 
 /// `CfSet::Present` : remplit le matériau (temps, musique, météo, palette). Le matériau n'est touché que si quelque chose a
@@ -177,6 +224,7 @@ pub(super) fn update_material(
     field: Option<Res<CityField>>,
     show_fx: Option<Res<CurrentShowFx>>,
     mut flash: Local<TextureFlash>,
+    mut motion: Local<MotionFlash>,
 ) {
     let (Some(mut materials), Some(scenery)) = (materials, scenery) else {
         return;
@@ -192,14 +240,18 @@ pub(super) fn update_material(
         hat: f.0.hat,
         brightness: f.0.brightness,
         noisiness: f.0.noisiness,
+        ..FrameInputs::default()
     });
     let now_s = look.clock_s.unwrap_or_else(|| time.elapsed_secs_f64());
     let policy = show_fx.map(|s| (s.0.flashes, s.0.breathing));
     let dt_s = time.delta_secs();
     flash.onset.update(dt_s, now_s, policy, frame.onset);
     flash.hat.update(dt_s, now_s, policy, frame.hat);
+    let drive = motion.update(dt_s, now_s, policy, frame.pulse);
     let frame = FrameInputs {
         time_s: now_s,
+        motion_sweep: drive.sweep,
+        motion_flicker: drive.flicker,
         onset: flash.onset.pulse(),
         hat: flash.hat.pulse(),
         ..frame
@@ -263,5 +315,94 @@ mod tests {
         assert_eq!(p.tempers[1], Vec4::ZERO, "Panes, Steady, sans étincelles");
         assert_eq!(1.0_f32 - p.tempers[0].z, 0.7);
         assert_eq!(1.0_f32 - p.tempers[0].w, 0.9);
+    }
+
+    const DT: f32 = 1.0 / 60.0;
+
+    /// Rejoue `seconds` s avec une entrée à 10 Hz (le pire cas) ; rend la sortie de chaque image.
+    fn run_motion(policy: Option<(bool, bool)>, seconds: f32) -> Vec<MotionDrive> {
+        let mut flash = MotionFlash::default();
+        (0..(seconds / DT) as usize)
+            .map(|i| {
+                let raw = if i % 6 == 0 { 1.0 } else { 0.0 };
+                flash.update(DT, f64::from(DT) * i as f64, policy, raw)
+            })
+            .collect()
+    }
+
+    #[test]
+    fn motion_flash_caps_rate() {
+        let out = run_motion(Some((true, false)), 10.0);
+        let levels: Vec<f32> = out.iter().map(|m| m.sweep).collect();
+        assert!(
+            levels.iter().copied().fold(0.0, f32::max) > 0.5,
+            "la voie ne part jamais"
+        );
+        let starts: Vec<usize> = (1..levels.len())
+            .filter(|&i| levels[i] > 0.0 && levels[i - 1] == 0.0)
+            .collect();
+        assert!(starts.len() >= 8, "des départs ont lieu : {}", starts.len());
+        let window = (1.0 / DT) as usize;
+        for &s in &starts {
+            let n = starts.iter().filter(|&&t| t >= s && t < s + window).count();
+            assert!(n <= 3, "{n} départs en 1 s");
+        }
+        let max_step = DT / MIN_FADE + 1e-3;
+        for pair in levels.windows(2) {
+            assert!(
+                (pair[0] - pair[1]).abs() <= max_step,
+                "saut de {}",
+                (pair[0] - pair[1]).abs()
+            );
+        }
+        // La part rapide autorisée monte sans saut elle aussi.
+        for pair in out.windows(2) {
+            assert!((pair[0].flicker - pair[1].flicker).abs() <= max_step);
+        }
+        assert!(out.iter().all(|m| m.sweep <= 1.0 + 1e-6 && m.flicker <= 1.0));
+    }
+
+    #[test]
+    fn motion_flash_off_without_flashes_policy() {
+        for policy in [None, Some((false, false)), Some((false, true)), Some((true, true))] {
+            let out = run_motion(policy, 5.0);
+            assert!(
+                out.iter().all(|m| m.sweep == 0.0 && m.flicker == 0.0),
+                "{policy:?} : de la lumière rapide malgré la politique"
+            );
+        }
+    }
+
+    #[test]
+    fn motion_flash_fades_out_when_flashes_are_cut() {
+        let mut flash = MotionFlash::default();
+        for i in 0..120 {
+            flash.update(
+                DT,
+                f64::from(DT) * f64::from(i),
+                Some((true, false)),
+                if i % 6 == 0 { 1.0 } else { 0.0 },
+            );
+        }
+        let mut last = MotionDrive {
+            sweep: 1.0,
+            flicker: 1.0,
+        };
+        for i in 120..200 {
+            last = flash.update(DT, f64::from(DT) * f64::from(i), Some((false, false)), 1.0);
+        }
+        assert!(last.sweep == 0.0 && last.flicker == 0.0, "{last:?}");
+    }
+
+    #[test]
+    fn build_params_carries_the_motion_drive() {
+        let frame = FrameInputs {
+            motion_sweep: 0.5,
+            motion_flicker: 1.0,
+            ..FrameInputs::default()
+        };
+        let p = build_params(&ScenePalette::default(), &FacadeLook::default(), 0.0, 0.0, &frame);
+        assert_eq!(p.motion, Vec4::new(0.5, 1.0, 0.0, 0.0));
+        assert_eq!(params().motion, Vec4::ZERO);
     }
 }
