@@ -1,0 +1,38 @@
+Event(
+    version: 1,
+    settings: EventSettings(
+        name: "Nouvelle soirée",
+        theme: Preset(Velvet),
+        flashes: Limited,
+        latency_offset_ms: 0.0,
+        projector: Auto,
+        safe_look: "niveau-0-pre-intro",
+        dj_sign: true,
+        dj_on_ads: false,
+        title_language: Fr,
+    ),
+    slots: [
+        DjSlot(
+            id: "dj-2",
+            dj: DjIdentity(
+                name: "Test",
+            ),
+            audio: AudioProfile(
+                bpm_min: 110.0,
+                bpm_max: 140.0,
+                sensitivity: 0.5,
+                tempo_source: Auto,
+            ),
+            mode: Semi,
+            cues: [
+                Cue(
+                    id: "cue-1",
+                    name: "Cue 1",
+                    look: "niveau-0-pre-intro",
+                    entry: Cut,
+                    advance: Manual,
+                ),
+            ],
+        ),
+    ],
+)
