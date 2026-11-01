@@ -17,7 +17,9 @@ declare -A LOW=([1]=0.45 [2]=0.10 [3]=0.12)
 declare -A TEX_HIGH=([1]=1024 [2]=1024 [3]=2048)
 declare -A TEX_LOW=([1]=512 [2]=512 [3]=1024)
 for n in ${@:-1 2 3}; do
-  RAW=assets/moto-src/moto-$n/moto_raw.glb
+  # Avec pilote (produit par tools/char/build-riders.sh) si présent, sinon la moto seule.
+  RAW=assets/moto-src/moto-$n/moto_rider.glb
+  [ -f "$RAW" ] || RAW=assets/moto-src/moto-$n/moto_raw.glb
   T=$(mktemp -d)
   $G dedup "$RAW" "$T/d.glb"
   $G prune "$T/d.glb" "$T/p.glb"
