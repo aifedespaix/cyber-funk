@@ -54,6 +54,14 @@ struct Facade {
     // Table des tempéraments, deux vec4 par entrée. [2i] : x étendue des teintes (degrés), y biais d'allumage, z part ambre,
     // w part glace. [2i+1] : x forme, y mouvement, z taux d'étincelles (formes et mouvements : rang des énumérations Rust).
     tempers: array<vec4<f32>, 16>,
+    // Mouvements de lumière (`facade_motion.wesl`) : x voie rapide déjà limitée (0..1), y part de mouvement rapide
+    // autorisée (0..1), z part de vie des fenêtres (0..1, curseur opérateur, 0 en qualité basse), w 1 en qualité basse (écrans
+    // qui défilent coupés).
+    motion: vec4<f32>,
+    // Traîne de la voiture (`facade_trail.wesl`) : 16 points, xyz en repère rendu, w intensité restante (0 : vide).
+    trail: array<vec4<f32>, 16>,
+    // Couleur de la voiture (xyz) et force de la traîne (w).
+    car_tint: vec4<f32>,
 }
 
 @group(constants::MATERIAL_BIND_GROUP) @binding(0) var<uniform> facade: Facade;
@@ -253,6 +261,11 @@ fn fragment(in: FacadeVarying) -> @location(0) vec4<f32> {
         let blink = select(step(0.93, h21(cell + 9.7 + seed * 0.13)), 0.0, far);
         lit *= mix(1.0, step(0.5, fract(time * 1.5 + window_rnd * 6.0)) * (0.4 + mid), blink);
 
+        // Vie propre : télé qui papillote, extinction lente, néon qui grésille, toujours aux mêmes fenêtres (rien au loin).
+        if !far {
+            lit *= window_life(cell, seed, time, temper_b.z * facade.motion.z, facade.motion.y);
+        }
+
         // Charleston : une poignée de fenêtres crépite, différente à chaque tranche de 40 ms.
         lit = max(lit, hat * step(h21(cell + 5.1 + floor(time * 25.0) * 3.7), 0.07) * (1.0 - dead));
 
@@ -282,7 +295,18 @@ fn fragment(in: FacadeVarying) -> @location(0) vec4<f32> {
         let power_edge = max(facade.power.y, 0.001);
         let behind = smoothstep(-power_edge, power_edge, (in.world.z - facade.power.x) * facade.power.w);
         let power_left = 1.0 - facade.power.z * behind;
-        col += window_color * lit * mask * glow * (1.0 + 0.45 * wet) * power_left;
+        // Mouvement du tempérament (vague, dérive, balayage, pulsation) ; rien au loin : pas de scintillement sous-pixel.
+        var motion = 1.0;
+        if !far {
+            motion = motion_gain(temper_b.y, h, u, seed, time, beat, facade.motion.x);
+        }
+        // Règle 7 : le gain de mouvement ne s'ajoute qu'à la base stable (0,55), jamais au pouls brut du kick contenu dans
+        // `glow` ; sans mouvement (`motion` = 1) le terme est exactement nul et le rendu d'avant est inchangé.
+        col += window_color * lit * mask * (glow + 0.55 * (motion - 1.0)) * (1.0 + 0.45 * wet) * power_left;
+        // Traîne de la voiture : la lumière des fenêtres déjà allumées s'attarde là où elle est passée (rien au loin).
+        if !far {
+            col += trail_window_light(in.world, window_color) * lit * mask * (1.0 + 0.45 * wet) * power_left;
+        }
 
         // Caisse claire : sur environ un tiers des tours, une bande de lumière tombe du sommet vers le pied pendant que
         // l'impulsion retombe (le kick, lui, fait monter la vague : les deux se croisent).

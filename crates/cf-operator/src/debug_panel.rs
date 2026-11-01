@@ -9,7 +9,7 @@
 use bevy::prelude::*;
 use bevy_egui::{EguiContext, PrimaryEguiContext, egui};
 use cf_control::{Action, TriggerId};
-use cf_render::{CarSelection, Settings, WorldEvent, WorldEventCatalog};
+use cf_render::{CarSelection, FacadeTuning, Settings, WorldEvent, WorldEventCatalog};
 use cf_show::persist::{AppSettings, CarChoice};
 
 use crate::OperatorMode;
@@ -99,6 +99,7 @@ pub(crate) fn debug_window(
     mut context: Single<&mut EguiContext, With<PrimaryEguiContext>>,
     catalog: Option<Res<WorldEventCatalog>>,
     selection: Option<ResMut<CarSelection>>,
+    tuning: Option<ResMut<FacadeTuning>>,
     settings: Option<ResMut<Settings>>,
     mut orders: ResMut<LiveOrders>,
     mut state: ResMut<DebugState>,
@@ -125,6 +126,13 @@ pub(crate) fn debug_window(
         .default_pos(egui::pos2(16.0, 48.0))
         .default_width(380.0)
         .show(ctx, |ui| {
+            if let Some(mut tuning) = tuning {
+                if let Some(next) = draw_tuning(ui, *tuning) {
+                    // Écriture seulement sur un geste : sinon la ressource serait marquée changée à chaque image.
+                    *tuning = next;
+                }
+                ui.separator();
+            }
             if let Some(mut selection) = selection {
                 draw_cars(ui, &mut selection, settings.as_deref_mut());
                 ui.separator();
@@ -149,6 +157,16 @@ pub(crate) fn debug_window(
     if !open {
         state.open = false;
     }
+}
+
+/// Les deux curseurs des façades. Ils n'écrivent que si la valeur bouge : le monde et les réglages sauvegardés ne sont
+/// réveillés que par un geste de l'opérateur.
+fn draw_tuning(ui: &mut egui::Ui, tuning: FacadeTuning) -> Option<FacadeTuning> {
+    ui.strong("Façades");
+    let mut next = tuning;
+    ui.add(egui::Slider::new(&mut next.car_follow, 0.0..=1.0).text("Suivi de la voiture"));
+    ui.add(egui::Slider::new(&mut next.window_life, 0.0..=1.0).text("Vie des fenêtres"));
+    (next != tuning).then(|| next.clamped())
 }
 
 fn draw_cars(ui: &mut egui::Ui, selection: &mut CarSelection, settings: Option<&mut Settings>) {

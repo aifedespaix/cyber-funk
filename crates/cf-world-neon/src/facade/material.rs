@@ -8,16 +8,24 @@ use bevy::render::render_resource::{AsBindGroup, ShaderType};
 use bevy::shader::{Shader, ShaderRef};
 
 use super::temperament::TEMPER_COUNT;
+use super::trail::TRAIL_POINTS;
 use crate::landmarks::field::FieldParams;
 
 /// Le shader des façades, embarqué dans le binaire : aucun fichier lu pendant un show (règle 8 de `CLAUDE.md`).
 pub(crate) const FACADE_SHADER: Handle<Shader> = uuid_handle!("2b8c5e1d-7a43-4f9b-86d0-c3e17a5b9d24");
-/// Source du shader (`assets/shaders/cf-world-neon/facade.wesl`), suivie des formes de lumière (`facade_shapes.wesl`) et du champ de la ville (`field.wesl`, partagé avec la
-/// route : lumières des immeubles-vitrines, zone de glitch, panne de courant).
+/// Source du shader : `facade.wesl`, suivi de `facade_shapes.wesl` (formes de lumière), `facade_motion.wesl` (mouvements),
+/// `facade_trail.wesl` (traîne de la voiture), `facade_life.wesl` (vie des fenêtres) et `field.wesl` (champ de la ville,
+/// partagé avec la route : immeubles-vitrines, zone de glitch, panne de courant).
 pub(crate) const FACADE_SOURCE: &str = concat!(
     include_str!("../../../../assets/shaders/cf-world-neon/facade.wesl"),
     "\n",
     include_str!("../../../../assets/shaders/cf-world-neon/facade_shapes.wesl"),
+    "\n",
+    include_str!("../../../../assets/shaders/cf-world-neon/facade_motion.wesl"),
+    "\n",
+    include_str!("../../../../assets/shaders/cf-world-neon/facade_trail.wesl"),
+    "\n",
+    include_str!("../../../../assets/shaders/cf-world-neon/facade_life.wesl"),
     "\n",
     include_str!("../../../../assets/shaders/cf-world-neon/field.wesl")
 );
@@ -69,6 +77,14 @@ pub struct FacadeParams {
     /// La table des tempéraments (`TEMPERAMENTS`), deux `Vec4` par entrée : `(hue_span_deg, lit_bias, amber_share,
     /// ice_share)` puis `(forme, mouvement, spark_rate, 0)`.
     pub tempers: [Vec4; 2 * TEMPER_COUNT],
+    /// Mouvements de lumière : `x` voie rapide déjà passée par le limiteur de flashs (0..1), `y` part de mouvement rapide
+    /// autorisée (0 sans flashs), `z` part de vie des fenêtres (curseur opérateur), `w` 1 en qualité basse (écrans coupés).
+    pub motion: Vec4,
+    /// La traîne de la voiture (`facade_trail.wesl`) : les 16 derniers points de passage, `xyz` en repère rendu, `w`
+    /// intensité restante 0..1 (0 : emplacement vide ou éteint).
+    pub trail: [Vec4; TRAIL_POINTS],
+    /// Couleur de la voiture (`xyz`, lumière linéaire) et force de la traîne (`w`, 0 : rien).
+    pub car_tint: Vec4,
 }
 
 /// Matériau des immeubles et des arches. Un seul exemplaire dans le monde : il porte l'état de l'image (temps, musique,

@@ -120,6 +120,23 @@ pub(super) fn remember_quality(mode: Res<QualityMode>, mut settings: ResMut<Sett
     }
 }
 
+/// `Startup` : remet les curseurs des façades réglés la dernière fois.
+pub(super) fn restore_tuning(settings: Res<Settings>, mut tuning: ResMut<crate::tuning::FacadeTuning>) {
+    let wanted = crate::tuning::tuning_from_entries(&settings.value.collapsed_panels);
+    set_if_different(&mut *tuning, wanted);
+}
+
+/// `Update` : écrit dans les réglages les curseurs des façades quand l'opérateur les bouge.
+pub(super) fn remember_tuning(tuning: Res<crate::tuning::FacadeTuning>, mut settings: ResMut<Settings>) {
+    if !tuning.is_changed() {
+        return;
+    }
+    let mut copy = settings.value.collapsed_panels.clone();
+    if crate::tuning::store_tuning(&mut copy, *tuning) {
+        settings.value.collapsed_panels = copy;
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
