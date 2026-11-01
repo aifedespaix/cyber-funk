@@ -9,6 +9,7 @@
 //! qui change d'un monde à l'autre, ce sont les événements, pas les immeubles.
 
 use super::config::SceneryConfig;
+use crate::facade::temper_of;
 use crate::rng::hash;
 use crate::route::is_near_bridge;
 
@@ -163,16 +164,20 @@ pub struct Part {
     pub seed: u16,
     /// Étage de la ceinture lumineuse + 1 (0 : aucune), l'étage des projecteurs de Sillage quantifié.
     pub spot_floor: u8,
+    /// Indice du tempérament de l'immeuble (`0..TEMPER_COUNT`) ; 0 : le rendu d'avant les tempéraments (arches comprises).
+    pub temper: u8,
 }
 
 impl Part {
-    /// Le tag envoyé au shader (`MeshTag`) : graine (10 bits), teinte (4), type (2), étage du projecteur + 1 (8).
+    /// Le tag envoyé au shader (`MeshTag`) : graine (10 bits), teinte (4), type (2), étage du projecteur + 1 (8),
+    /// tempérament (3, bits 24..26).
     #[must_use]
     pub fn tag(&self) -> u32 {
         u32::from(self.seed) & 0x3FF
             | (u32::from(self.tint) & 0xF) << 10
             | (self.tier as u32) << 14
             | u32::from(self.spot_floor) << 16
+            | (u32::from(self.temper) & 0x7) << 24
     }
 }
 
@@ -318,6 +323,8 @@ impl Row {
             }
         }
 
+        // Un seul tempérament par immeuble : le corps, la couronne et l'antenne partagent la même façade.
+        let temper = temper_of(self.index, seed01);
         let part = |tier, y: f64, size: [f64; 3], seed: u16, spot_floor| Part {
             tier,
             x: center_x as f32,
@@ -327,6 +334,7 @@ impl Row {
             tint,
             seed,
             spot_floor,
+            temper,
         };
         let antenna = |y: f64, width: f64, height: f64| part(Tier::Antenna, y, [width, height, width], seed01, 0);
 

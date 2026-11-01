@@ -127,6 +127,16 @@ mod tests {
     use super::*;
 
     #[test]
+    fn arch_tag_has_temper_zero() {
+        let mut world = World::new();
+        let pool = ArchPool::spawn(&mut world, &Handle::default(), &Handle::default());
+        for &entity in pool.entities() {
+            let tag = world.get::<MeshTag>(entity).map(|t| t.value);
+            assert_eq!(tag.map(|t| (t >> 24) & 0x7), Some(0));
+        }
+    }
+
+    #[test]
     fn les_piliers_et_le_tablier_sont_ceux_de_sillage() {
         let bridge = Bridge::of_cell(2);
         let [left, right, deck] = blocks(&bridge);
