@@ -6,6 +6,7 @@ use cf_render::palette::LinearRgb;
 use cf_render::{AudioFeatures, CurrentShowFx, FloatingOrigin, SceneColor, ScenePalette};
 
 use super::material::{FacadeParams, TINT_COUNT};
+use super::temperament::{TEMPER_COUNT, TEMPERAMENTS};
 use super::{FacadeLook, FacadeMaterial};
 use crate::beams::BeamPulse;
 use crate::landmarks::field::{CityField, FieldParams};
@@ -79,6 +80,17 @@ fn tints(palette: &ScenePalette) -> [Vec4; TINT_COUNT] {
     out
 }
 
+/// La table des tempéraments pour le shader, deux `Vec4` par entrée : `(hue_span_deg, lit_bias, amber_share, ice_share)` puis
+/// `(forme, mouvement, spark_rate, 0)`. Forme et mouvement sont leur rang dans l'énumération (l'ordre de déclaration).
+fn temper_table() -> [Vec4; 2 * TEMPER_COUNT] {
+    let mut out = [Vec4::ZERO; 2 * TEMPER_COUNT];
+    for (i, t) in TEMPERAMENTS.iter().enumerate() {
+        out[2 * i] = Vec4::new(t.hue_span_deg, t.lit_bias, t.amber_share, t.ice_share);
+        out[2 * i + 1] = Vec4::new(f32::from(t.shape as u8), f32::from(t.motion as u8), t.spark_rate, 0.0);
+    }
+    out
+}
+
 /// Le rang de teinte d'une couleur de la scène dans le tag d'une pièce (`6 + position`, l'encre n'en a pas : un corps noir
 /// n'a pas de sens), ou `None`.
 #[must_use]
@@ -112,6 +124,7 @@ pub fn build_params(
         mist: vec4(mist),
         scan: vec4(get(SceneColor::Mint)),
         cycle: tints(palette),
+        tempers: temper_table(),
         frame: Vec4::new((frame.time_s % TIME_WRAP_S) as f32, frame.pulse, frame.bass, frame.mid),
         audio: Vec4::new(
             frame.high,
@@ -206,5 +219,49 @@ pub(super) fn update_material(
     if let Some(mut material) = materials.get_mut(&scenery.material) {
         material.params = params;
         material.field = field_params;
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::facade::{TEMPER_COUNT, TEMPERAMENTS};
+
+    fn params() -> FacadeParams {
+        build_params(
+            &ScenePalette::default(),
+            &FacadeLook::default(),
+            0.0,
+            0.0,
+            &FrameInputs::default(),
+        )
+    }
+
+    #[test]
+    fn build_params_exposes_temperament_table() {
+        let p = params();
+        assert_eq!(p.tempers.len(), 2 * TEMPER_COUNT);
+        for (i, t) in TEMPERAMENTS.iter().enumerate() {
+            assert_eq!(
+                p.tempers[2 * i],
+                Vec4::new(t.hue_span_deg, t.lit_bias, t.amber_share, t.ice_share),
+                "entrée {i}, partie couleurs"
+            );
+            assert_eq!(
+                p.tempers[2 * i + 1],
+                Vec4::new(f32::from(t.shape as u8), f32::from(t.motion as u8), t.spark_rate, 0.0),
+                "entrée {i}, partie forme"
+            );
+        }
+    }
+
+    #[test]
+    fn temperament_zero_is_neutral() {
+        let p = params();
+        assert_eq!(p.tempers[0], Vec4::new(0.0, 0.0, 0.3, 0.1));
+        // Le shader lit les seuils `1 - part` : ils doivent retomber exactement sur les constantes d'avant (0,7 et 0,9).
+        assert_eq!(p.tempers[1], Vec4::ZERO, "Panes, Steady, sans étincelles");
+        assert_eq!(1.0_f32 - p.tempers[0].z, 0.7);
+        assert_eq!(1.0_f32 - p.tempers[0].w, 0.9);
     }
 }

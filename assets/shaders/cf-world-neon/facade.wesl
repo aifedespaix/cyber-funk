@@ -10,6 +10,7 @@
 //   bits 10..13  rang de la teinte dans le cycle prismatique (`instanceColor`)
 //   bits 14..15  type : 0 corps, 1 couronne, 2 antenne, 3 tour d'arrière-plan (`aInfo.z`)
 //   bits 16..23  étage de la ceinture lumineuse + 1, 0 : aucune (`aInfo.y`)
+//   bits 24..26  tempérament de l'immeuble : indice dans `facade.tempers` (voir `temperament.rs`, Rust)
 // Le décalage vertical du bloc (`aInfo.w`) est l'altitude de l'instance (sa base) : un corps commence à −BASE_DEPTH, une
 // couronne à la hauteur du corps, ce qui prolonge ses étages.
 //
@@ -50,6 +51,9 @@ struct Facade {
     power: vec4<f32>,
     // Texture du son hors kick : x transitoire large bande (caisse claire, clap), y charleston, z brillance, w bruit.
     texture: vec4<f32>,
+    // Table des tempéraments, deux vec4 par entrée. [2i] : x étendue des teintes (degrés), y biais d'allumage, z part ambre,
+    // w part glace. [2i+1] : x forme, y mouvement, z taux d'étincelles (formes et mouvements : rang des énumérations Rust).
+    tempers: array<vec4<f32>, 16>,
 }
 
 @group(constants::MATERIAL_BIND_GROUP) @binding(0) var<uniform> facade: Facade;
@@ -67,6 +71,14 @@ fn sstep(edge0: f32, edge1: f32, x: f32) -> f32 {
         return smoothstep(edge0, edge1, x);
     }
     return 1.0 - smoothstep(edge1, edge0, x);
+}
+
+// Décale la teinte d'une couleur de `deg` degrés par une rotation autour de l'axe des gris (1,1,1) : la luminance est
+// conservée, et 0° rend la couleur à l'identique (cos = 1, sin = 0).
+fn hue_shifted(color: vec3<f32>, deg: f32) -> vec3<f32> {
+    let a = radians(deg);
+    let k = vec3<f32>(0.57735027);
+    return color * cos(a) + cross(k, color) * sin(a) + k * dot(k, color) * (1.0 - cos(a));
 }
 
 fn h21(p_in: vec2<f32>) -> f32 {
@@ -116,6 +128,8 @@ struct FacadeVarying {
     // x : graine, y : hauteur de l'étage des projecteurs (-1 si aucun), z : type, w : décalage vertical du bloc.
     @location(5) @interpolate(flat) info: vec4<f32>,
     @location(6) @interpolate(flat) tint: vec3<f32>,
+    // Indice du tempérament de l'immeuble (bits 24..26 du tag).
+    @location(7) @interpolate(flat) temper: u32,
 }
 
 @vertex
@@ -138,6 +152,7 @@ fn vertex(v: FacadeVertex) -> FacadeVarying {
     let spot_y = select(-1.0, (f32(spot_floor) - 0.5) * FLOOR_HEIGHT, spot_floor > 0u);
     out.info = vec4<f32>(f32(tag & 0x3FFu), spot_y, f32((tag >> 14u) & 3u), m[3].y);
     out.tint = facade.cycle[(tag >> 10u) & 0xFu].rgb;
+    out.temper = (tag >> 24u) & 7u;
     out.clip = position_world_to_clip(wp.xyz);
     return out;
 }
@@ -165,6 +180,7 @@ fn fragment(in: FacadeVarying) -> @location(0) vec4<f32> {
     let mist = facade.mist.rgb;
     let scan = facade.scan.rgb;
     let v_c = in.tint;
+    let temper_a = facade.tempers[in.temper * 2u];
     let cam = view.world_position;
 
     // Coordonnées de façade (travées, étages), calculées pour toutes les faces : les dérivées exigent un flot uniforme.
@@ -224,7 +240,7 @@ fn fragment(in: FacadeVarying) -> @location(0) vec4<f32> {
         // Fenêtres : plus il y a d'aigus, plus il y en a d'allumées.
         let cell = vec2<f32>(floor(uu), floor_id);
         let window_rnd = h21(cell + vec2<f32>(seed * 0.37 + face * 3.1, seed * 0.11));
-        let lit_chance = 0.5 + high * 0.25 + noisy * 0.12 + 0.2 * h21(vec2<f32>(seed * 0.29, floor_id));
+        let lit_chance = 0.5 + high * 0.25 + noisy * 0.12 + 0.2 * h21(vec2<f32>(seed * 0.29, floor_id)) + temper_a.y;
         var lit = step(window_rnd, lit_chance) * (1.0 - dead);
         if far {
             // Plages de lumière sur de larges blocs de façade : rien ne scintille quand les fenêtres deviennent sous-pixel.
@@ -246,9 +262,13 @@ fn fragment(in: FacadeVarying) -> @location(0) vec4<f32> {
         let frame = step(0.16, f.x) * step(f.x, 0.84) * step(0.2, f.y) * step(f.y, 0.8);
         let mask = mix(frame, 0.34, fade_out);
 
-        let warm = mix(v_c, amber, step(0.7, h21(cell + 31.0)));
+        // Camaïeu : la teinte de la fenêtre est celle de la tour décalée dans ±étendue/2 selon son hachage (le tempérament 0
+        // a une étendue nulle : la teinte de la tour, inchangée). Les parts d'ambre et de glace viennent de la table ; pour
+        // le tempérament 0 (0,3 et 0,1), 1 - part retombe sur les seuils d'avant, 0,7 et 0,9.
+        let pane_hue = hue_shifted(v_c, (h21(cell + 77.0) - 0.5) * temper_a.x);
+        let warm = mix(pane_hue, amber, step(1.0 - temper_a.z, h21(cell + 31.0)));
         // La brillance du son refroidit les fenêtres : un filtre qui s'ouvre fait virer la ville vers la glace.
-        let window_color = mix(mix(warm, ice, step(0.9, h21(cell + 57.0))), ice, bright * 0.35);
+        let window_color = mix(mix(warm, ice, step(1.0 - temper_a.w, h21(cell + 57.0))), ice, bright * 0.35);
 
         // Vague de lumière qui monte d'un cran à chaque kick.
         let travel = fract(beat / 8.0 + seed * 0.0371) * 190.0;

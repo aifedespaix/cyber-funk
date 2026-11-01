@@ -7,6 +7,7 @@ use bevy::reflect::TypePath;
 use bevy::render::render_resource::{AsBindGroup, ShaderType};
 use bevy::shader::{Shader, ShaderRef};
 
+use super::temperament::TEMPER_COUNT;
 use crate::landmarks::field::FieldParams;
 
 /// Le shader des façades, embarqué dans le binaire : aucun fichier lu pendant un show (règle 8 de `CLAUDE.md`).
@@ -63,6 +64,9 @@ pub struct FacadeParams {
     pub power: Vec4,
     /// Texture du son (hors kick) : `x` transitoire large bande (`onset`), `y` charleston (`hat`), `z` brillance, `w` bruit.
     pub texture: Vec4,
+    /// La table des tempéraments (`TEMPERAMENTS`), deux `Vec4` par entrée : `(hue_span_deg, lit_bias, amber_share,
+    /// ice_share)` puis `(forme, mouvement, spark_rate, 0)`.
+    pub tempers: [Vec4; 2 * TEMPER_COUNT],
 }
 
 /// Matériau des immeubles et des arches. Un seul exemplaire dans le monde : il porte l'état de l'image (temps, musique,
