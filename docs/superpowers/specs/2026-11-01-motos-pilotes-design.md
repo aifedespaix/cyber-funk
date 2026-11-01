@@ -80,3 +80,20 @@ Gabarits exacts des immeubles de saut, paramètres de la balistique, poids de ti
 
 Tests unitaires de la trajectoire (atterrit sur l'immeuble d'arrivée), du parc (aucune allocation par image), de la
 teinte (valeurs du shader reproduites côté CPU) ; l'aspect final est à valider à l'écran par l'utilisateur.
+
+## Animation des motos (X-10-g)
+
+Sans squelette (le lecteur de GLB ne lit que des maillages), on anime des **nœuds entiers** :
+
+- `spin_F`, `spin_R` : roues, séparées des sources par `tools/moto/split_wheels.py` (îlots de géométrie centrés sur l'essieu,
+  détachés de leurs parents, transformations appliquées). Pivot vide sur l'essieu, axe X. Le jeu les fait tourner de `v·dt / r`
+  par image (pas borné à 0,9 rad pour ne pas paraître tourner à l'envers), `rider::anim`.
+- `rider` : pivot vide au bassin, enfant le pilote figé. Il respire à l'arrêt (±0,8°, 6 mm), se couche en arrière quand la moto
+  accélère, se penche en freinant, se redresse dans un wheeling (après s'être jeté en arrière à son départ).
+- Plongée de la moto entière au freinage (jusqu'à 3°) et « assise » à l'accélération, autour de l'essieu arrière.
+
+**Pourquoi des pivots vides** : `gltf-transform meshopt` range les sommets en entiers et reporte l'échelle (non uniforme) sur le
+nœud du maillage, dont l'origine devient le centre de sa boîte. Un pivot vide garde son origine exacte, sans échelle.
+
+Hors périmètre : bras et jambes qui bougent (squelette), roues avant qui tournent au guidon, rayon de pneu lu dans le GLB
+(table `WHEEL_DIAMETER_M`, vérifiée par un test).

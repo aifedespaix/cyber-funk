@@ -9,6 +9,7 @@ use bevy::asset::{Assets, Handle};
 use bevy::color::LinearRgba;
 use bevy::ecs::system::SystemParam;
 use bevy::image::Image;
+use bevy::math::Vec3;
 use bevy::pbr::{ExtendedMaterial, MeshMaterial3d, StandardMaterial};
 use bevy::prelude::{ChildOf, Commands, Entity, Mesh, Mesh3d, Name, Transform, Visibility};
 use cf_render::WorldLayer;
@@ -65,11 +66,24 @@ pub struct Tint<'a> {
     pub body_materials: &'a [&'a str],
 }
 
+/// Les nœuds qu'une moto anime, retrouvés par leur nom dans le GLB (`tools/char/bake_rider.py`).
+#[derive(Debug, Clone, Copy, Default)]
+pub struct MotoNodes {
+    /// Roue avant (`spin_F`) : origine sur l'essieu, axe X.
+    pub front: Option<Entity>,
+    /// Roue arrière (`spin_R`).
+    pub rear: Option<Entity>,
+    /// Pilote (`rider`) : origine au bassin ; sa translation de repos y est gardée.
+    pub rider: Option<(Entity, Vec3)>,
+}
+
 /// Ce que [`spawn_model`] a posé.
 #[derive(Debug, Clone, Default)]
 pub struct SpawnedModel {
     /// Les matériaux teintés : leur couleur peut être changée à la naissance d'une moto.
     pub tinted: Vec<Handle<RiderPaintMaterial>>,
+    /// Roues et pilote, s'ils existent dans le modèle.
+    pub nodes: MotoNodes,
 }
 
 enum Built {
@@ -150,6 +164,12 @@ pub fn spawn_model(
                 ChildOf(parent),
             ))
             .id();
+        match node.name.as_str() {
+            "spin_F" => spawned.nodes.front = Some(entity),
+            "spin_R" => spawned.nodes.rear = Some(entity),
+            "rider" => spawned.nodes.rider = Some((entity, node.transform.translation)),
+            _ => {}
+        }
         for &(mesh, material) in &node.pieces {
             let mut piece = commands.spawn((
                 Name::new(format!("{} · {}", node.name, model.materials[material].name)),

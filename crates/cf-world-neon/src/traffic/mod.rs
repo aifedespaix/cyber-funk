@@ -196,6 +196,10 @@ impl Plugin for TrafficPlugin {
                 render::sync_fleet
                     .in_set(TrafficSet::Sync)
                     .run_if(resource_exists::<TrafficEntities>),
+                render::animate_motos
+                    .in_set(TrafficSet::Sync)
+                    .after(render::sync_fleet)
+                    .run_if(resource_exists::<TrafficEntities>),
                 (
                     systems::update_flash,
                     systems::publish_city_fx.run_if(resource_exists::<FacadeLook>),

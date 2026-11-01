@@ -7,7 +7,8 @@ repère du véhicule. Matériau du pilote renommé `body_paint` (masque de peint
 Usage : blender -b -P tools/char/bake_rider.py -- <char-src/xxx> <action pose_xxx> <sortie.glb> [<véhicule.blend>]
   sans véhicule : seul le pilote est exporté (conducteur de la voiture, ajouté à l'exécution).
 """
-import bpy, sys, os
+import bpy, sys, os, re, json
+from mathutils import Matrix, Vector
 
 a = sys.argv[sys.argv.index("--") + 1:]
 dossier, action, sortie = os.path.abspath(a[0]), a[1], os.path.abspath(a[2])
@@ -18,6 +19,15 @@ if vehicule:
     bpy.ops.wm.open_mainfile(filepath=vehicule)
 else:
     bpy.ops.wm.read_factory_settings(use_empty=True)
+# Moto : on isole d'abord ses roues (`spin_F`, `spin_R`, origine sur l'essieu) : le jeu les fait tourner.
+if vehicule:
+    sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "moto"))
+    import split_wheels
+    numero = int(re.search(r"moto-(\d)", vehicule.replace("\\", "/")).group(1))
+    print("RAPPORT roues", numero, split_wheels.split(numero))
+# Le pilote pivote autour de son bassin (selle) : l'origine de son objet y est posée.
+cfg = json.load(open(os.path.join(os.path.dirname(os.path.abspath(__file__)), "poses_manul.json"), encoding="utf-8"))
+bassin = Vector(cfg["poses"][action.removeprefix("pose_")]["pelvis"])
 avant = {o.name for o in bpy.data.objects}
 with bpy.data.libraries.load(posed, link=False) as (src, dst):
     dst.objects = list(src.objects)
@@ -30,6 +40,11 @@ arm = next(o for o in dst.objects if o and o.type == "ARMATURE")
 meshes = [o for o in dst.objects if o and o.type == "MESH"]
 arm.animation_data_create()
 arm.animation_data.action = bpy.data.actions[action]
+# Les doigts sont animés en angles d'Euler (`grip`), mais le mode de rotation n'est pas conservé dans le .blend : sans ceci
+# l'action est ignorée et les doigts restent tendus.
+for pb in arm.pose.bones:
+    if re.fullmatch(r"f[a-e]\d_[lr]", pb.name):
+        pb.rotation_mode = "XYZ"
 sc.frame_set(1)
 bpy.context.view_layer.update()
 
@@ -39,9 +54,17 @@ figes = []
 for m in meshes:
     ev = m.evaluated_get(dg)
     donnees = bpy.data.meshes.new_from_object(ev, preserve_all_data_layers=True, depsgraph=dg)
-    donnees.transform(m.matrix_world)
-    o = bpy.data.objects.new("pilote", donnees)
+    donnees.transform(Matrix.Translation(-bassin) @ m.matrix_world)
+    o = bpy.data.objects.new("rider_mesh", donnees)
+    o.location = bassin
     sc.collection.objects.link(o)
+    # Pivot vide au bassin (voir `split_wheels.pivot`) : le jeu incline ce nœud, que la compression ne déplace pas.
+    pivot = bpy.data.objects.new("rider", None)
+    sc.collection.objects.link(pivot)
+    pivot.location = bassin
+    bpy.context.view_layer.update()
+    o.parent = pivot
+    o.matrix_parent_inverse = pivot.matrix_world.inverted()
     figes.append(o)
 # On retire le personnage d'origine (peau, armature, racine) : seuls restent les maillages figés.
 noms = [o.name for o in dst.objects if o is not None]
