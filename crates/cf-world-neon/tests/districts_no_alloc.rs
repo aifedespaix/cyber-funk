@@ -15,7 +15,7 @@ fn generate_with_districts_does_not_allocate() {
     let mut config = SceneryConfig::default();
     let to = |kind| DistrictId { kind, variant: 1 };
     assert!(config.push_district(0, 50, to(DistrictKind::Suburb), 20));
-    assert!(config.push_district(0, 120, to(DistrictKind::Residential), 20));
+    assert!(config.push_district(80, 120, to(DistrictKind::Residential), 20));
     config.set_districts_active(true);
     let mut parts = 0;
     for index in 0..200 {
@@ -30,13 +30,14 @@ fn generate_with_districts_does_not_allocate() {
 #[test]
 fn tick_districts_does_not_allocate() {
     use cf_analysis::Section;
-    use cf_render::{DistrictOrder, DistrictState};
+    use cf_render::{DistrictGradeState, DistrictOrder, DistrictState};
     use cf_show::district::{Governor, TransitionKind};
     use cf_world_neon::districts::{DistrictDriver, DistrictInput};
 
     let mut governor = Governor::new(7, [6, 6, 6]);
     let mut driver = DistrictDriver::default();
     let mut state = DistrictState::default();
+    let mut grade = DistrictGradeState::default();
     let input = |i: u32, section| DistrictInput {
         now_s: f64::from(i) / 60.0,
         dt_s: 1.0 / 60.0,
@@ -53,13 +54,13 @@ fn tick_districts_does_not_allocate() {
         car_z: Some(-400_000.0 - f64::from(i)),
     };
     for i in 0..60 {
-        driver.tick(&mut governor, &input(i, Section::Peak), &mut state);
+        driver.tick(&mut governor, &input(i, Section::Peak), Some(&mut grade), &mut state);
     }
     assert_no_alloc(|| {
         for i in 60..(60 * 60 * 20) {
             assert!(
                 driver
-                    .tick(&mut governor, &input(i, Section::Peak), &mut state)
+                    .tick(&mut governor, &input(i, Section::Peak), Some(&mut grade), &mut state)
                     .is_none()
             );
         }
@@ -76,10 +77,15 @@ fn tick_districts_does_not_allocate() {
     let change = driver
         .apply_order(&mut governor, order, f64::from(base) / 60.0, &mut state)
         .unwrap();
-    driver.begin(&change, Some(1000), &mut state);
+    // Le segment commence 5 rangées devant la voiture : approche, entrée dans la zone (l'étalonnage part), traversée.
+    let car_row = ((400_000.0 + f64::from(base)) / 26.0).floor() as i64;
+    driver.begin(&change, Some(car_row + 5), &mut state);
     assert_no_alloc(|| {
-        for i in base..(base + 60 * 12) {
-            driver.tick(&mut governor, &input(i, Section::Peak), &mut state);
+        for i in base..(base + 60 * 30) {
+            driver.tick(&mut governor, &input(i, Section::Peak), Some(&mut grade), &mut state);
+            // Ce que fait `drive_palette` chaque image : libérer la cible sur un temps fort, avancer le fondu.
+            grade.tick_pending(1.0 / 60.0, i.is_multiple_of(28), i / 28);
+            grade.update(1.0 / 60.0);
         }
     });
     assert_eq!(state.target, None);

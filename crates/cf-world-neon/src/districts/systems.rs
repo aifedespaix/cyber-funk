@@ -7,7 +7,7 @@ use cf_render::{
     AbsolutePosition, AudioFeatures, ChunkStream, CurrentShow, DistrictGradeState, DistrictOrder, DistrictState,
     ShowRuntime, StreamFocus, World as _,
 };
-use cf_show::district::{DistrictId, DistrictKind, Governor, TRANSITION_MAX_S, TransitionKind};
+use cf_show::district::{DistrictId, DistrictKind, Governor, TransitionKind};
 
 use super::kind_of;
 use super::state::{Change, DistrictBrain, DistrictDriver, DistrictInput};
@@ -23,7 +23,7 @@ const MARGIN_ROWS: i64 = 1;
 /// `Startup` : crée le gouverneur (graine du monde, nombre de variantes de chaque type d'après les étalonnages) et
 /// active les quartiers dans la génération. Le plan par défaut est « centre néon partout » : la ville générée ne
 /// change pas tant qu'aucun changement n'est décidé, rien à re-tirer.
-pub(crate) fn start_districts(
+pub fn start_districts(
     mut commands: Commands,
     world: Option<ResMut<NeonWorld>>,
     grades: Option<Res<DistrictGradeState>>,
@@ -39,7 +39,7 @@ pub(crate) fn start_districts(
 /// `CfSet::Simulate`, avant le tick : prend un déclencheur `district:<type>` (`Action::Trigger`, chemin du MIDI et du
 /// catalogue) et le relaie en [`DistrictOrder::Force`] par dégradé. La variante est tirée (graine du monde et rang du
 /// déclencheur), jamais celle que ce type a eue en dernier. Un autre identifiant reste dans la file.
-pub(crate) fn take_district_triggers(
+pub fn take_district_triggers(
     runtime: Option<ResMut<ShowRuntime>>,
     brain: Res<DistrictBrain>,
     world: Option<Res<NeonWorld>>,
@@ -98,8 +98,9 @@ fn mix(x: u64) -> u64 {
 }
 
 /// Ce que le tick lit du reste de l'application.
+#[allow(missing_debug_implementations)] // Paramètre système : des accès aux ressources, rien à afficher.
 #[derive(SystemParam)]
-pub(crate) struct DistrictSources<'w, 's> {
+pub struct DistrictSources<'w, 's> {
     time: Res<'w, Time>,
     features: Option<Res<'w, AudioFeatures>>,
     show: Option<Res<'w, CurrentShow>>,
@@ -139,14 +140,14 @@ impl DistrictSources<'_, '_> {
 }
 
 /// `CfSet::Simulate`, avant les tronçons : applique les ordres, fait tourner le gouverneur, lance les transitions
-/// décidées (segment dans le plan, étalonnage), retire du plan les segments passés et publie [`DistrictState`].
+/// décidées (segment dans le plan ; l'étalonnage part quand la voiture entre dans la zone de dégradé), retire du plan
+/// les segments passés et publie [`DistrictState`].
 ///
 /// La dernière rangée générée est le bord avant de la fenêtre de streaming : `chunk_at(−z) + AHEAD` pour la position de
 /// la voiture (celle que le streaming de cette image utilise) et pour le dernier point suivi du streaming, la plus
 /// grande des deux. Le segment commence [`LEAD_ROWS`] + [`MARGIN_ROWS`] plus loin : aucune rangée vivante ne change,
 /// donc jamais de `replan_all`.
-#[allow(clippy::too_many_arguments)] // Les paramètres d'un système Bevy : ressources et messages.
-pub(crate) fn tick_districts(
+pub fn tick_districts(
     sources: DistrictSources,
     mut orders: MessageReader<DistrictOrder>,
     mut brain: ResMut<DistrictBrain>,
@@ -170,6 +171,7 @@ pub(crate) fn tick_districts(
     };
 
     let mut next = *state;
+    // L'étalonnage ne part pas ici : il attend que la voiture entre dans la zone de dégradé (`DistrictDriver::tick`).
     let mut start = |change: Change, driver: &mut DistrictDriver, next: &mut DistrictState| {
         let from = last_generated.and_then(|last| {
             let from = last.saturating_add(LEAD_ROWS + MARGIN_ROWS);
@@ -178,9 +180,6 @@ pub(crate) fn tick_districts(
                 .push_district(last, from, change.to, change.blend_rows)
                 .then_some(from)
         });
-        if let Some(grade) = grade.as_deref_mut() {
-            grade.set_target(change.to, TRANSITION_MAX_S as f32);
-        }
         driver.begin(&change, from, next);
     };
 
@@ -189,7 +188,7 @@ pub(crate) fn tick_districts(
             start(change, &mut driver, &mut next);
         }
     }
-    if let Some(change) = driver.tick(&mut brain.0, &input, &mut next) {
+    if let Some(change) = driver.tick(&mut brain.0, &input, grade.as_deref_mut(), &mut next) {
         start(change, &mut driver, &mut next);
     }
 

@@ -7,7 +7,9 @@
 //!    [`DistrictOrder::Force`] ;
 //! 2. les ordres (forçage, gel) sont appliqués, puis le gouverneur rend sa décision ;
 //! 3. une transition pose un segment dans le plan, au-delà de la dernière rangée générée (jamais de `replan_all`), avec
-//!    un dégradé long de la distance parcourue en 10 s, et demande l'étalonnage du nouveau quartier (fondu ≤ 10 s) ;
+//!    un dégradé long de la distance parcourue pendant la durée réglée (≤ 10 s) ; l'étalonnage du nouveau quartier part
+//!    quand la voiture entre dans la zone de dégradé (la couleur suit la voiture), le gouverneur reste en transition
+//!    jusqu'à la fin réelle du dégradé ;
 //! 4. [`DistrictState`] est publié pour le panneau F4.
 //!
 //! [`DistrictState`] et [`DistrictOrder`] sont définis dans `cf-render` : la fenêtre opérateur ne dépend pas du monde.
@@ -20,7 +22,10 @@ use cf_render::{CfSet, WorldEvent, WorldEventAppExt, WorldSet};
 use cf_show::district::DistrictKind;
 
 pub use cf_render::{DistrictOrder, DistrictState};
-pub use state::{Change, DistrictBrain, DistrictDriver, DistrictInput, MAX_BLEND_ROWS, MIN_BLEND_ROWS};
+pub use state::{
+    APPROACH_MAX_S, Change, DistrictBrain, DistrictDriver, DistrictInput, MAX_BLEND_ROWS, MIN_BLEND_ROWS, MIN_FADE_S,
+};
+pub use systems::{DistrictSources, start_districts, take_district_triggers, tick_districts};
 
 /// Famille du catalogue d'événements.
 pub const FAMILY: &str = "Quartiers";
@@ -38,10 +43,10 @@ impl Plugin for DistrictsPlugin {
             .init_resource::<DistrictState>()
             .init_resource::<DistrictDriver>()
             .register_world_events(world_events())
-            .add_systems(Startup, systems::start_districts)
+            .add_systems(Startup, start_districts)
             .add_systems(
                 Update,
-                (systems::take_district_triggers, systems::tick_districts)
+                (take_district_triggers, tick_districts)
                     .chain()
                     .in_set(CfSet::Simulate)
                     .before(WorldSet::Chunks)

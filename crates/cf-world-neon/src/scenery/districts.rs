@@ -129,8 +129,9 @@ impl DistrictPlan {
         if from_index == i64::MIN || from_index < last_generated.saturating_add(LEAD_ROWS) {
             return false;
         }
-        // Les segments annoncés plus loin n'ont encore donné aucune rangée : on les remplace.
-        self.segments.retain(|s| s.start < from_index);
+        // Les segments qui commencent au-delà de la dernière rangée générée n'ont encore rien donné : on les retire tous
+        // (un forçage pendant une approche ne laisse pas l'ancienne cible habiller quelques rangées avant la nouvelle).
+        self.segments.retain(|s| s.start <= last_generated);
         self.segments.push(Segment {
             start: from_index,
             id,

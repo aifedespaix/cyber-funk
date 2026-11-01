@@ -50,14 +50,15 @@ fn golden_inchange_en_neon() {
 fn segments_sont_monotones() {
     let mut plan = DistrictPlan::default();
     assert!(plan.push(0, 10, id(DistrictKind::Suburb, 1), 4));
-    assert!(plan.push(0, 50, id(DistrictKind::Residential, 2), 4));
+    // La voiture a avancé : les rangées jusqu'à 20 sont générées, le segment de la banlieue a commencé.
+    assert!(plan.push(20, 50, id(DistrictKind::Residential, 2), 4));
     assert_eq!(plan.district_at(9).kind, DistrictKind::Neon);
     assert_eq!(plan.district_at(10).kind, DistrictKind::Suburb);
     assert_eq!(plan.district_at(49).kind, DistrictKind::Suburb);
     assert_eq!(plan.district_at(50), id(DistrictKind::Residential, 2));
     assert_eq!(plan.last_planned_index(), 54);
     // Un segment annoncé plus tôt remplace ceux d'après, qui n'ont encore rien donné.
-    assert!(plan.push(0, 30, id(DistrictKind::Neon, 3), 0));
+    assert!(plan.push(20, 30, id(DistrictKind::Neon, 3), 0));
     assert_eq!(plan.district_at(60), id(DistrictKind::Neon, 3));
     assert_eq!(plan.district_at(29).kind, DistrictKind::Suburb);
 }
@@ -171,4 +172,39 @@ fn les_segments_passes_sont_retires_sans_toucher_les_rangees_vivantes() {
     assert!(config.prune_districts(1_000));
     assert!(!config.prune_districts(10_000));
     assert_eq!(config.districts().district_at(0), residential);
+}
+
+#[test]
+fn un_forcage_pendant_l_approche_remplace_la_cible_en_attente() {
+    let mut config = SceneryConfig::default();
+    let a = id(DistrictKind::Suburb, 1);
+    let b = id(DistrictKind::Residential, 2);
+    // Forçage A : segment à 10 (rangées générées jusqu'à 7).
+    assert!(config.push_district(7, 10, a, 4));
+    let generated: Vec<DistrictId> = (-20..=9).map(|i| config.districts().blend_at(i, 0.4)).collect();
+    // La voiture avance de 2 rangées (générées jusqu'à 9), forçage B à 12 : A n'a rien donné, il disparaît.
+    assert!(config.push_district(9, 12, b, 4));
+    for row in 10..12 {
+        assert_eq!(
+            config.districts().district_at(row).kind,
+            DistrictKind::Neon,
+            "rangée {row}"
+        );
+    }
+    for row in 12..40 {
+        assert_ne!(
+            config.districts().blend_at(row, 0.4),
+            a,
+            "rangée {row} : l'ancienne cible reste"
+        );
+    }
+    assert_eq!(config.districts().district_at(30), b);
+    let after: Vec<DistrictId> = (-20..=9).map(|i| config.districts().blend_at(i, 0.4)).collect();
+    assert_eq!(generated, after, "les rangées générées ne bougent pas");
+
+    // Un segment qui a déjà donné des rangées reste.
+    let c = id(DistrictKind::Neon, 4);
+    assert!(config.push_district(20, 30, c, 4));
+    assert_eq!(config.districts().district_at(20), b);
+    assert_eq!(config.districts().district_at(30), c);
 }

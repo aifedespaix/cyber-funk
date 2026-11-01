@@ -29,6 +29,9 @@ pub struct DistrictState {
     pub history: [Option<DistrictId>; DISTRICT_HISTORY],
     /// La transition demandée n'existe pas encore : elle est jouée en dégradé (« repli : dégradé »).
     pub fallback: bool,
+    /// Durée des prochaines transitions (s, 1..=10) : longueur du dégradé (distance parcourue pendant ce temps) et
+    /// fondu de l'étalonnage. Réglée par [`DistrictOrder::SetFadeSeconds`].
+    pub fade_s: f32,
 }
 
 impl Default for DistrictState {
@@ -48,12 +51,13 @@ impl Default for DistrictState {
             frozen: false,
             history,
             fallback: false,
+            fade_s: 10.0,
         }
     }
 }
 
 /// Ordre de l'interface (ou d'un déclencheur `district:<type>`) au moteur de quartiers.
-#[derive(Message, Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Message, Debug, Clone, Copy, PartialEq)]
 pub enum DistrictOrder {
     /// Passer tout de suite à `to` par `transition`, sans consulter les règles (outil de debug). Remplace une
     /// transition en cours ; accepté pendant un drop. Le limiteur de flashs reste en place.
@@ -65,4 +69,6 @@ pub enum DistrictOrder {
     },
     /// Gèle (`true`) ou dégèle l'automatique.
     SetFrozen(bool),
+    /// Durée des prochaines transitions, en secondes, bornée à 1..=10 (curseur de F4). Une valeur non finie est ignorée.
+    SetFadeSeconds(f32),
 }

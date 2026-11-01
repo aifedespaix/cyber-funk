@@ -137,6 +137,19 @@ impl Governor {
         self.transition_since_s = None;
     }
 
+    /// La colle maintient la transition en cours (voiture en approche de la zone de dégradé, dégradé pas fini) : le
+    /// délai de [`TRANSITION_MAX_S`] repart de `now_s`. Le gouverneur reste donc en `Transitioning` tant qu'on le
+    /// maintient, et relâche seul [`TRANSITION_MAX_S`] après le dernier maintien si la colle disparaît.
+    pub fn hold_transition(&mut self, now_s: f64) {
+        self.transition_since_s = Some(now_s);
+    }
+
+    /// Le nouveau quartier commence vraiment (la voiture entre dans la zone de dégradé) : le temps passé dans le
+    /// quartier ([`MIN_DWELL_S`], [`MAX_DWELL_S`]) se compte à partir de `now_s`, pas de la décision.
+    pub fn restart_dwell(&mut self, now_s: f64) {
+        self.last_change_s = Some(now_s);
+    }
+
     /// Décision pour cet instantané.
     pub fn tick(&mut self, snap: &GovernorSnapshot) -> Decision {
         let now = snap.now_s;

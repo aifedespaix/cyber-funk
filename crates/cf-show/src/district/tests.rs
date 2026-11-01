@@ -401,3 +401,64 @@ fn force_memorise_la_transition() {
     );
     assert_eq!(gov.current_transition(), TransitionKind::Fog);
 }
+
+#[test]
+fn maintien_de_transition() {
+    let mut gov = Governor::new(4, VARIANTS);
+    let to = DistrictId {
+        kind: DistrictKind::Suburb,
+        variant: 2,
+    };
+    gov.tick(&calm(0.0));
+    gov.force(to, TransitionKind::Gradient, 0.0);
+    // Maintenue chaque seconde pendant 60 s : jamais relâchée, même en Calm bien après le temps maximum de transition.
+    for s in 1..=60 {
+        let t = f64::from(s);
+        gov.hold_transition(t);
+        assert_eq!(
+            gov.tick(&calm(t)),
+            Decision::Stay {
+                reason: StayReason::Transitioning
+            },
+            "{t}"
+        );
+    }
+    // Plus de maintien : relâchée TRANSITION_MAX_S après le dernier.
+    let last = 60.0;
+    let held = gov.tick(&calm(last + TRANSITION_MAX_S - 0.5));
+    assert_eq!(
+        held,
+        Decision::Stay {
+            reason: StayReason::Transitioning
+        }
+    );
+    let released = gov.tick(&calm(last + TRANSITION_MAX_S));
+    assert_ne!(
+        released,
+        Decision::Stay {
+            reason: StayReason::Transitioning
+        }
+    );
+}
+
+#[test]
+fn la_duree_dans_le_quartier_repart_a_l_entree_de_zone() {
+    let mut gov = Governor::new(4, VARIANTS);
+    let to = DistrictId {
+        kind: DistrictKind::Residential,
+        variant: 1,
+    };
+    gov.tick(&calm(0.0));
+    gov.force(to, TransitionKind::Gradient, 0.0);
+    // La voiture entre dans la zone 30 s après la décision ; la transition finit à 40 s.
+    gov.restart_dwell(30.0);
+    gov.transition_done(40.0);
+    // 150 s après la décision mais pas après l'entrée : trop tôt.
+    assert_eq!(
+        gov.tick(&calm(MIN_DWELL_S + 1.0)),
+        Decision::Stay {
+            reason: StayReason::TooSoon
+        }
+    );
+    assert!(is_change(gov.tick(&calm(30.0 + MIN_DWELL_S + 1.0))));
+}

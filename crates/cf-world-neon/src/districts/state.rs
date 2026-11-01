@@ -4,7 +4,8 @@
 
 use bevy::prelude::Resource;
 use cf_analysis::Section;
-use cf_render::{DISTRICT_HISTORY, DistrictOrder, DistrictState};
+use cf_render::palette::MAX_WAIT;
+use cf_render::{DISTRICT_HISTORY, DistrictGradeState, DistrictOrder, DistrictState};
 use cf_show::district::{Decision, DistrictId, Governor, GovernorSnapshot, TRANSITION_MAX_S, TransitionKind};
 
 use crate::world::{AHEAD, CHUNK_LENGTH_M};
@@ -17,6 +18,11 @@ pub const MAX_BLEND_ROWS: u32 = AHEAD;
 const SPEED_SMOOTHING: f32 = 6.0;
 /// Au-delà, la mesure est un saut (reprise, téléportation) et non une vitesse.
 const MAX_SPEED_MPS: f32 = 400.0;
+/// Durée de transition la plus courte réglable depuis F4 (s) ; la plus longue est [`TRANSITION_MAX_S`].
+pub const MIN_FADE_S: f32 = 1.0;
+/// Approche la plus longue (s) : passé ce délai, l'étalonnage part même si la voiture n'a pas atteint la zone (voiture
+/// arrêtée), pour qu'elle ne bloque jamais le moteur.
+pub const APPROACH_MAX_S: f32 = 60.0;
 
 /// Le gouverneur de quartiers (`cf-show`), seedé par la graine du monde.
 #[derive(Resource, Debug, Clone)]
@@ -68,9 +74,16 @@ pub struct Change {
 /// La transition en cours.
 #[derive(Debug, Clone, Copy, PartialEq)]
 struct Running {
-    elapsed_s: f32,
-    /// Première rangée après la zone de dégradé, si le segment a été posé dans le plan.
+    to: DistrictId,
+    blend_rows: u32,
+    /// Première rangée de la zone de dégradé, si le segment a été posé dans le plan.
+    from: Option<i64>,
+    /// Première rangée après la zone de dégradé.
     blend_end: Option<i64>,
+    /// Temps passé à approcher la zone (s).
+    approach_s: f32,
+    /// Temps passé depuis l'entrée dans la zone (s), `None` tant que la voiture approche.
+    zone_s: Option<f32>,
 }
 
 /// L'état de la colle d'une image à l'autre.
@@ -89,11 +102,11 @@ impl DistrictDriver {
         self.speed_mps
     }
 
-    /// Longueur du dégradé : la distance parcourue en [`TRANSITION_MAX_S`] à la vitesse courante (spec, règle 7),
-    /// bornée à [`MIN_BLEND_ROWS`]..=[`MAX_BLEND_ROWS`].
+    /// Longueur du dégradé : la distance parcourue en `fade_s` secondes à la vitesse courante (spec, règle 7), bornée à
+    /// [`MIN_BLEND_ROWS`]..=[`MAX_BLEND_ROWS`].
     #[must_use]
-    pub fn blend_rows(&self) -> u32 {
-        let rows = (f64::from(self.speed_mps) * TRANSITION_MAX_S / f64::from(CHUNK_LENGTH_M)).ceil();
+    pub fn blend_rows(&self, fade_s: f32) -> u32 {
+        let rows = (f64::from(self.speed_mps) * f64::from(fade_s) / f64::from(CHUNK_LENGTH_M)).ceil();
         if rows.is_finite() {
             (rows.max(0.0) as u32).clamp(MIN_BLEND_ROWS, MAX_BLEND_ROWS)
         } else {
@@ -116,24 +129,34 @@ impl DistrictDriver {
                 state.frozen = frozen;
                 None
             }
+            DistrictOrder::SetFadeSeconds(seconds) => {
+                if seconds.is_finite() {
+                    state.fade_s = seconds.clamp(MIN_FADE_S, TRANSITION_MAX_S as f32);
+                }
+                None
+            }
             DistrictOrder::Force { to, transition } => {
                 governor.force(to, transition, now_s);
                 copy_history(governor, state);
                 Some(Change {
                     to,
                     transition,
-                    blend_rows: self.blend_rows(),
+                    blend_rows: self.blend_rows(state.fade_s),
                 })
             }
         }
     }
 
     /// Une transition démarre : `from_index` est le début du segment posé dans le plan (`None` s'il n'a pas pu l'être,
-    /// sans monde ni voiture : seul l'étalonnage change alors).
+    /// sans monde ni voiture : seul l'étalonnage change alors, tout de suite).
     pub fn begin(&mut self, change: &Change, from_index: Option<i64>, state: &mut DistrictState) {
         self.running = Some(Running {
-            elapsed_s: 0.0,
+            to: change.to,
+            blend_rows: change.blend_rows,
+            from: from_index,
             blend_end: from_index.map(|from| from.saturating_add(i64::from(change.blend_rows))),
+            approach_s: 0.0,
+            zone_s: None,
         });
         state.target = Some(change.to);
         state.transition = change.transition;
@@ -141,12 +164,17 @@ impl DistrictDriver {
         state.progress = 0.0;
     }
 
-    /// Une image : mesure la vitesse, détecte la fin d'un événement, avance la transition, consulte le gouverneur.
-    /// Rend la transition à lancer si le gouverneur décide un changement. Sans allocation hors changement.
+    /// Une image : mesure la vitesse, détecte la fin d'un événement, avance la transition (et l'étalonnage, quand la
+    /// voiture entre dans la zone), consulte le gouverneur. Rend la transition à lancer si le gouverneur décide un
+    /// changement. Sans allocation hors changement.
+    ///
+    /// `event_ended` compare le nombre d'événements d'une image à l'autre : une fin qui tombe sur la même image qu'un
+    /// départ ne se voit pas (la fenêtre s'ouvrira à la fin suivante, ou au temps maximum).
     pub fn tick(
         &mut self,
         governor: &mut Governor,
         input: &DistrictInput,
+        grade: Option<&mut DistrictGradeState>,
         state: &mut DistrictState,
     ) -> Option<Change> {
         self.measure_speed(input);
@@ -154,7 +182,7 @@ impl DistrictDriver {
         let event_ended = matches!((self.last_events, input.active_events), (Some(before), Some(now)) if now < before);
         self.last_events = input.active_events;
 
-        self.advance(governor, input, state);
+        self.advance(governor, input, grade, state);
 
         let decision = governor.tick(&GovernorSnapshot {
             now_s: input.now_s,
@@ -178,7 +206,7 @@ impl DistrictDriver {
             Decision::Change { to, transition } => Some(Change {
                 to,
                 transition,
-                blend_rows: self.blend_rows(),
+                blend_rows: self.blend_rows(state.fade_s),
             }),
         }
     }
@@ -196,22 +224,73 @@ impl DistrictDriver {
         self.last_z = input.car_z;
     }
 
-    /// Avance la transition : elle finit après [`TRANSITION_MAX_S`] ou quand la voiture a passé la zone de dégradé
-    /// (le premier des deux). Le quartier affiché devient alors la cible.
-    fn advance(&mut self, governor: &mut Governor, input: &DistrictInput, state: &mut DistrictState) {
+    /// Avance la transition en deux temps.
+    ///
+    /// - **Approche** : le segment est posé loin devant (au-delà des rangées générées) ; la couleur ne bouge pas, le
+    ///   gouverneur est maintenu en `Transitioning`, `progress` reste à 0. Au plus [`APPROACH_MAX_S`] : une voiture
+    ///   arrêtée ne bloque pas le moteur.
+    /// - **Zone** : la voiture entre dans la zone de dégradé ; l'étalonnage part (fondu de la durée de traversée, au plus
+    ///   `fade_s`) et le temps passé dans le quartier se compte de là. `progress` = la plus avancée de la traversée et du
+    ///   temps. Fin quand la voiture a passé la zone et que l'étalonnage est posé, ou au plus `fade_s` + [`MAX_WAIT`]
+    ///   après l'entrée (`set_target` attend un temps fort, au plus [`MAX_WAIT`] s).
+    fn advance(
+        &mut self,
+        governor: &mut Governor,
+        input: &DistrictInput,
+        mut grade: Option<&mut DistrictGradeState>,
+        state: &mut DistrictState,
+    ) {
         let Some(running) = self.running.as_mut() else {
             return;
         };
-        running.elapsed_s += input.dt_s.max(0.0);
-        let by_time = running.elapsed_s / TRANSITION_MAX_S as f32;
+        let dt = input.dt_s.max(0.0);
         let car_row = input.car_z.map(|z| (-z / f64::from(CHUNK_LENGTH_M)).floor() as i64);
-        let passed = matches!((car_row, running.blend_end), (Some(row), Some(end)) if row >= end);
-        state.progress = by_time.clamp(0.0, 1.0);
-        if by_time >= 1.0 || passed {
+        let fade_s = state.fade_s.clamp(MIN_FADE_S, TRANSITION_MAX_S as f32);
+
+        let zone_s = if let Some(zone_s) = running.zone_s.as_mut() {
+            *zone_s += dt;
+            *zone_s
+        } else {
+            running.approach_s += dt;
+            let reached = match (running.from, car_row) {
+                (Some(from), Some(row)) => row >= from,
+                // Pas de segment posé (ni monde ni voiture) : seul l'étalonnage change, tout de suite.
+                _ => true,
+            };
+            if !reached && running.approach_s < APPROACH_MAX_S {
+                governor.hold_transition(input.now_s);
+                state.progress = 0.0;
+                return;
+            }
+            // Entrée dans la zone : la couleur suit la voiture, sur le temps de traversée de la zone.
+            running.zone_s = Some(0.0);
+            governor.restart_dwell(input.now_s);
+            let crossing_s = running.blend_rows as f32 * CHUNK_LENGTH_M / self.speed_mps.max(1e-3);
+            if let Some(grade) = grade.as_deref_mut() {
+                grade.set_target(running.to, crossing_s.min(fade_s));
+            }
+            0.0
+        };
+
+        let by_rows = match (running.from, car_row) {
+            (Some(from), Some(row)) => (row - from) as f32 / running.blend_rows.max(1) as f32,
+            _ => 0.0,
+        };
+        state.progress = by_rows.max(zone_s / fade_s).clamp(0.0, 1.0);
+        let passed = match (car_row, running.blend_end) {
+            (Some(row), Some(end)) => row >= end,
+            _ => true,
+        };
+        let graded = grade
+            .as_deref()
+            .map_or(zone_s >= fade_s, |g| !g.is_fading() && !g.is_pending());
+        if (passed && graded) || zone_s >= fade_s + MAX_WAIT {
             self.running = None;
             governor.transition_done(input.now_s);
             state.current = state.target.take().unwrap_or(state.current);
             state.progress = 1.0;
+        } else {
+            governor.hold_transition(input.now_s);
         }
     }
 }
@@ -233,11 +312,13 @@ mod tests {
     #[test]
     fn le_degrade_suit_la_vitesse_et_reste_borne() {
         let mut driver = DistrictDriver::default();
-        assert_eq!(driver.blend_rows(), MIN_BLEND_ROWS);
+        assert_eq!(driver.blend_rows(10.0), MIN_BLEND_ROWS);
         driver.speed_mps = 60.0;
         // 60 m/s × 10 s = 600 m = 23,1 rangées de 26 m.
-        assert_eq!(driver.blend_rows(), 24);
+        assert_eq!(driver.blend_rows(10.0), 24);
+        // Durée réglée à 5 s : 300 m, 11,5 rangées.
+        assert_eq!(driver.blend_rows(5.0), 12);
         driver.speed_mps = 399.0;
-        assert_eq!(driver.blend_rows(), MAX_BLEND_ROWS);
+        assert_eq!(driver.blend_rows(10.0), MAX_BLEND_ROWS);
     }
 }
