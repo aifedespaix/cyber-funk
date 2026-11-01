@@ -35,18 +35,18 @@ l'orchestrateur). Ne pas toucher à `docs/TASKS.md`.
 
 ## Points de vigilance (testés dans les tâches indiquées)
 
-- Voiture à l'arrêt : la traîne ne divise pas par zéro et n'accumule pas des positions identiques (tâche 5).
-- Recalage de l'origine flottante : les positions de la traîne suivent le recalage sans saut (tâche 5).
-- Changement de thème en plein show (`PaletteMorph`) : les camaïeux suivent sans à-coup (tâche 2).
-- Arches (tag posé à la main, tempérament 0) : rendu inchangé (tâche 1).
-- Immeubles lointains (`far`) : aucune forme ne scintille quand les fenêtres deviennent sous-pixel (tâche 3).
-- Flashs coupés par le spectacle ou mode respiration : plus aucun scintillement, la ville reste lisible (tâche 4).
-- Rebouclage du temps toutes les 2 400 s : aucun saut visible des nouveaux mouvements (tâche 4).
-- Qualité basse : traîne, écrans qui défilent et fenêtres à vie propre coupés, le reste inchangé (tâche 7).
+- Voiture à l'arrêt : la traîne ne divise pas par zéro et n'accumule pas des positions identiques (Task 5).
+- Recalage de l'origine flottante : les positions de la traîne suivent le recalage sans saut (Task 5).
+- Changement de thème en plein show (`PaletteMorph`) : les camaïeux suivent sans à-coup (Task 2).
+- Arches (tag posé à la main, tempérament 0) : rendu inchangé (Task 1).
+- Immeubles lointains (`far`) : aucune forme ne scintille quand les fenêtres deviennent sous-pixel (Task 3).
+- Flashs coupés par le spectacle ou mode respiration : plus aucun scintillement, la ville reste lisible (Task 4).
+- Rebouclage du temps toutes les 2 400 s : aucun saut visible des nouveaux mouvements (Task 4).
+- Qualité basse : traîne, écrans qui défilent et fenêtres à vie propre coupés, le reste inchangé (Task 7).
 
 ---
 
-### Tâche 1 : Le tempérament d'un immeuble (Rust)
+### Task 1: Le tempérament d'un immeuble (Rust)
 
 **Fichiers :**
 - Créer : `crates/cf-world-neon/src/facade/temperament.rs`
@@ -76,7 +76,7 @@ l'orchestrateur). Ne pas toucher à `docs/TASKS.md`.
   si les références changent, vérifier que seul le tag diffère et le documenter dans la PR.
 - [ ] **Étape 5 : commit** `[X-09] Tempérament des immeubles dans le tag`.
 
-### Tâche 2 : Camaïeux et densité par tempérament (shader + uniformes)
+### Task 2: Camaïeux et densité par tempérament (shader + uniformes)
 
 **Fichiers :**
 - Modifier : `crates/cf-world-neon/src/facade/material.rs` (`FacadeParams` : `tempers: [Vec4; 2 * TEMPER_COUNT]`),
@@ -86,7 +86,7 @@ l'orchestrateur). Ne pas toucher à `docs/TASKS.md`.
 - Test : `crates/cf-world-neon/src/facade/systems.rs` (tests existants de `build_params`)
 
 **Interfaces :**
-- Consomme : `TEMPERAMENTS`, `Temperament`, `temper_of` (tâche 1).
+- Consomme : `TEMPERAMENTS`, `Temperament`, `temper_of` (Task 1).
 - Produit : `fn hue_shifted(color: Vec3, deg: f32) -> Vec3` en WGSL (décalage de teinte, voisins de la teinte de tour) ;
   `FacadeParams.tempers[2*i]` = (hue_span_deg, lit_bias, amber_share, ice_share), `[2*i+1]` = (shape, motion, spark_rate, 0).
 
@@ -103,7 +103,7 @@ l'orchestrateur). Ne pas toucher à `docs/TASKS.md`.
   (pas d'à-coup).
 - [ ] **Étape 5 : commit** `[X-09] Camaïeux et densité par tempérament`.
 
-### Tâche 3 : Formes de lumière
+### Task 3: Formes de lumière
 
 **Fichiers :**
 - Créer : `assets/shaders/cf-world-neon/facade_shapes.wesl` (concaténé à `FACADE_SOURCE` dans `material.rs`, comme
@@ -112,7 +112,7 @@ l'orchestrateur). Ne pas toucher à `docs/TASKS.md`.
 - Test : `crates/cf-world-neon/tests/scenery_golden.rs` (ou nouvelle capture dans `docs/captures/`)
 
 **Interfaces :**
-- Consomme : la forme du tempérament (tâche 2).
+- Consomme : la forme du tempérament (Task 2).
 - Produit : `fn shape_mask(shape: f32, cell: vec2<f32>, f: vec2<f32>, seed: f32, fade_out: f32) -> f32` en WGSL : masque 0..1
   de la zone allumée d'une cellule (`Panes` = cadre actuel).
 
@@ -128,7 +128,7 @@ l'orchestrateur). Ne pas toucher à `docs/TASKS.md`.
   coexistent (critère de la spec).
 - [ ] **Étape 5 : commit** `[X-09] Formes de lumière des façades`.
 
-### Tâche 4 : Mouvements lisibles et garde-fous de flash
+### Task 4: Mouvements lisibles et garde-fous de flash
 
 **Fichiers :**
 - Créer : `assets/shaders/cf-world-neon/facade_motion.wesl`
@@ -138,7 +138,7 @@ l'orchestrateur). Ne pas toucher à `docs/TASKS.md`.
 - Test : `crates/cf-world-neon/src/facade/systems.rs` et `crates/cf-world-neon/tests/flash_ceiling.rs`
 
 **Interfaces :**
-- Consomme : `MotionKind` (tâche 1), `BeamPulse` (`beams/safety.rs`).
+- Consomme : `MotionKind` (Task 1), `BeamPulse` (`beams/safety.rs`).
 - Produit : `fn motion_gain(kind: f32, h: f32, u: f32, seed: f32, time: f32, beat: f32, sweep: f32) -> f32` en WGSL (facteur
   multiplicatif de lumière d'un immeuble) ; côté Rust `MotionFlash::update(dt_s, now_s, policy, drive) -> MotionDrive`.
 
@@ -154,7 +154,7 @@ l'orchestrateur). Ne pas toucher à `docs/TASKS.md`.
   `FacadeLook.clock_s`).
 - [ ] **Étape 5 : commit** `[X-09] Mouvements de lumière limités`.
 
-### Tâche 5 : Suivi de la voiture (traîne)
+### Task 5: Suivi de la voiture (traîne)
 
 **Fichiers :**
 - Créer : `crates/cf-world-neon/src/facade/trail.rs`
@@ -181,14 +181,14 @@ l'orchestrateur). Ne pas toucher à `docs/TASKS.md`.
   traîne suit les virages.
 - [ ] **Étape 5 : commit** `[X-09] Traîne lumineuse de la voiture sur les façades`.
 
-### Tâche 6 : Fenêtres à vie propre
+### Task 6: Fenêtres à vie propre
 
 **Fichiers :**
 - Modifier : `facade.wesl`, `facade_motion.wesl`, `facade/systems.rs` (la part autorisée passe par `MotionFlash`)
 - Test : `crates/cf-world-neon/src/facade/systems.rs`, `crates/cf-world-neon/tests/scenery_golden.rs`
 
 **Interfaces :**
-- Consomme : `Temperament.spark_rate` (tâche 1), `MotionDrive` (tâche 4).
+- Consomme : `Temperament.spark_rate` (Task 1), `MotionDrive` (Task 4).
 - Produit : `fn window_life(cell: vec2<f32>, seed: f32, time: f32, spark_rate: f32, allow: f32) -> f32` en WGSL : trois
   comportements fixes par cellule (télé bleutée qui papillote, extinction/rallumage lent, néon qui grésille), tirés du
   hachage de la cellule et jamais de l'image.
@@ -203,7 +203,7 @@ l'orchestrateur). Ne pas toucher à `docs/TASKS.md`.
   quand on revient la voir.
 - [ ] **Étape 5 : commit** `[X-09] Fenêtres à vie propre`.
 
-### Tâche 7 : Réglages, qualité basse, mesures, captures
+### Task 7: Réglages, qualité basse, mesures, captures
 
 **Fichiers :**
 - Modifier : `facade/mod.rs` (`FacadeLook` : `car_follow: f32`, `window_life: f32`, par défaut 1,0), le chargement des looks
