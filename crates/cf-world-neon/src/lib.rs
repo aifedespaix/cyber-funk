@@ -24,6 +24,7 @@
 //! - [`beams`] (J5-07) : les projecteurs du décor (balayeurs des façades, projecteurs épinglés par les événements) ;
 //! - [`dropfx`] (J5-07) : le paquet du drop (ondes de choc et gerbe, sur l'image du `drop_now`) ;
 //! - [`intro`] (J7-11) : la pré-intro du niveau 0 (la ville se construit avant le départ) ;
+//! - [`districts`] (X-11) : le moteur de quartiers (gouverneur, plan de la ville, étalonnage, état pour F4) ;
 //! - [`car`] (J5-05) : la voiture (`CyberCar` de Sillage), ses lumières, sa traînée, la fumée de ses pneus. Elle prend la
 //!   place du pavé du point suivi provisoire.
 //!
@@ -38,6 +39,7 @@ pub mod beams;
 pub mod car;
 pub mod chase;
 pub mod cinema;
+pub mod districts;
 pub mod djsign;
 pub mod dropfx;
 pub mod facade;
@@ -64,6 +66,7 @@ pub use beams::{BeamField, BeamMaterial, Beams, BeamsPlugin};
 pub use car::{Car, CarControls, CarPlugin};
 pub use chase::{ChaseCameraPlugin, ChasePlugin, Runner, RunnerConfig, chase_pose};
 pub use cinema::{CinemaInput, NeonCinemaPlugin, fill_cinema_world};
+pub use districts::{DistrictBrain, DistrictsPlugin};
 pub use djsign::{DjSignPlugin, DjSignSettings};
 pub use dropfx::{DropFx, DropFxPlugin};
 pub use facade::{FacadeLook, FacadeMaterial, FacadePlugin};
@@ -164,6 +167,10 @@ impl Plugin for NeonWorldPlugin {
                 .after(route::update_route_plan)
                 .run_if(resource_exists::<scenery::arches::ArchPool>),
         );
+        // Moteur de quartiers (X-11) : gouverneur, plan de la ville et étalonnage.
+        if !app.is_plugin_added::<DistrictsPlugin>() {
+            app.add_plugins(DistrictsPlugin);
+        }
         // Teinte des carrosseries de moto et des pilotes (X-10) : le matériau et son shader, prêts avant le premier show.
         if !app.is_plugin_added::<rider::RiderTintPlugin>() {
             app.add_plugins(rider::RiderTintPlugin);

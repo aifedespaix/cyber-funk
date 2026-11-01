@@ -150,3 +150,25 @@ fn row_reste_sans_vec() {
     assert_clone::<Row>();
     assert!(size_of::<Row>() > 1000);
 }
+
+#[test]
+fn les_segments_passes_sont_retires_sans_toucher_les_rangees_vivantes() {
+    let mut config = SceneryConfig::default();
+    let suburb = id(DistrictKind::Suburb, 1);
+    let residential = id(DistrictKind::Residential, 2);
+    assert!(config.push_district(0, 10, suburb, 5));
+    assert!(config.push_district(40, 50, residential, 6));
+    // Le dégradé vers la banlieue (10..15) touche encore la fenêtre : rien à retirer.
+    assert!(!config.districts().prunable(14));
+    assert!(!config.prune_districts(14));
+    let before: Vec<DistrictId> = (15..120).map(|i| config.districts().blend_at(i, 0.3)).collect();
+    assert!(config.prune_districts(15));
+    let after: Vec<DistrictId> = (15..120).map(|i| config.districts().blend_at(i, 0.3)).collect();
+    assert_eq!(before, after, "les rangées vivantes gardent leur quartier");
+    assert_eq!(config.districts().district_at(i64::MIN), suburb);
+    assert_eq!(config.last_planned_index(), 56);
+    // Le dernier segment n'est jamais retiré.
+    assert!(config.prune_districts(1_000));
+    assert!(!config.prune_districts(10_000));
+    assert_eq!(config.districts().district_at(0), residential);
+}

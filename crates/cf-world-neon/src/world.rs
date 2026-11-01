@@ -10,6 +10,7 @@ use bevy::prelude::*;
 use cf_render::streaming::ArchetypeId;
 use cf_render::world::{SubjectContext, SubjectSink};
 use cf_render::{ChunkInfo, ChunkPlan, PieceRegistry, Replan, StreamLayout, World, WorldError, WorldLayer};
+use cf_show::district::DistrictId;
 use cf_show::model::ShowGates;
 
 use crate::facade::FacadeMaterial;
@@ -96,6 +97,22 @@ impl NeonWorld {
     /// Zone dégagée de l'enseigne du DJ. Renvoie vrai si elle change (à re-tirer comme [`Self::set_quality`]).
     pub fn set_sign_clearing(&mut self, clearing: Option<Clearing>) -> bool {
         self.scenery.set_sign_clearing(clearing)
+    }
+
+    /// Annonce un nouveau quartier à partir de la rangée `from_index` (voir [`SceneryConfig::push_district`]). Ne touche
+    /// à aucune rangée déjà générée : rien à re-tirer.
+    pub fn push_district(&mut self, last_generated: i64, from_index: i64, to: DistrictId, blend_rows: u32) -> bool {
+        self.scenery.push_district(last_generated, from_index, to, blend_rows)
+    }
+
+    /// Active les quartiers dans la génération (voir [`SceneryConfig::set_districts_active`]).
+    pub fn set_districts_active(&mut self, on: bool) -> bool {
+        self.scenery.set_districts_active(on)
+    }
+
+    /// Retire les segments de quartier passés (voir [`SceneryConfig::prune_districts`]).
+    pub fn prune_districts(&mut self, first_live: i64) -> bool {
+        self.scenery.prune_districts(first_live)
     }
 
     /// Une sphère (centre `at`, rayon `radius`, positions absolues) touche-t-elle un immeuble ? Pour la caméra et les

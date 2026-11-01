@@ -101,6 +101,30 @@ impl DistrictPlan {
         last.start.saturating_add(i64::from(last.blend_rows))
     }
 
+    /// Le premier segment n'habille plus aucune rangée à partir de `first_live` : le suivant commence avant et son
+    /// dégradé (qui lit le premier) est fini avant `first_live`.
+    #[must_use]
+    pub fn prunable(&self, first_live: i64) -> bool {
+        self.segments
+            .get(1)
+            .is_some_and(|next| next.start.saturating_add(i64::from(next.blend_rows)) <= first_live)
+    }
+
+    /// Retire les segments passés (voir [`Self::prunable`]) ; le nouveau premier couvre alors toute la route en arrière,
+    /// sans dégradé, comme le segment du plan par défaut. Renvoie vrai si le plan change. Sans allocation.
+    pub(super) fn prune(&mut self, first_live: i64) -> bool {
+        let mut changed = false;
+        while self.prunable(first_live) {
+            self.segments.remove(0);
+            changed = true;
+        }
+        if changed && let Some(first) = self.segments.first_mut() {
+            first.start = i64::MIN;
+            first.blend_rows = 0;
+        }
+        changed
+    }
+
     pub(super) fn push(&mut self, last_generated: i64, from_index: i64, id: DistrictId, blend_rows: u32) -> bool {
         if from_index == i64::MIN || from_index < last_generated.saturating_add(LEAD_ROWS) {
             return false;
@@ -129,6 +153,12 @@ impl SceneryConfig {
     #[must_use]
     pub fn last_planned_index(&self) -> i64 {
         self.districts.last_planned_index()
+    }
+
+    /// Retire du plan les segments qui n'habillent plus aucune rangée à partir de `first_live` (premier index vivant de
+    /// la fenêtre de streaming). Les rangées vivantes gardent leur quartier : rien à re-tirer.
+    pub fn prune_districts(&mut self, first_live: i64) -> bool {
+        self.districts.prune(first_live)
     }
 
     /// Active (ou non) les réglages de quartier dans la génération. Faux : comportement historique (Neon partout).

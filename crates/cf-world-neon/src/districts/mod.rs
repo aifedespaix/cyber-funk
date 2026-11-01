@@ -1,0 +1,100 @@
+//! Le moteur de quartiers dans l'application : le gouverneur (`cf-show`) écoute la musique et le show, la ville
+//! (`SceneryConfig`, plan de quartiers) et l'étalonnage (`cf-render`, `DistrictGradeState`) appliquent ses décisions.
+//!
+//! Chaque image, en `CfSet::Simulate` avant les tronçons :
+//!
+//! 1. un déclencheur `district:<type>` (`Action::Trigger`, catalogue « Quartiers », MIDI) devient un
+//!    [`DistrictOrder::Force`] ;
+//! 2. les ordres (forçage, gel) sont appliqués, puis le gouverneur rend sa décision ;
+//! 3. une transition pose un segment dans le plan, au-delà de la dernière rangée générée (jamais de `replan_all`), avec
+//!    un dégradé long de la distance parcourue en 10 s, et demande l'étalonnage du nouveau quartier (fondu ≤ 10 s) ;
+//! 4. [`DistrictState`] est publié pour le panneau F4.
+//!
+//! [`DistrictState`] et [`DistrictOrder`] sont définis dans `cf-render` : la fenêtre opérateur ne dépend pas du monde.
+
+mod state;
+mod systems;
+
+use bevy::prelude::*;
+use cf_render::{CfSet, WorldEvent, WorldEventAppExt, WorldSet};
+use cf_show::district::DistrictKind;
+
+pub use cf_render::{DistrictOrder, DistrictState};
+pub use state::{Change, DistrictBrain, DistrictDriver, DistrictInput, MAX_BLEND_ROWS, MIN_BLEND_ROWS};
+
+/// Famille du catalogue d'événements.
+pub const FAMILY: &str = "Quartiers";
+/// Préfixe des déclencheurs.
+const PREFIX: &str = "district:";
+
+/// Le moteur de quartiers. Ajouté par `NeonWorldPlugin` ; se contente de ce qui existe (sans show, le gouverneur ne
+/// propose rien ; sans étalonnage, seule la ville change ; sans monde, seul l'étalonnage change).
+#[derive(Debug, Default, Clone, Copy)]
+pub struct DistrictsPlugin;
+
+impl Plugin for DistrictsPlugin {
+    fn build(&self, app: &mut App) {
+        app.add_message::<DistrictOrder>()
+            .init_resource::<DistrictState>()
+            .init_resource::<DistrictDriver>()
+            .register_world_events(world_events())
+            .add_systems(Startup, systems::start_districts)
+            .add_systems(
+                Update,
+                (systems::take_district_triggers, systems::tick_districts)
+                    .chain()
+                    .in_set(CfSet::Simulate)
+                    .before(WorldSet::Chunks)
+                    .run_if(resource_exists::<DistrictBrain>),
+            );
+    }
+}
+
+/// L'identifiant de déclencheur d'un type de quartier.
+#[must_use]
+pub fn trigger_id(kind: DistrictKind) -> &'static str {
+    match kind {
+        DistrictKind::Neon => "district:neon",
+        DistrictKind::Suburb => "district:suburb",
+        DistrictKind::Residential => "district:residential",
+    }
+}
+
+/// Le type de quartier qu'un identifiant de déclencheur désigne.
+#[must_use]
+pub fn kind_of(trigger: &str) -> Option<DistrictKind> {
+    let slug = trigger.strip_prefix(PREFIX)?;
+    DistrictKind::ALL.into_iter().find(|kind| kind.slug() == slug)
+}
+
+/// Les trois types, à inscrire au catalogue (la variante est tirée au déclenchement).
+#[must_use]
+pub fn world_events() -> Vec<WorldEvent> {
+    DistrictKind::ALL
+        .into_iter()
+        .map(|kind| WorldEvent {
+            id: trigger_id(kind),
+            label: kind.label(),
+            family: FAMILY,
+            note: "variante tirée au hasard, transition en dégradé",
+        })
+        .collect()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn chaque_type_est_au_catalogue_et_son_id_se_relit() {
+        let events = world_events();
+        assert_eq!(events.len(), 3);
+        for kind in DistrictKind::ALL {
+            let event = events.iter().find(|e| e.id == trigger_id(kind)).expect("type absent");
+            assert_eq!(event.family, FAMILY);
+            assert_eq!(kind_of(event.id), Some(kind));
+        }
+        assert_eq!(kind_of("district:inconnu"), None);
+        assert_eq!(kind_of("landmark:arcade"), None);
+    }
+}

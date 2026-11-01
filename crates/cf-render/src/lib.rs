@@ -6,6 +6,7 @@ mod car_selection;
 pub mod controls;
 pub mod culling;
 pub mod diagnostics;
+pub mod district;
 mod events_catalog;
 pub mod layers;
 pub mod origin;
@@ -37,6 +38,7 @@ pub use culling::{
 pub use diagnostics::{
     DiagnosticsPlugin, DiagnosticsSnapshot, ExportError, MeasurementSession, PassTiming, RenderScale, SessionRow,
 };
+pub use district::{DISTRICT_HISTORY, DistrictOrder, DistrictState};
 pub use events_catalog::{WorldEvent, WorldEventAppExt, WorldEventCatalog};
 pub use layers::{
     BackgroundLayer, COMPOSITOR_ORDER, CameraPose, Compositor, ForegroundLayer, Layer, LayerCamera, LayerOpacity,

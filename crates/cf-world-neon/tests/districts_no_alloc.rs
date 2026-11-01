@@ -23,3 +23,65 @@ fn generate_with_districts_does_not_allocate() {
     }
     assert!(parts > 0);
 }
+
+/// Le tick du moteur de quartiers (gouverneur, vitesse, fin d'événement, avancement de la transition, copie de l'état)
+/// n'alloue pas en régime établi : ni en Peak (aucun changement), ni pendant une transition. Un changement est un
+/// événement (le gouverneur y allonge son historique), hors du régime mesuré.
+#[test]
+fn tick_districts_does_not_allocate() {
+    use cf_analysis::Section;
+    use cf_render::{DistrictOrder, DistrictState};
+    use cf_show::district::{Governor, TransitionKind};
+    use cf_world_neon::districts::{DistrictDriver, DistrictInput};
+
+    let mut governor = Governor::new(7, [6, 6, 6]);
+    let mut driver = DistrictDriver::default();
+    let mut state = DistrictState::default();
+    let input = |i: u32, section| DistrictInput {
+        now_s: f64::from(i) / 60.0,
+        dt_s: 1.0 / 60.0,
+        section,
+        section_changed: false,
+        intensity: 0.9,
+        bass: 0.5,
+        high: 0.4,
+        bpm: Some(128.0),
+        drop_imminent: false,
+        drop_now: i.is_multiple_of(1200),
+        show_present: true,
+        active_events: Some((i / 600 % 3) as usize),
+        car_z: Some(-400_000.0 - f64::from(i)),
+    };
+    for i in 0..60 {
+        driver.tick(&mut governor, &input(i, Section::Peak), &mut state);
+    }
+    assert_no_alloc(|| {
+        for i in 60..(60 * 60 * 20) {
+            assert!(
+                driver
+                    .tick(&mut governor, &input(i, Section::Peak), &mut state)
+                    .is_none()
+            );
+        }
+    });
+    // Un forçage (événement) puis la transition jusqu'au bout, sans allocation.
+    let order = DistrictOrder::Force {
+        to: DistrictId {
+            kind: DistrictKind::Suburb,
+            variant: 2,
+        },
+        transition: TransitionKind::Gradient,
+    };
+    let base = 60 * 60 * 20;
+    let change = driver
+        .apply_order(&mut governor, order, f64::from(base) / 60.0, &mut state)
+        .unwrap();
+    driver.begin(&change, Some(1000), &mut state);
+    assert_no_alloc(|| {
+        for i in base..(base + 60 * 12) {
+            driver.tick(&mut governor, &input(i, Section::Peak), &mut state);
+        }
+    });
+    assert_eq!(state.target, None);
+    assert_eq!(state.current.kind, DistrictKind::Suburb);
+}
