@@ -104,6 +104,14 @@ def pose(nom, p):
             f = arm.pose.bones[B[f"foot_{cote}"]]
             f.rotation_mode = "XYZ"
             f.rotation_euler = (math.radians(p[f"foot_{cote}"]), 0, 0)
+    # Tête : `head_deg` > 0 relève le regard (le cou tourne autour de sa base, en sens inverse du buste penché).
+    if p.get("head_deg"):
+        bpy.context.view_layer.update()
+        cou = arm.pose.bones["Neck"]
+        pivot = cou.head.copy()
+        rot = Matrix.Translation(pivot) @ Matrix.Rotation(-math.radians(p["head_deg"]), 4, "X") @ Matrix.Translation(-pivot)
+        cou.matrix = rot @ cou.matrix
+        bpy.context.view_layer.update()
     # Enregistre la pose visuelle (contraintes résolues) dans une action, puis retire les contraintes.
     bpy.ops.pose.select_all(action="SELECT")
     bpy.ops.nla.bake(frame_start=1, frame_end=1, only_selected=False, visual_keying=True,
