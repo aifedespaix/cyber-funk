@@ -13,7 +13,6 @@
 
 mod materials;
 mod meshes;
-mod moto_sync;
 mod panels;
 mod sync;
 
@@ -25,7 +24,6 @@ use cf_render::{AbsolutePosition, EntityPool, LodBands, SimulationLod, WorldLaye
 
 pub(crate) use materials::embed_shaders;
 pub use materials::{GlintMaterial, TrailMaterial, VehicleMaterial, VehicleParams, WallMaterial};
-pub(crate) use moto_sync::animate_motos;
 pub(crate) use panels::embed_shader as embed_panel_shader;
 pub use panels::{HoloMaterial, PanelMaterial, PanelParams, TrafficPanelsLight, TrafficPanelsSolid};
 pub(crate) use panels::{sync_panels, update_panel_materials};
@@ -34,12 +32,7 @@ pub(crate) use sync::{sync_dynamic, sync_fleet, update_materials};
 use super::director::TrafficDirector;
 use super::fleet::CraftId;
 use super::model;
-use super::variant::{BIKE, CAPACITY, POOL, VARIANT_COUNT};
-use crate::car::CarModelAsset;
-use crate::rider::RiderPaintMaterial;
-use crate::rider::anim::{MotoMotion, MotoRig};
-use crate::rider::moto::{self, BODY_MATERIALS, MOTO_COUNT};
-use crate::rider::spawn::{ModelAssets, Tint, spawn_model};
+use super::variant::{CAPACITY, POOL, VARIANT_COUNT};
 
 /// Distances de la cadence de simulation d'un véhicule (m de la caméra). Les véhicules vont vite (60 à 118 m/s) et la
 /// ville s'arrête à la brume (380 m) : pleine cadence tant qu'ils sont à portée d'une coupe de caméra, demi-cadence puis
@@ -91,8 +84,6 @@ pub struct TrafficEntities {
     bodies: Vec<EntityPool>,
     /// Traînées : par véhicule du pool.
     trails: Vec<Entity>,
-    /// Matériaux teintés de chaque moto texturée, par emplacement de la variante moto (vide : moto procédurale).
-    pub(crate) moto_tints: Vec<Vec<Handle<RiderPaintMaterial>>>,
     pub(crate) shown: Vec<Shown>,
     pub(crate) vehicle_material: Handle<VehicleMaterial>,
     pub(crate) glint_mesh: Handle<Mesh>,
@@ -134,46 +125,6 @@ impl TrafficEntities {
     }
 }
 
-/// Le parc des motos texturées : les entités du pool de la variante moto, chacune portant son modèle (les trois en
-/// alternance) et sa moto posée à la place de la procédurale. Renvoie le pool et, par emplacement, les matériaux à teinter.
-fn spawn_moto_pool(
-    commands: &mut Commands,
-    variant: usize,
-    motos: &[CarModelAsset],
-    refs: &mut ModelAssets<'_>,
-) -> (EntityPool, Vec<Vec<Handle<RiderPaintMaterial>>>) {
-    let bundle = (
-        Name::new(format!("trafic : moto {variant}")),
-        TrafficBody,
-        WorldLayer,
-        Transform::default(),
-        AbsolutePosition::default(),
-        MeshTag::new(0),
-        SimulationLod::new(LOD_BANDS),
-    );
-    let pool = EntityPool::spawn(commands, CAPACITY[variant], bundle);
-    let mut tints = Vec::with_capacity(pool.capacity());
-    for (slot, &entity) in pool.entities().iter().enumerate() {
-        let which = slot % MOTO_COUNT;
-        let tint = Tint {
-            color: LinearRgba::rgb(0.6, 0.6, 0.6),
-            body_materials: BODY_MATERIALS[which],
-        };
-        let (root, spawned) = spawn_model(commands, entity, motos[which].clone(), refs, Some(tint));
-        let fit = moto::fit(which);
-        commands.entity(root).insert(fit);
-        commands.entity(entity).insert(MotoRig {
-            which,
-            model: root,
-            fit,
-            nodes: spawned.nodes,
-            motion: MotoMotion::default(),
-        });
-        tints.push(spawned.tinted);
-    }
-    (pool, tints)
-}
-
 /// `Startup` : construit les maillages et les matériaux, crée toutes les entités du trafic (cachées).
 #[allow(clippy::too_many_arguments)] // Les paramètres d'un système Bevy : ressources d'assets.
 pub(crate) fn setup_traffic(
@@ -187,42 +138,13 @@ pub(crate) fn setup_traffic(
     mut walls: ResMut<Assets<WallMaterial>>,
     mut panel_solid: ResMut<Assets<PanelMaterial>>,
     mut panel_light: ResMut<Assets<HoloMaterial>>,
-    images: Option<ResMut<Assets<Image>>>,
-    standard: Option<ResMut<Assets<StandardMaterial>>>,
-    mut tinted: ResMut<Assets<RiderPaintMaterial>>,
 ) {
-    let (mut images, mut standard) = (images, standard);
     let models = model::load_models(&source.models_dir);
-    // Les motos texturées (X-10) : lues avec les autres modèles, à l'ouverture. Sans elles, la moto procédurale reste.
-    let motos = if images.is_some() && standard.is_some() {
-        source
-            .models_dir
-            .parent()
-            .and_then(|models| moto::load_motos(&models.join("motos")))
-    } else {
-        None
-    };
-    let mut moto_tints = Vec::new();
     let vehicle_material = vehicles.add(VehicleMaterial::default());
 
     let mut bodies = Vec::with_capacity(VARIANT_COUNT);
     for (variant, model) in models.into_iter().enumerate() {
         director.fleet.set_dims(variant as u8, model.dims());
-        if variant == usize::from(BIKE)
-            && let Some(motos) = &motos
-            && let (Some(images), Some(standard)) = (images.as_mut(), standard.as_mut())
-        {
-            let mut refs = ModelAssets {
-                meshes: &mut meshes,
-                images,
-                standard,
-                tinted: &mut tinted,
-            };
-            let (pool, tints) = spawn_moto_pool(&mut commands, variant, motos, &mut refs);
-            moto_tints = tints;
-            bodies.push(pool);
-            continue;
-        }
         let mesh = meshes.add(model.mesh);
         let bundle = (
             Name::new(format!("trafic : véhicule {variant}")),
@@ -296,7 +218,6 @@ pub(crate) fn setup_traffic(
     commands.insert_resource(TrafficEntities {
         bodies,
         trails: trail_entities,
-        moto_tints,
         shown: vec![Shown::default(); POOL],
         vehicle_material,
         glint_mesh,

@@ -127,10 +127,6 @@ impl Plugin for TrafficPlugin {
         if !app.is_plugin_added::<AssetPlugin>() {
             return;
         }
-        // Les motos texturées du trafic (X-10) ont besoin du matériau de teinte.
-        if !app.is_plugin_added::<crate::rider::RiderTintPlugin>() {
-            app.add_plugins(crate::rider::RiderTintPlugin);
-        }
         app.insert_resource(self.settings)
             .insert_resource(TrafficDirector::new(self.settings.seed))
             .insert_resource(TrafficSource {
@@ -195,10 +191,6 @@ impl Plugin for TrafficPlugin {
                     .after(WorldSet::Chunks),
                 render::sync_fleet
                     .in_set(TrafficSet::Sync)
-                    .run_if(resource_exists::<TrafficEntities>),
-                render::animate_motos
-                    .in_set(TrafficSet::Sync)
-                    .after(render::sync_fleet)
                     .run_if(resource_exists::<TrafficEntities>),
                 (
                     systems::update_flash,

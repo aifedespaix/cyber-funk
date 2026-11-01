@@ -33,9 +33,3 @@ Thumbs.db
 
 # Dépendances npm des outils de la voiture
 /tools/car/node_modules/
-
-# Sources lourdes des motos et des personnages (voir assets/moto-src/README.md)
-/assets/moto-src/*
-!/assets/moto-src/README.md
-/assets/char-src/*
-!/assets/char-src/README.md

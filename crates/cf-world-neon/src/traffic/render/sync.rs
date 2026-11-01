@@ -8,10 +8,8 @@ use bevy::prelude::*;
 use cf_render::{AbsolutePosition, ScenePalette};
 
 use super::{TrafficBody, TrafficEntities, TrafficTrail, VehicleMaterial, VehicleParams};
-use crate::rider::RiderPaintMaterial;
 use crate::traffic::director::TrafficDirector;
 use crate::traffic::flash::TrafficFlash;
-use crate::traffic::variant::BIKE;
 
 /// La teinte et le déphasage d'un véhicule, dans le `MeshTag` : trois octets sRGB, puis le déphasage sur 8 bits (voir
 /// `traffic_vehicle.wesl`).
@@ -44,7 +42,6 @@ type BodyItem<'a> = (
 pub(crate) fn sync_fleet(
     director: Res<TrafficDirector>,
     mut entities: ResMut<TrafficEntities>,
-    mut motos: ResMut<Assets<RiderPaintMaterial>>,
     mut bodies: Query<BodyItem<'_>, (With<TrafficBody>, Without<TrafficTrail>)>,
     mut trails: Query<BodyItem<'_>, (With<TrafficTrail>, Without<TrafficBody>)>,
 ) {
@@ -87,16 +84,6 @@ pub(crate) fn sync_fleet(
             transform.scale = Vec3::splat(craft.scale);
             if reborn {
                 *body_tag = tag.clone();
-                // Une moto texturée prend la teinte du véhicule qui naît : son corps n'a pas de `MeshTag` à lire.
-                if craft.variant == BIKE
-                    && let Some(handles) = entities.moto_tints.get(usize::from(craft.slot))
-                {
-                    for handle in handles {
-                        if let Some(mut material) = motos.get_mut(handle) {
-                            material.extension.set_color(craft.tint);
-                        }
-                    }
-                }
             }
             visibility.set_if_neq(Visibility::Inherited);
         }

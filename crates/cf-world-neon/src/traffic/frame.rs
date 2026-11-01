@@ -140,14 +140,7 @@ impl<'a> TrafficShow<'a> {
     /// La liste blanche du look contient-elle cet événement ?
     #[must_use]
     pub fn allows(&self, name: EventName) -> bool {
-        // Le saut de moto est une invention de cyber-funk : les looks (alignés sur Sillage par les tests golden) ne le
-        // nomment pas. Il suit la porte des immeubles-vitrines, dont il est un cousin.
-        let slug = if name == EventName::MotoJump {
-            EventName::Landmark.as_str()
-        } else {
-            name.as_str()
-        };
-        self.events.iter().any(|e| e.as_str() == slug)
+        self.events.iter().any(|e| e.as_str() == name.as_str())
     }
 }
 
