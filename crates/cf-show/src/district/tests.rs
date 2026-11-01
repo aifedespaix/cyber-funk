@@ -248,7 +248,7 @@ fn penchant_sonore() {
         let mut gov = Governor::new(11, VARIANTS);
         let mut counts = [0u32; 3];
         for _ in 0..2000 {
-            let kind = gov.pick_kind(&s, &[]).expect("types disponibles");
+            let kind = gov.pick_kind(&s, &[], None).expect("types disponibles");
             counts[kind.index()] += 1;
         }
         counts.map(|c| f64::from(c) / 2000.0)
@@ -324,4 +324,80 @@ fn transition_done_libere_avant_le_delai() {
             reason: StayReason::TooSoon
         }
     );
+}
+
+#[test]
+fn penchant_sonore_via_tick_sur_de_nombreux_changements() {
+    let scenarios = [(0, 0.9, 0.4, 0.6), (1, 0.5, 1.0, 0.0), (2, 0.1, 0.3, 0.5)];
+    for (favored, intensity, bass, high) in scenarios {
+        let mut gov = Governor::new(77, VARIANTS);
+        let mut counts = [0u32; 3];
+        let mut t = 0.0;
+        let mut changes = 0;
+        while changes < 600 {
+            let before = gov.current();
+            let s = GovernorSnapshot {
+                intensity,
+                bass,
+                high,
+                ..calm(t)
+            };
+            if let Decision::Change { to, .. } = gov.tick(&s) {
+                assert_ne!(to.kind, before.kind);
+                counts[to.kind.index()] += 1;
+                changes += 1;
+            }
+            t += 1.0;
+        }
+        let probs = counts.map(|c| f64::from(c) / 600.0);
+        assert!(probs[favored] > 1.0 / 3.0, "{favored}: {probs:?}");
+        for (i, p) in probs.iter().enumerate() {
+            if i != favored {
+                assert!(*p >= 0.10, "{favored}: {probs:?}");
+            }
+        }
+    }
+}
+
+#[test]
+fn horloge_qui_recule_ne_bloque_pas() {
+    let mut gov = Governor::new(21, VARIANTS);
+    // Une transition et un drop récents dans l'ancienne horloge.
+    let _ = gov.tick(&GovernorSnapshot {
+        drop_now: true,
+        ..calm(5000.0)
+    });
+    gov.force(
+        DistrictId {
+            kind: DistrictKind::Suburb,
+            variant: 1,
+        },
+        TransitionKind::Gradient,
+        5001.0,
+    );
+    // L'horloge repart à 0 : tout est rebasé sur ce nouveau temps.
+    assert_eq!(
+        gov.tick(&calm(0.0)),
+        Decision::Stay {
+            reason: StayReason::Transitioning
+        }
+    );
+    let changes = run(&mut gov, 400, |t| calm(t + 1.0));
+    let first = changes.first().expect("un changement").0 + 1.0;
+    assert!((MIN_DWELL_S..MIN_DWELL_S + 20.0).contains(&first), "{first}");
+}
+
+#[test]
+fn force_memorise_la_transition() {
+    let mut gov = Governor::new(22, VARIANTS);
+    assert_eq!(gov.current_transition(), TransitionKind::Gradient);
+    gov.force(
+        DistrictId {
+            kind: DistrictKind::Residential,
+            variant: 0,
+        },
+        TransitionKind::Fog,
+        0.0,
+    );
+    assert_eq!(gov.current_transition(), TransitionKind::Fog);
 }

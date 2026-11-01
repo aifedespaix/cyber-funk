@@ -18,6 +18,8 @@ pub const AFTER_DROP_FALLBACK_S: f64 = 16.0;
 const HISTORY_LEN: usize = 5;
 /// Part du tirage guidée par le penchant sonore (le reste est uniforme).
 const BIAS_SHARE: f64 = 0.75;
+/// Facteur appliqué à la probabilité du type précédent (évite le va-et-vient sans l'interdire).
+const DAMPING: f64 = 0.35;
 /// Poids plancher d'un type, pour qu'aucun ne soit jamais exclu par le penchant.
 const WEIGHT_FLOOR: f64 = 0.1;
 
@@ -70,6 +72,10 @@ pub struct Governor {
     /// Début de la transition en cours.
     transition_since_s: Option<f64>,
     last_drop_s: Option<f64>,
+    /// Dernier temps vu, pour détecter une horloge audio qui recule.
+    last_seen_s: Option<f64>,
+    /// Transition du dernier changement (dégradé par défaut).
+    transition: TransitionKind,
 }
 
 impl Governor {
@@ -93,6 +99,8 @@ impl Governor {
             last_change_s: None,
             transition_since_s: None,
             last_drop_s: None,
+            last_seen_s: None,
+            transition: TransitionKind::Gradient,
         }
     }
 
@@ -113,9 +121,15 @@ impl Governor {
         self.frozen = frozen;
     }
 
+    /// Transition du dernier changement, pour que la colle sache quoi jouer.
+    #[must_use]
+    pub fn current_transition(&self) -> TransitionKind {
+        self.transition
+    }
+
     /// Forçage de debug : contourne les règles et remplace une transition en cours.
-    pub fn force(&mut self, to: DistrictId, _transition: TransitionKind, now_s: f64) {
-        self.enter(to, now_s);
+    pub fn force(&mut self, to: DistrictId, transition: TransitionKind, now_s: f64) {
+        self.enter(to, transition, now_s);
     }
 
     /// La colle signale que le dégradé est fini ; sinon il se termine seul à [`TRANSITION_MAX_S`].
@@ -126,6 +140,13 @@ impl Governor {
     /// Décision pour cet instantané.
     pub fn tick(&mut self, snap: &GovernorSnapshot) -> Decision {
         let now = snap.now_s;
+        // Horloge audio revenue en arrière (changement de source, morceau relancé) : on repart de maintenant.
+        if self.last_seen_s.is_some_and(|seen| now < seen) {
+            self.last_change_s = self.last_change_s.map(|_| now);
+            self.transition_since_s = self.transition_since_s.map(|_| now);
+            self.last_drop_s = self.last_drop_s.map(|_| now);
+        }
+        self.last_seen_s = Some(now);
         let since = *self.last_change_s.get_or_insert(now);
         if snap.drop_now {
             self.last_drop_s = Some(now);
@@ -166,7 +187,7 @@ impl Governor {
         }
 
         let to = self.pick(snap);
-        self.enter(to, now);
+        self.enter(to, TransitionKind::Gradient, now);
         Decision::Change {
             to,
             transition: TransitionKind::Gradient,
@@ -174,8 +195,9 @@ impl Governor {
     }
 
     /// Installe un nouveau quartier courant et démarre sa transition.
-    fn enter(&mut self, to: DistrictId, now_s: f64) {
+    fn enter(&mut self, to: DistrictId, transition: TransitionKind, now_s: f64) {
         self.current = to;
+        self.transition = transition;
         self.history.push(to);
         if self.history.len() > HISTORY_LEN {
             self.history.remove(0);
@@ -185,23 +207,27 @@ impl Governor {
         self.transition_since_s = Some(now_s);
     }
 
-    /// Choisit le prochain quartier (type puis variante).
+    /// Choisit le prochain quartier (type puis variante). Seul le type courant est exclu : avec trois
+    /// types, exclure aussi le précédent figerait l'ordre et neutraliserait le penchant sonore ; le
+    /// précédent est donc seulement pondéré à la baisse.
     fn pick(&mut self, snap: &GovernorSnapshot) -> DistrictId {
-        let n = self.history.len();
-        let recent: Vec<DistrictKind> = self.history[n.saturating_sub(2)..].iter().map(|d| d.kind).collect();
-        // Exclusion du courant et du précédent ; à défaut du seul courant ; à défaut rien.
-        let only_current = [self.current.kind];
+        let previous = self.history.len().checked_sub(2).map(|i| self.history[i].kind);
         let kind = self
-            .pick_kind(snap, &recent)
-            .or_else(|| self.pick_kind(snap, &only_current))
-            .or_else(|| self.pick_kind(snap, &[]))
+            .pick_kind(snap, &[self.current.kind], previous)
+            .or_else(|| self.pick_kind(snap, &[], None))
             .unwrap_or(self.current.kind);
         let variant = self.pick_variant(kind);
         DistrictId { kind, variant }
     }
 
-    /// Tire un type hors de `excluded`, selon le penchant sonore. `None` si tout est exclu.
-    pub(super) fn pick_kind(&mut self, snap: &GovernorSnapshot, excluded: &[DistrictKind]) -> Option<DistrictKind> {
+    /// Tire un type hors de `excluded`, selon le penchant sonore ; `damped` voit sa probabilité réduite
+    /// ([`DAMPING`]). `None` si tout est exclu.
+    pub(super) fn pick_kind(
+        &mut self,
+        snap: &GovernorSnapshot,
+        excluded: &[DistrictKind],
+        damped: Option<DistrictKind>,
+    ) -> Option<DistrictKind> {
         let allowed: Vec<DistrictKind> = DistrictKind::ALL
             .into_iter()
             .filter(|k| !excluded.contains(k))
@@ -209,13 +235,18 @@ impl Governor {
         if allowed.is_empty() {
             return None;
         }
-        let weights: Vec<f64> = allowed.iter().map(|&k| kind_score(k, snap)).collect();
-        let total: f64 = weights.iter().sum();
+        let total: f64 = allowed.iter().map(|&k| kind_score(k, snap)).sum();
         let uniform = 1.0 / allowed.len() as f64;
-        let mut r = self.rng.next_f64();
-        for (&kind, w) in allowed.iter().zip(&weights) {
-            let p = BIAS_SHARE * w / total + (1.0 - BIAS_SHARE) * uniform;
-            if r < p {
+        let probs: Vec<f64> = allowed
+            .iter()
+            .map(|&k| {
+                let p = BIAS_SHARE * kind_score(k, snap) / total + (1.0 - BIAS_SHARE) * uniform;
+                if Some(k) == damped { p * DAMPING } else { p }
+            })
+            .collect();
+        let mut r = self.rng.next_f64() * probs.iter().sum::<f64>();
+        for (&kind, p) in allowed.iter().zip(&probs) {
+            if r < *p {
                 return Some(kind);
             }
             r -= p;
