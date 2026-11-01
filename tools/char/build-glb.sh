@@ -17,7 +17,7 @@ declare -A RATIO=([manul]=1.0 [robot]=0.5)
 for c in ${@:-manul robot}; do
   D=assets/char-src/$c
   T=$(mktemp -d)
-  "$BLENDER" -b -P tools/char/export.py -- "$D" > /dev/null
+  "$BLENDER" -b -P tools/char/export.py -- "$D" | grep RAPPORT
   python -I tools/char/make_mask.py "$D/${TEX_BASE[$c]}" ${H0[$c]} ${H1[$c]} ${SMIN[$c]} "$T/mask.png"
   node tools/car/inject-mask.mjs "$D/char_raw.glb" "$T/mask.png" "$T/m.glb" body_paint
   $G dedup "$T/m.glb" "$T/d.glb"
