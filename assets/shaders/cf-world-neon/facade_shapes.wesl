@@ -19,12 +19,7 @@ fn rect(f: vec2<f32>, lo: vec2<f32>, hi: vec2<f32>) -> f32 {
 }
 
 // `cell` : (travée, étage) entiers ; `f` : position dans la cellule, 0..1.
-fn shape_mask(shape_in: f32, cell: vec2<f32>, f: vec2<f32>, seed: f32, fade_out: f32) -> f32 {
-    // Qualité basse : l'écran qui défile (forme 4) redevient une fenêtre simple.
-    var shape = shape_in;
-    if shape > 3.5 && shape < 4.5 && facade.motion.w > 0.5 {
-        shape = 0.0;
-    }
+fn shape_mask(shape: f32, cell: vec2<f32>, f: vec2<f32>, seed: f32, fade_out: f32) -> f32 {
     var m = rect(f, vec2<f32>(0.16, 0.2), vec2<f32>(0.84, 0.8));
     if shape > 4.5 {
         // Étage teinté : la bande de l'étage d'un seul tenant, sans montant entre les travées.
@@ -32,7 +27,9 @@ fn shape_mask(shape_in: f32, cell: vec2<f32>, f: vec2<f32>, seed: f32, fade_out:
     } else if shape > 3.5 {
         // Écran qui défile : des bandes verticales qui avancent le long de l'étage, décalées d'un étage à l'autre.
         let phase = fract((cell.x + f.x) / 6.0 - facade.frame.x / SCREEN_PERIOD_S + h21(vec2<f32>(cell.y, seed)));
-        m = rect(f, vec2<f32>(0.0, 0.1), vec2<f32>(1.0, 0.9)) * smoothstep(0.0, 0.08, phase) * (1.0 - smoothstep(0.42, 0.5, phase));
+        let screen = rect(f, vec2<f32>(0.0, 0.1), vec2<f32>(1.0, 0.9)) * smoothstep(0.0, 0.08, phase) * (1.0 - smoothstep(0.42, 0.5, phase));
+        // Repli de qualité basse : `facade.motion.w` glisse de 0 à 1 en 1,5 s et fond l'écran en fenêtre simple, sans saut.
+        m = mix(screen, m, facade.motion.w);
     } else if shape > 2.5 {
         // Enseigne : un bloc de 2×2 travées, cadré comme une seule grande vitre.
         let block = floor(cell * 0.5);

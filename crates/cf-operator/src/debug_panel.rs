@@ -127,7 +127,10 @@ pub(crate) fn debug_window(
         .default_width(380.0)
         .show(ctx, |ui| {
             if let Some(mut tuning) = tuning {
-                draw_tuning(ui, &mut tuning);
+                if let Some(next) = draw_tuning(ui, *tuning) {
+                    // Écriture seulement sur un geste : sinon la ressource serait marquée changée à chaque image.
+                    *tuning = next;
+                }
                 ui.separator();
             }
             if let Some(mut selection) = selection {
@@ -158,14 +161,12 @@ pub(crate) fn debug_window(
 
 /// Les deux curseurs des façades. Ils n'écrivent que si la valeur bouge : le monde et les réglages sauvegardés ne sont
 /// réveillés que par un geste de l'opérateur.
-fn draw_tuning(ui: &mut egui::Ui, tuning: &mut FacadeTuning) {
+fn draw_tuning(ui: &mut egui::Ui, tuning: FacadeTuning) -> Option<FacadeTuning> {
     ui.strong("Façades");
-    let mut next = *tuning;
+    let mut next = tuning;
     ui.add(egui::Slider::new(&mut next.car_follow, 0.0..=1.0).text("Suivi de la voiture"));
     ui.add(egui::Slider::new(&mut next.window_life, 0.0..=1.0).text("Vie des fenêtres"));
-    if next != *tuning {
-        *tuning = next.clamped();
-    }
+    (next != tuning).then(|| next.clamped())
 }
 
 fn draw_cars(ui: &mut egui::Ui, selection: &mut CarSelection, settings: Option<&mut Settings>) {

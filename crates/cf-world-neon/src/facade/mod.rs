@@ -29,7 +29,10 @@ use bevy::shader::Shader;
 use cf_render::{CfSet, ScenePalette, ThemeLibrary, WarmupAppExt};
 
 pub use material::{FacadeMaterial, FacadeParams, TINT_COUNT};
-pub use systems::{FrameInputs, LOW_QUALITY_LEVEL, MotionDrive, MotionFlash, build_params, tint_rank};
+pub use systems::{
+    FrameInputs, LOW_QUALITY_FADE_S, LOW_QUALITY_LEVEL, LowQualityMix, MotionDrive, MotionFlash, build_params,
+    tint_rank,
+};
 pub use temperament::{LightShape, MotionKind, TEMPER_COUNT, TEMPERAMENTS, Temperament, temper_of};
 pub use trail::{CarTrail, FALLOFF_M, MIN_STEP_M, TRAIL_LIFETIME_S, TRAIL_POINTS};
 

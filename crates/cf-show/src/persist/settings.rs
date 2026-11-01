@@ -74,6 +74,7 @@ pub struct AppSettings {
     #[serde(deserialize_with = "lenient")]
     pub car: CarChoice,
     /// Panneaux de la fenêtre opérateur dont l'état est retenu (familles de l'onglet debug ouvertes, par exemple).
+    /// Contient aussi, par réutilisation, les entrées `debug-open:*` et les curseurs des façades `tuning:*` (cf-render).
     #[serde(deserialize_with = "lenient")]
     pub collapsed_panels: Vec<String>,
 }

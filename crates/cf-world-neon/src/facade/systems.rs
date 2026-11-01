@@ -54,8 +54,9 @@ pub struct FrameInputs {
     pub motion_sweep: f32,
     /// Part de mouvement rapide autorisée (`MotionDrive::flicker`), 0 à 1.
     pub motion_flicker: f32,
-    /// Qualité basse : plus de traîne, de scintillement rapide, de vie des fenêtres ni d'écrans qui défilent.
-    pub low_quality: bool,
+    /// Repli de qualité basse, 0 (qualité haute, rendu d'avant) à 1 (repli complet : plus de traîne, de scintillement
+    /// rapide, de vie des fenêtres ni d'écrans qui défilent). Il glisse en [`LOW_QUALITY_FADE_S`] (voir [`LowQualityMix`]).
+    pub low_mix: f32,
 }
 
 impl Default for FrameInputs {
@@ -73,7 +74,7 @@ impl Default for FrameInputs {
             noisiness: 0.0,
             motion_sweep: 0.0,
             motion_flicker: 0.0,
-            low_quality: false,
+            low_mix: 0.0,
         }
     }
 }
@@ -167,16 +168,17 @@ pub fn build_params(
             frame.brightness.clamp(0.0, 1.0),
             frame.noisiness.clamp(0.0, 1.0),
         ),
-        // z : part de vie des fenêtres (réglage opérateur), w : 1 coupe les écrans qui défilent (qualité basse). En qualité
-        // basse, le scintillement rapide et la vie des fenêtres tombent à zéro ; la voie lente des mouvements reste.
-        motion: if frame.low_quality {
-            Vec4::new(frame.motion_sweep.clamp(0.0, 1.0), 0.0, 0.0, 1.0)
-        } else {
+        // z : part de vie des fenêtres (réglage opérateur), w : part du repli de qualité basse qui fond les écrans qui
+        // défilent en fenêtres simples. Le repli (`low_mix`) réduit y et z de façon continue. Tout mouvement rapide est
+        // multiplié par y dans le shader : en repli complet il ne reste que la dérive, la base du projecteur et la
+        // respiration (lents).
+        motion: {
+            let keep = 1.0 - unit(frame.low_mix);
             Vec4::new(
                 frame.motion_sweep.clamp(0.0, 1.0),
-                frame.motion_flicker.clamp(0.0, 1.0),
-                unit(look.window_life),
-                0.0,
+                frame.motion_flicker.clamp(0.0, 1.0) * keep,
+                unit(look.window_life) * keep,
+                unit(frame.low_mix),
             )
         },
         // La traîne de la voiture dépend de l'origine flottante : `update_material` la remplit.
@@ -190,18 +192,44 @@ pub(super) fn unit(value: f32) -> f32 {
     if value.is_finite() { value.clamp(0.0, 1.0) } else { 0.0 }
 }
 
-/// Les uniformes de la traîne, éteints en qualité basse (la lueur de chaque point coûte à chaque fragment de façade).
+/// Durée, en s, du glissement vers (ou depuis) le repli de qualité basse : celle du bloom (`BLOOM_FADE_S`), pour qu'aucun
+/// effet ne disparaisse d'un coup (règle 7 : pas de saut de luminance).
+pub const LOW_QUALITY_FADE_S: f32 = 1.5;
+
+/// Le repli de qualité basse, lissé : 0 en qualité haute, 1 en repli complet, rampe linéaire dans les deux sens.
+///
+/// Par image à 60 i/s le pas est de 1/90 (≈ 0,011) ; le pas d'une image n'excède jamais `0,1 / 1,5` (≈ 0,067), même
+/// après un à-coup d'horloge.
+#[derive(Debug, Default, Clone, Copy, PartialEq)]
+pub struct LowQualityMix {
+    value: f32,
+}
+
+impl LowQualityMix {
+    /// Avance d'une image vers `low` (vrai : repli) et renvoie le repli courant, 0 à 1.
+    pub fn update(&mut self, dt_s: f32, low: bool) -> f32 {
+        let step = dt_s.clamp(0.0, 0.1) / LOW_QUALITY_FADE_S;
+        let target = if low { 1.0 } else { 0.0 };
+        self.value += (target - self.value).clamp(-step, step);
+        self.value
+    }
+}
+
+/// Les uniformes de la traîne, atténués par le repli de qualité basse (la lueur de chaque point coûte à chaque fragment
+/// de façade). `low_mix` 0 : inchangés ; 1 : éteints.
 pub(super) fn trail_for_quality(
     trail: &CarTrail,
     origin: Option<&FloatingOrigin>,
     now_s: f64,
-    low_quality: bool,
+    low_mix: f32,
 ) -> ([Vec4; TRAIL_POINTS], Vec4) {
-    if low_quality {
-        ([Vec4::ZERO; TRAIL_POINTS], Vec4::ZERO)
-    } else {
-        trail_uniforms(trail, origin, now_s)
+    let keep = 1.0 - unit(low_mix);
+    if keep <= 0.0 {
+        return ([Vec4::ZERO; TRAIL_POINTS], Vec4::ZERO);
     }
+    let (points, mut tint) = trail_uniforms(trail, origin, now_s);
+    tint.w *= keep;
+    (points, tint)
 }
 
 /// `CfSet::Present`, avant la traîne : recopie les curseurs de l'opérateur dans `FacadeLook` (seulement s'ils changent,
@@ -275,6 +303,7 @@ pub(super) fn update_material(
     quality: Option<Res<QualityLevers>>,
     mut flash: Local<TextureFlash>,
     mut motion: Local<MotionFlash>,
+    mut low: Local<LowQualityMix>,
 ) {
     let (Some(mut materials), Some(scenery)) = (materials, scenery) else {
         return;
@@ -302,7 +331,7 @@ pub(super) fn update_material(
         time_s: now_s,
         motion_sweep: drive.sweep,
         motion_flicker: drive.flicker,
-        low_quality: quality.is_some_and(|q| q.level >= LOW_QUALITY_LEVEL),
+        low_mix: low.update(dt_s, quality.is_some_and(|q| q.level >= LOW_QUALITY_LEVEL)),
         onset: flash.onset.pulse(),
         hat: flash.hat.pulse(),
         ..frame
@@ -310,7 +339,7 @@ pub(super) fn update_material(
     let mut params = build_params(&palette, &look, road.wet, road.rain, &frame);
     // La traîne de la voiture, en repère rendu ; sans voiture ni origine flottante, elle reste éteinte.
     if let Some(trail) = trail.as_deref() {
-        (params.trail, params.car_tint) = trail_for_quality(trail, origin.as_deref(), now_s, frame.low_quality);
+        (params.trail, params.car_tint) = trail_for_quality(trail, origin.as_deref(), now_s, frame.low_mix);
     }
     // Le champ de la ville (J7-08) : lumières des immeubles-vitrines, zone de glitch, panne de courant, en repère rendu.
     let field_params = field

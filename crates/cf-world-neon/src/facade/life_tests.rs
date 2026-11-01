@@ -30,7 +30,7 @@ fn life_is_part_of_the_facade_source() {
         "facade.wesl n'appelle pas window_life"
     );
     assert!(
-        FACADE_SOURCE.contains("select(window_life("),
+        FACADE_SOURCE.contains("lit *= window_life(") && FACADE_SOURCE.contains("if !far {"),
         "les immeubles lointains doivent être exclus"
     );
 }

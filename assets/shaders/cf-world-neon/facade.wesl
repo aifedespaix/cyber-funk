@@ -262,7 +262,9 @@ fn fragment(in: FacadeVarying) -> @location(0) vec4<f32> {
         lit *= mix(1.0, step(0.5, fract(time * 1.5 + window_rnd * 6.0)) * (0.4 + mid), blink);
 
         // Vie propre : télé qui papillote, extinction lente, néon qui grésille, toujours aux mêmes fenêtres (rien au loin).
-        lit *= select(window_life(cell, seed, time, temper_b.z * facade.motion.z, facade.motion.y), 1.0, far);
+        if !far {
+            lit *= window_life(cell, seed, time, temper_b.z * facade.motion.z, facade.motion.y);
+        }
 
         // Charleston : une poignée de fenêtres crépite, différente à chaque tranche de 40 ms.
         lit = max(lit, hat * step(h21(cell + 5.1 + floor(time * 25.0) * 3.7), 0.07) * (1.0 - dead));
@@ -294,8 +296,13 @@ fn fragment(in: FacadeVarying) -> @location(0) vec4<f32> {
         let behind = smoothstep(-power_edge, power_edge, (in.world.z - facade.power.x) * facade.power.w);
         let power_left = 1.0 - facade.power.z * behind;
         // Mouvement du tempérament (vague, dérive, balayage, pulsation) ; rien au loin : pas de scintillement sous-pixel.
-        let motion = select(motion_gain(temper_b.y, h, u, seed, time, beat, facade.motion.x), 1.0, far);
-        col += window_color * lit * mask * glow * motion * (1.0 + 0.45 * wet) * power_left;
+        var motion = 1.0;
+        if !far {
+            motion = motion_gain(temper_b.y, h, u, seed, time, beat, facade.motion.x);
+        }
+        // Règle 7 : le gain de mouvement ne s'ajoute qu'à la base stable (0,55), jamais au pouls brut du kick contenu dans
+        // `glow` ; sans mouvement (`motion` = 1) le terme est exactement nul et le rendu d'avant est inchangé.
+        col += window_color * lit * mask * (glow + 0.55 * (motion - 1.0)) * (1.0 + 0.45 * wet) * power_left;
         // Traîne de la voiture : la lumière des fenêtres déjà allumées s'attarde là où elle est passée (rien au loin).
         if !far {
             col += trail_window_light(in.world, window_color) * lit * mask * (1.0 + 0.45 * wet) * power_left;

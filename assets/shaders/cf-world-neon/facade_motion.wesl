@@ -8,7 +8,14 @@
 // Sécurité photosensible (règle 7 de `CLAUDE.md`, WCAG 2.3.1) : `facade.motion.x` est la voie « rapide » déjà passée par
 // le limiteur (3 départs par seconde au plus, fondus d'au moins `MIN_FADE`), `facade.motion.y` la part de mouvement rapide
 // autorisée (0 sans spectacle, flashs coupés ou respiration). Ce qui reste quand elle vaut 0 est lent (cycles de 4 s et
-// plus) et lisse, sans front : il ne compte pas pour un flash. Aucun mouvement ne dépasse +50 % de la lumière.
+// plus) et lisse, sans front : il ne compte pas pour un flash.
+//
+// Bornes réelles : le facteur renvoyé vaut au plus 1,5 (vague), 1,15 (dérive), 1,65 (projecteur) et 1,48 (pulsation). Il
+// n'est appliqué qu'à la base stable des fenêtres (0,55 dans `facade.wesl`), jamais au pouls brut du kick : l'ajout de
+// lumière est donc au plus 0,55 x 0,65, soit +65 % de la base, et ne dépend que de la voie limitée, de `fast` (montée et
+// descente en `MIN_FADE` au moins) et de termes lents. Le terme `0,15 * fast` de la vague n'est pas borné par la voie
+// `sweep`, mais `fast` est lissé et nul sans flashs ; la forme de la bande (14 m) suit la vague du kick sans en utiliser
+// l'amplitude.
 
 // Périodes, en secondes : toutes divisent 2 400 s, la durée au bout de laquelle le temps du shader reboucle, donc aucun
 // mouvement ne saute au rebouclage.
