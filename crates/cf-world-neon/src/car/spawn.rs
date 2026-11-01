@@ -38,7 +38,7 @@ pub struct CarAssets<'w> {
     pub lights: ResMut<'w, Assets<CarLightMaterial>>,
 }
 
-fn standard_material(def: &MaterialData, images: &[Handle<Image>]) -> StandardMaterial {
+pub(crate) fn standard_material(def: &MaterialData, images: &[Handle<Image>]) -> StandardMaterial {
     let image = |index: Option<usize>| index.and_then(|i| images.get(i)).cloned();
     let emissive = def.emissive;
     StandardMaterial {

@@ -165,7 +165,9 @@ impl Plugin for NeonWorldPlugin {
                 .run_if(resource_exists::<scenery::arches::ArchPool>),
         );
         // Teinte des carrosseries de moto et des pilotes (X-10) : le matériau et son shader, prêts avant le premier show.
-        app.add_plugins(rider::RiderTintPlugin);
+        if !app.is_plugin_added::<rider::RiderTintPlugin>() {
+            app.add_plugins(rider::RiderTintPlugin);
+        }
         if self.standalone {
             // Le pilote crée la voiture (elle porte `StreamFocus`) : pas de point suivi provisoire avec lui.
             app.add_plugins((ChaseCameraPlugin, PilotPlugin::default(), CarPlugin::default()));

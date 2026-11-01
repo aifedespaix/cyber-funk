@@ -131,6 +131,14 @@ impl Plugin for CarPlugin {
                 .unwrap_or_default();
             app.insert_resource(velvet);
         }
+        // Le conducteur de la dirty car (X-10) : lu avec la voiture, posé sur sa caisse (`rider::driver`).
+        if !app.is_plugin_added::<crate::rider::RiderTintPlugin>() {
+            app.add_plugins(crate::rider::RiderTintPlugin);
+        }
+        app.insert_resource(crate::rider::driver::DriverSource(
+            self.assets_dir.join("models/characters/driver-car.glb"),
+        ))
+        .add_systems(Startup, crate::rider::driver::load_driver);
         app.add_systems(Startup, systems::load_model)
             .add_systems(
                 Update,
@@ -139,6 +147,7 @@ impl Plugin for CarPlugin {
                     systems::receive_standby,
                     switch::sync_selection,
                     switch::switch_car,
+                    crate::rider::driver::attach_driver,
                     systems::drive_car,
                     systems::advance_look,
                     systems::apply_model_lights,

@@ -4,6 +4,8 @@
 //! (le lecteur de GLB du jeu ne lit que des maillages statiques) ; voir
 //! `docs/superpowers/specs/2026-11-01-motos-pilotes-design.md`.
 
+pub mod driver;
+pub mod spawn;
 pub mod tint;
 
 pub use tint::{RiderPaintMaterial, RiderTintExt, RiderTintPlugin, tinted, variant_color};
