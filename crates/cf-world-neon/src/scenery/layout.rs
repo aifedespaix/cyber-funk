@@ -9,9 +9,11 @@
 //! qui change d'un monde à l'autre, ce sont les événements, pas les immeubles.
 
 use super::config::SceneryConfig;
+use super::districts::{district_look, weighted_temper};
 use crate::facade::temper_of;
 use crate::rng::hash;
 use crate::route::is_near_bridge;
+use cf_show::district::DistrictKind;
 
 /// Distance entre deux rangées, en m (`SPACING`). Égale à la longueur d'un tronçon du streaming.
 pub const SPACING_M: f64 = 26.0;
@@ -285,6 +287,8 @@ impl Row {
         let layer_on = layer_index < NEAR_LAYERS || layer_index - NEAR_LAYERS < config.far_layers();
         let side: i8 = if slot.is_multiple_of(2) { -1 } else { 1 };
         let seed = self.index as f64 * 13.37 + slot as f64 * 71.1;
+        let kind = config.kind_at(self.index, seed);
+        let look = district_look(kind);
 
         // La ville s'écarte devant le pied d'une arche.
         let row_z = -(self.index as f64) * SPACING_M;
@@ -292,13 +296,14 @@ impl Row {
             || hash(seed, 1.0) < layer.skip
             || (layer_index == 0 && is_near_bridge(row_z, 12.0))
             || config.cleared(row_z, side)
+            || (kind != DistrictKind::Neon && hash(seed, 19.0) < look.skip_chance)
         {
             return;
         }
 
         let w = lerp(layer.width, hash(seed, 2.0));
         let d = lerp(layer.depth, hash(seed, 3.0));
-        let h = lerp(layer.height, hash(seed, 4.0).powf(1.4));
+        let h = lerp(layer.height, hash(seed, 4.0).powf(1.4)) * look.height_scale;
         let center_x = f64::from(side) * (layer.x + hash(seed, 5.0) * layer.spread + w / 2.0);
         let jitter = (hash(seed, 6.0) - 0.5) * 6.0;
         let z = row_z + jitter;
@@ -324,7 +329,12 @@ impl Row {
         }
 
         // Un seul tempérament par immeuble : le corps, la couronne et l'antenne partagent la même façade.
-        let temper = temper_of(self.index, seed01);
+        let temper = if kind == DistrictKind::Neon {
+            temper_of(self.index, seed01)
+        } else {
+            let draw = hash(self.index as f64 * 7.31 + f64::from(seed01) * 0.37, 91.0);
+            weighted_temper(&look.temper_weights, draw)
+        };
         let part = |tier, y: f64, size: [f64; 3], seed: u16, spot_floor| Part {
             tier,
             x: center_x as f32,

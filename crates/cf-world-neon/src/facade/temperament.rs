@@ -99,6 +99,12 @@ pub const TEMPERAMENTS: [Temperament; TEMPER_COUNT] = [
 /// Bornes cumulées du tirage : 40 % de bureau stable, 32 % d'autres calmes (1 à 3), 28 % de rafales (4 à 7).
 const CUMULATIVE: [f64; TEMPER_COUNT] = [0.40, 0.52, 0.62, 0.72, 0.80, 0.86, 0.92, 1.0];
 
+/// Les poids du tirage historique (différences des bornes cumulées), pour les quartiers qui le pondèrent.
+#[must_use]
+pub fn temper_weights() -> [f64; TEMPER_COUNT] {
+    std::array::from_fn(|i| CUMULATIVE[i] - if i == 0 { 0.0 } else { CUMULATIVE[i - 1] })
+}
+
 /// L'indice de tempérament (`0..TEMPER_COUNT`) d'un immeuble : fonction pure de sa rangée et de sa graine.
 #[must_use]
 pub fn temper_of(row_index: i64, seed: u16) -> u8 {

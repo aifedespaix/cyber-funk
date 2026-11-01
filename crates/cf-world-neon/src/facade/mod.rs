@@ -33,7 +33,7 @@ pub use systems::{
     FrameInputs, LOW_QUALITY_FADE_S, LOW_QUALITY_LEVEL, LowQualityMix, MotionDrive, MotionFlash, build_params,
     tint_rank,
 };
-pub use temperament::{LightShape, MotionKind, TEMPER_COUNT, TEMPERAMENTS, Temperament, temper_of};
+pub use temperament::{LightShape, MotionKind, TEMPER_COUNT, TEMPERAMENTS, Temperament, temper_of, temper_weights};
 pub use trail::{CarTrail, FALLOFF_M, MIN_STEP_M, TRAIL_LIFETIME_S, TRAIL_POINTS};
 
 /// Le front de panne de courant au repos : profondeur nulle, la ville est entièrement éclairée.

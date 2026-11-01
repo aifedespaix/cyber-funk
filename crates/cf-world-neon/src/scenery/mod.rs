@@ -31,6 +31,9 @@
 
 pub mod arches;
 mod config;
+pub mod districts;
+#[cfg(test)]
+mod districts_tests;
 pub mod layout;
 mod plan;
 pub mod query;
@@ -41,6 +44,7 @@ use bevy::prelude::*;
 use cf_render::streaming::ArchetypeId;
 
 pub use config::{Clearing, FAR_BY_QUALITY, SceneryConfig};
+pub use districts::{DistrictLook, DistrictPlan, LEAD_ROWS, district_look};
 pub use layout::{
     BASE_DEPTH_M, FLOOR_HEIGHT_M, Hitbox, MAX_PARTS, Part, Row, SPACING_M, SpotAnchor, TINT_CYCLE_LEN, Tier,
 };

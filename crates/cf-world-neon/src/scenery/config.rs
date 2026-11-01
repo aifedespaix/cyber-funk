@@ -1,5 +1,7 @@
 //! Réglages de la ville : ce qui change son contenu sans changer ses tirages (qualité, zones dégagées).
 
+use super::districts::DistrictPlan;
+
 /// Couronnes lointaines conservées selon le niveau de qualité (0 = tout, 3 = le strict minimum).
 pub const FAR_BY_QUALITY: [usize; 4] = [3, 3, 2, 1];
 
@@ -30,6 +32,9 @@ pub struct SceneryConfig {
     /// Zone dégagée pour l'enseigne du DJ : indépendante de celles du trafic, qui remplacent leur liste à chaque
     /// événement.
     sign_clearing: Option<Clearing>,
+    /// Plan de quartiers de la route, et son interrupteur (faux : la ville historique).
+    pub(super) districts: DistrictPlan,
+    pub(super) districts_active: bool,
 }
 
 impl Default for SceneryConfig {
@@ -38,6 +43,8 @@ impl Default for SceneryConfig {
             far_layers: FAR_BY_QUALITY[0],
             clearings: Vec::new(),
             sign_clearing: None,
+            districts: DistrictPlan::default(),
+            districts_active: false,
         }
     }
 }
