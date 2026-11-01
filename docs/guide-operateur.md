@@ -90,7 +90,7 @@ look calme (le journal le dit).
 ## 4 bis. Réglages sauvegardés et Debug monde
 
 **Réglages sauvegardés.** Le logiciel retient d'un lancement à l'autre la source audio, les périphériques du micro et de
-la ligne, le niveau de qualité que vous avez fixé, la voiture choisie, les deux curseurs des façades (ci-dessous) et les familles ouvertes de l'onglet Debug monde.
+la ligne, le niveau de qualité que vous avez fixé, la voiture choisie, les deux curseurs des façades (ci-dessous) et la présentation de la fenêtre Debug monde (sections repliées, familles ouvertes).
 Le fichier est `settings.ron`, dans le dossier de configuration de l'utilisateur (sous Windows
 `%APPDATA%\cyber-funk\settings.ron`). Pour tout remettre à zéro, fermez l'application et supprimez ce fichier. Un fichier
 abîmé ne bloque jamais le démarrage : les valeurs par défaut sont reprises. L'option `--audio-source` de la ligne de
@@ -100,6 +100,25 @@ commande l'emporte sur la source retenue. En `--soak`, rien n'est lu ni écrit.
 n'existe pas en Live. Elle permet de choisir la voiture (dirty car ou CyberCar, instantané : les deux sont chargées à
 l'ouverture) et de lancer à la main les événements du monde, rangés par famille (trafic et ciel, immeubles-vitrines),
 avec une recherche. Un événement lancé passe par le même chemin que le MIDI : le limiteur de flashs reste actif.
+Tout le contenu défile (pratique sur un petit écran) et se range en quatre sections repliables : Façades, Voiture,
+Quartiers, Événements. Les sections repliées et les familles ouvertes sont retenues d'une session à l'autre (les
+anciennes familles retenues par une version précédente sont reprises sans rien faire).
+
+**Quartiers.** La section montre le quartier courant et sa variante de couleurs (« Banlieue, variante 2 »), le quartier
+visé pendant une transition avec une barre de progression, la raison de la dernière décision de l'automatique (par
+exemple « bloqué : drop imminent ») et les 5 derniers quartiers, du plus récent au plus ancien. Les commandes :
+
+- **Type**, **Variante**, **Transition** : le quartier à forcer. Seul le dégradé existe pour l'instant ; les six autres
+  transitions sont proposées mais jouées en dégradé, ce que la fenêtre signale par « (repli : dégradé) ».
+- **Durée du dégradé** (1 à 10 s) : longueur des prochaines transitions.
+- **Forcer** : passe tout de suite au quartier choisi, sans attendre les règles de l'automatique (même pendant un drop
+  ou une transition en cours, qu'il remplace). Le limiteur de flashs reste actif.
+- **Geler l'automatique** : l'automatique ne change plus de quartier ; « Forcer » marche toujours.
+
+Rien de cette section n'est sauvegardé : à chaque lancement, l'automatique repart non gelé, sans quartier forcé, avec le
+choix par défaut. Les déclencheurs `district:neon`, `district:suburb` et `district:residential` restent disponibles pour
+le MIDI, mais ne sont pas répétés dans la liste des événements. Attention : aucune vérification visuelle n'a encore été
+faite, et les couleurs des quartiers sont un premier réglage, à ajuster à l'œil.
 
 **Façades : deux curseurs.** En haut de la fenêtre Debug monde, de 0 à 1 (1 : plein effet, la valeur de départ) :
 

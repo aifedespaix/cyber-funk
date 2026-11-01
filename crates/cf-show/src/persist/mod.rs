@@ -20,4 +20,4 @@ pub use document::EventDocument;
 pub use error::PersistError;
 pub use io::{backup_path, clear_save, read_save, write_atomic, write_save};
 pub use save::{RESUME_WINDOW_S, SAVE_EVERY_S, SAVE_VERSION, SavePacer, SavedKnob, ShowSave};
-pub use settings::{AppSettings, CarChoice, SETTINGS_VERSION};
+pub use settings::{AppSettings, CarChoice, DebugPanelPrefs, SETTINGS_VERSION};

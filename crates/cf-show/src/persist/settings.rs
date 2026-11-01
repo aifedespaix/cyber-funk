@@ -4,6 +4,7 @@
 //! tolérante par construction : un fichier absent, tronqué, d'une autre version ou dont un champ est invalide ne doit
 //! jamais empêcher de démarrer (skill `live-safety`).
 
+use std::collections::BTreeSet;
 use std::path::Path;
 
 use serde::{Deserialize, Deserializer, Serialize};
@@ -45,6 +46,22 @@ impl From<CarChoice> for String {
     }
 }
 
+/// Ce que la fenêtre « Debug monde » (F4, `cf-operator`) retient de sa présentation.
+///
+/// Seulement la présentation : le gel de l'automatique, le quartier forcé et les choix en cours du panneau ne sont
+/// jamais sauvegardés (outil de debug, chaque session repart de l'automatique). On retient les exceptions à l'état
+/// par défaut : les sections sont ouvertes par défaut, les familles d'événements fermées.
+#[derive(Debug, Clone, PartialEq, Eq, Default, Serialize, Deserialize)]
+#[serde(default)]
+pub struct DebugPanelPrefs {
+    /// Sections repliées par l'opérateur (identifiants stables choisis par `cf-operator`, ex. `"districts"`).
+    #[serde(deserialize_with = "lenient")]
+    pub closed_sections: BTreeSet<String>,
+    /// Familles d'événements ouvertes (nom de famille du catalogue, ex. `"Trafic"`).
+    #[serde(deserialize_with = "lenient")]
+    pub open_families: BTreeSet<String>,
+}
+
 /// Ce que le logiciel retient d'un lancement à l'autre.
 ///
 /// Les périphériques sont gardés par leur nom : un nom absent ce jour-là reste écrit (la prise reviendra), l'appelant
@@ -74,9 +91,14 @@ pub struct AppSettings {
     #[serde(deserialize_with = "lenient")]
     pub car: CarChoice,
     /// Panneaux de la fenêtre opérateur dont l'état est retenu (familles de l'onglet debug ouvertes, par exemple).
-    /// Contient aussi, par réutilisation, les entrées `debug-open:*` et les curseurs des façades `tuning:*` (cf-render).
+    /// Contient aussi, par réutilisation, les curseurs des façades `tuning:*` (cf-render) et, dans les fichiers écrits
+    /// avant [`DebugPanelPrefs`], les familles ouvertes `debug-open:*` (migrées par `cf-operator` au premier geste).
     #[serde(deserialize_with = "lenient")]
     pub collapsed_panels: Vec<String>,
+    /// Présentation de la fenêtre « Debug monde ». Absent des fichiers écrits avant son ajout : valeur par défaut, et
+    /// les anciennes entrées `debug-open:*` de `collapsed_panels` restent comprises (`cf-operator`).
+    #[serde(deserialize_with = "lenient")]
+    pub debug_panel: DebugPanelPrefs,
 }
 
 impl Default for AppSettings {
@@ -90,6 +112,7 @@ impl Default for AppSettings {
             quality: None,
             car: CarChoice::default(),
             collapsed_panels: Vec::new(),
+            debug_panel: DebugPanelPrefs::default(),
         }
     }
 }

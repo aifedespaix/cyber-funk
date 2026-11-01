@@ -1,0 +1,219 @@
+//! Section « Quartiers » : lire l'état du moteur de quartiers et lui donner des ordres de debug.
+//!
+//! Le monde (`cf-world-neon`) écrit [`DistrictState`] et lit [`DistrictOrder`] ; le panneau ne fait qu'afficher l'un et
+//! écrire l'autre. Un forçage contourne les règles du gouverneur (outil de debug) mais jamais le limiteur de flashs.
+//! Rien de ce qu'on choisit ici n'est sauvegardé : chaque session repart de l'automatique.
+
+use bevy_egui::egui;
+use cf_render::{DISTRICT_HISTORY, DistrictOrder, DistrictState, GradeLibrary};
+use cf_show::district::{DistrictId, DistrictKind, TransitionKind};
+
+use crate::OperatorMode;
+
+/// Les sept transitions, dans l'ordre de la liste déroulante.
+pub(crate) const TRANSITIONS: [TransitionKind; 7] = [
+    TransitionKind::Gradient,
+    TransitionKind::Fog,
+    TransitionKind::Buffer,
+    TransitionKind::Bridge,
+    TransitionKind::Shrink,
+    TransitionKind::Blackout,
+    TransitionKind::Interchange,
+];
+
+/// Bornes (s) du curseur de durée, les mêmes que celles que le monde applique à `SetFadeSeconds`.
+const FADE_RANGE_S: std::ops::RangeInclusive<f32> = 1.0..=10.0;
+
+/// Mention affichée quand la transition choisie n'existe pas encore.
+const FALLBACK_NOTE: &str = "(repli : dégradé)";
+
+/// Le quartier que l'opérateur s'apprête à forcer. Vit dans `DebugState`, jamais dans les réglages.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct DistrictPick {
+    /// Type visé.
+    pub kind: DistrictKind,
+    /// Variante d'étalonnage visée (index à partir de 0, affichée à partir de 1).
+    pub variant: u8,
+    /// Transition demandée.
+    pub transition: TransitionKind,
+}
+
+impl Default for DistrictPick {
+    fn default() -> Self {
+        Self {
+            kind: DistrictKind::Neon,
+            variant: 0,
+            transition: TransitionKind::Gradient,
+        }
+    }
+}
+
+impl DistrictPick {
+    /// Ramène la variante sous `count` (un autre type peut en avoir moins).
+    pub(crate) fn clamp_variant(&mut self, count: u8) {
+        self.variant = self.variant.min(count.saturating_sub(1));
+    }
+}
+
+/// Les gestes de l'opérateur sur une image.
+#[derive(Debug, Clone, Copy, Default, PartialEq)]
+pub(crate) struct DistrictGestures {
+    /// Clic sur « Forcer ».
+    pub force: bool,
+    /// Case « Geler l'automatique » basculée vers cette valeur.
+    pub frozen: Option<bool>,
+    /// Curseur de durée déplacé vers cette valeur (s, déjà bornée).
+    pub fade_s: Option<f32>,
+}
+
+/// Les ordres à écrire pour ces gestes. Aucun hors Préparation : en Live, le panneau n'existe pas.
+pub(crate) fn district_orders(
+    mode: OperatorMode,
+    pick: &DistrictPick,
+    gestures: &DistrictGestures,
+) -> impl Iterator<Item = DistrictOrder> {
+    let live = mode != OperatorMode::Preparation;
+    let force = gestures.force.then_some(DistrictOrder::Force {
+        to: DistrictId {
+            kind: pick.kind,
+            variant: pick.variant,
+        },
+        transition: pick.transition,
+    });
+    let frozen = gestures.frozen.map(DistrictOrder::SetFrozen);
+    let fade = gestures.fade_s.map(DistrictOrder::SetFadeSeconds);
+    [force, frozen, fade].into_iter().flatten().filter(move |_| !live)
+}
+
+/// « (repli : dégradé) » pour une transition pas encore implémentée.
+pub(crate) fn fallback_note(transition: TransitionKind) -> Option<&'static str> {
+    (!transition.implemented()).then_some(FALLBACK_NOTE)
+}
+
+/// La raison de la dernière décision du gouverneur, en clair.
+pub(crate) fn reason_label(state: &DistrictState) -> &'static str {
+    state.last_reason.label()
+}
+
+/// « Banlieue, variante 2 » : la variante est comptée à partir de 1 pour l'opérateur.
+pub(crate) fn district_label(id: DistrictId) -> String {
+    format!("{}, variante {}", id.kind.label(), u16::from(id.variant) + 1)
+}
+
+/// Nombre de variantes proposées pour un type : celui de la bibliothèque d'étalonnages, au moins 1 (bibliothèque
+/// absente ou vide : seule la variante 0 existe, que le monde sait toujours jouer).
+pub(crate) fn variant_count(library: Option<&GradeLibrary>, kind: DistrictKind) -> u8 {
+    library.map_or(1, |library| library.variants(kind)).max(1)
+}
+
+/// La nouvelle durée à envoyer, bornée, seulement si elle diffère de la valeur en place.
+pub(crate) fn fresh_fade(current_s: f32, wanted_s: f32) -> Option<f32> {
+    let wanted = wanted_s.clamp(*FADE_RANGE_S.start(), *FADE_RANGE_S.end());
+    ((wanted - current_s).abs() > f32::EPSILON).then_some(wanted)
+}
+
+/// Le contenu de la section. Renvoie les gestes de l'image ; l'appelant les traduit en ordres.
+pub(super) fn draw_districts(
+    ui: &mut egui::Ui,
+    state: Option<&DistrictState>,
+    library: Option<&GradeLibrary>,
+    pick: &mut DistrictPick,
+) -> DistrictGestures {
+    let mut gestures = DistrictGestures::default();
+    let Some(state) = state else {
+        ui.weak("Moteur de quartiers absent (monde absent).");
+        return gestures;
+    };
+    draw_status(ui, state);
+    ui.separator();
+
+    egui::Grid::new("debug-districts-pick").num_columns(2).show(ui, |ui| {
+        ui.label("Type");
+        egui::ComboBox::from_id_salt("debug-district-kind")
+            .selected_text(pick.kind.label())
+            .show_ui(ui, |ui| {
+                for kind in DistrictKind::ALL {
+                    ui.selectable_value(&mut pick.kind, kind, kind.label());
+                }
+            });
+        ui.end_row();
+
+        let count = variant_count(library, pick.kind);
+        pick.clamp_variant(count);
+        ui.label("Variante");
+        let mut shown = u16::from(pick.variant) + 1;
+        ui.add(
+            egui::DragValue::new(&mut shown)
+                .range(1..=u16::from(count))
+                .suffix(format!(" / {count}")),
+        );
+        pick.variant = u8::try_from(shown.saturating_sub(1)).unwrap_or(0);
+        pick.clamp_variant(count);
+        ui.end_row();
+
+        ui.label("Transition");
+        egui::ComboBox::from_id_salt("debug-district-transition")
+            .selected_text(pick.transition.label())
+            .show_ui(ui, |ui| {
+                for transition in TRANSITIONS {
+                    let text = match fallback_note(transition) {
+                        Some(note) => format!("{} {note}", transition.label()),
+                        None => transition.label().to_owned(),
+                    };
+                    ui.selectable_value(&mut pick.transition, transition, text);
+                }
+            });
+        ui.end_row();
+    });
+    if let Some(note) = fallback_note(pick.transition) {
+        ui.weak(note);
+    }
+
+    let mut fade = state.fade_s;
+    ui.add(
+        egui::Slider::new(&mut fade, FADE_RANGE_S)
+            .text("Durée du dégradé")
+            .suffix(" s"),
+    );
+    gestures.fade_s = fresh_fade(state.fade_s, fade);
+
+    ui.horizontal(|ui| {
+        gestures.force = ui
+            .button("Forcer")
+            .on_hover_text("Passe tout de suite à ce quartier, sans attendre les règles. Le limiteur reste actif.")
+            .clicked();
+        let mut frozen = state.frozen;
+        if ui.checkbox(&mut frozen, "Geler l'automatique").changed() {
+            gestures.frozen = Some(frozen);
+        }
+    });
+    gestures
+}
+
+/// Quartier courant, cible, progression, raison et historique.
+fn draw_status(ui: &mut egui::Ui, state: &DistrictState) {
+    ui.label(format!("Courant : {}", district_label(state.current)));
+    if let Some(target) = state.target {
+        ui.label(format!(
+            "Vers : {} ({})",
+            district_label(target),
+            state.transition.label()
+        ));
+        ui.add(egui::ProgressBar::new(state.progress.clamp(0.0, 1.0)).show_percentage());
+        if state.fallback {
+            ui.weak(FALLBACK_NOTE);
+        }
+    }
+    ui.label(format!("Dernière décision : {}", reason_label(state)));
+    if state.frozen {
+        ui.colored_label(egui::Color32::LIGHT_BLUE, "Automatique gelé");
+    }
+    egui::CollapsingHeader::new(format!("{DISTRICT_HISTORY} derniers quartiers (du plus récent)"))
+        .id_salt("debug-district-history")
+        .default_open(true)
+        .show(ui, |ui| {
+            for id in state.history.iter().rev().flatten() {
+                ui.label(district_label(*id));
+            }
+        });
+}

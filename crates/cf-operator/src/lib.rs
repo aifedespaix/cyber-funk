@@ -54,7 +54,10 @@ impl Plugin for OperatorPlugin {
             .add_systems(Startup, prepare::init_session);
         // Le binaire écrit l'état de la mise à jour (J9-06) ; l'opérateur ne fait que l'afficher.
         app.init_resource::<UpdateStatus>().add_message::<InstallUpdate>();
-        app.init_resource::<debug_panel::DebugState>();
+        // Le panneau Debug monde écrit des ordres de quartier ; le monde enregistre le même message (idempotent), et
+        // sans monde ils restent simplement sans lecteur.
+        app.init_resource::<debug_panel::DebugState>()
+            .add_message::<cf_render::DistrictOrder>();
         live::build(app);
         preview::build(app);
         freecam::build(app);
