@@ -6,6 +6,7 @@
 //! vivent aussi ici (voir skills `show-model` et `live-safety`).
 
 pub mod director;
+pub mod district;
 pub mod drop;
 #[cfg(any(test, feature = "fault-injection"))]
 pub mod fault;
