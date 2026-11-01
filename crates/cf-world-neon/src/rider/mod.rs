@@ -5,6 +5,7 @@
 //! `docs/superpowers/specs/2026-11-01-motos-pilotes-design.md`.
 
 pub mod driver;
+pub mod moto;
 pub mod spawn;
 pub mod tint;
 

@@ -61,7 +61,7 @@ pub(crate) fn attach_driver(
     if *equipped == Some(rig.chassis) {
         return;
     }
-    let (root, _) = spawn_model(&mut commands, rig.chassis, model.0.clone(), &mut assets, None);
+    let (root, _) = spawn_model(&mut commands, rig.chassis, model.0.clone(), &mut assets.refs(), None);
     commands.entity(root).insert(Driver);
     *equipped = Some(rig.chassis);
 }

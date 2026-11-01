@@ -31,6 +31,31 @@ pub struct RiderAssets<'w> {
     pub tinted: bevy::ecs::system::ResMut<'w, Assets<RiderPaintMaterial>>,
 }
 
+impl RiderAssets<'_> {
+    /// Les collections sous forme de simples références, pour les systèmes qui ont déjà leurs propres accès aux assets.
+    pub fn refs(&mut self) -> ModelAssets<'_> {
+        ModelAssets {
+            meshes: &mut self.meshes,
+            images: &mut self.images,
+            standard: &mut self.standard,
+            tinted: &mut self.tinted,
+        }
+    }
+}
+
+/// Les collections d'assets, empruntées : ce que consomme [`spawn_model`].
+#[allow(missing_debug_implementations)] // Les collections d'assets de Bevy n'implémentent pas `Debug`.
+pub struct ModelAssets<'a> {
+    /// Maillages.
+    pub meshes: &'a mut Assets<Mesh>,
+    /// Images (textures décodées).
+    pub images: &'a mut Assets<Image>,
+    /// Matériaux standards.
+    pub standard: &'a mut Assets<StandardMaterial>,
+    /// Matériaux teintés.
+    pub tinted: &'a mut Assets<RiderPaintMaterial>,
+}
+
 /// La teinte à donner aux carrosseries d'un modèle.
 #[derive(Debug, Clone, Copy)]
 pub struct Tint<'a> {
@@ -65,7 +90,7 @@ pub fn spawn_model(
     commands: &mut Commands,
     parent: Entity,
     mut model: CarModelAsset,
-    assets: &mut RiderAssets,
+    assets: &mut ModelAssets<'_>,
     tint: Option<Tint<'_>>,
 ) -> (Entity, SpawnedModel) {
     let images: Vec<Handle<Image>> = model.images.drain(..).map(|i| assets.images.add(i)).collect();
