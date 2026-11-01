@@ -4,9 +4,10 @@
 // Ce texte est ajouté au bout de `facade.wesl` (voir `FACADE_SOURCE` dans `material.rs`) : il lit `facade.trail` et
 // `facade.car_tint`. Aucune lumière dynamique, aucun état par immeuble : seize points en uniformes, rien d'autre.
 //
-// Sécurité photosensible (règle 7 de `CLAUDE.md`, WCAG 2.3.1) : chaque point s'éteint en 6 s (`TRAIL_LIFETIME_S` côté
-// Rust) et la lueur s'étale sur 40 m (`TRAIL_FALLOFF_M`) ; à 60 m/s une façade la voit monter et retomber en plusieurs
-// secondes, sans front. Ne pas réduire ces deux bornes.
+// Sécurité photosensible (règle 7 de `CLAUDE.md`, WCAG 2.3.1) : chaque point naît en fondu de 0,4 s, s'éteint au plus tard
+// en 6 s (`TRAIL_LIFETIME_S` côté Rust) et la lueur s'étale sur 40 m (`TRAIL_FALLOFF_M`). Le tampon ne tient que 16 points
+// espacés de 6 m au moins : à 60 m/s il couvre 1,6 s (environ 100 m), le plus ancien est réécrit à environ 54 %, masqué
+// par son voisin à 6 m (écart inférieur à 0,03). Sans front : ne pas réduire ces bornes.
 
 const TRAIL_POINTS: i32 = 16;
 // Demi-largeur de la lueur autour d'un point, en mètres.

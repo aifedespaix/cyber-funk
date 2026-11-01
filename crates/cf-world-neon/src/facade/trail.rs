@@ -5,9 +5,15 @@
 //!   dans le repère rendu : un recentrage de l'origine flottante ne déplace donc aucune lueur.
 //! - **Aucune allocation** : un tampon circulaire de taille fixe, des tableaux sur la pile.
 //! - **Sécurité photosensible** (règle 7 de `CLAUDE.md`, WCAG 2.3.1) : la lueur ne peut pas produire de variation rapide
-//!   de luminance. Chaque point s'éteint en [`TRAIL_LIFETIME_S`] (6 s) selon une courbe lisse, et le shader l'étale sur
-//!   [`FALLOFF_M`] (40 m) : à 60 m/s une façade voit la lueur monter et retomber en plusieurs secondes, jamais en un
-//!   front. Ce n'est pas un flash, donc pas de limiteur, mais ces deux bornes ne doivent pas être réduites.
+//!   de luminance. Un point naît en fondu ([`FADE_IN_S`], 0,4 s : jamais de saut quand la voiture repart), s'éteint au
+//!   plus tard en [`TRAIL_LIFETIME_S`] (6 s) selon une courbe lisse, et le shader l'étale sur [`FALLOFF_M`] (40 m).
+//!   Le tampon ne tient que 16 points espacés de 6 m au moins : à 60 m/s (un point tous les 0,1 s) il ne couvre que
+//!   1,6 s, soit environ 100 m, et le plus ancien est réécrit à environ 54 % d'intensité. Ce n'est pas un saut visible :
+//!   son voisin, à 6 m, éclaire presque autant (0,98 de recouvrement à 40 m d'étalement), et un test borne le pas d'une
+//!   image à l'autre. La durée de 6 s n'est donc atteinte qu'à basse vitesse (moins de 16 points en 6 s, soit moins
+//!   de 16 m/s). Ce n'est pas un flash, donc pas de limiteur, mais ces bornes ne doivent pas être réduites.
+//! - **Continuité** : un saut d'horloge (bascule de `FacadeLook::clock_s`) décale les dates des points du même écart, les
+//!   âges ne changent pas ; une téléportation (plus de [`TELEPORT_M`] entre deux positions) vide le tampon.
 
 use bevy::math::{DVec3, Vec3, Vec4};
 use bevy::prelude::*;
@@ -22,6 +28,13 @@ pub const TRAIL_POINTS: usize = 16;
 pub const MIN_STEP_M: f64 = 6.0;
 /// Durée de vie d'un point, en s : au bout de ce temps sa lueur est nulle.
 pub const TRAIL_LIFETIME_S: f64 = 6.0;
+/// Durée du fondu d'entrée d'un point, en s : la lueur d'un point neuf monte lisse de 0 à 1 (la voiture qui repart après un
+/// arrêt ne fait jamais sauter la façade voisine).
+pub const FADE_IN_S: f64 = 0.4;
+/// Écart de position, en m, au-delà duquel la voiture a été téléportée : les anciens points n'ont plus de lien avec elle.
+pub const TELEPORT_M: f64 = 500.0;
+/// Écart d'horloge vers l'avant, en s, au-delà duquel on y voit une bascule de source (et non une image lente).
+pub const CLOCK_JUMP_S: f64 = 30.0;
 /// Demi-largeur de la lueur autour d'un point, en m (le `40` de `facade_trail.wesl`).
 pub const FALLOFF_M: f32 = 40.0;
 /// Force de la traîne (`car_tint.w`), 0 à 1. Constante tant que `FacadeLook` n'a pas son champ `car_follow`.
@@ -35,6 +48,8 @@ pub struct CarTrail {
     /// Emplacement du prochain point écrit.
     head: usize,
     len: usize,
+    /// Horloge de la dernière écriture, pour repérer une bascule de source.
+    last_now: f64,
     /// Couleur de la voiture (lumière linéaire) ; son `w` est la force de la traîne.
     tint: Vec4,
 }
@@ -46,6 +61,7 @@ impl Default for CarTrail {
             times: [0.0; TRAIL_POINTS],
             head: 0,
             len: 0,
+            last_now: 0.0,
             tint: Vec4::ZERO,
         }
     }
@@ -75,8 +91,24 @@ impl CarTrail {
         if !position.is_finite() || !now_s.is_finite() {
             return;
         }
-        if self.last().is_some_and(|last| last.distance(position) < MIN_STEP_M) {
-            return;
+        if self.len > 0 {
+            // Horloge qui recule ou qui saute : on décale les dates, les âges restent ceux de l'image d'avant.
+            let jump = now_s - self.last_now;
+            if jump < 0.0 || jump > CLOCK_JUMP_S {
+                for t in &mut self.times {
+                    *t += jump;
+                }
+            }
+        }
+        self.last_now = now_s;
+        if let Some(last) = self.last() {
+            if last.distance(position) > TELEPORT_M {
+                // Téléportation ou réapparition : l'ancienne traîne ne mène nulle part.
+                self.head = 0;
+                self.len = 0;
+            } else if last.distance(position) < MIN_STEP_M {
+                return;
+            }
         }
         self.points[self.head] = position;
         self.times[self.head] = now_s;
@@ -96,16 +128,17 @@ impl CarTrail {
     }
 
     /// Les points pour le shader : `xyz` dans le repère rendu (absolu moins l'origine), `w` l'intensité restante, de 1
-    /// (point tout frais) à 0 ([`TRAIL_LIFETIME_S`] plus tard) ; tout à zéro pour un emplacement vide ou éteint.
+    /// (point au bout de [`FADE_IN_S`], monté en fondu depuis 0) à 0 ([`TRAIL_LIFETIME_S`] après sa naissance) ; tout à zéro pour un emplacement vide ou éteint.
     #[must_use]
     pub fn params(&self, origin: DVec3, now_s: f64) -> [Vec4; TRAIL_POINTS] {
         let mut out = [Vec4::ZERO; TRAIL_POINTS];
         for (slot, (point, time)) in out.iter_mut().zip(self.points.iter().zip(&self.times)).take(self.len) {
-            // Un temps qui recule (horloge imposée) compte pour un point frais : jamais d'intensité hors de 0..1.
+            // Un temps qui recule (horloge imposée) compte pour un point naissant : jamais d'intensité hors de 0..1.
             let age = (now_s - time).max(0.0);
             let left = (1.0 - age / TRAIL_LIFETIME_S).clamp(0.0, 1.0);
-            // Courbe en carré : l'extinction est douce en fin de vie comme au début.
-            let w = (left * left) as f32;
+            // Fondu d'entrée (smoothstep) puis courbe en carré : ni montée ni extinction brusque.
+            let rise = (age / FADE_IN_S).clamp(0.0, 1.0);
+            let w = (left * left * rise * rise * (3.0 - 2.0 * rise)) as f32;
             if w > 0.0 {
                 let rendered = (*point - origin).as_vec3();
                 *slot = Vec4::new(rendered.x, rendered.y, rendered.z, w);
@@ -190,7 +223,7 @@ mod tests {
             trail.record(along_z(i), 0.0);
         }
         assert_eq!(trail.len(), TRAIL_POINTS);
-        let out = trail.params(DVec3::ZERO, 0.0);
+        let out = trail.params(DVec3::ZERO, 1.0);
         let mut zs: Vec<f32> = out.iter().map(|v| v.z).collect();
         zs.sort_by(f32::total_cmp);
         let expected: Vec<f32> = (24..40).rev().map(|i| -(i as f32) * 10.0).collect();
@@ -202,9 +235,11 @@ mod tests {
         let mut trail = CarTrail::default();
         trail.record(DVec3::ZERO, 10.0);
         let w = |now| trail.params(DVec3::ZERO, now)[0].w;
-        assert_eq!(w(10.0), 1.0);
-        let mut last = w(10.0);
-        for k in 1..=60 {
+        assert_eq!(w(10.0), 0.0, "un point neuf naît à 0 (fondu d'entrée)");
+        let peak = w(10.0 + FADE_IN_S);
+        assert!(peak > 0.8 && peak <= 1.0, "pic après le fondu : {peak}");
+        let mut last = peak;
+        for k in 5..=60 {
             let now = 10.0 + f64::from(k) * 0.1;
             let v = w(now);
             assert!(v <= last, "l'intensité ne remonte jamais ({last} -> {v} à {now})");
@@ -214,7 +249,7 @@ mod tests {
         }
         assert_eq!(w(16.0), 0.0);
         assert_eq!(w(1.0e9), 0.0, "un énorme dt éteint tout sans NaN");
-        assert_eq!(w(5.0), 1.0, "horloge à l'envers : point frais, jamais plus de 1");
+        assert_eq!(w(5.0), 0.0, "horloge à l'envers : point naissant, jamais plus de 1");
         assert_eq!(
             trail.params(DVec3::ZERO, 16.0)[0],
             Vec4::ZERO,
@@ -224,12 +259,104 @@ mod tests {
     }
 
     #[test]
+    fn new_point_fades_in_without_a_step() {
+        // Voiture arrêtée dix secondes (sa traîne est éteinte), puis elle repart : aucune façade ne saute.
+        let mut trail = CarTrail::default();
+        trail.record(DVec3::ZERO, 0.0);
+        let mut last = 0.0_f32;
+        let mut peak = 0.0_f32;
+        for i in 0..120 {
+            let now = 10.0 + f64::from(i) / 60.0;
+            trail.record(DVec3::new(0.0, 0.0, -7.0), now);
+            let w = trail.params(DVec3::ZERO, now).iter().map(|v| v.w).fold(0.0, f32::max);
+            assert!((w - last).abs() <= 0.07, "saut de {} à t = {now}", (w - last).abs());
+            peak = peak.max(w);
+            last = w;
+        }
+        assert!(peak > 0.8, "le point a fini par briller : {peak}");
+    }
+
+    /// Miroir de `trail_glow` (`facade_trail.wesl`) : le maximum, sur les points, de l'intensité par le fondu gaussien de la
+    /// distance (l'altitude compte pour moitié).
+    fn mirror_glow(points: &[Vec4; TRAIL_POINTS], at: Vec3) -> f32 {
+        points
+            .iter()
+            .map(|t| {
+                let d = (at - Vec3::new(t.x, t.y, t.z)) * Vec3::new(1.0, 0.5, 1.0);
+                let x = d.length() / FALLOFF_M;
+                t.w * (-x * x).exp()
+            })
+            .fold(0.0, f32::max)
+    }
+
+    #[test]
+    fn glow_at_a_facade_is_smooth_while_the_car_passes() {
+        // La voiture reste dix secondes arrêtée, puis passe à 60 m/s devant une façade à 12 m de la route.
+        let facade = Vec3::new(12.0, 8.0, -400.0);
+        let dt = 1.0 / 60.0;
+        let mut trail = CarTrail::default();
+        let mut last = 0.0_f32;
+        let mut peak = 0.0_f32;
+        let mut worst = 0.0_f32;
+        for i in 0..1800 {
+            let now = f64::from(i) * dt;
+            let z = if now < 10.0 { 0.0 } else { -(now - 10.0) * 60.0 };
+            trail.record(DVec3::new(0.0, 0.0, z), now);
+            let g = mirror_glow(&trail.params(DVec3::ZERO, now), facade);
+            worst = worst.max((g - last).abs());
+            peak = peak.max(g);
+            last = g;
+        }
+        assert!(peak > 0.5, "la façade s'éclaire au passage : {peak}");
+        // Fondu d'entrée de 0,4 s (pente maximale 3,75 par s, soit 0,0625 par image) ; l'écrasement du plus ancien point
+        // (0,54 d'intensité, voisin à 6 m) coûte moins de 0,03.
+        assert!(worst <= 0.07, "pas maximal d'une image à l'autre : {worst}");
+    }
+
+    #[test]
+    fn clock_source_switch_does_not_jump() {
+        let mut trail = CarTrail::default();
+        for i in 0..6 {
+            trail.record(along_z(i), 1000.0 + i as f64 * 0.1);
+        }
+        let before = trail.params(DVec3::ZERO, 1001.0);
+        // Horloge imposée (retour à 5 s), puis retour à l'horloge réelle (+ 5 000 s) : voiture arrêtée à chaque fois.
+        let stop = along_z(5);
+        trail.record(stop, 5.5);
+        assert_eq!(
+            trail.params(DVec3::ZERO, 5.5 + 0.5),
+            before,
+            "bascule vers l'horloge imposée"
+        );
+        trail.record(stop, 5000.0);
+        assert_eq!(
+            trail.params(DVec3::ZERO, 5000.0 + 0.5),
+            before,
+            "bascule vers l'horloge réelle"
+        );
+    }
+
+    #[test]
+    fn teleport_clears_the_trail() {
+        let mut trail = CarTrail::default();
+        for i in 0..10 {
+            trail.record(along_z(i), i as f64 * 0.1);
+        }
+        assert_eq!(trail.len(), 10);
+        let far = DVec3::new(0.0, 0.0, -90_000.0);
+        trail.record(far, 1.0);
+        assert_eq!(trail.len(), 1, "seul le point d'arrivée reste");
+        let lit = trail.params(DVec3::ZERO, 2.0).iter().filter(|v| v.w > 0.0).count();
+        assert_eq!(lit, 1, "aucune traîne périmée");
+    }
+
+    #[test]
     fn params_follow_origin_rebase() {
         let mut trail = CarTrail::default();
         let p = DVec3::new(120.0, 2.0, -400_000.0);
         trail.record(p, 0.0);
-        let before = trail.params(DVec3::new(0.0, 0.0, -399_000.0), 0.0)[0];
-        let after = trail.params(DVec3::new(0.0, 0.0, -400_000.0), 0.0)[0];
+        let before = trail.params(DVec3::new(0.0, 0.0, -399_000.0), 1.0)[0];
+        let after = trail.params(DVec3::new(0.0, 0.0, -400_000.0), 1.0)[0];
         assert_eq!(
             before.z + 1000.0,
             after.z,

@@ -32,5 +32,5 @@ fn trail_update_does_not_allocate() {
         });
     }
     assert_eq!(trail.len(), 16, "la traîne a vécu");
-    assert!(lit > 0.9, "des points lumineux ont été produits : {lit}");
+    assert!(lit > 0.8, "des points lumineux ont été produits : {lit}");
 }
