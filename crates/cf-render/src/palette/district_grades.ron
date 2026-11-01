@@ -1,0 +1,42 @@
+// Étalonnages de quartier : une modulation bornée posée PAR-DESSUS le thème du show (jamais un remplacement).
+// Réglage initial, à vérifier à l'œil : valeurs écrites à la main, sans références de l'utilisateur.
+//
+// Une ligne = une variante (l'index dans la liste est `DistrictId::variant`) :
+//   hue_deg      rotation de teinte en degrés, bornée à ±30
+//   saturation   facteur de saturation, borné à [0.8, 1.2]
+//   lightness    facteur de luminosité, borné à [0.9, 1.1]
+//   mint, rose, amber, ice   poids des rôles d'accent, bornés à [0.8, 1.25] (facteur sur la lumière linéaire)
+//
+// Neon variante 0 est l'étalonnage neutre (identité) : la palette du show passe telle quelle.
+// Chaque type reste proche en luminance moyenne (test `luminance_voisine`, règle 7 : aucun fondu ne dépasse 10 %).
+// Neon : plus froid, plus saturé. Suburb : plus chaud, ambre et rose en avant, un peu moins saturé.
+// Residential : plus doux, un peu plus froid, glace et menthe en avant.
+(
+    neon: [
+        (hue_deg: 0.0, saturation: 1.0, lightness: 1.0, mint: 1.0, rose: 1.0, amber: 1.0, ice: 1.0),
+        (hue_deg: 4.0, saturation: 1.03, lightness: 1.0, mint: 1.02, rose: 1.0, amber: 0.98, ice: 1.0),
+        (hue_deg: -4.0, saturation: 1.04, lightness: 1.01, mint: 1.0, rose: 1.03, amber: 1.0, ice: 1.0),
+        (hue_deg: 7.0, saturation: 1.04, lightness: 1.0, mint: 1.02, rose: 1.0, amber: 0.98, ice: 1.0),
+        (hue_deg: -7.0, saturation: 1.05, lightness: 1.02, mint: 1.0, rose: 1.04, amber: 1.0, ice: 1.0),
+        (hue_deg: 10.0, saturation: 1.05, lightness: 1.0, mint: 1.03, rose: 1.0, amber: 0.97, ice: 1.0),
+        (hue_deg: -10.0, saturation: 1.06, lightness: 1.04, mint: 1.0, rose: 1.05, amber: 1.0, ice: 1.0),
+    ],
+    suburb: [
+        (hue_deg: -3.0, saturation: 0.94, lightness: 1.0, mint: 0.96, rose: 1.06, amber: 1.08, ice: 0.98),
+        (hue_deg: -6.0, saturation: 0.92, lightness: 1.0, mint: 0.95, rose: 1.08, amber: 1.06, ice: 0.98),
+        (hue_deg: -9.0, saturation: 0.94, lightness: 1.02, mint: 0.96, rose: 1.05, amber: 1.10, ice: 0.97),
+        (hue_deg: -12.0, saturation: 0.92, lightness: 1.03, mint: 0.95, rose: 1.10, amber: 1.05, ice: 0.98),
+        (hue_deg: 3.0, saturation: 0.95, lightness: 1.0, mint: 0.96, rose: 1.07, amber: 1.07, ice: 0.98),
+        (hue_deg: 6.0, saturation: 0.93, lightness: 1.0, mint: 0.95, rose: 1.06, amber: 1.08, ice: 0.97),
+        (hue_deg: 9.0, saturation: 0.95, lightness: 1.0, mint: 0.95, rose: 1.08, amber: 1.06, ice: 0.98),
+    ],
+    residential: [
+        (hue_deg: 2.0, saturation: 0.90, lightness: 1.0, mint: 1.04, rose: 0.96, amber: 0.94, ice: 1.04),
+        (hue_deg: 5.0, saturation: 0.88, lightness: 1.0, mint: 1.05, rose: 0.95, amber: 0.93, ice: 1.04),
+        (hue_deg: 7.0, saturation: 0.90, lightness: 1.0, mint: 1.04, rose: 0.96, amber: 0.94, ice: 1.05),
+        (hue_deg: 10.0, saturation: 0.88, lightness: 1.0, mint: 1.05, rose: 0.95, amber: 0.93, ice: 1.03),
+        (hue_deg: 0.0, saturation: 0.92, lightness: 1.0, mint: 1.04, rose: 0.96, amber: 0.94, ice: 1.04),
+        (hue_deg: -4.0, saturation: 0.90, lightness: 1.0, mint: 1.05, rose: 0.96, amber: 0.94, ice: 1.03),
+        (hue_deg: -8.0, saturation: 0.88, lightness: 1.0, mint: 1.04, rose: 0.95, amber: 0.93, ice: 1.04),
+    ],
+)

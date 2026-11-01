@@ -17,6 +17,10 @@
 
 mod color;
 mod fader;
+mod grade;
+mod grade_library;
+#[cfg(test)]
+mod grade_tests;
 mod mood;
 mod morph;
 mod scene;
@@ -28,6 +32,11 @@ pub use color::{Hsl, LinearRgb, mix_srgb8, parse_hex};
 pub use fader::{
     DEFAULT_FADE, DOWNBEAT_EVERY, FadeFrame, FadeStep, MAX_FADE, MAX_WAIT, MIN_FADE, ThemeFader, WAVE_AT, fade_seconds,
 };
+pub use grade::{
+    ACCENT_RANGE, ACCENT_ROLES, DistrictGrade, DistrictGradeState, LIGHTNESS_RANGE, MAX_HUE_DEG, SATURATION_RANGE,
+    VARIANTS_RANGE,
+};
+pub use grade_library::GradeLibrary;
 pub use mood::{NEUTRAL_INTENSITY, SceneMood, mood_color};
 pub use morph::{CHANGE_INTERVAL, MorphEvent, PaletteMorph};
 pub use scene::{PRESETS, PaletteError, SceneColor, ScenePalette, ThemeLibrary, preset_name};
@@ -120,6 +129,7 @@ impl Plugin for PalettePlugin {
                 shown_seq: None,
             })
             .init_resource::<SceneMood>()
+            .init_resource::<DistrictGradeState>()
             .add_systems(Update, (drive_palette, update_mood).chain().in_set(CfSet::Present));
     }
 }
@@ -139,6 +149,7 @@ pub fn drive_palette(
     library: Res<ThemeLibrary>,
     mut driver: ResMut<PaletteDriver>,
     mut requests: MessageReader<PaletteRequest>,
+    mut grade: ResMut<DistrictGradeState>,
     mut palette: ResMut<ScenePalette>,
     mut changed: MessageWriter<PaletteChanged>,
     mut wave: MessageWriter<PaletteWave>,
@@ -215,9 +226,14 @@ pub fn drive_palette(
         changed.write(PaletteChanged { settled: true });
     }
 
-    // 5. La palette à l'écran : le fondu, tourné de la teinte du look.
+    // 5. L'étalonnage de quartier : sa cible attend un temps fort, puis il glisse linéairement (jamais d'à-coup).
+    grade.tick_pending(dt_s, frame.kick, frame.count);
+    let district = grade.update(dt_s);
+
+    // 6. La palette à l'écran : le fondu, tourné de la teinte du look, puis nuancé par le quartier. Sans cible,
+    //    l'étalonnage est neutre et la palette sort exactement comme avant.
     let hue = show.as_deref().map_or(0.0, |s| s.hue_shift_deg);
-    palette.set_if_neq(driver.morph.palette().hue_rotated(hue));
+    palette.set_if_neq(driver.morph.palette().hue_rotated(hue).graded(&district));
 }
 
 /// La teinte d'ambiance de l'image : suit la palette à l'écran et l'intensité du morceau.

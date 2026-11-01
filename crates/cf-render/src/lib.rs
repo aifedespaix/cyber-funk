@@ -45,8 +45,8 @@ pub use layers::{
 };
 pub use origin::{AbsolutePosition, FloatingOrigin, ORIGIN_STEP, OriginPlugin, OriginTracker, StreamFocus};
 pub use palette::{
-    PaletteChanged, PaletteDriver, PaletteError, PalettePlugin, PaletteRequest, PaletteTiming, PaletteWave, SceneColor,
-    SceneMood, ScenePalette, ThemeLibrary,
+    DistrictGrade, DistrictGradeState, GradeLibrary, PaletteChanged, PaletteDriver, PaletteError, PalettePlugin,
+    PaletteRequest, PaletteTiming, PaletteWave, SceneColor, SceneMood, ScenePalette, ThemeLibrary,
 };
 pub use postfx::{CurrentShowFx, LensWeather, PostFxPlugin, PostFxSettings, PostFxState, ShowFxInput};
 pub use quality::{

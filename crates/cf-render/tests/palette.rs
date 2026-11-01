@@ -9,12 +9,13 @@ use std::time::Duration;
 
 use bevy::prelude::*;
 use bevy::time::TimeUpdateStrategy;
-use cf_render::palette::{PaletteChanged, PaletteRequest, PaletteTiming, PaletteWave};
+use cf_render::palette::{DistrictGradeState, PaletteChanged, PaletteRequest, PaletteTiming, PaletteWave};
 use cf_render::{
     AudioFeatures, CorePlugin, CurrentShow, PaletteDriver, PalettePlugin, SceneColor, SceneMood, ScenePalette,
     ThemeLibrary,
 };
 use cf_show::director::ShowDirector;
+use cf_show::district::{DistrictId, DistrictKind};
 use cf_show::drop::DropTitles;
 use cf_show::load::{LoadedShow, LookLibrary};
 use cf_show::model::{PresetTheme, Theme};
@@ -202,4 +203,40 @@ fn l_ambiance_suit_l_intensite_et_la_palette() {
     let palette = *app.world().resource::<ScenePalette>();
     assert_eq!(calm, palette.get(SceneColor::Azure).to_srgb8());
     assert_eq!(peak, palette.get(SceneColor::Rose).to_srgb8());
+}
+
+#[test]
+fn theme_du_show_inchange_par_changement_de_dj() {
+    let mut app = app(true);
+    let id = DistrictId {
+        kind: DistrictKind::Suburb,
+        variant: 0,
+    };
+    app.world_mut().resource_mut::<DistrictGradeState>().set_target(id, 2.0);
+    // Pas de kick : le départ se fait après 4 s au plus, puis 2 s de fondu.
+    for _ in 0..(7 * 60) {
+        app.update();
+    }
+    let grade = app.world().resource::<DistrictGradeState>().library().grade(id);
+    assert!(!grade.is_neutral());
+    let show_theme = app.world().resource::<CurrentShow>().theme.clone();
+    let graded = library().resolve(&show_theme).graded(&grade);
+    assert_eq!(
+        app.world().resource::<ScenePalette>(),
+        &graded,
+        "le quartier module le thème du show"
+    );
+
+    // Passation de DJ en plein étalonnage : l'étalonnage reste, posé sur le nouveau thème.
+    set_show_theme(&mut app, Theme::Preset(PresetTheme::Frost), BAR_S);
+    for _ in 0..400 {
+        app.update();
+        if !app.world().resource::<PaletteDriver>().busy() {
+            break;
+        }
+    }
+    let frost = library().resolve(&Theme::Preset(PresetTheme::Frost));
+    let palette = *app.world().resource::<ScenePalette>();
+    assert_ne!(palette, frost, "l'étalonnage n'a pas été remis à zéro");
+    assert_eq!(palette, frost.graded(&grade));
 }

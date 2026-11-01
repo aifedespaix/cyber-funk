@@ -97,7 +97,15 @@ impl SceneColor {
         }
     }
 
-    const fn index(self) -> usize {
+    /// Le rôle qui porte ce nom (`mint`, `amber`…), `None` si le nom est inconnu.
+    #[must_use]
+    pub fn from_name(name: &str) -> Option<Self> {
+        Self::ALL.into_iter().find(|role| role.name() == name)
+    }
+
+    /// Position du rôle dans [`SceneColor::ALL`] (et dans les tableaux par rôle).
+    #[must_use]
+    pub const fn index(self) -> usize {
         self as usize
     }
 }
@@ -175,6 +183,19 @@ pub enum PaletteError {
     /// Un thème livré manque dans le fichier.
     #[error("thème livré « {0} » absent de themes.ron")]
     MissingTheme(&'static str),
+    /// Le RON des étalonnages de quartier ne se lit pas.
+    #[error("district_grades.ron illisible : {0}")]
+    GradesRon(ron::error::SpannedError),
+    /// Un étalonnage de quartier est invalide (type absent, rôle inconnu, borne dépassée, nombre de variantes).
+    #[error("étalonnage « {kind} » n°{variant} : {reason}")]
+    BadGrade {
+        /// Type de quartier fautif.
+        kind: &'static str,
+        /// Index de la variante fautive.
+        variant: usize,
+        /// Ce qui ne va pas.
+        reason: String,
+    },
 }
 
 /// Les onze couleurs d'un thème, telles qu'écrites dans `themes.ron`.
