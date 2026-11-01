@@ -90,7 +90,7 @@ look calme (le journal le dit).
 ## 4 bis. Réglages sauvegardés et Debug monde
 
 **Réglages sauvegardés.** Le logiciel retient d'un lancement à l'autre la source audio, les périphériques du micro et de
-la ligne, le niveau de qualité que vous avez fixé, la voiture choisie et les familles ouvertes de l'onglet Debug monde.
+la ligne, le niveau de qualité que vous avez fixé, la voiture choisie, les deux curseurs des façades (ci-dessous) et les familles ouvertes de l'onglet Debug monde.
 Le fichier est `settings.ron`, dans le dossier de configuration de l'utilisateur (sous Windows
 `%APPDATA%\cyber-funk\settings.ron`). Pour tout remettre à zéro, fermez l'application et supprimez ce fichier. Un fichier
 abîmé ne bloque jamais le démarrage : les valeurs par défaut sont reprises. L'option `--audio-source` de la ligne de
@@ -100,6 +100,21 @@ commande l'emporte sur la source retenue. En `--soak`, rien n'est lu ni écrit.
 n'existe pas en Live. Elle permet de choisir la voiture (dirty car ou CyberCar, instantané : les deux sont chargées à
 l'ouverture) et de lancer à la main les événements du monde, rangés par famille (trafic et ciel, immeubles-vitrines),
 avec une recherche. Un événement lancé passe par le même chemin que le MIDI : le limiteur de flashs reste actif.
+
+**Façades : deux curseurs.** En haut de la fenêtre Debug monde, de 0 à 1 (1 : plein effet, la valeur de départ) :
+
+- **Suivi de la voiture** : force de la traîne de lumière que la voiture laisse sur les façades qu'elle longe. À 0, les
+  façades ignorent la voiture.
+- **Vie des fenêtres** : part des fenêtres qui ont leur vie propre (télé qui vacille, extinction lente, néon qui
+  grésille). À 0, toutes les fenêtres restent fixes.
+
+Les deux sont retenus dans les réglages sauvegardés. Ils ne contournent jamais le limiteur de flashs : le grésillement
+rapide des néons reste soumis à lui.
+
+**Repli en qualité basse.** Quand la qualité adaptative (ou celle que vous fixez) atteint le niveau 2 ou plus, les façades
+perdent d'elles-mêmes ce qui coûte le plus : la traîne de la voiture, le scintillement rapide, la vie des fenêtres et les
+écrans qui défilent (ils redeviennent de simples fenêtres). Le reste de la ville est inchangé. Les curseurs ne rétablissent
+rien tant que la qualité reste basse ; ils reprennent leur effet dès que la qualité remonte.
 
 ## 5. Jouer
 
