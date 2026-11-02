@@ -5,12 +5,13 @@ use bevy::prelude::*;
 use cf_analysis::Section;
 use cf_render::{
     AbsolutePosition, AudioFeatures, ChunkStream, CurrentShow, DistrictGradeState, DistrictOrder, DistrictState,
-    ShowRuntime, StreamFocus, World as _,
+    QualityLevers, ShowRuntime, StreamFocus, World as _,
 };
 use cf_show::district::{DistrictId, DistrictKind, Governor, TransitionKind};
 
 use super::kind_of;
 use super::state::{Change, DistrictBrain, DistrictDriver, DistrictInput};
+use crate::facade::{LOW_QUALITY_LEVEL, LowQualityMix};
 use crate::scenery::LEAD_ROWS;
 use crate::traffic::TrafficDirector;
 use crate::world::{DEFAULT_SEED, NeonWorld};
@@ -73,6 +74,25 @@ pub fn take_district_triggers(
         to: DistrictId { kind, variant },
         transition: TransitionKind::Gradient,
     });
+}
+
+/// `CfSet::Simulate` : en qualité basse (niveau ≥ [`LOW_QUALITY_LEVEL`], celui des façades), l'étalonnage de quartier
+/// glisse vers le neutre en [`LOW_QUALITY_FADE_S`](crate::facade::LOW_QUALITY_FADE_S) (rampe linéaire de
+/// [`LowQualityMix`], jamais d'à-coup : règle 7), et en revient de même quand la qualité remonte. La ville continue de changer : la géométrie ne coûte rien de plus, seul
+/// l'étalonnage (un calcul de palette par image) est retiré. Rien n'est écrit tant que le repli ne bouge pas (pas de
+/// détection de changement inutile).
+pub fn fade_grade_for_quality(
+    time: Res<Time>,
+    quality: Option<Res<QualityLevers>>,
+    grade: Option<ResMut<DistrictGradeState>>,
+    mut low: Local<LowQualityMix>,
+) {
+    let Some(mut grade) = grade else { return };
+    let mix = low.update(time.delta_secs(), quality.is_some_and(|q| q.level >= LOW_QUALITY_LEVEL));
+    // Comparaison exacte (bits) : la rampe se pose exactement sur 0 et 1, et le moindre pas doit passer.
+    if grade.low_quality_mix().to_bits() != mix.to_bits() {
+        grade.set_low_quality_mix(mix);
+    }
 }
 
 /// Une variante parmi `count`, autre que `last` quand il y a le choix.

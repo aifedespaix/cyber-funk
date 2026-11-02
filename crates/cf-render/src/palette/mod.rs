@@ -236,6 +236,8 @@ pub fn drive_palette(
     } else {
         grade.settled()
     };
+    // En qualité basse, le monde atténue l'étalonnage vers le neutre (rampe linéaire de 1,5 s, jamais d'à-coup).
+    let district = grade.shown(district);
 
     // 6. La palette à l'écran : le fondu, tourné de la teinte du look, puis nuancé par le quartier. Sans cible,
     //    l'étalonnage est neutre et la palette sort exactement comme avant.

@@ -12,6 +12,9 @@
 //!    jusqu'à la fin réelle du dégradé ;
 //! 4. [`DistrictState`] est publié pour le panneau F4.
 //!
+//! En qualité basse (niveau ≥ 2, celui des façades), l'étalonnage glisse vers le neutre en 1,5 s et en revient de même
+//! ([`fade_grade_for_quality`]) ; les quartiers continuent de changer.
+//!
 //! [`DistrictState`] et [`DistrictOrder`] sont définis dans `cf-render` : la fenêtre opérateur ne dépend pas du monde.
 
 mod state;
@@ -25,7 +28,7 @@ pub use cf_render::{DistrictOrder, DistrictState};
 pub use state::{
     APPROACH_MAX_S, Change, DistrictBrain, DistrictDriver, DistrictInput, MAX_BLEND_ROWS, MIN_BLEND_ROWS, MIN_FADE_S,
 };
-pub use systems::{DistrictSources, start_districts, take_district_triggers, tick_districts};
+pub use systems::{DistrictSources, fade_grade_for_quality, start_districts, take_district_triggers, tick_districts};
 
 /// Famille du catalogue d'événements.
 pub const FAMILY: &str = "Quartiers";
@@ -51,7 +54,9 @@ impl Plugin for DistrictsPlugin {
                     .in_set(CfSet::Simulate)
                     .before(WorldSet::Chunks)
                     .run_if(resource_exists::<DistrictBrain>),
-            );
+            )
+            // Le repli de qualité basse ne dépend pas du gouverneur : il tourne même sans lui.
+            .add_systems(Update, fade_grade_for_quality.in_set(CfSet::Simulate));
     }
 }
 

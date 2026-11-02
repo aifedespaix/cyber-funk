@@ -188,6 +188,9 @@ pub struct DistrictGradeState {
     fade_s: f32,
     elapsed_s: f32,
     pending: Option<PendingGrade>,
+    /// Repli de qualité basse, 0 → 1 : 0 montre l'étalonnage tel quel, 1 le neutralise. Ne touche que l'affichage : le
+    /// fondu entre quartiers continue dessous, pour reprendre sans à-coup quand la qualité revient.
+    low_quality_mix: f32,
 }
 
 impl Default for DistrictGradeState {
@@ -212,7 +215,39 @@ impl DistrictGradeState {
             fade_s: 0.0,
             elapsed_s: 0.0,
             pending: None,
+            low_quality_mix: 0.0,
         }
+    }
+
+    /// Le repli de qualité basse courant, 0 → 1.
+    #[must_use]
+    pub fn low_quality_mix(&self) -> f32 {
+        self.low_quality_mix
+    }
+
+    /// Pose le repli de qualité basse, 0 → 1 (borné ; tout ce qui n'est pas un nombre vaut 0). La rampe est celle de
+    /// l'appelant (le monde, `LowQualityMix` : 1,5 s linéaire) : ici, aucun lissage.
+    pub fn set_low_quality_mix(&mut self, mix: f32) {
+        self.low_quality_mix = if mix.is_finite() { mix.clamp(0.0, 1.0) } else { 0.0 };
+    }
+
+    /// L'étalonnage montré pour cet étalonnage courant : atténué vers le neutre par le repli de qualité basse, neutre à
+    /// l'octet près en repli complet (la palette sort alors exactement comme sans quartier).
+    #[must_use]
+    pub fn shown(&self, current: DistrictGrade) -> DistrictGrade {
+        if self.low_quality_mix >= 1.0 {
+            DistrictGrade::neutral()
+        } else if self.low_quality_mix <= 0.0 {
+            current
+        } else {
+            current.lerp(&DistrictGrade::neutral(), self.low_quality_mix)
+        }
+    }
+
+    /// L'étalonnage à l'écran, sans rien avancer : le courant, passé par le repli de qualité basse.
+    #[must_use]
+    pub fn displayed(&self) -> DistrictGrade {
+        self.shown(self.current())
     }
 
     /// Les étalonnages connus.

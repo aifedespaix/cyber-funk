@@ -376,3 +376,30 @@ fn viser_l_etalonnage_courant_ne_lance_aucun_fondu() {
     assert!(!state.is_pending());
     assert!(!state.is_fading());
 }
+
+#[test]
+fn le_repli_de_qualite_ne_touche_que_l_affichage() {
+    let id = DistrictId {
+        kind: DistrictKind::Suburb,
+        variant: 0,
+    };
+    let mut state = DistrictGradeState::default();
+    state.set_target(id, 0.0);
+    state.tick_pending(DT, true, 4);
+    let graded = state.update(DT);
+    assert!(!graded.is_neutral());
+
+    state.set_low_quality_mix(1.0);
+    assert!(state.displayed().is_neutral(), "neutre à l'octet près en repli complet");
+    assert_eq!(state.settled(), graded, "l'étalonnage de dessous ne bouge pas");
+
+    state.set_low_quality_mix(0.5);
+    assert_eq!(state.displayed(), graded.lerp(&DistrictGrade::neutral(), 0.5));
+
+    for bad in [f32::NAN, f32::INFINITY, -1.0] {
+        state.set_low_quality_mix(bad);
+        assert_eq!(state.displayed(), graded, "{bad}");
+    }
+    state.set_low_quality_mix(7.0);
+    assert!(state.low_quality_mix() <= 1.0);
+}

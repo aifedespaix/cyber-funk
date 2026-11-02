@@ -117,8 +117,15 @@ exemple « bloqué : drop imminent ») et les 5 derniers quartiers, du plus réc
 
 Rien de cette section n'est sauvegardé : à chaque lancement, l'automatique repart non gelé, sans quartier forcé, avec le
 choix par défaut. Les déclencheurs `district:neon`, `district:suburb` et `district:residential` restent disponibles pour
-le MIDI, mais ne sont pas répétés dans la liste des événements. Attention : aucune vérification visuelle n'a encore été
-faite, et les couleurs des quartiers sont un premier réglage, à ajuster à l'œil.
+le MIDI, mais ne sont pas répétés dans la liste des événements.
+
+En qualité basse (niveau 2 ou plus, le même seuil que les façades ci-dessous), les couleurs propres aux quartiers
+s'effacent en 1,5 s, en fondu régulier, et la palette du thème revient telle quelle ; elles reviennent de même, en
+1,5 s, dès que la qualité remonte. Les quartiers continuent de changer pendant ce temps (la ville elle-même), seule
+leur couleur est mise de côté.
+
+Limites connues : aucune vérification visuelle n'a encore été faite et le temps d'image avant/après n'a pas été mesuré.
+Les couleurs des quartiers (`district_grades.ron`) comme la géométrie de la banlieue et du résidentiel sont un premier réglage, à vérifier et ajuster à l'œil.
 
 **Façades : deux curseurs.** En haut de la fenêtre Debug monde, de 0 à 1 (1 : plein effet, la valeur de départ) :
 
