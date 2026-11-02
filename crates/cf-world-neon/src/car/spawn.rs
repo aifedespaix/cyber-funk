@@ -38,7 +38,7 @@ pub struct CarAssets<'w> {
     pub lights: ResMut<'w, Assets<CarLightMaterial>>,
 }
 
-fn standard_material(def: &MaterialData, images: &[Handle<Image>]) -> StandardMaterial {
+pub(crate) fn standard_material(def: &MaterialData, images: &[Handle<Image>]) -> StandardMaterial {
     let image = |index: Option<usize>| index.and_then(|i| images.get(i)).cloned();
     let emissive = def.emissive;
     StandardMaterial {
@@ -258,6 +258,8 @@ pub fn spawn_car(
         .filter_map(named)
         .collect();
     let steer: Vec<Entity> = ["steer_FL", "steer_FR"].into_iter().filter_map(named).collect();
+    let steering = named("steering_pivot");
+    let gear_lever = named("pivot_gear_lever");
     let logo = model
         .node("logo_rear")
         .and_then(|i| entities[i].map(|e| (e, model.nodes[i].transform.scale)));
@@ -277,6 +279,8 @@ pub fn spawn_car(
         chassis,
         spin,
         steer,
+        steering,
+        gear_lever,
         logo,
         screens,
         materials: handles,

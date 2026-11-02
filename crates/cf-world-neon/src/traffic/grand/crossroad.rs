@@ -16,8 +16,9 @@ use crate::scenery::{BASE_DEPTH_M, Clearing};
 use crate::traffic::event::{EventCtx, Focus, TrafficEvent};
 use crate::traffic::events::common::{index, pick_tone, range};
 use crate::traffic::fleet::{CraftId, Fleet};
+use crate::traffic::model::bike::WHEEL;
 use crate::traffic::panels::PanelKind;
-use crate::traffic::variant::HEAVY;
+use crate::traffic::variant::{BIKE, HEAVY};
 
 /// La route croisée s'étend sur ±380 m.
 const HALF_LENGTH_M: f32 = 380.0;
@@ -33,6 +34,11 @@ const PAST_M: f64 = 190.0;
 /// Les lampadaires ne sont posés que dans le champ proche, m.
 const LAMP_RANGE_M: f64 = 330.0;
 const MAX_CRAFTS: usize = 128;
+/// Une fois sur cinq, un véhicule léger est une vraie moto (X-10) ; au plus trois à la fois sur la dalle, pour laisser du
+/// pool de motos à l'événement des motos lumineuses et aux sauts.
+const BIKE_SHARE: f64 = 0.2;
+const MAX_BIKES: usize = 3;
+const BIKE_SCALE: f32 = 1.3;
 
 #[derive(Debug, Clone, Copy)]
 struct Flow {
@@ -87,8 +93,16 @@ impl CrossRoadEvent {
             return;
         }
         let heavy = ctx.rng.unit() < 0.12;
+        let bikes = self
+            .crafts
+            .iter()
+            .filter(|&&id| ctx.fleet.get(id).is_some_and(|c| c.variant == BIKE))
+            .count();
+        let bike = !heavy && bikes < MAX_BIKES && ctx.rng.unit() < BIKE_SHARE;
         let variant = if heavy {
             HEAVY[index(ctx.rng, HEAVY.len())]
+        } else if bike {
+            BIKE
         } else {
             Fleet::sleek(ctx.rng.unit())
         };
@@ -98,13 +112,25 @@ impl CrossRoadEvent {
         } else {
             range(ctx.rng, 26.0, 64.0)
         } * calm;
+        // Une moto pose ses roues sur la dalle : son origine est à l'axe de la roue arrière.
+        let lift = if bike {
+            WHEEL * BIKE_SCALE
+        } else {
+            0.7 + range(ctx.rng, 0.0, 0.25)
+        };
         let position = DVec3::new(
             f64::from(x),
-            f64::from(self.y + 0.7 + range(ctx.rng, 0.0, 0.25)),
+            f64::from(self.y + lift),
             self.z + f64::from(LANE_Z_M[flow.lane] + range(ctx.rng, -0.4, 0.4)),
         );
         let tint = pick_tone(ctx);
-        let scale = if heavy { 2.4 } else { range(ctx.rng, 1.6, 2.0) };
+        let scale = if heavy {
+            2.4
+        } else if bike {
+            BIKE_SCALE
+        } else {
+            range(ctx.rng, 1.6, 2.0)
+        };
         let Some(id) = ctx.fleet.spawn(
             variant,
             position,
@@ -116,7 +142,7 @@ impl CrossRoadEvent {
             return;
         };
         if let Some(craft) = ctx.fleet.get_mut(id) {
-            craft.trail = 0.7;
+            craft.trail = if bike { 0.0 } else { 0.7 };
         }
         self.crafts.push(id);
     }
@@ -265,6 +291,37 @@ mod tests {
         }
         // Dalle (4 côtés, dessus, dessous) et six piliers de 5 faces.
         assert_eq!(rig.scene.panels.solid().len(), 6 + 6 * 5);
+    }
+
+    /// Des vraies motos roulent sur la dalle, roues posées dessus, jamais plus de trois à la fois.
+    #[test]
+    fn des_motos_roulent_sur_la_dalle_sans_depasser_le_plafond() {
+        let mut seen = 0;
+        for seed in 0..20 {
+            let mut rig = Rig::new(seed);
+            let mut event = rig.start(CrossRoadEvent::new);
+            for _ in 0..600 {
+                assert!(rig.step(&mut event, 1.0 / 60.0, |_| {}));
+                let bikes: Vec<_> = event
+                    .crafts
+                    .iter()
+                    .filter_map(|&id| rig.fleet.get(id))
+                    .filter(|c| c.variant == BIKE)
+                    .collect();
+                assert!(bikes.len() <= MAX_BIKES, "{} motos", bikes.len());
+                for bike in &bikes {
+                    let wheels = bike.position.y - f64::from(event.y);
+                    assert!(
+                        (wheels - f64::from(WHEEL * BIKE_SCALE)).abs() < 1e-6,
+                        "roues à {wheels}"
+                    );
+                }
+                seen = seen.max(bikes.len());
+            }
+            rig.end(&mut event);
+            assert_eq!(rig.active_crafts(), 0);
+        }
+        assert!(seen > 0, "aucune moto sur 20 routes croisées");
     }
 
     #[test]

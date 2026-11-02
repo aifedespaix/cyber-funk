@@ -128,6 +128,10 @@ pub struct CarRig {
     pub spin: Vec<Entity>,
     /// Pivots de braquage des roues avant (`steer_FL`, `steer_FR`).
     pub steer: Vec<Entity>,
+    /// Pivot du volant (`steering_pivot`) : tourne autour de l'axe de la colonne, le conducteur y suit ses mains.
+    pub steering: Option<Entity>,
+    /// Pivot du levier de vitesses (`pivot_gear_lever`) : le conducteur le manœuvre.
+    pub gear_lever: Option<Entity>,
     /// Le logo arrière et son échelle de repos.
     pub logo: Option<(Entity, Vec3)>,
     /// Écrans de l'habitacle (compteur, autoradio) : leurs images sont redessinées par `screens::update_screens`.

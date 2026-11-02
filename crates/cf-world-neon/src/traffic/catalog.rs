@@ -35,6 +35,10 @@ fn describe(name: EventName) -> (&'static str, &'static str) {
         EventName::Tunnel => ("Tunnel de lumière", "Un tunnel de lumière enveloppe la route."),
         EventName::CityPulse => ("Pulsation de la ville", "Les façades pulsent avec les kicks."),
         EventName::HoloTitle => ("Titre holographique", "Le nom du DJ ou de l'événement en hologramme."),
+        EventName::MotoJump => (
+            "Saut de moto",
+            "Une moto saute par-dessus la route, d'un immeuble à l'autre.",
+        ),
     }
 }
 
