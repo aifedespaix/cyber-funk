@@ -13,6 +13,7 @@
 
 mod materials;
 mod meshes;
+mod moto_sync;
 mod panels;
 mod sync;
 
@@ -24,6 +25,7 @@ use cf_render::{AbsolutePosition, EntityPool, LodBands, SimulationLod, WorldLaye
 
 pub(crate) use materials::embed_shaders;
 pub use materials::{GlintMaterial, TrailMaterial, VehicleMaterial, VehicleParams, WallMaterial};
+pub(crate) use moto_sync::animate_motos;
 pub(crate) use panels::embed_shader as embed_panel_shader;
 pub use panels::{HoloMaterial, PanelMaterial, PanelParams, TrafficPanelsLight, TrafficPanelsSolid};
 pub(crate) use panels::{sync_panels, update_panel_materials};
@@ -35,6 +37,7 @@ use super::model;
 use super::variant::{BIKE, CAPACITY, POOL, VARIANT_COUNT};
 use crate::car::CarModelAsset;
 use crate::rider::RiderPaintMaterial;
+use crate::rider::anim::{MotoMotion, MotoRig};
 use crate::rider::moto::{self, BODY_MATERIALS, MOTO_COUNT};
 use crate::rider::spawn::{ModelAssets, Tint, spawn_model};
 
@@ -157,7 +160,15 @@ fn spawn_moto_pool(
             body_materials: BODY_MATERIALS[which],
         };
         let (root, spawned) = spawn_model(commands, entity, motos[which].clone(), refs, Some(tint));
-        commands.entity(root).insert(moto::fit(which));
+        let fit = moto::fit(which);
+        commands.entity(root).insert(fit);
+        commands.entity(entity).insert(MotoRig {
+            which,
+            model: root,
+            fit,
+            nodes: spawned.nodes,
+            motion: MotoMotion::default(),
+        });
         tints.push(spawned.tinted);
     }
     (pool, tints)

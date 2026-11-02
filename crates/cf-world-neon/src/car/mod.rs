@@ -149,6 +149,7 @@ impl Plugin for CarPlugin {
                     switch::switch_car,
                     crate::rider::driver::attach_driver,
                     systems::drive_car,
+                    crate::rider::driver::animate_driver,
                     systems::advance_look,
                     systems::apply_model_lights,
                     systems::apply_rig_lights,

@@ -20,6 +20,9 @@ use super::model::{CarModelAsset, NEON_GRAD_COUNT, Side};
 use super::motion::{MotionInput, MotionPose};
 use super::paint::paint_scales;
 use super::rig::{Car, CarRig, CarState, Emissive, Look};
+
+/// Butée du volant, rad : 100° de chaque côté.
+const WHEEL_LOCK_RAD: f32 = 1.75;
 use super::spawn::{CarAssets, spawn_car};
 use super::switch::{ActiveCar, CarModels};
 use crate::RoadLook;
@@ -395,6 +398,12 @@ fn apply_pose(
         if let Ok(mut wheel) = transforms.get_mut(entity) {
             wheel.rotation = Quat::from_rotation_y(pose.wheel_steer_rad);
         }
+    }
+    // Le volant tourne bien plus que les roues (démultiplication) : à fond, un peu plus d'un demi-tour. Le pivot est dans
+    // l'axe de la colonne (repère local du pivot : Y), vers le conducteur : un angle positif tourne vers la gauche.
+    if let Some(wheel) = rig.steering.and_then(|e| transforms.get_mut(e).ok()) {
+        let mut wheel = wheel;
+        wheel.rotation = Quat::from_rotation_y(pose.wheel_steer_rad / super::motion::MAX_WHEEL_STEER * WHEEL_LOCK_RAD);
     }
 }
 

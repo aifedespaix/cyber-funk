@@ -104,6 +104,40 @@ def pose(nom, p):
             f = arm.pose.bones[B[f"foot_{cote}"]]
             f.rotation_mode = "XYZ"
             f.rotation_euler = (math.radians(p[f"foot_{cote}"]), 0, 0)
+    # Poignets : `hand_roll` (°) tourne la main autour de l'avant-bras ; > 0 ou < 0 selon le côté, à régler à l'œil.
+    for cote, deg in p.get("hand_roll", {}).items():
+        os_ = arm.pose.bones[f"Hand1_{cote}"]
+        os_.rotation_mode = "XYZ"
+        os_.rotation_euler = (0, math.radians(deg), 0)
+    # Prise automatique : `wheel` = {centre, normale, rayon (ligne centrale de la jante), tube (rayon de la section)}.
+    # Pour chaque doigt on cherche la fraction de la flexion maximale `grip` pour laquelle son bout vient toucher le tube :
+    # les phalanges se referment juste assez pour saisir la jante, sans la traverser ni rester ouvertes.
+    def distance_jante(pt, w):
+        c, n = Vector(w["centre"]), Vector(w["normale"]).normalized()
+        d = pt - c
+        ax = d.dot(n)
+        return math.hypot((d - n * ax).length - w["rayon"], ax)
+    for cote, phalanges in p.get("grip", {}).items():
+        w = p.get("wheel")
+        for doigt in ("fb", "fc", "fd", "fe"):
+            os_doigt = [arm.pose.bones[f"{doigt}{r}_{cote}"] for r in (1, 2, 3, 4)]
+            maxi = (phalanges[0], phalanges[0], phalanges[1], phalanges[2])
+            meilleur, cout = 1.0, 1e9
+            for i in range(0, 41):
+                t = i / 40
+                for b, deg in zip(os_doigt, maxi):
+                    b.rotation_mode = "XYZ"
+                    b.rotation_euler = (math.radians(deg * t), 0, 0)
+                if w is None:
+                    break
+                bpy.context.view_layer.update()
+                c_ = abs(distance_jante(pos_monde(f"{doigt}4_{cote}", queue=True), w) - w["tube"])
+                if c_ < cout:
+                    meilleur, cout = t, c_
+            for b, deg in zip(os_doigt, maxi):
+                b.rotation_euler = (math.radians(deg * meilleur), 0, 0)
+            if w:
+                print("RAPPORT prise", cote, doigt, "flexion", round(meilleur, 2), "écart au tube (m)", round(cout, 3))
     # Tête : `head_deg` > 0 relève le regard (le cou tourne autour de sa base, en sens inverse du buste penché).
     if p.get("head_deg"):
         bpy.context.view_layer.update()

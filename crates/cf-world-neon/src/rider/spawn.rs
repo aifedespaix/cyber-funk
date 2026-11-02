@@ -9,10 +9,12 @@ use bevy::asset::{Assets, Handle};
 use bevy::color::LinearRgba;
 use bevy::ecs::system::SystemParam;
 use bevy::image::Image;
+use bevy::math::Vec3;
 use bevy::pbr::{ExtendedMaterial, MeshMaterial3d, StandardMaterial};
 use bevy::prelude::{ChildOf, Commands, Entity, Mesh, Mesh3d, Name, Transform, Visibility};
 use cf_render::WorldLayer;
 
+use super::arm_ik::ArmGeometry;
 use super::tint::{MANUL_REF_LUMINANCE, MOTO_REF_LUMINANCE, RiderPaintMaterial, RiderTintExt};
 use crate::car::model::{CarModelAsset, MaterialRole};
 use crate::car::spawn::standard_material;
@@ -65,11 +67,71 @@ pub struct Tint<'a> {
     pub body_materials: &'a [&'a str],
 }
 
+/// Les nœuds qu'une moto anime, retrouvés par leur nom dans le GLB (`tools/char/bake_rider.py`).
+#[derive(Debug, Clone, Copy, Default)]
+pub struct MotoNodes {
+    /// Roue avant (`spin_F`) : origine sur l'essieu, axe X.
+    pub front: Option<Entity>,
+    /// Roue arrière (`spin_R`).
+    pub rear: Option<Entity>,
+    /// Pilote (`rider`) : origine au bassin ; sa translation de repos y est gardée.
+    pub rider: Option<(Entity, Vec3)>,
+}
+
+/// Un bras du conducteur : ses deux pivots et sa géométrie de repos (`arm_X_up`, `arm_X_low`, `wrist_X`).
+#[derive(Debug, Clone, Copy)]
+pub struct ArmNodes {
+    /// Pivot de l'épaule.
+    pub up: Entity,
+    /// Pivot du coude.
+    pub low: Entity,
+    /// Épaule, coude et poignet de repos, repère du modèle.
+    pub geometry: ArmGeometry,
+}
+
+/// Les bras du conducteur, retrouvés par leur nom : gauche puis droit.
+#[derive(Debug, Clone, Copy, Default)]
+pub struct DriverNodes {
+    /// Bras gauche, s'il est complet dans le modèle.
+    pub left: Option<ArmNodes>,
+    /// Bras droit.
+    pub right: Option<ArmNodes>,
+}
+
+/// Les entités et positions de repos d'un bras, en cours de collecte.
+#[derive(Default, Clone, Copy)]
+struct ArmDraft {
+    up: Option<(Entity, Vec3)>,
+    low: Option<(Entity, Vec3)>,
+    wrist: Option<Vec3>,
+}
+
+impl ArmDraft {
+    /// `side` : +1 pour le bras gauche (x > 0 dans le modèle), −1 pour le droit : le coude va vers le bas et l'extérieur.
+    fn finish(self, side: f32) -> Option<ArmNodes> {
+        let ((up, shoulder), (low, elbow), wrist) = (self.up?, self.low?, self.wrist?);
+        Some(ArmNodes {
+            up,
+            low,
+            geometry: ArmGeometry {
+                shoulder,
+                elbow,
+                wrist,
+                pole: Vec3::new(0.35 * side, -1.0, -0.2),
+            },
+        })
+    }
+}
+
 /// Ce que [`spawn_model`] a posé.
 #[derive(Debug, Clone, Default)]
 pub struct SpawnedModel {
     /// Les matériaux teintés : leur couleur peut être changée à la naissance d'une moto.
     pub tinted: Vec<Handle<RiderPaintMaterial>>,
+    /// Roues et pilote, s'ils existent dans le modèle.
+    pub nodes: MotoNodes,
+    /// Bras du conducteur, s'ils existent dans le modèle.
+    pub driver: DriverNodes,
 }
 
 enum Built {
@@ -138,9 +200,12 @@ pub fn spawn_model(
             ChildOf(parent),
         ))
         .id();
-    let mut stack: Vec<(usize, Entity)> = model.roots.iter().map(|&r| (r, root)).collect();
-    while let Some((index, parent)) = stack.pop() {
+    // Position de repos de chaque nœud dans le modèle (les pivots n'ont qu'une translation) : épaule, coude, poignet.
+    let mut arms = [ArmDraft::default(); 2];
+    let mut stack: Vec<(usize, Entity, Vec3)> = model.roots.iter().map(|&r| (r, root, Vec3::ZERO)).collect();
+    while let Some((index, parent, parent_pos)) = stack.pop() {
         let node = &model.nodes[index];
+        let pos = parent_pos + node.transform.translation;
         let entity = commands
             .spawn((
                 Name::new(node.name.clone()),
@@ -150,6 +215,18 @@ pub fn spawn_model(
                 ChildOf(parent),
             ))
             .id();
+        match node.name.as_str() {
+            "spin_F" => spawned.nodes.front = Some(entity),
+            "spin_R" => spawned.nodes.rear = Some(entity),
+            "rider" => spawned.nodes.rider = Some((entity, node.transform.translation)),
+            "arm_l_up" => arms[0].up = Some((entity, pos)),
+            "arm_l_low" => arms[0].low = Some((entity, pos)),
+            "wrist_l" => arms[0].wrist = Some(pos),
+            "arm_r_up" => arms[1].up = Some((entity, pos)),
+            "arm_r_low" => arms[1].low = Some((entity, pos)),
+            "wrist_r" => arms[1].wrist = Some(pos),
+            _ => {}
+        }
         for &(mesh, material) in &node.pieces {
             let mut piece = commands.spawn((
                 Name::new(format!("{} · {}", node.name, model.materials[material].name)),
@@ -168,8 +245,12 @@ pub fn spawn_model(
                 }
             }
         }
-        stack.extend(node.children.iter().map(|&c| (c, entity)));
+        stack.extend(node.children.iter().map(|&c| (c, entity, pos)));
     }
+    spawned.driver = DriverNodes {
+        left: arms[0].finish(1.0),
+        right: arms[1].finish(-1.0),
+    };
     (root, spawned)
 }
 

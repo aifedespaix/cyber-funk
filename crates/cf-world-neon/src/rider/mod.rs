@@ -4,7 +4,10 @@
 //! (le lecteur de GLB du jeu ne lit que des maillages statiques) ; voir
 //! `docs/superpowers/specs/2026-11-01-motos-pilotes-design.md`.
 
+pub mod anim;
+pub mod arm_ik;
 pub mod driver;
+pub mod gearbox;
 pub mod moto;
 pub mod spawn;
 pub mod tint;

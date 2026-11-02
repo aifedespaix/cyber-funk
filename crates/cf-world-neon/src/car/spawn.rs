@@ -258,6 +258,8 @@ pub fn spawn_car(
         .filter_map(named)
         .collect();
     let steer: Vec<Entity> = ["steer_FL", "steer_FR"].into_iter().filter_map(named).collect();
+    let steering = named("steering_pivot");
+    let gear_lever = named("pivot_gear_lever");
     let logo = model
         .node("logo_rear")
         .and_then(|i| entities[i].map(|e| (e, model.nodes[i].transform.scale)));
@@ -277,6 +279,8 @@ pub fn spawn_car(
         chassis,
         spin,
         steer,
+        steering,
+        gear_lever,
         logo,
         screens,
         materials: handles,

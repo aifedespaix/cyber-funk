@@ -9,7 +9,10 @@ use bevy::prelude::*;
 use bevy::time::TimeUpdateStrategy;
 use cf_render::{AudioFeatures, CorePlugin, CurrentShowFx, ShowFxInput};
 use cf_world_neon::car::{ActiveCar, CarChoiceRequest, CarPlugin, CarRig, CarVariant, ModelQuality};
-use cf_world_neon::rider::driver::Driver;
+use cf_world_neon::rider::driver::{
+    Driver, DriverRig, GRIP_SETBACK_M, Gearshift, LEVER_PIVOT, WHEEL_AXIS, WHEEL_CENTRE, knob_position, lever_rotation,
+};
+use cf_world_neon::rider::gearbox::{Gear, SHIFT_S, Shift};
 use cf_world_neon::{ChasePlugin, NeonWorldPlugin, RunnerConfig};
 
 const FRAME: Duration = Duration::from_micros(16_667);
@@ -180,4 +183,136 @@ fn le_conducteur_est_dans_la_dirty_car_du_cote_du_volant() {
     // Volant à gauche : le manul est du côté +x, pas au milieu (le siège est à x = 0,49).
     let center = (min + max) / 2.0;
     assert!(center.x > 0.3 && center.x < 0.7, "centre du conducteur : {center}");
+}
+
+/// Le volant a un pivot dans la voiture et le conducteur a ses deux bras à pivots : sans eux, rien ne suit le volant.
+#[test]
+fn le_conducteur_a_ses_deux_bras_et_la_voiture_son_volant() {
+    let mut app = app();
+    run_until(&mut app, "voiture et conducteur posés", |app| !drivers(app).is_empty());
+    let rig = app.world_mut().query::<&CarRig>().single(app.world()).expect("voiture");
+    assert!(rig.steering.is_some(), "pivot du volant (steering_pivot)");
+    let driver = app.world_mut().query::<&DriverRig>().single(app.world()).expect("bras");
+    let (left, right) = (driver.0.left.expect("bras gauche"), driver.0.right.expect("bras droit"));
+    for arm in [left, right] {
+        assert!(
+            arm.geometry.upper() > 0.2 && arm.geometry.upper() < 0.5,
+            "bras : {:?}",
+            arm.geometry
+        );
+        assert!(
+            arm.geometry.lower() > 0.2 && arm.geometry.lower() < 0.5,
+            "avant-bras : {:?}",
+            arm.geometry
+        );
+        // La main est sur le volant : à un rayon de jante de son centre.
+        let d = arm.geometry.wrist - WHEEL_CENTRE;
+        let radial = (d - WHEEL_AXIS.normalize() * d.dot(WHEEL_AXIS.normalize())).length();
+        assert!(radial > 0.1 && radial < 0.3, "poignet à {radial} m de l'axe du volant");
+    }
+}
+
+/// Les constantes du centre et de l'axe du volant sont celles de la colonne dans le GLB de la voiture.
+#[test]
+fn l_axe_du_volant_est_celui_de_la_colonne_du_glb() {
+    let bytes = std::fs::read("../../assets/models/car/car-dirty-low.glb").expect("lecture");
+    let model = cf_world_neon::car::CarModelAsset::from_glb(&bytes).expect("décodage");
+    let column = model
+        .nodes
+        .iter()
+        .find(|n| n.name == "steering_column")
+        .expect("colonne de direction");
+    let t = column.transform;
+    assert!(t.translation.distance(WHEEL_CENTRE) < 0.01, "{:?}", t.translation);
+    let axis = t.rotation * Vec3::Y;
+    assert!(axis.distance(WHEEL_AXIS.normalize()) < 0.01, "{axis:?}");
+}
+
+/// Le pivot du levier dans le GLB est celui de la constante : la grille et la main en dépendent.
+#[test]
+fn le_pivot_du_levier_est_celui_du_glb() {
+    let bytes = std::fs::read("../../assets/models/car/car-dirty-low.glb").expect("lecture");
+    let model = cf_world_neon::car::CarModelAsset::from_glb(&bytes).expect("décodage");
+    let node = &model.nodes[model.node("pivot_gear_lever").expect("pivot_gear_lever")];
+    assert!(
+        node.transform.translation.distance(LEVER_PIVOT) < 1e-3,
+        "{:?}",
+        node.transform.translation
+    );
+}
+
+/// Au changement de rapport, la main droite quitte le volant et atteint le levier (à la portée du bras près), puis revient.
+#[test]
+fn la_main_droite_va_au_levier_puis_revient_au_volant() {
+    let mut app = app();
+    run_until(&mut app, "voiture et conducteur posés", |app| !drivers(app).is_empty());
+    let arm = app
+        .world_mut()
+        .query::<&DriverRig>()
+        .single(app.world())
+        .expect("bras")
+        .0
+        .right
+        .expect("bras droit");
+    let reach = arm.geometry.upper() + arm.geometry.lower();
+    let mut closest = f32::MAX;
+    let mut at_wheel_after = f32::MAX;
+    for gear in [Gear::Forward(2), Gear::Forward(3)] {
+        let shift = Shift::new(Gear::Forward(2), gear);
+        for step in 0..=60 {
+            let mut shift = shift;
+            shift.elapsed_s = SHIFT_S * step as f32 / 60.0;
+            let knob = knob_position(shift.knob());
+            let grip = knob + (arm.geometry.shoulder - knob).normalize() * GRIP_SETBACK_M;
+            let target = arm.geometry.wrist.lerp(grip, shift.hand_on_lever());
+            let reached = arm.geometry.wrist_for(arm.geometry.solve(target));
+            if (shift.hand_on_lever() - 1.0).abs() < 1e-3 {
+                closest = closest.min(reached.distance(knob));
+            }
+            if step == 60 {
+                at_wheel_after = at_wheel_after.min(reached.distance(arm.geometry.wrist));
+            }
+        }
+    }
+    // Le bras est trop court pour poser le poignet à 11 cm du pommeau : il reste, tendu, dans la direction du levier.
+    assert!(
+        closest < GRIP_SETBACK_M + 0.12,
+        "poignet à {closest} m du pommeau (portée {reach})"
+    );
+    assert!(at_wheel_after < 1e-3, "la main n'est pas revenue : {at_wheel_after}");
+}
+
+/// Dans une vraie `App`, le levier suit le rapport : à vitesse de croisière, la sixième est engagée et le levier y repose.
+#[test]
+fn le_levier_de_la_voiture_suit_le_rapport_engage() {
+    let mut app = app();
+    run_until(&mut app, "voiture et conducteur posés", |app| !drivers(app).is_empty());
+    run_until(&mut app, "rapport engagé", |app| {
+        app.world_mut()
+            .query::<&Gearshift>()
+            .single(app.world())
+            .is_ok_and(|g| g.gear.is_some())
+    });
+    for _ in 0..120 {
+        app.update();
+    }
+    let gearshift = *app
+        .world_mut()
+        .query::<&Gearshift>()
+        .single(app.world())
+        .expect("boîte");
+    let gear = gearshift.gear.expect("rapport");
+    assert!(gearshift.shift.is_none(), "geste en cours : {gearshift:?}");
+    let lever = app
+        .world_mut()
+        .query::<&CarRig>()
+        .single(app.world())
+        .expect("voiture")
+        .gear_lever
+        .expect("pivot_gear_lever");
+    let rotation = app.world().get::<Transform>(lever).expect("levier").rotation;
+    assert!(
+        rotation.angle_between(lever_rotation(gear.gate())) < 1e-3,
+        "{gear:?} {rotation:?}"
+    );
 }

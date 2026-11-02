@@ -80,3 +80,33 @@ Gabarits exacts des immeubles de saut, paramètres de la balistique, poids de ti
 
 Tests unitaires de la trajectoire (atterrit sur l'immeuble d'arrivée), du parc (aucune allocation par image), de la
 teinte (valeurs du shader reproduites côté CPU) ; l'aspect final est à valider à l'écran par l'utilisateur.
+
+## Animation des motos (X-10-g)
+
+Sans squelette (le lecteur de GLB ne lit que des maillages), on anime des **nœuds entiers** :
+
+- `spin_F`, `spin_R` : roues, séparées des sources par `tools/moto/split_wheels.py` (îlots de géométrie centrés sur l'essieu,
+  détachés de leurs parents, transformations appliquées). Pivot vide sur l'essieu, axe X. Le jeu les fait tourner de `v·dt / r`
+  par image (pas borné à 0,9 rad pour ne pas paraître tourner à l'envers), `rider::anim`.
+- `rider` : pivot vide au bassin, enfant le pilote figé. Il respire à l'arrêt (±0,8°, 6 mm), se couche en arrière quand la moto
+  accélère, se penche en freinant, se redresse dans un wheeling (après s'être jeté en arrière à son départ).
+- Plongée de la moto entière au freinage (jusqu'à 3°) et « assise » à l'accélération, autour de l'essieu arrière.
+
+**Pourquoi des pivots vides** : `gltf-transform meshopt` range les sommets en entiers et reporte l'échelle (non uniforme) sur le
+nœud du maillage, dont l'origine devient le centre de sa boîte. Un pivot vide garde son origine exacte, sans échelle.
+
+Hors périmètre : bras et jambes qui bougent (squelette), roues avant qui tournent au guidon, rayon de pneu lu dans le GLB
+(table `WHEEL_DIAMETER_M`, vérifiée par un test).
+
+## Volant et bras du conducteur (X-10-h)
+
+- Le GLB du conducteur découpe chaque bras en pièces rigides à pivots (`arm_X_up` à l'épaule, `arm_X_low` au coude avec
+  avant-bras, main et doigts figés, `wrist_X` au poignet), voir `tools/char/bake_rider.py`.
+- `steering_pivot` (voiture) tourne avec le braquage, ±100° en butée ; `rider::driver::animate_driver` fait tourner le
+  poignet autour de l'axe de la colonne et replie le bras par cinématique inverse à deux segments (`rider::arm_ik`).
+- Levier (`rider::gearbox`, `rider::driver::Gearshift`) : boîte à 6 rapports simulée d'après `CarState.speed_mps` (seuils de
+  montée 7/14/22/30/37 m/s, rétrogradation à 80 %, un cran à la fois ; la croisière à 40 m/s est en sixième). Le levier
+  (`pivot_gear_lever`) suit la grille en H de `CyberCar.ts`. À chaque changement, la main droite quitte la jante (0,18 s),
+  pousse le levier par la rangée du point mort (0,22 s) et revient (0,2 s). Le bras est trop court pour poser le poignet
+  à 11 cm du pommeau : il se tend vers lui (à vérifier à l'œil dans le jeu).
+- Pas encore fait : doigts qui s'ouvrent et se referment, pédales.
