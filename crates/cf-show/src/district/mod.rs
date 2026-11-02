@@ -7,7 +7,9 @@ mod governor;
 #[cfg(test)]
 mod tests;
 
-pub use governor::{AFTER_DROP_BEATS, AFTER_DROP_FALLBACK_S, Governor, MAX_DWELL_S, MIN_DWELL_S, TRANSITION_MAX_S};
+pub use governor::{
+    AFTER_DROP_BEATS, AFTER_DROP_BPM_RANGE, AFTER_DROP_FALLBACK_S, Governor, MAX_DWELL_S, MIN_DWELL_S, TRANSITION_MAX_S,
+};
 
 use cf_analysis::Section;
 

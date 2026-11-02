@@ -180,7 +180,10 @@ pub(super) fn draw_districts(
     ui.horizontal(|ui| {
         gestures.force = ui
             .button("Forcer")
-            .on_hover_text("Passe tout de suite à ce quartier, sans attendre les règles. Le limiteur reste actif.")
+            .on_hover_text(concat!(
+                "Lance tout de suite la transition, sans attendre les règles : la ville change au loin, ",
+                "la couleur quand la voiture y arrive (~30 s à vitesse de croisière). Le limiteur reste actif."
+            ))
             .clicked();
         let mut frozen = state.frozen;
         if ui.checkbox(&mut frozen, "Geler l'automatique").changed() {

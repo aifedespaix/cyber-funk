@@ -59,7 +59,8 @@ impl Default for DistrictState {
 /// Ordre de l'interface (ou d'un déclencheur `district:<type>`) au moteur de quartiers.
 #[derive(Message, Debug, Clone, Copy, PartialEq)]
 pub enum DistrictOrder {
-    /// Passer tout de suite à `to` par `transition`, sans consulter les règles (outil de debug). Remplace une
+    /// Lancer tout de suite la transition vers `to` par `transition`, sans consulter les règles (outil de debug) : la
+    /// ville change au bord de la fenêtre de streaming, la couleur quand la voiture y arrive. Remplace une
     /// transition en cours ; accepté pendant un drop. Le limiteur de flashs reste en place.
     Force {
         /// Quartier visé.

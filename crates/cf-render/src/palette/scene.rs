@@ -97,12 +97,6 @@ impl SceneColor {
         }
     }
 
-    /// Le rôle qui porte ce nom (`mint`, `amber`…), `None` si le nom est inconnu.
-    #[must_use]
-    pub fn from_name(name: &str) -> Option<Self> {
-        Self::ALL.into_iter().find(|role| role.name() == name)
-    }
-
     /// Position du rôle dans [`SceneColor::ALL`] (et dans les tableaux par rôle).
     #[must_use]
     pub const fn index(self) -> usize {

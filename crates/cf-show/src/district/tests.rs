@@ -1,8 +1,8 @@
 //! Tests du gouverneur sur des séquences d'instantanés écrites à la main.
 
 use super::{
-    AFTER_DROP_FALLBACK_S, Decision, DistrictId, DistrictKind, Governor, GovernorSnapshot, MAX_DWELL_S, MIN_DWELL_S,
-    StayReason, TRANSITION_MAX_S, TransitionKind,
+    AFTER_DROP_BEATS, AFTER_DROP_BPM_RANGE, AFTER_DROP_FALLBACK_S, Decision, DistrictId, DistrictKind, Governor,
+    GovernorSnapshot, MAX_DWELL_S, MIN_DWELL_S, StayReason, TRANSITION_MAX_S, TransitionKind,
 };
 use cf_analysis::Section;
 
@@ -317,7 +317,7 @@ fn transition_done_libere_avant_le_delai() {
         TransitionKind::Gradient,
         0.0,
     );
-    gov.transition_done(3.0);
+    gov.transition_done();
     assert_eq!(
         gov.tick(&calm(4.0)),
         Decision::Stay {
@@ -452,7 +452,7 @@ fn la_duree_dans_le_quartier_repart_a_l_entree_de_zone() {
     gov.force(to, TransitionKind::Gradient, 0.0);
     // La voiture entre dans la zone 30 s après la décision ; la transition finit à 40 s.
     gov.restart_dwell(30.0);
-    gov.transition_done(40.0);
+    gov.transition_done();
     // 150 s après la décision mais pas après l'entrée : trop tôt.
     assert_eq!(
         gov.tick(&calm(MIN_DWELL_S + 1.0)),
@@ -461,4 +461,80 @@ fn la_duree_dans_le_quartier_repart_a_l_entree_de_zone() {
         }
     );
     assert!(is_change(gov.tick(&calm(30.0 + MIN_DWELL_S + 1.0))));
+}
+
+#[test]
+fn music_blocks_reprend_les_gardes_de_tick() {
+    let mut gov = Governor::new(9, VARIANTS);
+    assert_eq!(gov.music_blocks(&calm(0.0)), None);
+    let peak = GovernorSnapshot {
+        section: Section::Peak,
+        drop_imminent: true,
+        ..calm(1.0)
+    };
+    // Même ordre que `tick` : Peak d'abord.
+    assert_eq!(gov.music_blocks(&peak), Some(StayReason::PeakSection));
+    let imminent = GovernorSnapshot {
+        drop_imminent: true,
+        ..calm(1.0)
+    };
+    assert_eq!(gov.music_blocks(&imminent), Some(StayReason::DropImminent));
+    let hit = GovernorSnapshot {
+        drop_now: true,
+        ..calm(2.0)
+    };
+    // Le drop qui frappe bloque avant même que `tick` l'ait vu.
+    assert_eq!(gov.music_blocks(&hit), Some(StayReason::AfterDrop));
+    gov.tick(&hit);
+    assert_eq!(
+        gov.music_blocks(&calm(2.0 + AFTER_DROP_FALLBACK_S - 0.5)),
+        Some(StayReason::AfterDrop)
+    );
+    assert_eq!(gov.music_blocks(&calm(2.0 + AFTER_DROP_FALLBACK_S + 0.5)), None);
+    // `tick` rend la même raison que `music_blocks` après le temps minimum.
+    let late = MIN_DWELL_S + 10.0;
+    gov.tick(&GovernorSnapshot {
+        drop_now: true,
+        ..calm(late)
+    });
+    let snap = calm(late + 1.0);
+    assert_eq!(gov.music_blocks(&snap), Some(StayReason::AfterDrop));
+    assert_eq!(
+        gov.tick(&snap),
+        Decision::Stay {
+            reason: StayReason::AfterDrop
+        }
+    );
+}
+
+#[test]
+fn un_tempo_aberrant_ne_bloque_pas_des_minutes() {
+    let mut gov = Governor::new(9, VARIANTS);
+    let with_bpm = |t: f64, bpm: f32| GovernorSnapshot {
+        bpm: Some(bpm),
+        ..calm(t)
+    };
+    gov.tick(&GovernorSnapshot {
+        drop_now: true,
+        ..with_bpm(0.0, 2.0)
+    });
+    // À 2 BPM, 8 mesures dureraient 960 s ; borné à 60 BPM : 32 s.
+    let slowest = f64::from(AFTER_DROP_BEATS) * 4.0 * 60.0 / f64::from(AFTER_DROP_BPM_RANGE.0);
+    assert_eq!(
+        gov.music_blocks(&with_bpm(slowest - 0.5, 2.0)),
+        Some(StayReason::AfterDrop)
+    );
+    assert_eq!(gov.music_blocks(&with_bpm(slowest + 0.5, 2.0)), None);
+    // À 1 000 BPM, la fenêtre ne tombe pas sous celle de 200 BPM (9,6 s).
+    let mut fast = Governor::new(9, VARIANTS);
+    fast.tick(&GovernorSnapshot {
+        drop_now: true,
+        ..with_bpm(0.0, 1000.0)
+    });
+    let quickest = f64::from(AFTER_DROP_BEATS) * 4.0 * 60.0 / f64::from(AFTER_DROP_BPM_RANGE.1);
+    assert_eq!(
+        fast.music_blocks(&with_bpm(quickest - 0.5, 1000.0)),
+        Some(StayReason::AfterDrop)
+    );
+    assert_eq!(fast.music_blocks(&with_bpm(quickest + 0.5, 1000.0)), None);
 }

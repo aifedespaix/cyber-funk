@@ -6,7 +6,9 @@ use bevy::prelude::Resource;
 use cf_analysis::Section;
 use cf_render::palette::MAX_WAIT;
 use cf_render::{DISTRICT_HISTORY, DistrictGradeState, DistrictOrder, DistrictState};
-use cf_show::district::{Decision, DistrictId, Governor, GovernorSnapshot, TRANSITION_MAX_S, TransitionKind};
+use cf_show::district::{
+    Decision, DistrictId, Governor, GovernorSnapshot, StayReason, TRANSITION_MAX_S, TransitionKind,
+};
 
 use crate::world::{AHEAD, CHUNK_LENGTH_M};
 
@@ -23,6 +25,10 @@ pub const MIN_FADE_S: f32 = 1.0;
 /// Approche la plus longue (s) : passé ce délai, l'étalonnage part même si la voiture n'a pas atteint la zone (voiture
 /// arrêtée), pour qu'elle ne bloque jamais le moteur.
 pub const APPROACH_MAX_S: f32 = 60.0;
+/// Retenue la plus longue (s) du départ de la couleur une fois la voiture dans la zone, quand la musique l'interdit
+/// (Peak, drop imminent, après un drop). Passé ce délai la couleur part quand même : un Peak sans fin ne doit pas laisser
+/// la ville nouvelle sous l'ancienne couleur indéfiniment.
+pub const MUSIC_HOLD_MAX_S: f32 = 45.0;
 
 /// Le gouverneur de quartiers (`cf-show`), seedé par la graine du monde.
 #[derive(Resource, Debug, Clone)]
@@ -69,6 +75,8 @@ pub struct Change {
     pub transition: TransitionKind,
     /// Longueur de la zone de dégradé, en rangées.
     pub blend_rows: u32,
+    /// Forçage de debug : la couleur part à l'entrée de la zone même si la musique l'interdit.
+    pub forced: bool,
 }
 
 /// La transition en cours.
@@ -82,8 +90,12 @@ struct Running {
     blend_end: Option<i64>,
     /// Temps passé à approcher la zone (s).
     approach_s: f32,
-    /// Temps passé depuis l'entrée dans la zone (s), `None` tant que la voiture approche.
+    /// Temps passé depuis le départ de la couleur (s), `None` tant que la voiture approche ou que la musique retient.
     zone_s: Option<f32>,
+    /// Temps passé dans la zone à attendre que la musique permette le départ de la couleur (s).
+    held_s: f32,
+    /// Forçage : jamais retenu par la musique.
+    forced: bool,
 }
 
 /// L'état de la colle d'une image à l'autre.
@@ -142,6 +154,7 @@ impl DistrictDriver {
                     to,
                     transition,
                     blend_rows: self.blend_rows(state.fade_s),
+                    forced: true,
                 })
             }
         }
@@ -157,6 +170,8 @@ impl DistrictDriver {
             blend_end: from_index.map(|from| from.saturating_add(i64::from(change.blend_rows))),
             approach_s: 0.0,
             zone_s: None,
+            held_s: 0.0,
+            forced: change.forced,
         });
         state.target = Some(change.to);
         state.transition = change.transition;
@@ -182,9 +197,7 @@ impl DistrictDriver {
         let event_ended = matches!((self.last_events, input.active_events), (Some(before), Some(now)) if now < before);
         self.last_events = input.active_events;
 
-        self.advance(governor, input, grade, state);
-
-        let decision = governor.tick(&GovernorSnapshot {
+        let snapshot = GovernorSnapshot {
             now_s: input.now_s,
             section: input.section,
             section_changed: input.section_changed,
@@ -196,17 +209,22 @@ impl DistrictDriver {
             drop_now: input.drop_now,
             event_ended,
             show_present: input.show_present,
-        });
+        };
+        let held = self.advance(governor, input, &snapshot, grade, state);
+
+        let decision = governor.tick(&snapshot);
         copy_history(governor, state);
         match decision {
             Decision::Stay { reason } => {
-                state.last_reason = reason;
+                // Couleur retenue par la musique : F4 montre pourquoi plutôt qu'un simple « transition en cours ».
+                state.last_reason = held.unwrap_or(reason);
                 None
             }
             Decision::Change { to, transition } => Some(Change {
                 to,
                 transition,
                 blend_rows: self.blend_rows(state.fade_s),
+                forced: false,
             }),
         }
     }
@@ -229,6 +247,9 @@ impl DistrictDriver {
     /// - **Approche** : le segment est posé loin devant (au-delà des rangées générées) ; la couleur ne bouge pas, le
     ///   gouverneur est maintenu en `Transitioning`, `progress` reste à 0. Au plus [`APPROACH_MAX_S`] : une voiture
     ///   arrêtée ne bloque pas le moteur.
+    /// - **Retenue** : la voiture est dans la zone mais la musique interdit un changement visible
+    ///   ([`Governor::music_blocks`] : Peak, drop imminent, après un drop) ; la couleur attend, au plus
+    ///   [`MUSIC_HOLD_MAX_S`]. Un forçage n'est jamais retenu. Rend la raison de la retenue.
     /// - **Zone** : la voiture entre dans la zone de dégradé ; l'étalonnage part (fondu de la durée de traversée, au plus
     ///   `fade_s`) et le temps passé dans le quartier se compte de là. `progress` = la plus avancée de la traversée et du
     ///   temps. Fin quand la voiture a passé la zone et que l'étalonnage est posé, ou au plus `fade_s` + [`MAX_WAIT`]
@@ -237,12 +258,11 @@ impl DistrictDriver {
         &mut self,
         governor: &mut Governor,
         input: &DistrictInput,
+        snapshot: &GovernorSnapshot,
         mut grade: Option<&mut DistrictGradeState>,
         state: &mut DistrictState,
-    ) {
-        let Some(running) = self.running.as_mut() else {
-            return;
-        };
+    ) -> Option<StayReason> {
+        let running = self.running.as_mut()?;
         let dt = input.dt_s.max(0.0);
         let car_row = input.car_z.map(|z| (-z / f64::from(CHUNK_LENGTH_M)).floor() as i64);
         let fade_s = state.fade_s.clamp(MIN_FADE_S, TRANSITION_MAX_S as f32);
@@ -260,7 +280,18 @@ impl DistrictDriver {
             if !reached && running.approach_s < APPROACH_MAX_S {
                 governor.hold_transition(input.now_s);
                 state.progress = 0.0;
-                return;
+                return None;
+            }
+            // Dans la zone : jamais de changement visible en plein drop ni en Peak (sauf forçage, sauf retenue trop
+            // longue).
+            let blocked = (!running.forced && running.held_s < MUSIC_HOLD_MAX_S)
+                .then(|| governor.music_blocks(snapshot))
+                .flatten();
+            if let Some(reason) = blocked {
+                running.held_s += dt;
+                governor.hold_transition(input.now_s);
+                state.progress = 0.0;
+                return Some(reason);
             }
             // Entrée dans la zone : la couleur suit la voiture, sur le temps de traversée de la zone.
             running.zone_s = Some(0.0);
@@ -286,12 +317,13 @@ impl DistrictDriver {
             .map_or(zone_s >= fade_s, |g| !g.is_fading() && !g.is_pending());
         if (passed && graded) || zone_s >= fade_s + MAX_WAIT {
             self.running = None;
-            governor.transition_done(input.now_s);
+            governor.transition_done();
             state.current = state.target.take().unwrap_or(state.current);
             state.progress = 1.0;
         } else {
             governor.hold_transition(input.now_s);
         }
+        None
     }
 }
 

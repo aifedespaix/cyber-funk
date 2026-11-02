@@ -78,8 +78,8 @@ pub fn take_district_triggers(
 
 /// `CfSet::Simulate` : en qualité basse (niveau ≥ [`LOW_QUALITY_LEVEL`], celui des façades), l'étalonnage de quartier
 /// glisse vers le neutre en [`LOW_QUALITY_FADE_S`](crate::facade::LOW_QUALITY_FADE_S) (rampe linéaire de
-/// [`LowQualityMix`], jamais d'à-coup : règle 7), et en revient de même quand la qualité remonte. La ville continue de changer : la géométrie ne coûte rien de plus, seul
-/// l'étalonnage (un calcul de palette par image) est retiré. Rien n'est écrit tant que le repli ne bouge pas (pas de
+/// [`LowQualityMix`], jamais d'à-coup : règle 7), et en revient de même quand la qualité remonte. La ville continue de
+/// changer : la géométrie ne coûte rien de plus, seul l'étalonnage (un calcul de palette par image) est retiré. Rien n'est écrit tant que le repli ne bouge pas (pas de
 /// détection de changement inutile).
 pub fn fade_grade_for_quality(
     time: Res<Time>,

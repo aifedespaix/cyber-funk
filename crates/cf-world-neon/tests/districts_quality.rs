@@ -14,7 +14,7 @@ use cf_render::{
     QualityLevers, StreamFocus, levers_for,
 };
 use cf_show::district::{DistrictId, DistrictKind, TransitionKind};
-use cf_world_neon::facade::LOW_QUALITY_FADE_S;
+use cf_world_neon::facade::{LOW_QUALITY_FADE_S, LOW_QUALITY_LEVEL};
 use cf_world_neon::{DistrictsPlugin, FacadeLook, NeonWorld};
 
 const FRAME_S: f64 = 0.1;
@@ -87,7 +87,7 @@ fn change_to(app: &mut App, from: usize, to: DistrictId, mut each: impl FnMut(&A
 
 /// Joue la rampe du repli et vérifie qu'elle est linéaire, sans à-coup, et qu'elle dure 1,5 s. Rend l'image suivante.
 fn ramp(app: &mut App, from: usize, low: bool) -> usize {
-    app.insert_resource(levers_for(if low { 2 } else { 0 }));
+    app.insert_resource(levers_for(if low { LOW_QUALITY_LEVEL } else { 0 }));
     let target = if low { 1.0 } else { 0.0 };
     let mut last = grade(app).low_quality_mix();
     let mut last_hue = grade(app).displayed().hue_deg;
@@ -160,5 +160,5 @@ fn qualite_basse_coupe_l_etalonnage_progressivement() {
     // La qualité revient : l'étalonnage du quartier courant remonte en 1,5 s, sans à-coup.
     ramp(&mut app, i, false);
     assert_eq!(grade(&app).displayed(), below);
-    assert!(app.world().resource::<QualityLevers>().level < 2);
+    assert!(app.world().resource::<QualityLevers>().level < LOW_QUALITY_LEVEL);
 }

@@ -133,7 +133,7 @@ impl Governor {
     }
 
     /// La colle signale que le dégradé est fini ; sinon il se termine seul à [`TRANSITION_MAX_S`].
-    pub fn transition_done(&mut self, _now_s: f64) {
+    pub fn transition_done(&mut self) {
         self.transition_since_s = None;
     }
 
@@ -148,6 +148,28 @@ impl Governor {
     /// quartier ([`MIN_DWELL_S`], [`MAX_DWELL_S`]) se compte à partir de `now_s`, pas de la décision.
     pub fn restart_dwell(&mut self, now_s: f64) {
         self.last_change_s = Some(now_s);
+    }
+
+    /// Ce que la musique interdit en ce moment, sans rien changer : section Peak, drop imminent, drop qui frappe ou
+    /// fenêtre qui suit un drop (dans cet ordre). Les mêmes gardes que [`Self::tick`], qui l'appelle ; la colle s'en
+    /// sert aussi pour retenir le départ de la couleur quand la voiture atteint la zone de dégradé. La fenêtre après
+    /// drop s'appuie sur le dernier drop vu par [`Self::tick`] (et sur `drop_now` de cet instantané).
+    #[must_use]
+    pub fn music_blocks(&self, snap: &GovernorSnapshot) -> Option<StayReason> {
+        if snap.section == Section::Peak {
+            return Some(StayReason::PeakSection);
+        }
+        if snap.drop_imminent {
+            return Some(StayReason::DropImminent);
+        }
+        if snap.drop_now
+            || self
+                .last_drop_s
+                .is_some_and(|d| snap.now_s - d < after_drop_window_s(snap.bpm))
+        {
+            return Some(StayReason::AfterDrop);
+        }
+        None
     }
 
     /// Décision pour cet instantané.
@@ -178,17 +200,8 @@ impl Governor {
         if self.transition_since_s.is_some() {
             return stay(StayReason::Transitioning);
         }
-        if snap.section == Section::Peak {
-            return stay(StayReason::PeakSection);
-        }
-        if snap.drop_imminent {
-            return stay(StayReason::DropImminent);
-        }
-        if self
-            .last_drop_s
-            .is_some_and(|d| now - d < after_drop_window_s(snap.bpm))
-        {
-            return stay(StayReason::AfterDrop);
+        if let Some(reason) = self.music_blocks(snap) {
+            return stay(reason);
         }
         let dwell = now - since;
         if dwell < MIN_DWELL_S {
@@ -279,10 +292,17 @@ impl Governor {
     }
 }
 
-/// Durée interdite après un drop : 8 mesures de 4 temps si le tempo est connu.
+/// Tempo pris en compte pour la fenêtre après drop, en BPM : un tempo MIDI/Link aberrant (2 BPM) ne bloque pas les
+/// changements pendant des minutes, un tempo trop rapide ne la réduit pas à rien.
+pub const AFTER_DROP_BPM_RANGE: (f32, f32) = (60.0, 200.0);
+
+/// Durée interdite après un drop : 8 mesures de 4 temps si le tempo est connu (borné à [`AFTER_DROP_BPM_RANGE`]).
 fn after_drop_window_s(bpm: Option<f32>) -> f64 {
     match bpm {
-        Some(b) if b > 1.0 => f64::from(AFTER_DROP_BEATS) * 4.0 * 60.0 / f64::from(b),
+        Some(b) if b.is_finite() && b > 1.0 => {
+            let b = b.clamp(AFTER_DROP_BPM_RANGE.0, AFTER_DROP_BPM_RANGE.1);
+            f64::from(AFTER_DROP_BEATS) * 4.0 * 60.0 / f64::from(b)
+        }
         _ => AFTER_DROP_FALLBACK_S,
     }
 }

@@ -111,9 +111,16 @@ exemple « bloqué : drop imminent ») et les 5 derniers quartiers, du plus réc
 - **Type**, **Variante**, **Transition** : le quartier à forcer. Seul le dégradé existe pour l'instant ; les six autres
   transitions sont proposées mais jouées en dégradé, ce que la fenêtre signale par « (repli : dégradé) ».
 - **Durée du dégradé** (1 à 10 s) : longueur des prochaines transitions.
-- **Forcer** : passe tout de suite au quartier choisi, sans attendre les règles de l'automatique (même pendant un drop
-  ou une transition en cours, qu'il remplace). Le limiteur de flashs reste actif.
+- **Forcer** : lance tout de suite la transition vers le quartier choisi, sans attendre les règles de l'automatique
+  (même pendant un drop ou une transition en cours, qu'il remplace). La ville change au loin, au bord de ce qui est
+  construit (~1,2 km devant), et la couleur change quand la voiture y arrive : ~30 s à vitesse de croisière. Le
+  limiteur de flashs reste actif.
 - **Geler l'automatique** : l'automatique ne change plus de quartier ; « Forcer » marche toujours.
+
+L'automatique ne change de quartier qu'avec un show chargé, et compte en temps audio : sans show, ou si l'horloge audio
+n'avance pas (aucune source qui livre du son), il ne change rien ; seul « Forcer » agit. Une transition décidée par
+l'automatique ne lance jamais sa couleur en pleine section Peak, avec un drop imminent ou juste après un drop : elle
+attend que la musique le permette (au plus 45 s une fois la voiture arrivée).
 
 Rien de cette section n'est sauvegardé : à chaque lancement, l'automatique repart non gelé, sans quartier forcé, avec le
 choix par défaut. Les déclencheurs `district:neon`, `district:suburb` et `district:residential` restent disponibles pour
@@ -125,7 +132,8 @@ s'effacent en 1,5 s, en fondu régulier, et la palette du thème revient telle q
 leur couleur est mise de côté.
 
 Limites connues : aucune vérification visuelle n'a encore été faite et le temps d'image avant/après n'a pas été mesuré.
-Les couleurs des quartiers (`district_grades.ron`) comme la géométrie de la banlieue et du résidentiel sont un premier réglage, à vérifier et ajuster à l'œil.
+Les couleurs des quartiers (`district_grades.ron`) comme la géométrie de la banlieue et du résidentiel sont un premier
+réglage, à vérifier et ajuster à l'œil.
 
 **Façades : deux curseurs.** En haut de la fenêtre Debug monde, de 0 à 1 (1 : plein effet, la valeur de départ) :
 

@@ -27,6 +27,7 @@ use cf_show::district::DistrictKind;
 pub use cf_render::{DistrictOrder, DistrictState};
 pub use state::{
     APPROACH_MAX_S, Change, DistrictBrain, DistrictDriver, DistrictInput, MAX_BLEND_ROWS, MIN_BLEND_ROWS, MIN_FADE_S,
+    MUSIC_HOLD_MAX_S,
 };
 pub use systems::{DistrictSources, fade_grade_for_quality, start_districts, take_district_triggers, tick_districts};
 
