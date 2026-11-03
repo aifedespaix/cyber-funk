@@ -13,6 +13,7 @@ use cf_render::{
     ScenePalette, StreamFocus,
 };
 
+use super::haze::{Haze, HazeFrame, HazeMaterial, HazeRig, haze_params, haze_position};
 use super::logic::Weather;
 use super::mist::{Mist, MistMaterial, MistRig, mist_params, mist_position};
 use super::rain::{AHEAD_FRACTION, BOX_M, Rain, RainMaterial, RainParams, RainRig, TIME_WRAP_S};
@@ -128,6 +129,7 @@ pub(super) fn step_weather(
     show_fx: Option<Res<CurrentShowFx>>,
     sky: Option<Res<SkyLook>>,
     car: Query<&CarState, With<Car>>,
+    pose: Option<Res<CameraPose>>,
     mut state: ResMut<WeatherState>,
     mut road: ResMut<RoadLook>,
     mut lens: ResMut<LensWeather>,
@@ -151,7 +153,10 @@ pub(super) fn step_weather(
     }
     // Mode calme (`reducedMotion`) : l'objectif reste sec (`setLens` de `postfx.ts`).
     let calm = sky.is_some_and(|s| s.calm);
-    lens.rain = if calm { 0.0 } else { state.weather.rain };
+    // Au volant, l'objectif est derrière le pare-brise : les gouttes sont sur la vitre (voir `car::rain_glass`), pas sur la
+    // caméra.
+    let cabin = pose.is_some_and(|p| p.cabin);
+    lens.rain = if calm || cabin { 0.0 } else { state.weather.rain };
     lens.speed_ratio = car.single().map_or(0.0, |c| (c.speed_mps / CRUISE_MPS).clamp(0.0, 1.0));
 }
 
@@ -163,6 +168,64 @@ pub(super) fn follow_mist(
     let Ok(focus) = focus.single() else { return };
     for mut position in &mut mist {
         position.set_if_neq(AbsolutePosition(mist_position(focus.0)));
+    }
+}
+
+/// `CfSet::Simulate`, après les tronçons : les voiles de brume basse suivent la voiture.
+pub(super) fn follow_haze(
+    focus: Query<&AbsolutePosition, (With<StreamFocus>, Without<Haze>)>,
+    mut hazes: Query<(&Haze, &mut AbsolutePosition)>,
+) {
+    let Ok(focus) = focus.single() else { return };
+    for (haze, mut position) in &mut hazes {
+        position.set_if_neq(AbsolutePosition(haze_position(focus.0, haze.0)));
+    }
+}
+
+/// `CfSet::Present` : remplit les matériaux des voiles (palette, pouls, densité, qualité). La pluie épaissit la brume ;
+/// la qualité adaptative l'éclaircit et, sous 0,5, retire le voile du haut.
+#[allow(clippy::too_many_arguments)] // Les paramètres d'un système Bevy : ressources et requêtes.
+pub(super) fn update_haze(
+    time: Res<Time>,
+    palette: Res<ScenePalette>,
+    mood: Option<Res<SceneMood>>,
+    features: Option<Res<AudioFeatures>>,
+    levers: Option<Res<QualityLevers>>,
+    state: Res<WeatherState>,
+    car: Query<&CarState, With<Car>>,
+    rig: Res<HazeRig>,
+    mut materials: ResMut<Assets<HazeMaterial>>,
+    mut hazes: Query<(&Haze, &mut Visibility)>,
+) {
+    let mood = mood.map_or_else(
+        || cf_render::palette::mood_color(&palette, cf_render::palette::NEUTRAL_INTENSITY),
+        |m| m.color,
+    );
+    let particles = levers.as_ref().map_or(1.0, |l| l.particle_density);
+    let frame = HazeFrame {
+        mood,
+        time_s: time.elapsed_secs_f64(),
+        pulse: features.map_or(0.0, |f| f.0.pulse),
+        density: (0.8 + 0.5 * state.weather.rain) * particles.clamp(0.0, 1.0).max(0.35),
+        cheap: particles < 1.0,
+        speed_mps: car.single().map_or(0.0, |c| c.speed_mps.max(0.0)),
+    };
+    for (index, handle) in rig.materials.iter().enumerate() {
+        write(
+            &mut materials,
+            handle,
+            HazeMaterial {
+                params: haze_params(&palette, &frame, index),
+            },
+        );
+    }
+    for (haze, mut visibility) in &mut hazes {
+        let wanted = if haze.0 + 1 == rig.materials.len() && particles < 0.5 {
+            Visibility::Hidden
+        } else {
+            Visibility::Inherited
+        };
+        visibility.set_if_neq(wanted);
     }
 }
 

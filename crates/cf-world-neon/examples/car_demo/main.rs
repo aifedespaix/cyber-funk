@@ -7,7 +7,7 @@
 //!
 //! Interactif : un kick à 128 BPM fait pulser les lumières de la voiture ; `A` / `D` tournent le volant (clignotant du
 //! côté où il tourne, la voiture dérive), `S` freine (feux stop, fumée), `C` bascule entre la poursuite et une vue
-//! trois quarts avant. La voiture file à vitesse de croisière.
+//! trois quarts avant, `H` décolle ou atterrit (les roues basculent), `R` fait pleuvoir sur la route et les vitres. La voiture file à vitesse de croisière.
 //!
 //! Avec `CF_CHECK=1`, l'exemple passe par des scènes scriptées (roulage, kick, freinage, clignotant, glissade, trois
 //! quarts), capture l'écran à chacune et vérifie sur les pixels que la voiture est dessinée, que les kicks la font
@@ -91,7 +91,33 @@ fn main() {
 }
 
 /// Touches : `A` / `D` volant, `S` frein, `C` change de vue.
-fn keys(keyboard: Res<ButtonInput<KeyCode>>, mut controls: ResMut<CarControls>, mut view: ResMut<View>) {
+#[allow(clippy::too_many_arguments, reason = "un exemple : chaque réglage a sa ressource")]
+fn keys(
+    keyboard: Res<ButtonInput<KeyCode>>,
+    time: Res<Time>,
+    mut controls: ResMut<CarControls>,
+    mut weather: ResMut<cf_world_neon::WeatherSettings>,
+    mut look: ResMut<cf_world_neon::RoadLook>,
+    mut view: ResMut<View>,
+    mut flying: Local<bool>,
+    mut raining: Local<bool>,
+) {
+    // `H` : décollage / atterrissage (2,4 s, comme le vol du pilote). `R` : averse sur la route et sur les vitres.
+    if keyboard.just_pressed(KeyCode::KeyH) {
+        *flying = !*flying;
+    }
+    if keyboard.just_pressed(KeyCode::KeyR) {
+        *raining = !*raining;
+    }
+    let step = time.delta_secs() / 2.4;
+    controls.hover = if *flying {
+        (controls.hover + step).min(1.0)
+    } else {
+        (controls.hover - step).max(0.0)
+    };
+    weather.drive_road_look = false;
+    look.rain = f32::from(u8::from(*raining));
+    look.wet = look.rain;
     let axis = f32::from(i8::from(keyboard.pressed(KeyCode::KeyD)) - i8::from(keyboard.pressed(KeyCode::KeyA)));
     controls.steer += (axis - controls.steer) * 0.1;
     controls.brake = f32::from(u8::from(keyboard.pressed(KeyCode::KeyS)));

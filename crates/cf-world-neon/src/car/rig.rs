@@ -102,6 +102,14 @@ pub struct ModelMaterials {
     pub neon_secondary: Option<Emissive>,
     /// `neon_grad_*` : les secteurs du néon de caisse, dans l'ordre de leur indice.
     pub neon_grad: Vec<(u8, Emissive)>,
+    /// `neon_beat` : la lueur du moment, qui bat avec le kick.
+    pub neon_beat: Option<Emissive>,
+    /// `neon_beat_alt` : la teinte secondaire, qui bat avec le kick.
+    pub neon_beat_alt: Option<Emissive>,
+    /// `light_bar` : le bandeau lumineux arrière.
+    pub light_bar: Option<Emissive>,
+    /// `light_sensor` : la grille de capteurs du phare droit.
+    pub light_sensor: Option<Emissive>,
     /// `light_head`.
     pub head: Option<Emissive>,
     /// `light_brake`.
@@ -109,7 +117,20 @@ pub struct ModelMaterials {
     /// `logo_rear_neon`.
     pub logo: Option<Emissive>,
     /// `glass`.
-    pub glass: Option<Handle<StandardMaterial>>,
+    pub glass: Option<Handle<super::glass::CarGlassMaterial>>,
+}
+
+/// Le groupe d'une roue, posé en son centre : ce que le mode volant bascule, descend et rentre.
+#[derive(Debug, Clone, Copy)]
+pub struct Tuck {
+    /// Entité du groupe (`tuck_steer_FL`…), enfant du repère du modèle.
+    pub entity: Entity,
+    /// Position de repos du centre de la roue, repère du modèle (m).
+    pub base: Vec3,
+    /// Pad lumineux sur la face extérieure de la roue (caché au sol).
+    pub pad: Entity,
+    /// Côté de la roue dans le modèle : +1 pour x > 0, −1 sinon (la face extérieure regarde ce côté).
+    pub sign: f32,
 }
 
 /// Marque les entités que `spawn_car` pose directement sous la racine : changer de voiture les détruit (avec tout ce
@@ -128,10 +149,18 @@ pub struct CarRig {
     pub spin: Vec<Entity>,
     /// Pivots de braquage des roues avant (`steer_FL`, `steer_FR`).
     pub steer: Vec<Entity>,
+    /// Groupes `tuck_*` des quatre roues : le mode volant les bascule à plat (voir `hover.rs`).
+    pub tucks: Vec<Tuck>,
+    /// Matériau des quatre pads lumineux des roues (un seul, partagé).
+    pub pad_material: Handle<CarLightMaterial>,
     /// Pivot du volant (`steering_pivot`) : tourne autour de l'axe de la colonne, le conducteur y suit ses mains.
     pub steering: Option<Entity>,
     /// Pivot du levier de vitesses (`pivot_gear_lever`) : le conducteur le manœuvre.
     pub gear_lever: Option<Entity>,
+    /// Pivot du ventilateur de toit (`spin_fan_roof`) : il tourne en continu.
+    pub fan: Option<Entity>,
+    /// Pivot de l'hologramme du capot (`spin_holo`) : il tourne lentement.
+    pub holo: Option<Entity>,
     /// Le logo arrière et son échelle de repos.
     pub logo: Option<(Entity, Vec3)>,
     /// Écrans de l'habitacle (compteur, autoradio) : leurs images sont redessinées par `screens::update_screens`.
@@ -183,6 +212,10 @@ pub struct CarState {
     pub brake: Slew,
     /// Niveau des phares lissé (feux de route).
     pub level: Slew,
+    /// Les roues étaient basculées à l'image d'avant : il faut les remettre en place quand le vol s'arrête.
+    pub hover_was_active: bool,
+    /// Angle des roues en turbines, rad.
+    pub turbine_rad: f32,
     /// Dernière position absolue (m) : de la différence, la vitesse, l'accélération et la vitesse latérale.
     pub previous: Option<bevy::math::DVec3>,
     /// La lumière de la dernière image (`None` avant la première).
@@ -209,6 +242,8 @@ impl CarState {
             flash: CarFlash::default(),
             brake: Slew::default(),
             level: Slew::new(super::glow::HEADLIGHT_LEVEL),
+            hover_was_active: false,
+            turbine_rad: 0.0,
             previous: None,
             look: None,
             warm: false,

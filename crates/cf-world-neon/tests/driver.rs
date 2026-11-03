@@ -316,3 +316,51 @@ fn le_levier_de_la_voiture_suit_le_rapport_engage() {
         "{gear:?} {rotation:?}"
     );
 }
+
+/// La tête du conducteur : les sommets du haut du corps (`rider_mesh`), dans le repère du modèle de la voiture.
+fn head_of_driver() -> (Vec3, f32) {
+    use bevy::mesh::VertexAttributeValues;
+    let bytes = std::fs::read("../../assets/models/characters/driver-car.glb").expect("lecture");
+    let model = cf_world_neon::car::CarModelAsset::from_glb(&bytes).expect("décodage");
+    let mut points: Vec<Vec3> = Vec::new();
+    let mut stack: Vec<(usize, Mat4)> = model.roots.iter().map(|&r| (r, Mat4::IDENTITY)).collect();
+    while let Some((index, parent)) = stack.pop() {
+        let node = &model.nodes[index];
+        let world = parent * node.transform.to_matrix();
+        if node.name == "rider_mesh" {
+            for &(mesh, _) in &node.pieces {
+                if let Some(VertexAttributeValues::Float32x3(positions)) =
+                    model.meshes[mesh].attribute(Mesh::ATTRIBUTE_POSITION)
+                {
+                    points.extend(positions.iter().map(|p| world.transform_point3(Vec3::from(*p))));
+                }
+            }
+        }
+        stack.extend(node.children.iter().map(|&c| (c, world)));
+    }
+    assert!(!points.is_empty(), "rider_mesh introuvable");
+    points.sort_by(|a, b| b.y.total_cmp(&a.y));
+    let top = points[0].y;
+    // Le crâne : les sommets à moins de 22 cm du sommet, médiane en x et z (insensible aux oreilles et aux antennes).
+    let skull: Vec<Vec3> = points.iter().copied().take_while(|p| p.y > top - 0.22).collect();
+    let median = |f: fn(&Vec3) -> f32| {
+        let mut v: Vec<f32> = skull.iter().map(f).collect();
+        v.sort_by(f32::total_cmp);
+        v[v.len() / 2]
+    };
+    (Vec3::new(median(|p| p.x), top - 0.11, median(|p| p.z)), top)
+}
+
+#[test]
+fn les_yeux_du_conducteur_sont_dans_sa_tete() {
+    use cf_world_neon::rider::driver::EYE_MODEL;
+    let (head, top) = head_of_driver();
+    assert!(
+        (EYE_MODEL.y - head.y).abs() < 0.12 && EYE_MODEL.y < top,
+        "yeux à {EYE_MODEL}, centre du crâne {head}, sommet {top}"
+    );
+    assert!(
+        (EYE_MODEL.x - head.x).abs() < 0.12 && (EYE_MODEL.z - head.z).abs() < 0.2,
+        "yeux à {EYE_MODEL}, centre du crâne {head}"
+    );
+}

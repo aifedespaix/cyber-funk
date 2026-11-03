@@ -39,6 +39,10 @@ struct Scene {
     /// Conduite scriptée : (vitesse m/s, amplitude de la vitesse latérale m/s) appliquées à la position à chaque image ;
     /// la vitesse latérale est un cosinus de 0,6 Hz (un slalom de ±3,7 m : la voiture reste sur la route).
     drive: Option<(f64, f64)>,
+    /// Progression du décollage, 0 (au sol) à 1 (en vol).
+    hover: f32,
+    /// Averse sur la route et sur les vitres, 0 à 1.
+    rain: f32,
 }
 
 const BASE: Scene = Scene {
@@ -50,9 +54,11 @@ const BASE: Scene = Scene {
     brake: 0.0,
     settle: SETTLE_FRAMES,
     drive: None,
+    hover: 0.0,
+    rain: 0.0,
 };
 
-const SCENES: [Scene; 9] = [
+const SCENES: [Scene; 13] = [
     Scene {
         name: "1-roulage",
         ..BASE
@@ -103,6 +109,30 @@ const SCENES: [Scene; 9] = [
         brake: 1.0,
         ..BASE
     },
+    Scene {
+        name: "10-decollage-avant",
+        view: View::FrontThreeQuarter,
+        hover: 0.3,
+        ..BASE
+    },
+    Scene {
+        name: "11-vol-avant",
+        view: View::FrontThreeQuarter,
+        hover: 1.0,
+        ..BASE
+    },
+    Scene {
+        name: "12-pluie-avant",
+        view: View::FrontThreeQuarter,
+        rain: 1.0,
+        ..BASE
+    },
+    Scene {
+        name: "13-pluie-arriere",
+        view: View::RearThreeQuarter,
+        rain: 1.0,
+        ..BASE
+    },
 ];
 
 #[derive(Clone, Copy, PartialEq, Eq, Default)]
@@ -128,6 +158,7 @@ pub(crate) fn run_check(
     mut audio: ResMut<AudioFeatures>,
     mut look: ResMut<RoadLook>,
     mut controls: ResMut<CarControls>,
+    mut weather: ResMut<cf_world_neon::WeatherSettings>,
     mut view: ResMut<View>,
     mut car: Query<(&mut AbsolutePosition, &mut CarState), With<Car>>,
     mut exit: MessageWriter<AppExit>,
@@ -160,6 +191,11 @@ pub(crate) fn run_check(
             audio.0.intensity = 0.7;
             controls.steer = scene.steer;
             controls.brake = scene.brake;
+            controls.hover = scene.hover;
+            // La météo réelle écrirait sa propre pluie : la scène impose la sienne.
+            weather.drive_road_look = false;
+            look.rain = scene.rain;
+            look.wet = scene.rain;
             *view = scene.view;
             look.clock_s = Some(4.0);
             check.stage = Stage::Settle(0);
@@ -271,6 +307,22 @@ fn evaluate(check: &Check) -> AppExit {
         verdict(
             b > a + 100,
             format!("vue trois quarts arrière : feux stop et flaque rouge ({a} → {b} pixels rouges)"),
+        );
+    }
+    if let (Some(ground), Some(flying)) = (shot("6-avant-calme"), shot("11-vol-avant")) {
+        // Sous la caisse, là où les roues basculées posent leur lueur : la zone s'éclaire par rapport au sol.
+        const UNDER: Rect = ((300, 270), (620, 400));
+        let (a, b) = (ground.mean_luma(UNDER), flying.mean_luma(UNDER));
+        verdict(
+            (b - a).abs() > 0.5,
+            format!("vue trois quarts avant : les roues basculées changent la zone sous la caisse ({a:.2} → {b:.2})"),
+        );
+    }
+    if let (Some(dry), Some(wet)) = (shot("6-avant-calme"), shot("12-pluie-avant")) {
+        let (a, b) = (dry.count_in(CAR_CLOSE, bright), wet.count_in(CAR_CLOSE, bright));
+        verdict(
+            a != b,
+            format!("vue trois quarts avant : la pluie change l'image ({a} → {b} pixels lumineux)"),
         );
     }
     if ok {

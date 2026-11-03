@@ -20,6 +20,7 @@ fn no_bridge(_: f64, _: f64) -> bool {
 fn frame(car_z: f64, time: f64, show: &SignShow) -> RoadFrame<'_> {
     RoadFrame {
         car_z,
+        eye_z: car_z,
         altitude: 0.0,
         time,
         show,
@@ -100,6 +101,65 @@ fn un_panneau_apparait_en_fondu_devant_et_disparait_derriere() {
             *ahead <= range + 2.0,
             "emplacement {k} visible à {ahead} m, portée {range}"
         );
+    }
+}
+
+/// Une image avec la caméra à `eye_offset` m derrière la voiture (positif : en arrière, comme une poursuite).
+fn frame_with_eye(car_z: f64, eye_offset: f64, time: f64, show: &SignShow) -> RoadFrame<'_> {
+    RoadFrame {
+        eye_z: car_z + eye_offset,
+        ..frame(car_z, time, show)
+    }
+}
+
+#[test]
+fn un_panneau_depasse_ne_s_eteint_pas_tant_que_la_voiture_ou_la_camera_le_voit_encore() {
+    let show = SignShow::default();
+    // Sans caméra décalée comme avec une poursuite 90 m derrière la voiture.
+    for eye_offset in [0.0, 90.0] {
+        let mut road = SignRoad::default();
+        let mut z = 0.0;
+        let mut checked = 0;
+        for i in 0..1500 {
+            let time = f64::from(i) / 30.0;
+            road.update(&frame_with_eye(z, eye_offset, time, &show), no_bridge);
+            for unit in road.units.iter().filter(|u| u.state.is_some() && !u.leased) {
+                let Some(id) = unit.format else { continue };
+                let format = id.format();
+                // Dépassé par la voiture **et** par l'objectif depuis moins de la moitié de la distance de sortie.
+                let past_car = z - unit.z;
+                let past_eye = z + eye_offset - unit.z;
+                if past_car.min(past_eye) > -(format.behind * 0.5) && past_car.max(past_eye) < format.range - 110.0 {
+                    checked += 1;
+                    assert!(
+                        unit.visible && unit.opacity > 0.99,
+                        "{id:?} éteint (opacité {}) : voiture à {past_car:.0} m, objectif à {past_eye:.0} m",
+                        unit.opacity
+                    );
+                }
+            }
+            z -= 1.5;
+        }
+        assert!(checked > 500, "{checked} contrôles seulement");
+    }
+}
+
+#[test]
+fn le_fondu_de_sortie_ne_commence_qu_apres_le_passage() {
+    let show = SignShow::default();
+    let mut road = SignRoad::default();
+    let mut z = 0.0;
+    for i in 0..2000 {
+        road.update(&frame(z, f64::from(i) / 30.0, &show), no_bridge);
+        for unit in road.units.iter().filter(|u| u.state.is_some() && !u.leased) {
+            // Une voiture qui vient de dépasser le panneau (moins de 5 m) le voit toujours en entier : le fondu d'un format
+            // à courte sortie commençait avant, on voyait le panneau s'éteindre pendant qu'on passait dessous.
+            let passed = z - unit.z;
+            if (-5.0..=0.0).contains(&passed) {
+                assert!(unit.opacity > 0.99, "opacité {} à {passed:.1} m", unit.opacity);
+            }
+        }
+        z -= 1.5;
     }
 }
 

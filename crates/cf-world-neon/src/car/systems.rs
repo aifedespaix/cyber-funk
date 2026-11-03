@@ -44,6 +44,11 @@ pub struct CarControls {
     pub lit: Option<LinearRgba>,
     /// Part des phares allumée, 0 à 1 (`setLightLevel` de Sillage) : la pré-intro les allume avant le départ. 1 : normal.
     pub light_scale: f32,
+    /// Progression du déploiement du mode volant, 0 (au sol) à 1 (en vol) : bascule les roues et allume leurs répulseurs
+    /// (voir `hover.rs`). Écrite par le pilote (`hover_amount`).
+    pub hover: f32,
+    /// Rebond de la caisse sur ses répulseurs, m (le pilote le calcule au décollage).
+    pub bounce_m: f32,
     /// Chaussée mouillée, 0 à 1 : la peinture se lisse et reflète plus fort le liseré néon (mode pluie).
     pub wet: f32,
 }
@@ -55,6 +60,8 @@ impl Default for CarControls {
             brake: 0.0,
             lit: None,
             light_scale: 1.0,
+            hover: 0.0,
+            bounce_m: 0.0,
             wet: 0.0,
         }
     }
@@ -353,7 +360,7 @@ pub(super) fn drive_car(
             steer: controls.steer,
         };
         let pose = state.motion.update(&input);
-        apply_pose(&pose, rig, &mut root, &mut transforms);
+        apply_pose(&pose, controls.bounce_m, rig, &mut root, &mut transforms);
     }
 }
 
@@ -380,6 +387,7 @@ fn measure(state: &mut CarState, position: DVec3, dt: f32) {
 
 fn apply_pose(
     pose: &MotionPose,
+    bounce_m: f32,
     rig: &CarRig,
     root: &mut Transform,
     transforms: &mut Query<&mut Transform, Without<Car>>,
@@ -387,7 +395,7 @@ fn apply_pose(
     root.rotation = Quat::from_rotation_y(pose.yaw_rad);
     if let Ok(mut chassis) = transforms.get_mut(rig.chassis) {
         chassis.rotation = pose.chassis_rotation;
-        chassis.translation = pose.chassis_translation;
+        chassis.translation = pose.chassis_translation + Vec3::Y * bounce_m;
     }
     for &entity in &rig.spin {
         if let Ok(mut wheel) = transforms.get_mut(entity) {
@@ -405,6 +413,20 @@ fn apply_pose(
         let mut wheel = wheel;
         wheel.rotation = Quat::from_rotation_y(pose.wheel_steer_rad / super::motion::MAX_WHEEL_STEER * WHEEL_LOCK_RAD);
     }
+}
+
+/// Vitesse du ventilateur de toit, rad/s (~1 tour par seconde).
+const FAN_RATE_RAD_S: f32 = 6.0;
+/// Vitesse de l'hologramme du capot, rad/s (un tour en ~8 s).
+const HOLO_RATE_RAD_S: f32 = 0.8;
+
+/// Niveau d'une lumière qui bat : `rest` au repos, `rest + gain` au pic du kick (`pulse` de 0 à 1).
+fn beat_level(rest: f32, gain: f32, pulse: f32) -> f32 {
+    rest + gain * pulse.clamp(0.0, 1.0)
+}
+
+fn scale_color(color: LinearRgba, k: f32) -> LinearRgba {
+    LinearRgba::rgb(color.red * k, color.green * k, color.blue * k)
 }
 
 /// Règle un néon : couleur de base au quart, émission pleine (`paintNeon` de `CyberCar.ts`).
@@ -541,6 +563,30 @@ pub(super) fn apply_model_lights(
                 0.5 + 0.5 * (std::f32::consts::TAU * (f32::from(*index) / f32::from(NEON_GRAD_COUNT) - phase)).sin();
             neon(&mut standard, Some(sector), mix_color(look.glow, look.secondary, wave));
         }
+        // Réactions au kick : `look.pulse` est déjà le niveau du limiteur (règle 7), donc la montée est bornée.
+        let beat = |rest: f32, gain: f32| beat_level(rest, gain, look.pulse);
+        neon(
+            &mut standard,
+            m.neon_beat.as_ref(),
+            scale_color(look.glow, beat(0.55, 0.9)),
+        );
+        neon(
+            &mut standard,
+            m.neon_beat_alt.as_ref(),
+            scale_color(look.secondary, beat(0.55, 0.9)),
+        );
+        if let Some(bar) = &m.light_bar {
+            emit(
+                &mut standard,
+                bar,
+                LightLevels::brake_light_factor(look.brake, true) + 0.35 * look.pulse,
+            );
+        }
+        if let Some(sensor) = &m.light_sensor {
+            // Respiration lente (une période de ~3 s, amplitude faible) : rien n'y clignote.
+            let breath = 0.5 + 0.5 * (time.elapsed_secs() * 2.1).sin();
+            emit(&mut standard, sensor, beat(0.65 + 0.15 * breath, 0.5));
+        }
         // Optiques du modèle : phares allumés (plus fort en feux de route), feux stop au freinage.
         if let Some(head) = &m.head {
             emit(&mut standard, head, if look.high_beams { 1.35 } else { 1.0 });
@@ -560,6 +606,13 @@ pub(super) fn apply_model_lights(
             let (halo, pool) = (scale(2.2 * beat), scale(0.9 * beat));
             glow_material(&mut lights, &mut visibility, &signal.halo, signal.halo_entity, halo);
             glow_material(&mut lights, &mut visibility, &signal.pool, signal.pool_entity, pool);
+        }
+        // Ventilateur de toit et hologramme : rotation continue, sans état (l'angle se déduit de l'horloge).
+        let t = time.elapsed_secs();
+        for (pivot, rate) in [(rig.fan, FAN_RATE_RAD_S), (rig.holo, HOLO_RATE_RAD_S)] {
+            if let Some(mut transform) = pivot.and_then(|e| transforms.get_mut(e).ok()) {
+                transform.rotation = Quat::from_rotation_y(t * rate);
+            }
         }
         apply_logo(rig, state, &look, &mut standard, &mut transforms);
         apply_paint(rig, &look, controls.wet, &mut paint);
@@ -727,5 +780,19 @@ pub(super) fn apply_rig_lights(
             // `0,7 × (0,5 + 3,2 × niveau × min(1,5 ; boost))` candelas, boost du logo à 1,6.
             light.intensity = 0.7 * (0.5 + 3.2 * state.logo.level() * 1.5) * 4.0 * std::f32::consts::PI;
         }
+    }
+}
+
+#[cfg(test)]
+mod beat_tests {
+    use super::*;
+
+    /// Les lumières qui battent restent entre leur niveau de repos et `repos + gain`, même si le pouls sort de [0, 1].
+    #[test]
+    fn le_niveau_qui_bat_reste_borne() {
+        assert!((beat_level(0.55, 0.9, 0.0) - 0.55).abs() < 1e-6);
+        assert!((beat_level(0.55, 0.9, 1.0) - 1.45).abs() < 1e-6);
+        assert!((beat_level(0.55, 0.9, 7.0) - 1.45).abs() < 1e-6);
+        assert!((beat_level(0.55, 0.9, -3.0) - 0.55).abs() < 1e-6);
     }
 }

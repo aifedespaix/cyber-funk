@@ -22,7 +22,12 @@ pub(super) fn step(unit: &mut Unit, frame: &RoadFrame<'_>) {
         frame.car_z - unit.z
     };
     state.range = ahead;
-    let fade = smooth(format.range, format.range - 110.0, ahead) * smooth(-format.behind, -format.behind + 30.0, ahead);
+    // Le fondu de sortie ne commence qu'une fois le panneau dépassé (par la voiture et par la caméra) : sans cela, un
+    // panneau à `behind` court s'éteignait avant même d'être doublé.
+    let (behind_of, ahead_of) = frame.distances(if unit.leased { unit.hang.z } else { unit.z });
+    let out = (format.behind * 0.5).min(30.0);
+    let fade =
+        smooth(format.range, format.range - 110.0, ahead_of) * smooth(-format.behind, -format.behind + out, behind_of);
     unit.opacity = fade as f32;
     unit.visible = fade > 0.01;
     if state.phantom {

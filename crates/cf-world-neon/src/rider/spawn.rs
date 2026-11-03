@@ -96,6 +96,9 @@ pub struct DriverNodes {
     pub left: Option<ArmNodes>,
     /// Bras droit.
     pub right: Option<ArmNodes>,
+    /// Le corps (`rider_mesh`, d'une pièce avec la tête) et sa pose de repos : le hochement de tête le fait pivoter autour
+    /// du bassin.
+    pub body: Option<(Entity, Transform)>,
 }
 
 /// Les entités et positions de repos d'un bras, en cours de collecte.
@@ -202,6 +205,7 @@ pub fn spawn_model(
         .id();
     // Position de repos de chaque nœud dans le modèle (les pivots n'ont qu'une translation) : épaule, coude, poignet.
     let mut arms = [ArmDraft::default(); 2];
+    let mut body: Option<(Entity, Transform)> = None;
     let mut stack: Vec<(usize, Entity, Vec3)> = model.roots.iter().map(|&r| (r, root, Vec3::ZERO)).collect();
     while let Some((index, parent, parent_pos)) = stack.pop() {
         let node = &model.nodes[index];
@@ -225,6 +229,7 @@ pub fn spawn_model(
             "arm_r_up" => arms[1].up = Some((entity, pos)),
             "arm_r_low" => arms[1].low = Some((entity, pos)),
             "wrist_r" => arms[1].wrist = Some(pos),
+            "rider_mesh" => body = Some((entity, node.transform)),
             _ => {}
         }
         for &(mesh, material) in &node.pieces {
@@ -250,6 +255,7 @@ pub fn spawn_model(
     spawned.driver = DriverNodes {
         left: arms[0].finish(1.0),
         right: arms[1].finish(-1.0),
+        body,
     };
     (root, spawned)
 }

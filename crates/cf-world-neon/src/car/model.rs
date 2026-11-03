@@ -34,6 +34,15 @@ pub enum MaterialRole {
     /// `neon_grad_0` … `neon_grad_7` : les huit secteurs du néon de caisse, dont la couleur voyage du primaire au
     /// secondaire (dégradé animé, sans variation de luminance).
     NeonGrad(u8),
+    /// `neon_beat` : liserés, anneaux de jantes, ailettes : la lueur du moment, qui bat avec le kick.
+    NeonBeat,
+    /// `neon_beat_alt` : comme `neon_beat`, mais dans la teinte secondaire (objectifs des rétroviseurs, hologramme).
+    NeonBeatAlt,
+    /// `light_bar` : le bandeau lumineux arrière, d'un seul bloc. Veilleuse et freinage comme `light_brake`, plus un
+    /// battement sur les kicks.
+    LightBar,
+    /// `light_sensor` : la grille de capteurs qui remplace le phare droit ; elle respire doucement et bat au kick.
+    LightSensor,
     /// `light_head` : les barres des phares.
     LightHead,
     /// `light_brake` : les barres des feux stop.
@@ -79,6 +88,10 @@ impl MaterialRole {
             "body_paint" => Self::BodyPaint,
             "neon_primary" => Self::NeonPrimary,
             "neon_secondary" => Self::NeonSecondary,
+            "neon_beat" => Self::NeonBeat,
+            "neon_beat_alt" => Self::NeonBeatAlt,
+            "light_bar" => Self::LightBar,
+            "light_sensor" => Self::LightSensor,
             "light_head" => Self::LightHead,
             "light_brake" => Self::LightBrake,
             "signal_FL" => Self::Signal(Side::Left, Fore::Front),
@@ -470,6 +483,10 @@ mod tests {
 
     #[test]
     fn les_secteurs_du_degrade_se_reconnaissent_a_leur_indice() {
+        assert_eq!(MaterialRole::from_name("neon_beat"), MaterialRole::NeonBeat);
+        assert_eq!(MaterialRole::from_name("neon_beat_alt"), MaterialRole::NeonBeatAlt);
+        assert_eq!(MaterialRole::from_name("light_bar"), MaterialRole::LightBar);
+        assert_eq!(MaterialRole::from_name("light_sensor"), MaterialRole::LightSensor);
         assert_eq!(MaterialRole::from_name("neon_grad_0"), MaterialRole::NeonGrad(0));
         assert_eq!(MaterialRole::from_name("neon_grad_7"), MaterialRole::NeonGrad(7));
         // Hors de la plage ou mal écrit : un matériau ordinaire, jamais un panique.

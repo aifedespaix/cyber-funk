@@ -63,6 +63,7 @@ pub fn update_signs(
     fx: Option<Res<CurrentShowFx>>,
     brain: Option<Res<PilotBrain>>,
     animation: Option<Res<CarAnimation>>,
+    eye: Option<Res<cf_render::CameraPose>>,
     atlas: Res<SignAtlas>,
     car: Query<&AbsolutePosition, With<StreamFocus>>,
     mut road: ResMut<SignRoadRes>,
@@ -85,6 +86,7 @@ pub fn update_signs(
     road.0.update(
         &RoadFrame {
             car_z: car.0.z,
+            eye_z: eye.map_or(car.0.z, |p| p.position.z),
             altitude: f64::from(altitude),
             time: now,
             show: &sign_show,

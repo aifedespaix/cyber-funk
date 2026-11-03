@@ -165,6 +165,7 @@ fn build_cinema_world(
     stunts: Option<Res<StuntOrders>>,
     meteors: Option<Res<Meteors>>,
     sheet: Option<Res<cf_render::ShowSheet>>,
+    driver: Option<Res<crate::rider::driver::DriverView>>,
     dj_sign: Option<Res<crate::djsign::DjSignSettings>>,
     car: Query<&AbsolutePosition, With<StreamFocus>>,
     mut world: ResMut<CinemaWorld>,
@@ -186,6 +187,16 @@ fn build_cinema_world(
             ring: ring.as_deref(),
         },
     );
+    // Au volant de la dirty car, la vue est celle des yeux du conducteur (bras et volant dans le champ, tête qui hoche sur le
+    // tempo), pas un point générique au-dessus du siège.
+    if let Some(view) = driver.as_deref().filter(|v| v.active) {
+        let rotation = world.car_rotation;
+        world.cabin = Cabin {
+            position: car.0 + (rotation * view.eye).as_dvec3(),
+            forward: rotation * view.tilt * Vec3::NEG_Z,
+            up: rotation * view.tilt * Vec3::Y,
+        };
+    }
     // Le drop préparé vit dans le chef du spectacle, pas dans `ShowState` : sans cette lecture, le plan `dolly-zoom`
     // (qui se cale sur un drop annoncé) ne serait jamais jouable.
     // La cascade en cours (J7-06) : le plan `stunt-cam` la cadre.

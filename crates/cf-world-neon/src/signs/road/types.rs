@@ -207,11 +207,35 @@ impl Default for SignRoad {
     }
 }
 
+/// Écart maximal retenu entre la caméra et la voiture (m) : au-delà (caméra libre, vue d'ensemble) on ne garde pas des
+/// panneaux que personne ne regarde.
+const EYE_SPAN_M: f64 = 150.0;
+
+impl RoadFrame<'_> {
+    /// Les z extrêmes à couvrir : (le plus en arrière, le plus en avant) entre la voiture et la caméra.
+    #[must_use]
+    pub fn view_span(&self) -> (f64, f64) {
+        let eye = self.eye_z.clamp(self.car_z - EYE_SPAN_M, self.car_z + EYE_SPAN_M);
+        (self.car_z.max(eye), self.car_z.min(eye))
+    }
+
+    /// Distances d'un panneau en `z` (positives : devant) : `(depuis le point le plus en arrière, depuis le point le plus en
+    /// avant)`. Le panneau disparaît quand il est loin derrière **les deux** ; il apparaît quand il est à portée du premier.
+    #[must_use]
+    pub fn distances(&self, z: f64) -> (f64, f64) {
+        let (rear, front) = self.view_span();
+        (rear - z, front - z)
+    }
+}
+
 /// Ce que la route sait de l'image.
 #[derive(Debug, Clone, Copy)]
 pub struct RoadFrame<'a> {
     /// Position z de la voiture (m).
     pub car_z: f64,
+    /// Position z de la caméra (m). Un panneau ne disparaît que lorsqu'il est loin derrière la voiture **et** derrière
+    /// l'objectif : la poursuite, le pare-chocs ou un travelling le voient encore longtemps après le passage de la voiture.
+    pub eye_z: f64,
     /// Altitude de la voiture (m).
     pub altitude: f64,
     /// Horloge de la scène (s).

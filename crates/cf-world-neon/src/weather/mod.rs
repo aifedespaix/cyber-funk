@@ -3,6 +3,7 @@
 //!
 //! - [`logic`] : le cycle des averses ([`Weather`]), pur et déterministe (RNG à graine) ;
 //! - [`mist`] : la nappe de brouillard (un plan, un shader) ;
+//! - [`haze`] : la brume basse, trois voiles qui rampent à ras de la chaussée ;
 //! - [`rain`] : la pluie (2 200 gouttes, un maillage statique, tout dans le vertex shader) et ses compteurs de coût ;
 //! - [`storm`] : les éclairs d'orage, derrière le limiteur photosensible (règle 7) ;
 //! - [`systems`] : les systèmes et les ressources.
@@ -31,6 +32,7 @@
 //! [`rain`]) ; les éclairs passent par le limiteur (règle 7) ; les matériaux sont déclarés à `warm_material` (règle 8) et
 //! les shaders embarqués dans le binaire.
 
+pub mod haze;
 pub mod logic;
 pub mod mist;
 pub mod rain;
@@ -41,6 +43,7 @@ use bevy::prelude::*;
 use bevy::shader::Shader;
 use cf_render::{CfSet, WarmupAppExt, WorldSet};
 
+pub use haze::{Haze, HazeMaterial};
 pub use logic::{RainPlan, Weather, show_rain_plan};
 pub use mist::{Mist, MistMaterial, MistParams};
 pub use rain::{DROPS, Rain, RainMaterial, RainParams};
@@ -57,16 +60,24 @@ pub struct WeatherPlugin;
 impl Plugin for WeatherPlugin {
     fn build(&self, app: &mut App) {
         if app.is_plugin_added::<bevy::pbr::PbrPlugin>() {
-            app.add_plugins((MaterialPlugin::<MistMaterial>::default(), MaterialPlugin::<RainMaterial>::default()))
+            app.add_plugins((
+                MaterialPlugin::<MistMaterial>::default(),
+                MaterialPlugin::<RainMaterial>::default(),
+                MaterialPlugin::<HazeMaterial>::default(),
+            ))
                 // Cachée sans averse, la pluie ne compilerait qu'à la première goutte en plein show sans cette préchauffe.
                 .warm_material::<MistMaterial>("brume")
-                .warm_material::<RainMaterial>("pluie");
+                .warm_material::<RainMaterial>("pluie")
+                .warm_material::<HazeMaterial>("brume basse");
             if let Some(mut shaders) = app.world_mut().get_resource_mut::<Assets<Shader>>() {
                 mist::embed_shader(&mut shaders);
                 rain::embed_shader(&mut shaders);
+                haze::embed_shader(&mut shaders);
             }
         } else {
-            app.init_asset::<MistMaterial>().init_asset::<RainMaterial>();
+            app.init_asset::<MistMaterial>()
+                .init_asset::<RainMaterial>()
+                .init_asset::<HazeMaterial>();
         }
         app.init_resource::<WeatherSettings>()
             .init_resource::<crate::RoadLook>()
@@ -75,13 +86,14 @@ impl Plugin for WeatherPlugin {
             .add_message::<Thunder>()
             .add_systems(
                 Startup,
-                (mist::spawn_mist, rain::spawn_rain).run_if(resource_exists::<Assets<Mesh>>),
+                (mist::spawn_mist, rain::spawn_rain, haze::spawn_haze).run_if(resource_exists::<Assets<Mesh>>),
             )
             .add_systems(
                 Update,
                 (
                     systems::step_weather.in_set(WeatherSet),
                     systems::follow_mist.after(WorldSet::Chunks),
+                    systems::follow_haze.after(WorldSet::Chunks),
                 )
                     .in_set(CfSet::Simulate),
             )
@@ -90,6 +102,7 @@ impl Plugin for WeatherPlugin {
                 (
                     systems::update_mist.run_if(resource_exists::<mist::MistRig>),
                     systems::update_rain.run_if(resource_exists::<rain::RainRig>),
+                    systems::update_haze.run_if(resource_exists::<haze::HazeRig>),
                 )
                     .in_set(CfSet::Present)
                     .run_if(resource_exists::<cf_render::ScenePalette>),

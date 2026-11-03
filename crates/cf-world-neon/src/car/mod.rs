@@ -22,8 +22,10 @@
 mod doc;
 pub mod effects;
 pub mod frame;
+pub mod glass;
 pub mod glb;
 pub mod glow;
+pub mod hover;
 pub mod materials;
 pub mod model;
 pub mod motion;
@@ -109,20 +111,26 @@ impl Plugin for CarPlugin {
         })
         .init_resource::<CarControls>()
         .init_resource::<CarSettings>()
+        .init_resource::<crate::rider::driver::DriverView>()
         .init_resource::<crate::RoadLook>();
         if app.is_plugin_added::<PbrPlugin>() {
             app.add_plugins((
                 MaterialPlugin::<CarLightMaterial>::default(),
                 MaterialPlugin::<CarPaintMaterial>::default(),
+                MaterialPlugin::<glass::CarGlassMaterial>::default(),
             ))
             // Les `StandardMaterial` de la carrosserie sont couverts par la préchauffe générale de `cf-render`.
             .warm_material::<CarLightMaterial>("voiture : lumières, fumée, traînée")
-            .warm_material::<CarPaintMaterial>("voiture : peinture");
+            .warm_material::<CarPaintMaterial>("voiture : peinture")
+            .warm_material::<glass::CarGlassMaterial>("voiture : vitres");
             if let Some(mut shaders) = app.world_mut().get_resource_mut::<Assets<Shader>>() {
                 materials::embed_shaders(&mut shaders);
+                glass::embed_shader(&mut shaders);
             }
         } else {
-            app.init_asset::<CarLightMaterial>().init_asset::<CarPaintMaterial>();
+            app.init_asset::<CarLightMaterial>()
+                .init_asset::<CarPaintMaterial>()
+                .init_asset::<glass::CarGlassMaterial>();
         }
         // Sans `PalettePlugin`, le thème de départ de Sillage (« Void Velvet ») : la voiture a besoin de ses couleurs.
         if !app.world().contains_resource::<ScenePalette>() {
@@ -149,8 +157,10 @@ impl Plugin for CarPlugin {
                     switch::switch_car,
                     crate::rider::driver::attach_driver,
                     systems::drive_car,
+                    hover::animate_hover,
                     crate::rider::driver::animate_driver,
                     systems::advance_look,
+                    glass::update_glass,
                     systems::apply_model_lights,
                     systems::apply_rig_lights,
                 )

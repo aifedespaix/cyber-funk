@@ -14,11 +14,12 @@ use bevy::pbr::StandardMaterial;
 use bevy::prelude::*;
 use cf_render::WorldLayer;
 
+use super::glass::{CarGlassExt, CarGlassMaterial};
 use super::glow::CarPalette;
-use super::materials::{CarLightMaterial, CarPaintExt, CarPaintMaterial, PaintParams};
+use super::materials::{CarLightMaterial, CarPaintExt, CarPaintMaterial, LightKind, PaintParams};
 use super::model::{Alpha, CarModelAsset, Fore, MaterialData, MaterialRole, Side};
 use super::paint::PAINT_REF_HUE;
-use super::rig::{CarPart, CarRig, Emissive, ModelMaterials};
+use super::rig::{CarPart, CarRig, Emissive, ModelMaterials, Tuck};
 use super::screens::{SCREEN_EMISSIVE, ScreenKind, ScreenRig, blank_image};
 use super::spawn_lights::{Lamps, LightScene, spawn_lights};
 
@@ -36,6 +37,8 @@ pub struct CarAssets<'w> {
     pub paint: ResMut<'w, Assets<CarPaintMaterial>>,
     /// Lumières additives.
     pub lights: ResMut<'w, Assets<CarLightMaterial>>,
+    /// Vitres (gouttes de pluie).
+    pub glass: ResMut<'w, Assets<CarGlassMaterial>>,
 }
 
 pub(crate) fn standard_material(def: &MaterialData, images: &[Handle<Image>]) -> StandardMaterial {
@@ -105,6 +108,7 @@ fn paint_material(def: &MaterialData, images: &[Handle<Image>], palette: &CarPal
 enum Built {
     Standard(Handle<StandardMaterial>),
     Paint(Handle<CarPaintMaterial>),
+    Glass(Handle<CarGlassMaterial>),
     Skip,
 }
 
@@ -131,11 +135,16 @@ fn build_materials(
                 handles.paint = Some(handle.clone());
                 Built::Paint(handle)
             }
+            MaterialRole::Glass => {
+                let handle = assets.glass.add(CarGlassMaterial {
+                    base: glass(def),
+                    extension: CarGlassExt::default(),
+                });
+                handles.glass = Some(handle.clone());
+                Built::Glass(handle)
+            }
             role => {
-                let mut material = match role {
-                    MaterialRole::Glass => glass(def),
-                    _ => standard_material(def, images),
-                };
+                let mut material = standard_material(def, images);
                 if role == MaterialRole::Screen {
                     // Compteur et autoradio : une image propre, redessinée par `screens::update_screens`. Un autre écran
                     // (le rétroviseur) reste éteint : Sillage y dessine la vue arrière (jeu), pas reprise en mode cinéma.
@@ -156,11 +165,14 @@ fn build_materials(
                 match role {
                     MaterialRole::NeonPrimary => handles.neon_primary = Some(emissive),
                     MaterialRole::NeonSecondary => handles.neon_secondary = Some(emissive),
+                    MaterialRole::NeonBeat => handles.neon_beat = Some(emissive),
+                    MaterialRole::NeonBeatAlt => handles.neon_beat_alt = Some(emissive),
+                    MaterialRole::LightBar => handles.light_bar = Some(emissive),
+                    MaterialRole::LightSensor => handles.light_sensor = Some(emissive),
                     MaterialRole::NeonGrad(index) => handles.neon_grad.push((index, emissive)),
                     MaterialRole::LightHead => handles.head = Some(emissive),
                     MaterialRole::LightBrake => handles.brake = Some(emissive),
                     MaterialRole::LogoRear => handles.logo = Some(emissive),
-                    MaterialRole::Glass => handles.glass = Some(handle.clone()),
                     MaterialRole::Signal(side, fore) => signal_mats.push((side, fore, emissive)),
                     _ => {}
                 }
@@ -206,22 +218,30 @@ pub fn spawn_car(
     let chassis = group("châssis", Transform::IDENTITY, holder, commands);
 
     // Les roues restent au sol : elles ne suivent pas la suspension de la caisse.
+    // Chaque roue est dans un groupe `tuck_*` posé en son centre : le mode volant les bascule à plat (`hover.rs`) sans
+    // toucher aux pivots de roulement et de braquage, que `drive_car` réécrit à chaque image.
     let wheel_roots = ["steer_FL", "steer_FR", "spin_RL", "spin_RR"];
     let mut entities: Vec<Option<Entity>> = vec![None; model.nodes.len()];
-    let mut stack: Vec<(usize, Entity)> = model
-        .roots
-        .iter()
-        .map(|&r| {
-            (
-                r,
-                if wheel_roots.contains(&model.nodes[r].name.as_str()) {
-                    holder
-                } else {
-                    chassis
-                },
-            )
-        })
-        .collect();
+    let pad_material = assets.lights.add(CarLightMaterial::new(LightKind::Glow, 0.0));
+    let pads = super::hover::PadAssets {
+        mesh: assets.meshes.add(super::shapes::ground_quad()),
+        material: pad_material.clone(),
+    };
+    let mut tucks: Vec<Tuck> = Vec::new();
+    let mut tucked: Vec<usize> = Vec::new();
+    let mut stack: Vec<(usize, Entity)> = Vec::new();
+    for &r in &model.roots {
+        let node = &model.nodes[r];
+        if wheel_roots.contains(&node.name.as_str()) {
+            let tuck = super::hover::spawn_tuck(commands, holder, &node.name, node.transform.translation, &pads);
+            let tuck_entity = tuck.entity;
+            tucks.push(tuck);
+            tucked.push(r);
+            stack.push((r, tuck_entity));
+        } else {
+            stack.push((r, chassis));
+        }
+    }
     while let Some((index, parent)) = stack.pop() {
         let node = &model.nodes[index];
         let pieces: Vec<_> = node
@@ -229,7 +249,12 @@ pub fn spawn_car(
             .iter()
             .filter(|(_, material)| !matches!(built[*material], Built::Skip))
             .collect();
-        let entity = group(&node.name, node.transform, parent, commands);
+        let mut local = node.transform;
+        if tucked.contains(&index) {
+            // La position de la roue est portée par son groupe `tuck_*`.
+            local.translation = Vec3::ZERO;
+        }
+        let entity = group(&node.name, local, parent, commands);
         entities[index] = Some(entity);
         for &&(mesh, material) in &pieces {
             let mut piece = commands.spawn((
@@ -247,6 +272,9 @@ pub fn spawn_car(
                 Built::Paint(handle) => {
                     piece.insert(MeshMaterial3d(handle.clone()));
                 }
+                Built::Glass(handle) => {
+                    piece.insert(MeshMaterial3d(handle.clone()));
+                }
                 Built::Skip => {}
             }
         }
@@ -260,6 +288,8 @@ pub fn spawn_car(
     let steer: Vec<Entity> = ["steer_FL", "steer_FR"].into_iter().filter_map(named).collect();
     let steering = named("steering_pivot");
     let gear_lever = named("pivot_gear_lever");
+    let fan = named("spin_fan_roof");
+    let holo = named("spin_holo");
     let logo = model
         .node("logo_rear")
         .and_then(|i| entities[i].map(|e| (e, model.nodes[i].transform.scale)));
@@ -279,8 +309,12 @@ pub fn spawn_car(
         chassis,
         spin,
         steer,
+        tucks,
+        pad_material,
         steering,
         gear_lever,
+        fan,
+        holo,
         logo,
         screens,
         materials: handles,

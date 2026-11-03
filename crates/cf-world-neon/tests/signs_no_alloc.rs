@@ -51,6 +51,7 @@ fn le_regime_etabli_n_alloue_jamais() {
         road.update(
             &RoadFrame {
                 car_z: z,
+                eye_z: z + 20.0,
                 // La voiture monte et descend : les portiques fantômes buguent quand elle passe à leur hauteur.
                 altitude: 12.0 + 3.0 * (time * 0.7).sin(),
                 time,

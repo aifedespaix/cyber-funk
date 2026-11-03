@@ -187,7 +187,8 @@ fn la_voiture_reste_dans_son_budget_d_entites() {
     eprintln!(
         "voiture : {meshes} entités à maillage (dont traînée et fumée), {spots} projecteurs, {points} lumières ponctuelles"
     );
-    assert!((50..80).contains(&meshes), "{meshes} entités à maillage");
+    // Dont les quatre pads lumineux des roues du mode volant (cachés au sol) et le kit carrosserie (une entité par matériau).
+    assert!((50..105).contains(&meshes), "{meshes} entités à maillage");
     assert_eq!(spots, 2, "deux phares");
     assert_eq!(points, 3, "sous la caisse, logo arrière et habitacle");
 }

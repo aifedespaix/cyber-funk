@@ -110,6 +110,7 @@ mod tests {
             road.update(
                 &RoadFrame {
                     car_z: z,
+                    eye_z: z,
                     altitude: 0.0,
                     time: -z / 60.0,
                     show: &show,

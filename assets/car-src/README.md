@@ -30,3 +30,11 @@ Les deux voitures sont livrées et l'opérateur choisit laquelle est à l'écran
 4. Relancer les tests de `cf-world-neon`.
 
 `DirtyCar.blend` : import brut (volant à droite) ; `DirtyCar_LHD.blend` : volant à gauche, avant la découpe.
+
+## Kit carrosserie (réactions au beat)
+
+Matériaux ajoutés à `DirtyCar_Game.blend`, lus par rôle (`MaterialRole`, nom du matériau) :
+`neon_beat` / `neon_beat_alt` (lueur et teinte secondaire, battent sur le kick), `light_bar` (bandeau arrière : feu stop +
+kick), `light_sensor` (grille du phare droit). Les pièces statiques sont fusionnées **par matériau** (`kit_*`) : une
+entité Bevy par matériau, pas par pièce. Pivots animés en Rust : `spin_fan_roof` (ventilateur), `spin_holo` (hologramme).
+Tout passe par le pouls déjà borné par le limiteur de flashs (règle 7).

@@ -156,16 +156,16 @@ impl FormatId {
     #[must_use]
     pub const fn format(self) -> Format {
         match self {
-            Self::Holo => format(Look::Holo, Mount::None, 16.0, 340.0, 40.0, 300.0),
-            Self::Gantry => format(Look::Metal, Mount::Gantry, 20.0, 360.0, 25.0, 300.0),
-            Self::Arm => format(Look::Metal, Mount::Arm, 15.0, 340.0, 25.0, 280.0),
-            Self::Roof => format(Look::Metal, Mount::Tower, 44.0, 560.0, 60.0, 400.0),
-            Self::Jumbo => format(Look::Camera, Mount::Tower, 52.0, 560.0, 20.0, 400.0),
-            Self::Ghost => format(Look::Ghost, Mount::None, 42.0, 560.0, 50.0, 400.0),
-            Self::Neon => format(Look::Neon, Mount::Pole, 11.0, 300.0, 30.0, 260.0),
+            Self::Holo => format(Look::Holo, Mount::None, 16.0, 340.0, 80.0, 300.0),
+            Self::Gantry => format(Look::Metal, Mount::Gantry, 20.0, 360.0, 70.0, 300.0),
+            Self::Arm => format(Look::Metal, Mount::Arm, 15.0, 340.0, 70.0, 280.0),
+            Self::Roof => format(Look::Metal, Mount::Tower, 44.0, 560.0, 100.0, 400.0),
+            Self::Jumbo => format(Look::Camera, Mount::Tower, 52.0, 560.0, 70.0, 400.0),
+            Self::Ghost => format(Look::Ghost, Mount::None, 42.0, 560.0, 90.0, 400.0),
+            Self::Neon => format(Look::Neon, Mount::Pole, 11.0, 300.0, 70.0, 260.0),
             Self::HangCam => format(Look::Camera, Mount::Hang, 17.0, 340.0, 340.0, 340.0),
             Self::HangAd => format(Look::Metal, Mount::Hang, 15.0, 340.0, 340.0, 340.0),
-            Self::Cam => format(Look::Camera, Mount::Gantry, 20.0, 360.0, 18.0, 300.0),
+            Self::Cam => format(Look::Camera, Mount::Gantry, 20.0, 360.0, 70.0, 300.0),
         }
     }
 

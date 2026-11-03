@@ -118,6 +118,12 @@ fn rien_n_est_cree_ni_detruit_en_regime_etabli_et_les_panneaux_sont_devant_la_vo
                     .query_filtered::<&AbsolutePosition, With<cf_render::StreamFocus>>();
                 q.single(app.world()).expect("le point suivi").0.z
             };
+            // Un panneau reste tant que la voiture **ou** la caméra le voit : on mesure depuis le plus en arrière des deux.
+            let eye_z = app
+                .world()
+                .get_resource::<cf_render::CameraPose>()
+                .map_or(car_z, |p| p.position.z);
+            let car_z = car_z.max(eye_z.clamp(car_z - 150.0, car_z + 150.0));
             let road = &app.world().resource::<SignRoadRes>().0;
             for unit in road.units.iter().filter(|u| u.state.is_some() && u.visible) {
                 let ahead = car_z - unit.z;

@@ -94,15 +94,16 @@ impl SignRoad {
 
     /// Recompose les panneaux pour cette image (`update`). `near_bridge(z, marge)` : le point est-il près d'une arche ?
     pub fn update(&mut self, frame: &RoadFrame<'_>, near_bridge: impl Fn(f64, f64) -> bool) {
-        let first = (((-frame.car_z - MAX_BEHIND - FIRST) / SPACING).floor() as i64 - 1).max(0);
-        let last = ((-frame.car_z + MAX_RANGE - FIRST) / SPACING).floor() as i64 + 1;
+        let (rear_z, front_z) = frame.view_span();
+        let first = (((-rear_z - MAX_BEHIND - FIRST) / SPACING).floor() as i64 - 1).max(0);
+        let last = ((-front_z + MAX_RANGE - FIRST) / SPACING).floor() as i64 + 1;
         let mut wanted = [(0_i64, FormatId::Holo); WANTED_MAX];
         let mut count = 0;
         for k in first..=last {
             let id = format_at(k);
             let format = id.format();
-            let ahead = frame.car_z - slot_z(k);
-            if ahead > format.range || ahead < -format.behind {
+            let (behind_of, ahead_of) = frame.distances(slot_z(k));
+            if ahead_of > format.range || behind_of < -format.behind {
                 continue;
             }
             if !matches!(format.mount, Mount::None | Mount::Tower) && near_bridge(slot_z(k), 30.0) {
