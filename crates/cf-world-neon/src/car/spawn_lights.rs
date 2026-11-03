@@ -354,6 +354,6 @@ fn spawn_projectors(
         "lumière sous la caisse",
     );
     let logo = point("anchor_rear_logo_light", 0.7, 2.5, "lumière du logo arrière");
-    let cabin = point("anchor_cabin_light", 0.12, 3.0, "lumière de l'habitacle");
+    let cabin = point("anchor_cabin_light", 0.30, 3.0, "lumière de l'habitacle");
     (spots, under, logo, cabin)
 }

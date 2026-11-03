@@ -398,10 +398,10 @@ mod tests {
     /// [−1, 1], normales unitaires (après le filtre octaédrique), indices dans les bornes.
     #[test]
     fn les_glb_de_la_voiture_se_decompressent() {
-        // (fichier, nombre de nœuds, nombre d'images) : la CyberCar a deux nœuds de moins que la dirty car.
+        // (fichier, nombre de nœuds, nombre d'images) : la CyberCar a moins de nœuds que la dirty car (dont `logo_rear_bezel`, le cadre du logo).
         for (name, nodes, images) in [
-            ("car-dirty-high.glb", 75, 8),
-            ("car-dirty-low.glb", 75, 8),
+            ("car-dirty-high.glb", 76, 8),
+            ("car-dirty-low.glb", 76, 8),
             ("car-cyber-high.glb", 53, 4),
             ("car-cyber-low.glb", 53, 4),
         ] {

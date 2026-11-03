@@ -19,6 +19,7 @@
 //!
 //! La licence de la `CyberCar` est **inconnue** : ne pas redistribuer `assets/models/car/` hors du dépôt.
 
+pub mod cabin;
 mod doc;
 pub mod effects;
 pub mod frame;

@@ -6,6 +6,7 @@ use bevy::math::Vec3;
 use bevy::pbr::StandardMaterial;
 use bevy::prelude::*;
 
+use super::cabin::CabinLight;
 use super::frame::CarFrame;
 use super::glow::{Blinker, CarPalette, GlowFade, LightLevels, RearLogo};
 use super::materials::{CarLightMaterial, CarPaintMaterial};
@@ -206,6 +207,8 @@ pub struct CarState {
     pub blinker: Blinker,
     /// Logo arrière.
     pub logo: RearLogo,
+    /// Lumière de l'habitacle : respire, vire de teinte, réagit au kick, au virage et au freinage.
+    pub cabin: CabinLight,
     /// Limiteurs de flashs (règle 7) : kicks et clignotants.
     pub flash: CarFlash,
     /// Freinage lissé : une hausse brusque du frein n'est jamais une hausse brusque de lumière.
@@ -239,6 +242,7 @@ impl CarState {
             glow: GlowFade::new(glow),
             blinker: Blinker::default(),
             logo: RearLogo::default(),
+            cabin: CabinLight::default(),
             flash: CarFlash::default(),
             brake: Slew::default(),
             level: Slew::new(super::glow::HEADLIGHT_LEVEL),

@@ -505,6 +505,8 @@ pub(super) fn advance_look(
         let (pulse, blink) = (state.flash.kick(), state.flash.blink());
         let animated = state.flash.permitted();
         state.logo.update(dt, pulse, animated);
+        let lateral = state.lateral_mps;
+        state.cabin.update(dt, pulse, brake, lateral, animated);
         let high_beams = speed_ratio > HIGH_BEAMS_RATIO;
         let target = if high_beams { HIGH_BEAMS_LEVEL } else { HEADLIGHT_LEVEL };
         // `light_scale` multiplie le niveau après la rampe : la pré-intro règle les phares, la rampe suit la vitesse.
@@ -770,8 +772,10 @@ pub(super) fn apply_rig_lights(
         if let Some(entity) = rig.lights.cabin_light
             && let Ok(mut light) = points.get_mut(entity)
         {
-            // Douce et stable : le liseré du pavillon et du tableau de bord, couleur du second néon.
-            light.color = Color::LinearRgba(look.secondary);
+            // Douce mais vivante : respire, dérive du néon au second néon, rougit au freinage, monte un peu au kick
+            // (déjà limité) et dans les virages (`CabinLight`).
+            light.color = Color::LinearRgba(state.cabin.color(look.glow, look.secondary, look.palette.alarm));
+            light.intensity = state.cabin.intensity_cd() * 4.0 * std::f32::consts::PI;
         }
         if let Some(entity) = rig.lights.logo_light
             && let Ok(mut light) = points.get_mut(entity)
