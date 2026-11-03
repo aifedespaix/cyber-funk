@@ -48,3 +48,5 @@ __pycache__/
 
 # Journaux de session du debogage (cf-debuglog)
 /logs/
+# Archives de polices graffiti (seuls les .ttf/.otf utilisés sont versionnés dans assets/fonts/)
+/assets/font/
