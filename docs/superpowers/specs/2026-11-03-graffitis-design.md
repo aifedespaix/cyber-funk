@@ -10,39 +10,35 @@ Le quartier « banlieue » du moteur de quartiers est annoncé comme « banlieue
 l'instant : seules la palette, la densité et les hauteurs changent. Ce chantier donne à la ville du **vécu** : des
 tags et des bombages sur les murs, plus marqués en banlieue, plus rares ailleurs.
 
-Un second registre prolonge l'idée : certains graffitis sont des **hologrammes** projetés **au-dessus des immeubles**,
-à effet néon lumineux (glow). C'est le graffiti qui passe du mur au ciel : même dessin, mais en lumière, propre à
-l'univers cyberpunk.
+Un second registre prolonge l'idée : certains graffitis sont des **hologrammes** : une **barre horizontale** (le
+projecteur) qui **projette les lettres en l'air au-dessus d'elle**, à effet néon lumineux (glow). C'est le graffiti qui
+passe du mur au ciel, en lumière, propre à l'univers cyberpunk. Ces projecteurs se posent **où l'on veut dans le
+décor**, notamment sur les immeubles, en **plusieurs tailles**.
 
 ## Ce que l'utilisateur a décidé
 
 - Des graffitis dans la ville, avec le quartier banlieue comme terrain principal.
-- **Certains** graffitis (pas tous) peuvent être affichés en **hologramme en haut des immeubles**, avec un effet
-  **glow néon**.
-- Les polices de graffiti sont déjà téléchargées dans `assets/font/` (voir « Licences » : elles ne peuvent pas toutes
-  être versionnées).
+- **Certains** graffitis (pas tous) sont des **hologrammes** à effet **glow néon** : une barre horizontale qui projette
+  le texte au-dessus d'elle. Placement libre dans le décor (surtout sur les immeubles), tailles variées.
+- Texte avec des polices (pas d'images ni de formes). Les polices sont dans `assets/font/`, sous CC0 d'après l'utilisateur
+  ; `a_another_tag` est une police dessinée par un ami de l'utilisateur.
+- Style cyberpunk. Les mots vivent dans **un fichier modifiable** auquel l'utilisateur peut ajouter des entrées.
 
-## Licences des polices (relevé : bloquant pour le dépôt)
+## Licences des polices
 
-Le dépôt est sur GitHub (`aifedespaix/cyber-funk`). Lecture des fichiers de licence fournis dans les archives :
+L'utilisateur indique que les polices de `assets/font/` sont sous **CC0** (domaine public) et que `a_another_tag` a été
+dessinée par un ami. Elles sont donc versionnables, à une condition de traçabilité :
 
-| Archive | Licence relevée | Versionnable ? |
-| --- | --- | --- |
-| `jraot.zip` | démo, **usage personnel uniquement**, commercial interdit | non |
-| `street_wars.zip` | démo, **usage personnel uniquement**, commercial interdit | non |
-| `throwupz.zip` | **usage personnel uniquement**, interdit en média public sans accord, partage interdit | non |
-| `don_graffiti.zip` | achetée : usage commercial permis, **redistribution interdite** | non (publier = redistribuer) |
-| `a_another_tag.zip` | aucun fichier de licence | non, tant que la licence est inconnue |
-
-Conséquence, dans l'esprit de la règle 9 de `CLAUDE.md` (musiques) :
-
-- **Aucune de ces polices ni aucun atlas cuit à partir d'elles n'entre dans git.** Elles vivent dans
-  `assets/local/fonts/` (déjà ignoré par `.gitignore`) ; `assets/font/` (non suivi) est à déplacer ou à ignorer.
-  Un atlas cuit reste une redistribution déguisée de la police.
-- Le dépôt versionne **au moins une police à licence libre** (OFL, CC0…) avec sa licence dans
-  `assets/fonts/LICENCES.md`, pour que le dépôt se construise et se teste sans les polices privées.
-- Si l'app est un jour diffusée (binaire, release), les polices « personnel uniquement » ne doivent pas y figurer :
-  c'est un point à trancher par l'utilisateur avant toute publication (voir « Questions pour l'utilisateur »).
+- `assets/fonts/LICENCES.md` liste chaque police : nom, source (lien), licence, date. Pour `a_another_tag` : nom de
+  l'auteur et mention de son accord d'utilisation et de publication dans le dépôt.
+- **Écart relevé, à lever par l'utilisateur** : les fichiers de licence DANS les archives disent autre chose. `jraot` et
+  `street_wars` portent « démo, usage personnel uniquement, commercial interdit » ; `throwupz` porte « usage personnel
+  uniquement, partage interdit » ; `don_graffiti` dit « redistribution interdite ». Ces textes contredisent CC0 ; si
+  l'utilisateur a une licence plus large obtenue ailleurs (page de téléchargement, achat), il la note dans
+  `LICENCES.md` avec le lien. Le constructeur ne versionne une police que lorsque sa ligne est remplie.
+- Les archives `.zip` ne sont pas versionnées telles quelles : on versionne seulement les fichiers de police
+  utilisés (`.ttf`/`.otf`), dans `assets/fonts/`, sans les PNG d'aperçu ni les fichiers lisez-moi non utiles.
+- Police absente ou ligne de licence manquante : le motif est sauté avec un avertissement, le dépôt démarre quand même.
 
 ## Objectifs
 
@@ -51,21 +47,29 @@ Conséquence, dans l'esprit de la règle 9 de `CLAUDE.md` (musiques) :
    déjà au workspace). Aucune texture dessinée pendant le show (règle 8).
 2. **Graffitis muraux** : peints sur les façades. Placement déterministe en fonction de la rangée et du quartier
    (fonction pure comme `Row::generate`, pas d'état par immeuble). Plus denses en banlieue.
-3. **Hologrammes de toit** : un sous-ensemble des motifs, rendu en lumière au-dessus de certains immeubles :
-   panneau plat orienté vers la route, léger décollement du toit, glow néon, lignes de balayage, faible
-   scintillement **borné** (voir Sécurité).
-4. **Couleur** : le glow suit la palette de scène (`ScenePalette`) et donc l'étalonnage de quartier ; un graffiti
+3. **Projecteurs holographiques** : une barre horizontale posée sur un support (toit, corniche, mur, mât ou sol) qui
+   projette un texte en lumière au-dessus d'elle : faisceau léger de la barre vers les lettres, glow néon, lignes
+   de balayage, faible scintillement **borné** (voir Sécurité). Trois classes de taille (petit, moyen, grand), de
+   l'enseigne de boutique au slogan géant en haut d'une tour.
+4. **Placement libre** : deux sources de projecteurs. (a) automatique : tirés par hachage sur les immeubles de la
+   rangée selon le quartier ; (b) **posés à la main** dans un fichier RON de décor (position le long de la route,
+   côté, hauteur, taille, mot) pour placer un projecteur précis où l'on veut.
+5. **Couleur** : le glow suit la palette de scène (`ScenePalette`) et donc l'étalonnage de quartier ; un graffiti
    mural prend des teintes propres au motif, dans la gamme du quartier.
-5. **Réaction au son** : les hologrammes respirent avec l'audio (intensité, basses) via le niveau déjà accordé par
+6. **Réaction au son** : les hologrammes respirent avec l'audio (intensité, basses) via le niveau déjà accordé par
    le limiteur, jamais directement par le signal brut.
-6. **Debug (F4)** : curseurs de densité murale et holographique, forçage d'un motif, interrupteur par registre
+7. **Mots modifiables** : la liste des mots est dans `assets/graffiti/words.ron`, lisible et modifiable à la main ;
+   chaque mot indique sa police, son style et s'il peut être hologramme, mural ou les deux. Rechargé à l'ouverture
+   (avec `--features dev`, rechargement à chaud) ; une entrée invalide est ignorée avec un avertissement lisible.
+8. **Debug (F4)** : curseurs de densité murale et holographique, forçage d'un motif, interrupteur par registre
    (mural / hologramme), dans la section Quartiers existante.
 
 ## Hors périmètre
 
 - Nouvelles formes de bâtiments, mobilier, lampadaires (3.2) ; transitions (3.4) ; brume et grain (chantier 2).
-- Graffitis dessinés à la main ou importés comme images : seul le texte en polices est traité ici (un motif image
-  pourra venir plus tard, le format RON le prévoit par une variante `Source`).
+- Graffitis dessinés à la main ou importés comme images, hologrammes en forme de logo, visage ou créature : seul le
+  texte en polices est traité ici (un motif image pourra venir plus tard, le format RON le prévoit par une variante
+  `Source`).
 - Graffitis sur la route, le sol ou la voiture (les décalques de route existent, `signs/road.rs`).
 - Écriture arbitraire par l'opérateur pendant le show.
 
@@ -73,7 +77,7 @@ Conséquence, dans l'esprit de la règle 9 de `CLAUDE.md` (musiques) :
 
 - Aucun scintillement ni flash qui contourne le limiteur photosensible (règle 7). Le glow holographique se module
   par `FlashLimiter` comme les enseignes (`signs/flash.rs`) ; fréquence de changement ≤ 3 par seconde.
-- Aucune police non libre dans git, aucun atlas cuit d'une police non libre dans git.
+- Aucune police versionnée sans ligne remplie dans `assets/fonts/LICENCES.md`.
 - Pas d'allocation par image en régime établi (règle 4) ; pas de chargement ni de compilation de shader pendant
   un show (règle 8) ; pas de `NoFrustumCulling` (règle 6).
 - Pas de fichier de plus de 400 lignes (règle 11).
@@ -101,37 +105,47 @@ Conséquence, dans l'esprit de la règle 9 de `CLAUDE.md` (musiques) :
 
 ## Décisions de conception (appels du rédacteur, à valider)
 
-1. **Deux registres, un seul format de motif.** Un `GraffitiMotif` (RON) : texte, police (identifiant logique, pas un
-   chemin), style, marge, ratio, `holo_ok: bool` (le motif a le droit d'être un hologramme), palette de teintes
-   suggérée. Les hologrammes ne sont pas des objets à part : c'est un motif dont l'instance est en mode `Holo`.
-2. **Cuisson en atlas unique** par registre : un atlas mural (couleur, alpha) et un atlas hologramme (masque
-   monochrome, comme l'atlas des enseignes, pour que la couleur vienne de la palette et que le glow soit propre).
-   Cuits au chargement, une seule fois, par les polices présentes. **Police absente = motif sauté** avec un
-   avertissement, jamais une erreur : le dépôt sans polices privées doit démarrer.
-3. **Graffitis muraux : décalques par pavé, dans le shader de façade.** Chaque pavé (immeuble) calcule par
-   hachage de sa position s'il porte un graffiti, lequel, où (zone basse : rez-de-chaussée et premiers étages, plus
-   crédible), à quelle échelle et avec quelle teinte. Aucune entité en plus : une couche `facade_paint.wesl` lit
-   l'atlas. Aucune allocation.
-4. **Hologrammes : un pool d'entités préallouées** (panneaux plats, matériau additif) posées sur les toits d'après
-   le plan de rangée. Nombre borné (proposition : 12 simultanés au plus). Un hologramme est rattaché à un
-   immeuble par sa position hachée, déterministe ; il suit le streaming comme les arches (`scenery/arches.rs`).
-5. **Glow néon** : matériau émissif, valeurs > 1 pour déclencher le bloom existant, plus un halo doux (flou
-   précuit dans l'atlas : une version nette + une version floue) pour éviter un second passage plein écran.
-   Légère montée de teinte vers la couleur d'accent de la palette ; intensité = respiration audio × niveau accordé
-   par le limiteur.
-6. **Animation de l'hologramme** : apparition par balayage vertical (≤ 1,5 s), lignes de balayage lentes,
-   « instabilité » par tranches décalées en réutilisant la logique de `glyph.wesl` (≤ 3 changements par seconde,
-   tout proportionnel au niveau accordé par le limiteur ; à 0 l'hologramme est stable).
-7. **Densité par quartier** (valeurs initiales, à régler à l'œil) : mural, banlieue 1 immeuble sur 3, résidentiel
-   1 sur 10, centre 1 sur 25 ; hologramme, centre 1 toit sur 10, banlieue 1 sur 18, résidentiel quasi nul.
-   Les hologrammes sont plus fréquents au centre qu'en banlieue : choix délibéré, car ils relèvent du néon, pas du
-   bombage.
-8. **Transition de quartier** : un graffiti suit la règle du dégradé existant (hachage de position, probabilité
-   croissante) ; aucun graffiti ne disparaît d'un coup dans le champ de vision.
-9. **Lisibilité** : les mots sont choisis dans une liste courte et neutre (noms d'ambiance cyberpunk, pas de
-   marques ni de texte offensant). La liste est dans le RON, modifiable par l'utilisateur.
-10. **Qualité** : `SceneryConfig::set_quality` retire d'abord les hologrammes lointains puis le halo flou, puis les
-    graffitis muraux lointains. En qualité minimale : plus d'hologramme, graffitis muraux au plus proche seulement.
+1. **Deux registres, un seul format de motif.** Un `GraffitiMotif` (RON) : mot, police (identifiant logique, pas un
+   chemin), style (plein, contour, extrusion), registres permis (`mural`, `holo`), teintes suggérées. Les mots et
+   leurs réglages vivent dans `assets/graffiti/words.ron` (le fichier que l'utilisateur modifie). Je fournis 20 à 30
+   mots cyberpunk de départ (noms de quartier, de réseaux, de hackers : jamais de marque ni de texte offensant).
+2. **Cuisson en atlas** au chargement, une seule fois, dans une tâche de fond inscrite au `LoadTracker` : un atlas
+   mural (couleur et alpha) et un atlas hologramme (masque monochrome, pour que la couleur vienne de la palette et que
+   le glow soit net). Police absente ou non documentée dans `LICENCES.md` : motif sauté, avertissement, jamais d'erreur.
+3. **Graffitis muraux : décalques dans le shader de façade.** Chaque immeuble calcule par hachage de sa position
+   s'il porte un graffiti, lequel, où (zone basse : rez-de-chaussée et premiers étages), à quelle échelle, avec quelle
+   teinte. Module `facade_paint.wesl` importé par `facade.wesl`. Aucune entité en plus, aucune allocation.
+4. **Projecteur holographique = deux pièces.** (a) La **barre** : un mince parallélépipède horizontal, légèrement
+   émissif, qui tient sur un support. (b) Le **texte** : un panneau vertical additif posé au-dessus de la barre,
+   orienté vers la route, qui lit l'atlas hologramme. Entre les deux, un faisceau léger (un dégradé vertical dans le
+   même matériau) : le texte semble projeté par la barre. Le tout est une seule entité-parent avec deux enfants, tirée
+   d'un pool préallouée.
+5. **Trois classes de taille** : petit (barre ~2 m, lettres ~1 m, pour devantures et mâts), moyen (barre ~6 m, lettres
+   ~3 m), grand (barre ~20 m, lettres ~10 m, pour le haut des tours). Valeurs de départ, à régler à l'œil.
+   Un grand projecteur n'est jamais placé sous une hauteur minimale, pour rester lisible depuis la route.
+6. **Deux sources de placement, mêmes règles de pool.**
+   - Automatique : hachage de la position de l'immeuble selon le quartier, choix de la classe de taille selon la
+     hauteur de l'immeuble (les tours portent les grands).
+   - Manuel : `assets/graffiti/placements.ron`, une liste `{ distance le long de la route, côté, hauteur, taille,
+     mot, rotation }` ; permet de poser un projecteur précis à un endroit précis, y compris sur le sol ou un mât.
+     Les placements manuels sont prioritaires sur les automatiques voisins (un projecteur auto qui chevauche est
+     retiré). Le placement manuel reste déterministe : même fichier, même résultat.
+7. **Support** : le projecteur automatique est posé sur le toit de l'immeuble choisi (hauteur donnée par `Row::generate`)
+   ou en saillie sur une façade. Il ne traverse jamais un autre immeuble (test de collision avec `scenery/query.rs`).
+8. **Glow néon** : matériau émissif à valeurs > 1 pour déclencher le bloom existant, plus un halo précuit dans
+   l'atlas (version nette et version floue) : pas de second passage plein écran. Teinte = couleur d'accent de la
+   palette (donc étalonnage de quartier) ; intensité = respiration audio × niveau accordé par le limiteur.
+9. **Animation** : apparition par balayage de la barre vers le haut (≤ 1,5 s), lignes de balayage lentes, instabilité par
+   tranches décalées en réutilisant la logique de `glyph.wesl` (≤ 3 changements par seconde, proportionnelle au niveau
+   accordé ; à 0 l'hologramme est stable).
+10. **Densité par quartier** (valeurs de départ, à régler à l'œil) : mural, banlieue 1 immeuble sur 3, résidentiel 1 sur
+    10, centre 1 sur 25 ; projecteur automatique, centre 1 immeuble sur 10, banlieue 1 sur 18, résidentiel quasi nul.
+    Plus d'hologrammes au centre qu'en banlieue : ils relèvent du néon, le bombage de la banlieue. Plafond : 12
+    projecteurs actifs en même temps, tous types confondus.
+11. **Transition de quartier** : même règle que le dégradé (hachage, probabilité croissante) ; rien ne disparaît d'un
+    coup dans le champ de vision.
+12. **Qualité** : `SceneryConfig::set_quality` retire d'abord les petits projecteurs lointains, puis le halo flou, puis
+    les graffitis muraux lointains. Qualité minimale : seuls les projecteurs proches et les graffitis proches restent.
 
 ## Choix laissés au constructeur
 
@@ -139,7 +153,7 @@ Conséquence, dans l'esprit de la règle 9 de `CLAUDE.md` (musiques) :
 - Résolution et taille des atlas (à mesurer : budget mémoire et temps de cuisson, visé < 1 s en tâche de fond).
 - Technique exacte de halo (version floue précuite, ou mip levels forcés) ; réglage du bloom.
 - Position verticale précise des graffitis muraux et décollement des hologrammes.
-- Choix de la police libre versionnée (OFL) et de son style de repli.
+- Quelle police sert par défaut quand le mot n'en précise pas.
 - Découpage en modules (`graffiti/` : `motif.rs`, `bake.rs`, `placement.rs`, `holo.rs`, `systems.rs`).
 
 ## Sécurité du live
@@ -152,14 +166,16 @@ Conséquence, dans l'esprit de la règle 9 de `CLAUDE.md` (musiques) :
 
 ## Critères d'acceptation
 
-- Le dépôt se construit et ses tests passent **sans** aucune police de `assets/local/fonts/` (police libre de repli).
-- Avec les polices privées présentes, les motifs correspondants sont cuits au chargement ; sans elles, un
+- Le dépôt se construit et ses tests passent même si une police est absente (motif sauté, avertissement).
+- Avec les polices présentes, les motifs correspondants sont cuits au chargement ; sans elles, un
   avertissement est journalisé et les motifs sont sautés.
-- Aucun fichier de police privée ni atlas dérivé n'est suivi par git (test ou garde dans la CI).
+- Chaque police versionnée a sa ligne dans `assets/fonts/LICENCES.md` (test qui compare les deux listes).
+- `words.ron` et `placements.ron` : une entrée invalide est ignorée avec un avertissement, les autres fonctionnent.
+- Un projecteur manuel placé dans `placements.ron` apparaît au bon endroit, dans les trois tailles.
 - Le placement est déterministe : deux exécutions donnent le même graffiti au même endroit.
 - Le golden `scenery.json` est inchangé pour le centre néon par défaut.
 - La banlieue porte visiblement plus de graffitis muraux que le centre ; le centre porte quelques hologrammes.
-- Un hologramme apparaît par balayage, brille en néon (glow visible au bloom), suit la palette et respire avec le
+- Un projecteur montre une barre qui projette le texte au-dessus d'elle ; il apparaît par balayage, brille en néon (glow visible au bloom), suit la palette et respire avec le
   son.
 - Le niveau de luminance d'un hologramme ne dépasse jamais la limite du limiteur (test sur séquence de référence).
 - Aucune allocation par image dans les systèmes de graffiti (test du type `tests/signs_no_alloc.rs`).
@@ -167,13 +183,7 @@ Conséquence, dans l'esprit de la règle 9 de `CLAUDE.md` (musiques) :
 - `cargo fmt`, `clippy -D warnings`, `cargo nextest run --workspace` verts.
 - Vérification visuelle et captures dans `docs/captures/` faites par un humain (non réalisable par l'agent).
 
-## Questions pour l'utilisateur (changent ce qui est construit)
+## Questions restantes
 
-1. **Diffusion** : l'app sera-t-elle un jour publiée ou jouée en public ? Si oui, les polices « personnel
-   uniquement » sont à remplacer par des polices libres ou achetées avec licence adaptée. Mon défaut : elles servent
-   en local seulement, et le dépôt livre des polices libres.
-2. **`a_another_tag`** : d'où vient cette police ? Sans licence connue, je la traite comme privée.
-3. **Mots à afficher** : veux-tu des mots précis (ton nom de scène, celui des DJs, un thème) ? Mon défaut : une liste
-   neutre d'ambiance cyberpunk.
-4. **Hologrammes** : texte seul comme les graffitis, ou aussi des formes (logo, visage, créature) ? Ce document ne
-   traite que le texte ; les formes demanderaient un format image.
+Aucune qui bloque le plan. Points que le constructeur fait confirmer par l'utilisateur à la première capture :
+tailles des classes de projecteur, densités, lisibilité des mots depuis la voiture.
