@@ -30,10 +30,23 @@ pub struct GraffitiWord {
     pub hues: Vec<f32>,
 }
 
-/// Lit `words.ron` ; une entrée cassée est ignorée avec un avertissement.
+/// Lit `words.ron` ; une entrée cassée est ignorée avec un avertissement. Un texte en double aussi : la première
+/// entrée gagne (les placements désignent un mot par son texte).
 #[must_use]
 pub fn load_words(ron_text: &str) -> (Vec<GraffitiWord>, Vec<String>) {
-    super::load_list(ron_text, "words.ron")
+    let (list, mut warnings) = super::load_list::<GraffitiWord>(ron_text, "words.ron");
+    let mut out: Vec<GraffitiWord> = Vec::with_capacity(list.len());
+    for word in list {
+        if out.iter().any(|w| w.text == word.text) {
+            warnings.push(format!(
+                "words.ron : « {} » en double, seule la première entrée compte",
+                word.text
+            ));
+        } else {
+            out.push(word);
+        }
+    }
+    (out, warnings)
 }
 
 /// Noms des polices (fichier sans extension) dont la ligne de `LICENCES.md` est remplie. Une ligne marquée

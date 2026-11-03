@@ -114,3 +114,30 @@ fn le_placements_ron_livre_se_charge_sans_avertissement() {
         );
     }
 }
+
+#[test]
+fn un_placement_invalide_est_ignore() {
+    let texte = r#"[
+        (z_m: 1.0, side: 0, height_m: 2.0, size: Small, word: "A", yaw_deg: 0.0),
+        (z_m: 2.0, side: 1, height_m: -0.5, size: Small, word: "A", yaw_deg: 0.0),
+        (z_m: 3.0, side: 2, height_m: 2.0, size: Small, word: "A", yaw_deg: 0.0),
+        (z_m: 4.0, side: -1, height_m: 0.0, size: Medium, word: "B", yaw_deg: 0.0),
+    ]"#;
+    let (liste, avertissements) = load_placements(texte);
+    assert_eq!(liste.len(), 1);
+    assert_eq!(liste[0].word, "B");
+    assert_eq!(avertissements.len(), 3, "{avertissements:?}");
+}
+
+#[test]
+fn un_mot_en_double_garde_le_premier() {
+    let texte = r#"[
+        (text: "A", font: "F", style: Fill, wall: true, holo: false, hues: []),
+        (text: "B", font: "F", style: Fill, wall: true, holo: false, hues: []),
+        (text: "A", font: "G", style: Outline, wall: false, holo: true, hues: []),
+    ]"#;
+    let (mots, avertissements) = load_words(texte);
+    assert_eq!(mots.len(), 2);
+    assert_eq!(mots[0].font, "F");
+    assert_eq!(avertissements.len(), 1, "{avertissements:?}");
+}

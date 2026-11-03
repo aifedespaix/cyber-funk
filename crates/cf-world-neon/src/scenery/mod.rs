@@ -7,7 +7,8 @@
 //! - [`layout`] : la ville d'une rangée, fonction pure de son index ([`Row::generate`]), testée contre Sillage ;
 //! - [`plan`] : la rangée devient un [`ChunkPlan`](cf_render::ChunkPlan) (pavés en repère de tronçon, tag pour le shader) ;
 //! - [`query`] : collisions, toit, façade, répondues en régénérant les rangées voisines (pas d'état à tenir d'accord) ;
-//! - [`arches`] : les deux arches affichées au plus, six entités préallouées posées d'après le plan de route.
+//! - [`arches`] : les deux arches affichées au plus, six entités préallouées posées d'après le plan de route ;
+//! - [`graffiti_plan`] : le motif mural de chaque immeuble et les projecteurs holographiques d'une rangée.
 //!
 //! # Culling et coût
 //!
@@ -34,6 +35,10 @@ mod config;
 pub mod districts;
 #[cfg(test)]
 mod districts_tests;
+pub mod graffiti_plan;
+#[cfg(test)]
+mod graffiti_plan_tests;
+mod layers;
 pub mod layout;
 mod plan;
 pub mod query;
@@ -45,6 +50,7 @@ use cf_render::streaming::ArchetypeId;
 
 pub use config::{Clearing, FAR_BY_QUALITY, SceneryConfig};
 pub use districts::{DistrictLook, DistrictPlan, LEAD_ROWS, district_look};
+pub use graffiti_plan::{GraffitiLibrary, MAX_ROW_PROJECTORS, Projector, ProjectorList, row_projectors};
 pub use layout::{
     BASE_DEPTH_M, FLOOR_HEIGHT_M, Hitbox, MAX_PARTS, Part, Row, SPACING_M, SpotAnchor, TINT_CYCLE_LEN, Tier,
 };

@@ -1,6 +1,7 @@
 //! Réglages de la ville : ce qui change son contenu sans changer ses tirages (qualité, zones dégagées).
 
 use super::districts::DistrictPlan;
+use super::graffiti_plan::GraffitiLibrary;
 
 /// Couronnes lointaines conservées selon le niveau de qualité (0 = tout, 3 = le strict minimum).
 pub const FAR_BY_QUALITY: [usize; 4] = [3, 3, 2, 1];
@@ -35,6 +36,8 @@ pub struct SceneryConfig {
     /// Plan de quartiers de la route, et son interrupteur (faux : la ville historique).
     pub(super) districts: DistrictPlan,
     pub(super) districts_active: bool,
+    /// Mots et placements des graffitis ; vide par défaut (la ville historique, sans graffiti ni projecteur).
+    graffiti: GraffitiLibrary,
 }
 
 impl Default for SceneryConfig {
@@ -45,6 +48,7 @@ impl Default for SceneryConfig {
             sign_clearing: None,
             districts: DistrictPlan::default(),
             districts_active: false,
+            graffiti: GraffitiLibrary::default(),
         }
     }
 }
@@ -76,6 +80,21 @@ impl SceneryConfig {
     /// Zone dégagée de l'enseigne du DJ (ou `None`). Renvoie vrai si elle change.
     pub fn set_sign_clearing(&mut self, clearing: Option<Clearing>) -> bool {
         std::mem::replace(&mut self.sign_clearing, clearing) != clearing
+    }
+
+    /// Remplace la bibliothèque de graffitis. Renvoie vrai si elle change (à re-tirer comme [`Self::set_quality`]).
+    pub fn set_graffiti(&mut self, lib: GraffitiLibrary) -> bool {
+        if self.graffiti == lib {
+            return false;
+        }
+        self.graffiti = lib;
+        true
+    }
+
+    /// La bibliothèque de graffitis.
+    #[must_use]
+    pub fn graffiti(&self) -> &GraffitiLibrary {
+        &self.graffiti
     }
 
     pub(super) fn cleared(&self, z: f64, side: i8) -> bool {

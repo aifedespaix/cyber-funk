@@ -10,6 +10,8 @@
 
 use super::config::SceneryConfig;
 use super::districts::{district_look, weighted_temper};
+use super::graffiti_plan::{self, Projector};
+use super::layers::{LAYERS, NEAR_LAYERS};
 use crate::facade::temper_of;
 use crate::rng::hash;
 use crate::route::is_near_bridge;
@@ -31,94 +33,11 @@ pub const MAX_PARTS: usize = SLOTS * PARTS;
 pub const MAX_HITBOXES: usize = SLOTS * 2;
 /// Nombre de teintes du cycle prismatique.
 pub const TINT_CYCLE_LEN: usize = crate::route::bridges::TINT_CYCLE_LEN;
+/// Projecteurs holographiques automatiques au plus par rangée : un par immeuble des couronnes proches.
+pub const MAX_AUTO_PROJECTORS: usize = NEAR_LAYERS * 2;
 
-/// Couronnes de premier plan : trapues, collées à la route, et deux couronnes de tours plus hautes.
-const NEAR_LAYERS: usize = 3;
 /// Marge de recherche des collisions autour d'une rangée : décalage aléatoire (3 m) + demi-profondeur maximale (14 m).
 const ROW_REACH_M: f64 = 17.0;
-
-/// Une couronne d'immeubles : où elle commence, ses plages de tailles, la part d'emplacements vides.
-struct Layer {
-    /// Distance à l'axe de la route du bord intérieur, en m.
-    x: f64,
-    /// Étalement aléatoire du bord intérieur, en m.
-    spread: f64,
-    width: [f64; 2],
-    depth: [f64; 2],
-    height: [f64; 2],
-    /// Part d'emplacements laissés vides.
-    skip: f64,
-    /// Part de tours qui portent un projecteur.
-    spots: f64,
-    /// Couronne d'arrière-plan : un corps seul, sans couronne, ombrage simplifié.
-    far: bool,
-}
-
-const LAYERS: [Layer; 6] = [
-    // Premier plan : trapus, collés à la route. Puis deux couronnes de tours plus hautes.
-    Layer {
-        x: 13.5,
-        spread: 3.0,
-        width: [8.0, 13.0],
-        depth: [8.0, 12.0],
-        height: [9.0, 28.0],
-        skip: 0.22,
-        spots: 0.55,
-        far: false,
-    },
-    Layer {
-        x: 34.0,
-        spread: 6.0,
-        width: [10.0, 18.0],
-        depth: [10.0, 16.0],
-        height: [20.0, 50.0],
-        skip: 0.25,
-        spots: 0.35,
-        far: false,
-    },
-    Layer {
-        x: 58.0,
-        spread: 10.0,
-        width: [12.0, 22.0],
-        depth: [12.0, 20.0],
-        height: [38.0, 85.0],
-        skip: 0.1,
-        spots: 0.0,
-        far: false,
-    },
-    // Arrière-plan : trois couronnes de plus en plus hautes et larges, qui dessinent la ligne d'horizon de la ville.
-    // Elles sont presque noyées dans la brume : un corps seul, sans couronne, avec un ombrage simplifié (tier 3).
-    Layer {
-        x: 98.0,
-        spread: 14.0,
-        width: [16.0, 30.0],
-        depth: [16.0, 24.0],
-        height: [70.0, 140.0],
-        skip: 0.12,
-        spots: 0.0,
-        far: true,
-    },
-    Layer {
-        x: 150.0,
-        spread: 20.0,
-        width: [20.0, 36.0],
-        depth: [18.0, 26.0],
-        height: [100.0, 200.0],
-        skip: 0.1,
-        spots: 0.0,
-        far: true,
-    },
-    Layer {
-        x: 214.0,
-        spread: 30.0,
-        width: [26.0, 46.0],
-        depth: [20.0, 28.0],
-        height: [140.0, 280.0],
-        skip: 0.1,
-        spots: 0.0,
-        far: true,
-    },
-];
 
 /// Ce qu'une pièce est dans le matériau de façade (`aInfo.z` de Sillage).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
@@ -168,11 +87,13 @@ pub struct Part {
     pub spot_floor: u8,
     /// Indice du tempérament de l'immeuble (`0..TEMPER_COUNT`) ; 0 : le rendu d'avant les tempéraments (arches comprises).
     pub temper: u8,
+    /// Motif mural peint au pied du corps (`1..=31`, rang dans les mots muraux + 1) ; 0 : aucun.
+    pub graffiti: u8,
 }
 
 impl Part {
     /// Le tag envoyé au shader (`MeshTag`) : graine (10 bits), teinte (4), type (2), étage du projecteur + 1 (8),
-    /// tempérament (3, bits 24..26).
+    /// tempérament (3, bits 24..26), motif mural (5, bits 27..31 ; 0 : le tag d'avant les graffitis).
     #[must_use]
     pub fn tag(&self) -> u32 {
         u32::from(self.seed) & 0x3FF
@@ -180,6 +101,7 @@ impl Part {
             | (self.tier as u32) << 14
             | u32::from(self.spot_floor) << 16
             | (u32::from(self.temper) & 0x7) << 24
+            | (u32::from(self.graffiti) & 0x1F) << 27
     }
 }
 
@@ -222,6 +144,8 @@ pub struct Row {
     hitbox_count: usize,
     spots: [SpotAnchor; SLOTS],
     spot_count: usize,
+    autos: [Projector; MAX_AUTO_PROJECTORS],
+    auto_count: usize,
 }
 
 impl Row {
@@ -241,6 +165,13 @@ impl Row {
     #[must_use]
     pub fn spots(&self) -> &[SpotAnchor] {
         &self.spots[..self.spot_count]
+    }
+
+    /// Les projecteurs holographiques tirés sur les toits, avant le test de collision (voir
+    /// [`graffiti_plan::row_projectors`]). Vide sans bibliothèque de graffitis.
+    #[must_use]
+    pub fn auto_projectors(&self) -> &[Projector] {
+        &self.autos[..self.auto_count]
     }
 
     fn push_part(&mut self, part: Part) {
@@ -273,6 +204,8 @@ impl Row {
             hitbox_count: 0,
             spots: [SpotAnchor::default(); SLOTS],
             spot_count: 0,
+            autos: [Projector::EMPTY; MAX_AUTO_PROJECTORS],
+            auto_count: 0,
         };
         for slot in 0..SLOTS {
             row.generate_slot(slot, config);
@@ -345,6 +278,7 @@ impl Row {
             seed,
             spot_floor,
             temper,
+            graffiti: 0,
         };
         let antenna = |y: f64, width: f64, height: f64| part(Tier::Antenna, y, [width, height, width], seed01, 0);
 
@@ -352,7 +286,33 @@ impl Row {
         // Le corps plonge sous la route : de la route on ne voit jamais son pied.
         let base = f64::from(BASE_DEPTH_M);
         let body_tier = if layer.far { Tier::Far } else { Tier::Body };
-        self.push_part(part(body_tier, -base, [w, h + base, d], seed01, spot_floor));
+        // Graffiti mural et projecteur de toit : tirages à sels propres sur la graine d'emplacement, sans rien consommer
+        // des tirages historiques ; sans bibliothèque, rien n'est tiré.
+        let graffiti = if layer.far {
+            0
+        } else {
+            graffiti_plan::wall_motif(config.graffiti(), &look, seed)
+        };
+        if !layer.far
+            && let Some(slot) = self.autos.get_mut(self.auto_count)
+            && let Some(p) = graffiti_plan::auto_projector(
+                config.graffiti(),
+                &look,
+                seed,
+                graffiti_plan::Roof {
+                    // Bord du toit côté route.
+                    x_inner: center_x - f64::from(side) * (w / 2.0),
+                    z,
+                    top: h,
+                    side,
+                },
+            )
+        {
+            *slot = p;
+            self.auto_count += 1;
+        }
+        let body = part(body_tier, -base, [w, h + base, d], seed01, spot_floor);
+        self.push_part(Part { graffiti, ..body });
 
         if layer.far {
             // Pas de couronne au loin ; une antenne de temps en temps pour piquer la ligne d'horizon.

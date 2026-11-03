@@ -15,7 +15,7 @@
     (text: "ROOT", font: "Jraot-Regular", style: Extrude, wall: false, holo: true, hues: [120.0]),
     (text: "SECTOR 7", font: "StreetWarsDemo", style: Fill, wall: true, holo: true, hues: [30.0, 330.0]),
     (text: "BLACKOUT", font: "throwupz", style: Fill, wall: true, holo: false, hues: [240.0]),
-    (text: "NIGHT CITY", font: "DonGraffiti", style: Outline, wall: false, holo: true, hues: [290.0, 190.0]),
+    (text: "NEON CITY", font: "DonGraffiti", style: Outline, wall: false, holo: true, hues: [290.0, 190.0]),
     (text: "STATIC", font: "aAnotherTag", style: Outline, wall: true, holo: true, hues: [200.0]),
     (text: "UPLINK", font: "Jraot-Regular", style: Fill, wall: true, holo: true, hues: [160.0]),
     (text: "CIRCUIT", font: "StreetWarsDemo", style: Extrude, wall: true, holo: false, hues: [45.0]),
