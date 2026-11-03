@@ -41,6 +41,8 @@ struct Sign {
 @group(constants::MATERIAL_BIND_GROUP) @binding(2) var art_sampler: sampler;
 @group(constants::MATERIAL_BIND_GROUP) @binding(3) var strips: texture_2d<f32>;
 @group(constants::MATERIAL_BIND_GROUP) @binding(4) var strips_sampler: sampler;
+@group(constants::MATERIAL_BIND_GROUP) @binding(5) var feed_tex: texture_2d<f32>;
+@group(constants::MATERIAL_BIND_GROUP) @binding(6) var feed_sampler: sampler;
 
 // Mise en page de la cellule : recopiée de `paint` (un test Rust compare les deux).
 const CANVAS_W: f32 = 512.0;
@@ -230,6 +232,14 @@ fn feed_color(p: vec2<f32>) -> vec3<f32> {
                 col = sign.accent.rgb;
             }
         }
+    }
+    // La vraie image de la caméra annexe, quand elle existe : elle remplace le dessin de repli (route et voiture).
+    if sign.feed.w > 0.5 && sign.misc.w > 0.5 {
+        let footage = textureSampleLevel(feed_tex, feed_sampler, clamp(f, vec2<f32>(0.0), vec2<f32>(1.0)), 0.0).rgb;
+        let v = f - vec2<f32>(0.5);
+        // Vignette, et une teinte d'accent légère pour que l'image reste dans la palette du show.
+        col = clamp(footage, vec3<f32>(0.0), vec3<f32>(1.6)) * (1.0 - 0.8 * dot(v, v));
+        col = mix(col, col * sign.accent.rgb * 2.0, 0.15);
     }
     // Trame de balayage.
     if fract(p.y / 4.0) < 0.375 {

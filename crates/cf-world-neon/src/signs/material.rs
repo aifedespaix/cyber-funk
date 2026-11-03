@@ -59,7 +59,7 @@ pub struct SignParams {
     /// caméra a un flux.
     pub feed: Vec4,
     /// `x` : 1 si les deux faces se voient (formats sans caisson) ; `y` : surcroît de lumière par flash ; `z` : 1 en mode
-    /// calme ; `w` : étoile de la qualité (réservé).
+    /// calme ; `w` : 1 si `feed` a déjà reçu une image de la caméra annexe.
     pub misc: Vec4,
 }
 
@@ -88,6 +88,10 @@ pub struct SignMaterial {
     #[texture(3)]
     #[sampler(4)]
     pub strip: Option<Handle<Image>>,
+    /// L'image de la caméra annexe qui filme la voiture (enseignes « caméra » seulement ; voir `crate::feeds`).
+    #[texture(5)]
+    #[sampler(6)]
+    pub feed: Option<Handle<Image>>,
 }
 
 impl Material for SignMaterial {

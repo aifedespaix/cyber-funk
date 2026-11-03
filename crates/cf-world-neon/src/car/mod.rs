@@ -86,6 +86,10 @@ impl Plugin for CarPlugin {
         if !app.is_plugin_added::<AssetPlugin>() {
             return;
         }
+        // Les flux des caméras annexes : le rétroviseur lit l'image du flux arrière (`spawn`).
+        if !app.is_plugin_added::<crate::feeds::FeedsPlugin>() {
+            app.add_plugins(crate::feeds::FeedsPlugin);
+        }
         let other = match self.variant {
             CarVariant::Dirty => CarVariant::Cyber,
             CarVariant::Cyber => CarVariant::Dirty,

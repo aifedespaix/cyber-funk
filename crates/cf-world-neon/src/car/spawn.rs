@@ -10,6 +10,7 @@ use bevy::asset::{Assets, Handle};
 use bevy::color::LinearRgba;
 use bevy::image::Image;
 use bevy::material::AlphaMode;
+use bevy::math::Affine2;
 use bevy::pbr::StandardMaterial;
 use bevy::prelude::*;
 use cf_render::WorldLayer;
@@ -39,6 +40,8 @@ pub struct CarAssets<'w> {
     pub lights: ResMut<'w, Assets<CarLightMaterial>>,
     /// Vitres (gouttes de pluie).
     pub glass: ResMut<'w, Assets<CarGlassMaterial>>,
+    /// Les images des caméras annexes : le rétroviseur y lit la vue arrière.
+    pub feeds: Res<'w, crate::feeds::FeedImages>,
 }
 
 pub(crate) fn standard_material(def: &MaterialData, images: &[Handle<Image>]) -> StandardMaterial {
@@ -146,9 +149,14 @@ fn build_materials(
             role => {
                 let mut material = standard_material(def, images);
                 if role == MaterialRole::Screen {
-                    // Compteur et autoradio : une image propre, redessinée par `screens::update_screens`. Un autre écran
-                    // (le rétroviseur) reste éteint : Sillage y dessine la vue arrière (jeu), pas reprise en mode cinéma.
+                    // Compteur et autoradio : une image propre, redessinée par `screens::update_screens`. Le rétroviseur
+                    // montre l'image de la caméra arrière (`feeds`), retournée de gauche à droite comme un miroir.
                     material.emissive = LinearRgba::BLACK;
+                    if def.name == "screen_mirror" {
+                        material.emissive = SCREEN_EMISSIVE;
+                        material.emissive_texture = Some(assets.feeds.rear.clone());
+                        material.uv_transform = Affine2::from_cols(Vec2::new(-1.0, 0.0), Vec2::Y, Vec2::X);
+                    }
                     if let Some(kind) = ScreenKind::from_material(&def.name) {
                         let image = assets.images.add(blank_image(kind));
                         material.emissive = SCREEN_EMISSIVE;

@@ -21,6 +21,7 @@ use super::rig::{Resolved, SignRig, SignUnitIndex};
 use super::road::{CamShot, POOL, RoadFrame, SignRoad, Unit};
 use super::show_signs::SignShow;
 use super::structure::{self, PartKind, SLAB_FRONT};
+use crate::feeds::{FeedDemand, FeedImages, FeedReady, SHOTS};
 use crate::pilot::flight::Obstruction;
 use crate::pilot::{CarAnimation, PilotBrain, to_kmh};
 use crate::rng::hash;
@@ -159,6 +160,8 @@ struct Draw<'a> {
     time_s: f32,
     page_size: Vec4,
     strip_page_h: f32,
+    /// La caméra annexe de ce plan a déjà rendu une image.
+    footage: bool,
 }
 
 fn look_code(look: Look) -> f32 {
@@ -226,7 +229,7 @@ fn params(d: &Draw<'_>, palette: &ScenePalette) -> SignParams {
                 _ => 0.0,
             },
             f32::from(u8::from(d.audio.calm)),
-            0.0,
+            f32::from(u8::from(d.footage)),
         ),
     }
 }
@@ -253,6 +256,9 @@ pub fn render_signs(
     time: Res<Time>,
     mut signs: ResMut<Assets<SignMaterial>>,
     mut standard: ResMut<Assets<StandardMaterial>>,
+    mut demand: Option<ResMut<FeedDemand>>,
+    feeds: Option<Res<FeedImages>>,
+    ready: Option<Res<FeedReady>>,
     mut roots: Query<(&mut AbsolutePosition, &mut Transform, &mut Visibility), With<SignUnitIndex>>,
     mut parts: Query<(&mut Transform, &mut Visibility), Without<SignUnitIndex>>,
 ) {
@@ -260,6 +266,8 @@ pub fn render_signs(
     let permitted = frame.flash.permitted();
     let iron = linear(&palette, SceneColor::Velvet);
     set_color(&mut standard, &rig.iron.clone(), iron * 0.35);
+    // Les plans que des enseignes visibles affichent cette image : la demande des caméras annexes.
+    let mut wanted = [false; SHOTS];
     for (index, unit) in road.0.units.iter_mut().enumerate() {
         let unit_rig = &mut rig.units[index];
         let Ok((mut position, mut transform, mut visibility)) = roots.get_mut(unit_rig.root) else {
@@ -307,6 +315,10 @@ pub fn render_signs(
             });
         }
         let display_on = shown > 0.5;
+        let shot = look_of(format) == Look::Camera && shown > 0.01;
+        if shot {
+            wanted[shot_index(state.shot)] = true;
+        }
         if let Some(fit) = fit_of(unit) {
             for kind in PartKind::ALL {
                 if let Ok((_, mut v)) = parts.get_mut(unit_rig.parts[kind.index()]) {
@@ -341,19 +353,40 @@ pub fn render_signs(
             time_s: (now % 3600.0) as f32,
             page_size: atlas.page_size(usize::from(cell.page)),
             strip_page_h: view.strip.map_or(1.0, |s| atlas.page_size(usize::from(s.page)).y),
+            footage: shot && ready.as_deref().is_some_and(|r| r.shots[shot_index(state.shot)]),
         };
         let new = params(&draw, &palette);
         let art = atlas.page_handle(usize::from(cell.page));
         let strip = view.strip.and_then(|s| atlas.page_handle(usize::from(s.page)));
+        let feed = feeds
+            .as_deref()
+            .filter(|_| look_of(format) == Look::Camera)
+            .map(|f| f.shots[shot_index(state.shot)].clone());
         if let Some(mut material) = signs.get_mut(&unit_rig.material)
-            && (material.params != new || material.art != art || (strip.is_some() && material.strip != strip))
+            && (material.params != new
+                || material.art != art
+                || material.feed != feed
+                || (strip.is_some() && material.strip != strip))
         {
             material.params = new;
             material.art = art;
+            material.feed = feed;
             if strip.is_some() {
                 material.strip = strip;
             }
         }
+    }
+    if let Some(demand) = demand.as_deref_mut() {
+        demand.shots = wanted;
+    }
+}
+
+/// Rang d'un plan de caméra dans les images de `feeds` (large, de face, de profil).
+const fn shot_index(shot: CamShot) -> usize {
+    match shot {
+        CamShot::Wide => 0,
+        CamShot::Front => 1,
+        CamShot::Side => 2,
     }
 }
 

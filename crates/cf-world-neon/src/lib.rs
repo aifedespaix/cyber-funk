@@ -43,6 +43,7 @@ pub mod districts;
 pub mod djsign;
 pub mod dropfx;
 pub mod facade;
+pub mod feeds;
 pub mod intro;
 pub mod landmarks;
 pub mod meteors;

@@ -99,6 +99,10 @@ impl Plugin for SignsPlugin {
             .init_resource::<SignFrame>()
             .init_resource::<SignObstructions>()
             .init_resource::<systems::SignResolved>();
+        // Les flux des caméras annexes : les enseignes « caméra » montrent la voiture filmée pour de vrai.
+        if !app.is_plugin_added::<crate::feeds::FeedsPlugin>() {
+            app.add_plugins(crate::feeds::FeedsPlugin);
+        }
         if !rendering && !self.force {
             return;
         }
