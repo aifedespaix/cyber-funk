@@ -199,10 +199,19 @@ pub struct DistrictLook {
     pub skip_chance: f64,
     /// Poids de tirage de chaque tempérament (somme 1).
     pub temper_weights: [f64; TEMPER_COUNT],
+    /// Un immeuble proche sur N porte un graffiti mural (0 : jamais). Seulement avec une bibliothèque de graffitis.
+    pub wall_one_in: u32,
+    /// Un immeuble proche sur N porte un projecteur holographique sur son toit (0 : jamais). Seulement avec une
+    /// bibliothèque de graffitis.
+    pub holo_one_in: u32,
 }
 
 /// Les réglages d'un type de quartier. `Neon` est neutre : hauteur ×1, aucun vide ajouté, poids du tirage historique
-/// (il n'est d'ailleurs pas consulté, pour que le chemin historique reste intact).
+/// (il n'est d'ailleurs pas consulté, pour que le chemin historique reste intact). Ses densités de graffitis ne
+/// s'appliquent qu'avec une bibliothèque configurée : sans elle, `Neon` est exactement la ville historique.
+///
+/// Densités de graffitis (spec graffitis, décision 10, à régler à l'œil) : le bombage relève de la banlieue (mural 1 sur
+/// 3), l'hologramme du néon (projecteur 1 sur 10 au centre) ; le résidentiel n'en porte presque aucun (1 sur 150).
 ///
 /// Banlieue et résidentiel : réglage initial, à vérifier à l'œil. Banlieue : immeubles à ~70 % de la hauteur, plus
 /// aérée, tempéraments calmes et ambre (0 et 3). Résidentiel : ~45 %, encore plus aéré, calmes et glacés (1, 2).
@@ -213,16 +222,22 @@ pub fn district_look(kind: DistrictKind) -> DistrictLook {
             height_scale: 1.0,
             skip_chance: 0.0,
             temper_weights: temper_weights(),
+            wall_one_in: 25,
+            holo_one_in: 10,
         },
         DistrictKind::Suburb => DistrictLook {
             height_scale: 0.7,
             skip_chance: 0.12,
             temper_weights: [0.55, 0.10, 0.05, 0.22, 0.03, 0.0, 0.0, 0.05],
+            wall_one_in: 3,
+            holo_one_in: 18,
         },
         DistrictKind::Residential => DistrictLook {
             height_scale: 0.45,
             skip_chance: 0.22,
             temper_weights: [0.25, 0.30, 0.20, 0.15, 0.04, 0.0, 0.0, 0.06],
+            wall_one_in: 10,
+            holo_one_in: 150,
         },
     }
 }

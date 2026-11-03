@@ -20,8 +20,31 @@ pub struct Placement {
     pub yaw_deg: f32,
 }
 
-/// Lit `placements.ron` ; une entrée cassée est ignorée avec un avertissement.
+/// Lit `placements.ron` ; une entrée cassée ou invalide (côté hors de {-1, 1}, hauteur négative ou non finie) est
+/// ignorée avec un avertissement.
 #[must_use]
 pub fn load_placements(ron_text: &str) -> (Vec<Placement>, Vec<String>) {
-    super::load_list(ron_text, "placements.ron")
+    let (mut list, mut warnings) = super::load_list::<Placement>(ron_text, "placements.ron");
+    list.retain(|p| match p.problem() {
+        Some(why) => {
+            warnings.push(format!("placements.ron : « {} » ignoré ({why})", p.word));
+            false
+        }
+        None => true,
+    });
+    (list, warnings)
+}
+
+impl Placement {
+    /// Ce qui rend le placement inutilisable, ou `None` : côté hors de {-1, 1}, hauteur négative ou non finie.
+    #[must_use]
+    pub fn problem(&self) -> Option<&'static str> {
+        if self.side != -1 && self.side != 1 {
+            Some("côté hors de -1 / 1")
+        } else if !self.height_m.is_finite() || self.height_m < 0.0 {
+            Some("hauteur négative")
+        } else {
+            None
+        }
+    }
 }
