@@ -20,6 +20,7 @@ cosmic-text.workspace = true
 meshopt.workspace = true
 rand_core.workspace = true
 rand_pcg.workspace = true
+ron.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 tiny-skia.workspace = true
