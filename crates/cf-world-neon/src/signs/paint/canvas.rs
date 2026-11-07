@@ -375,7 +375,7 @@ fn blur_alpha(pixmap: &mut Pixmap, r: f32) {
 }
 
 /// Une passe de moyenne glissante, horizontale (`horizontal`) ou verticale.
-fn box_pass(src: &[f32], dst: &mut [f32], w: usize, h: usize, r: usize, horizontal: bool) {
+pub(crate) fn box_pass(src: &[f32], dst: &mut [f32], w: usize, h: usize, r: usize, horizontal: bool) {
     let (lines, len, stride, step) = if horizontal { (h, w, w, 1) } else { (w, h, 1, w) };
     let norm = 1.0 / (2 * r + 1) as f32;
     for line in 0..lines {

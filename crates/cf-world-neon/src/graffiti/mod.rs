@@ -3,12 +3,19 @@
 //! Tout est tolérant : une entrée cassée ou une police sans licence est ignorée avec un avertissement lisible, et
 //! l'application démarre quand même.
 
+pub mod atlas;
+pub mod bake;
+pub mod fonts;
 pub mod placements;
+pub mod raster;
 pub mod words;
 
 #[cfg(test)]
+mod bake_tests;
+#[cfg(test)]
 mod tests;
 
+pub use bake::{GraffitiAtlas, GraffitiPlugin};
 pub use placements::{Placement, load_placements};
 pub use words::{GraffitiStyle, GraffitiWord, licensed_fonts, load_words};
 

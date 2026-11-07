@@ -89,6 +89,11 @@ impl NeonWorld {
         self.scenery.set_quality(level)
     }
 
+    /// Remplace la bibliothèque de graffitis. Renvoie vrai si elle change (à re-tirer comme [`Self::set_quality`]).
+    pub fn set_graffiti(&mut self, library: scenery::graffiti_plan::GraffitiLibrary) -> bool {
+        self.scenery.set_graffiti(library)
+    }
+
     /// Remplace les zones dégagées de la ville. Renvoie vrai si elles changent (à re-tirer comme [`Self::set_quality`]).
     pub fn set_clearings(&mut self, clearings: &[Clearing]) -> bool {
         self.scenery.set_clearings(clearings)

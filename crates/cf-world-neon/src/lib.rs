@@ -143,6 +143,7 @@ impl Plugin for NeonWorldPlugin {
             SkyPlugin,
             MeteorsPlugin,
             SignsPlugin::default(),
+            graffiti::GraffitiPlugin::default(),
             DjSignPlugin::default(),
             LandmarksPlugin::default(),
             WeatherPlugin,
