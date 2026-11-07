@@ -30,7 +30,6 @@ use cf_show::director::ShowState;
 use crate::OperatorMode;
 use crate::live::{LiveOrders, ModePrompt};
 use crate::quit::QuitPrompt;
-use crate::tabs::debug::debug_panel::DebugState;
 use crate::tabs::stats::diagnostics::PanelState;
 pub(crate) use confirm::Confirm;
 use shortcuts::{KeyGuard, ShellKey};
@@ -149,22 +148,10 @@ pub(crate) fn build(app: &mut App) {
     );
 }
 
-/// Rouvre l'onglet de la dernière session, et la fenêtre Debug monde avec l'onglet Debug comme un clic l'aurait fait :
-/// seulement en Préparation (en Live l'onglet n'existe pas, la fenêtre resterait ouverte pour rien).
-pub(crate) fn restore_tab(
-    settings: Option<Res<Settings>>,
-    mode: Option<Res<OperatorMode>>,
-    mut state: ResMut<ShellState>,
-    debug: Option<ResMut<DebugState>>,
-) {
+/// Rouvre l'onglet de la dernière session (en Live, `ShellState::shown` remplace Debug par l'onglet 1).
+pub(crate) fn restore_tab(settings: Option<Res<Settings>>, mut state: ResMut<ShellState>) {
     if let Some(settings) = settings {
         state.tab = Tab::restore(&settings.value.operator.last_tab);
-    }
-    let mode = mode.map_or(OperatorMode::Preparation, |m| *m);
-    if state.shown(mode) == Tab::Debug
-        && let Some(mut debug) = debug
-    {
-        debug.open = true;
     }
 }
 
@@ -188,7 +175,6 @@ pub(crate) fn shell_input(
     quit: Option<Res<QuitPrompt>>,
     mut state: ResMut<ShellState>,
     mut orders: ResMut<LiveOrders>,
-    mut debug: ResMut<DebugState>,
     mut pressed: Local<Vec<ShellKey>>,
 ) {
     let ctx = context.get_mut();
@@ -203,9 +189,7 @@ pub(crate) fn shell_input(
     for key in pressed.drain(..) {
         match key {
             ShellKey::Tab(tab) => {
-                if state.select(tab, *mode) && tab == Tab::Debug {
-                    debug.open = true;
-                }
+                state.select(tab, *mode);
             }
             ShellKey::Help => state.help_open = !state.help_open,
             ShellKey::Blackout => orders.0.push(Action::Blackout(Switch::Toggle)),
@@ -218,9 +202,12 @@ pub(crate) fn shell_input(
 pub(crate) struct ShellParams<'w, 's> {
     pub state: ResMut<'w, ShellState>,
     sim: Option<ResMut<'w, SimControl>>,
-    clock: Option<Res<'w, SimClock>>,
-    automation: Option<ResMut<'w, WorldAutomation>>,
-    active: Option<Res<'w, ActiveEvents>>,
+    /// Horloge de simulation (barre de statut et onglet Debug).
+    pub clock: Option<Res<'w, SimClock>>,
+    /// Mode manuel du monde (barre de statut et onglet Debug).
+    pub automation: Option<ResMut<'w, WorldAutomation>>,
+    /// Registre des événements en cours (barre de statut et onglet Debug).
+    pub active: Option<ResMut<'w, ActiveEvents>>,
     pub diagnostics: Option<Res<'w, DiagnosticsSnapshot>>,
     pub session: Option<ResMut<'w, MeasurementSession>>,
     pub time: Res<'w, Time<Real>>,

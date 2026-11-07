@@ -3,8 +3,7 @@
     reason = "tests : un échec d'aide doit faire échouer le test bruyamment"
 )]
 
-use cf_control::{Action, TriggerId};
-use cf_render::{CarOption, CarSelection, DistrictOrder, DistrictState, GradeLibrary, WorldEvent, WorldEventCatalog};
+use cf_render::{CarOption, CarSelection, DistrictOrder, DistrictState, GradeLibrary};
 use cf_show::district::{DistrictId, DistrictKind, StayReason, TransitionKind};
 use cf_show::persist::{AppSettings, CarChoice};
 
@@ -12,72 +11,10 @@ use super::districts::{
     DistrictGestures, DistrictPick, TRANSITIONS, district_label, district_orders, fallback_note, fresh_fade,
     reason_label, variant_count,
 };
-use super::events::{HIDDEN_FAMILIES, MAX_ORDERS_PER_FRAME, fire, plan, visible_plan};
+use super::dock::choose_car;
 use super::persist::{family_is_open, migrate_legacy, section_is_open, set_family_open, set_section_open};
-use super::{DebugState, Section, choose_car, sections};
+use super::{DebugState, Section};
 use crate::OperatorMode;
-
-fn event(id: &'static str, label: &'static str, family: &'static str) -> WorldEvent {
-    WorldEvent {
-        id,
-        label,
-        family,
-        note: "",
-    }
-}
-
-fn catalog() -> WorldEventCatalog {
-    let mut catalog = WorldEventCatalog::default();
-    catalog.register(event("storm", "Orage", "Trafic"));
-    catalog.register(event("fish", "Banc de poissons", "Trafic"));
-    catalog.register(event("landmark:arcade", "Borne d'arcade", "Immeubles"));
-    catalog
-}
-
-// --- Événements (repris tels quels de l'ancien fichier unique) ---
-
-#[test]
-fn le_filtre_garde_les_familles_qui_ont_une_correspondance() {
-    let catalog = catalog();
-    let all = plan(&catalog, "");
-    assert_eq!(
-        all.iter().map(|(f, e)| (*f, e.len())).collect::<Vec<_>>(),
-        [("Trafic", 2), ("Immeubles", 1)]
-    );
-    let arcade = plan(&catalog, "arcade");
-    assert_eq!(arcade.len(), 1);
-    assert_eq!(arcade[0].0, "Immeubles");
-    assert_eq!(plan(&catalog, "introuvable").len(), 0);
-}
-
-#[test]
-fn un_clic_sur_lancer_ecrit_une_action_trigger_avec_l_id_de_l_evenement() {
-    let mut orders = Vec::new();
-    assert!(fire(&mut orders, &event("storm", "Orage", "Trafic")));
-    assert_eq!(orders, [Action::Trigger(TriggerId::new("storm"))]);
-}
-
-#[test]
-fn la_file_d_ordres_de_l_image_est_bornee() {
-    let mut orders = Vec::new();
-    let storm = event("storm", "Orage", "Trafic");
-    let accepted = (0..100).filter(|_| fire(&mut orders, &storm)).count();
-    assert_eq!(accepted, MAX_ORDERS_PER_FRAME);
-    assert_eq!(orders.len(), MAX_ORDERS_PER_FRAME);
-}
-
-#[test]
-fn la_famille_quartiers_n_est_pas_dupliquee_dans_la_liste_des_evenements() {
-    let mut catalog = catalog();
-    catalog.register(event("district:suburb", "Banlieue", "Quartiers"));
-    assert!(HIDDEN_FAMILIES.contains(&"Quartiers"));
-    assert!(plan(&catalog, "").iter().any(|(f, _)| *f == "Quartiers"));
-    let visible = visible_plan(&catalog, "");
-    assert_eq!(
-        visible.iter().map(|(f, _)| *f).collect::<Vec<_>>(),
-        ["Trafic", "Immeubles"]
-    );
-}
 
 // --- Voiture ---
 
@@ -138,10 +75,10 @@ fn les_sections_sont_ouvertes_par_defaut_et_se_retiennent() {
     for section in Section::ALL {
         assert!(section_is_open(&settings, section));
     }
-    set_section_open(&mut settings, Section::Districts, false);
-    assert!(!section_is_open(&settings, Section::Districts));
-    assert!(section_is_open(&settings, Section::Events));
-    set_section_open(&mut settings, Section::Districts, true);
+    set_section_open(&mut settings, Section::Car, false);
+    assert!(!section_is_open(&settings, Section::Car));
+    assert!(section_is_open(&settings, Section::Facades));
+    set_section_open(&mut settings, Section::Car, true);
     assert_eq!(settings, AppSettings::default());
 }
 
@@ -188,7 +125,7 @@ fn un_ancien_fichier_de_reglages_se_relit() {
     assert_eq!(settings.car, CarChoice::Cyber);
     assert!(family_is_open(&settings, "Trafic"));
     assert!((cf_render::tuning_from_entries(&settings.collapsed_panels).window_life - 0.25).abs() < 1e-6);
-    assert!(section_is_open(&settings, Section::Districts));
+    assert!(section_is_open(&settings, Section::Car));
 }
 
 #[test]
@@ -276,8 +213,6 @@ fn le_curseur_de_duree_n_envoie_que_sur_un_changement() {
 
 #[test]
 fn rien_hors_preparation() {
-    assert_eq!(sections(OperatorMode::Live), []);
-    assert_eq!(sections(OperatorMode::Preparation), Section::ALL);
     let pick = DistrictPick::default();
     let all = DistrictGestures {
         force: true,

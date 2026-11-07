@@ -105,45 +105,64 @@ Avant le set : ouvrez le show, vérifiez que le chargement finit sans message d'
 complète avec la source Démo. Un look illisible n'empêche pas l'ouverture : il est écarté et les cues concernés jouent le
 look calme (le journal le dit).
 
-## 4 bis. Réglages sauvegardés et Debug monde
+## 4 bis. Réglages sauvegardés et onglet Debug
 
 **Réglages sauvegardés.** Le logiciel retient d'un lancement à l'autre la source audio, les périphériques du micro et de
-la ligne, le niveau de qualité que vous avez fixé, la voiture choisie, les deux curseurs des façades (ci-dessous) et la présentation de la fenêtre Debug monde (sections repliées, familles ouvertes).
+la ligne, le niveau de qualité que vous avez fixé, la voiture choisie, les deux curseurs des façades (ci-dessous) les événements épinglés et la présentation de l'onglet Debug (sections repliées).
 Le fichier est `settings.ron`, dans le dossier de configuration de l'utilisateur (sous Windows
 `%APPDATA%\cyber-funk\settings.ron`). Pour tout remettre à zéro, fermez l'application et supprimez ce fichier. Un fichier
 abîmé ne bloque jamais le démarrage : les valeurs par défaut sont reprises. L'option `--audio-source` de la ligne de
 commande l'emporte sur la source retenue. En `--soak`, rien n'est lu ni écrit.
 
-**Debug monde.** La fenêtre s'ouvre avec l'onglet **Debug** (`Ctrl+3`), en Préparation seulement : elle n'existe pas
-en Live. Dans cet onglet, `F4` ou le bouton « Debug monde » la ferme ou la rouvre ; elle est masquée dans les autres
-onglets. Elle permet de choisir la voiture (dirty car ou CyberCar, instantané : les deux sont chargées à
-l'ouverture) et de lancer à la main les événements du monde, rangés par famille (trafic et ciel, immeubles-vitrines),
-avec une recherche. Un événement lancé passe par le même chemin que le MIDI : le limiteur de flashs reste actif.
-Tout le contenu défile (pratique sur un petit écran) et se range en quatre sections repliables : Façades, Voiture,
-Quartiers, Événements. Les sections repliées et les familles ouvertes sont retenues d'une session à l'autre (les
-anciennes familles retenues par une version précédente sont reprises sans rien faire).
+**Onglet Debug.** L'onglet **Debug** (`Ctrl+3`) n'existe qu'en Préparation : il disparaît en Live. Il sert à lancer à
+la main les événements du monde et à voir ce qui tourne.
 
-**Quartiers.** La section montre le quartier courant et sa variante de couleurs (« Banlieue, variante 2 »), le quartier
+- **Barre du haut** : **Mode manuel** (la même bascule que la barre de statut : le monde ne lance plus rien de
+  lui-même, seuls vos clics et le show lancent), la jauge **En cours** (nombre d'événements en cours, pleine à 8),
+  la **recherche** (`/` y place le curseur, `Échap` la vide ; elle cherche dans le nom, l'identifiant et la famille,
+  sans tenir compte des majuscules) et **Tout arrêter**. Attention : « Tout arrêter » vide seulement la liste des
+  événements en cours ; le monde ne sait pas arrêter un événement en route, chacun se termine de lui-même.
+- **Quatre colonnes** : Panneaux, Immeubles, Voitures, Quartiers. En haut de chaque colonne (deux tiers de la hauteur)
+  les puces de lancement ; en bas (un tiers) « En cours » : nom, pourcentage et secondes restantes (« en cours » quand
+  la durée est inconnue), tag `auto` quand le monde l'a lancé de lui-même, ✕ pour retirer la ligne, **Stop** pour vider
+  la colonne (même remarque : la ligne disparaît, l'événement finit lui-même). Les cascades de la voiture et l'enseigne
+  du DJ apparaissent dans « En cours » (Voitures, Panneaux) sans avoir de puce.
+- **Puces** : un clic lance l'événement par le même chemin que le MIDI (le limiteur de flashs reste actif ; au plus 8
+  ordres par image). Pendant l'événement la puce se remplit, `×N` s'affiche s'il tourne plusieurs fois. **Clic droit :
+  épingler** (★, la puce remonte en tête de sa colonne ; retenu d'une session à l'autre). Les immeubles-vitrines
+  s'allument tous pendant n'importe quel immeuble-vitrine : le monde ne dit pas lequel tourne.
+- **Quartiers** (4ᵉ colonne) : destination, variante, transition, durée, **→ Changer de quartier** et **Geler** (voir
+  ci-dessous).
+- **Dock à droite** : **Plans caméra** n'offre que **Plan suivant** (comme `N`) et **Enseigne DJ** (comme `T`) ;
+  choisir un plan précis ou sa transition d'entrée n'est pas encore pilotable. **Voiture** : seul **Ascension** marche
+  (comme `A` : elle part au prochain temps fort, avec un show chargé) ; les autres boutons du pad (monter, descendre,
+  gauche, droite, saltos, tonneaux, stabiliser) sont grisés, pas encore pilotables, et n'ont pas de touche. Plus bas,
+  **Réglages monde** : les curseurs des façades et le choix de la voiture (dirty car ou CyberCar, instantané : les deux
+  sont chargées à l'ouverture), en deux sections repliables retenues d'une session à l'autre.
+
+L'ancienne fenêtre flottante « Debug monde » (`F4`) n'existe plus : son contenu est dans cet onglet.
+
+**Quartiers.** La colonne montre le quartier courant et sa variante de couleurs (« Banlieue, variante 2 »), le quartier
 visé pendant une transition avec une barre de progression, la raison de la dernière décision de l'automatique (par
 exemple « bloqué : drop imminent ») et les 5 derniers quartiers, du plus récent au plus ancien. Les commandes :
 
-- **Type**, **Variante**, **Transition** : le quartier à forcer. Seul le dégradé existe pour l'instant ; les six autres
-  transitions sont proposées mais jouées en dégradé, ce que la fenêtre signale par « (repli : dégradé) ».
-- **Durée du dégradé** (1 à 10 s) : longueur des prochaines transitions.
-- **Forcer** : lance tout de suite la transition vers le quartier choisi, sans attendre les règles de l'automatique
+- **Destination**, **Variante**, **Transition** : le quartier à demander. Seul le dégradé existe pour l'instant ; les six
+  autres transitions sont affichées barrées et jouées en dégradé (« (repli : dégradé) »).
+- **Durée** (1 à 10 s) : longueur des prochaines transitions.
+- **→ Changer de quartier** : lance tout de suite la transition vers le quartier choisi, sans attendre les règles de l'automatique
   (même pendant un drop ou une transition en cours, qu'il remplace). La ville change au loin, au bord de ce qui est
   construit (~1,2 km devant), et la couleur change quand la voiture y arrive : ~30 s à vitesse de croisière. Le
   limiteur de flashs reste actif.
-- **Geler l'automatique** : l'automatique ne change plus de quartier ; « Forcer » marche toujours.
+- **Geler** : l'automatique ne change plus de quartier ; « Changer de quartier » marche toujours.
 
 L'automatique ne change de quartier qu'avec un show chargé, et compte en temps audio : sans show, ou si l'horloge audio
-n'avance pas (aucune source qui livre du son), il ne change rien ; seul « Forcer » agit. Une transition décidée par
+n'avance pas (aucune source qui livre du son), il ne change rien ; seul « Changer de quartier » agit. Une transition décidée par
 l'automatique ne lance jamais sa couleur en pleine section Peak, avec un drop imminent ou juste après un drop : elle
 attend que la musique le permette (au plus 45 s une fois la voiture arrivée).
 
-Rien de cette section n'est sauvegardé : à chaque lancement, l'automatique repart non gelé, sans quartier forcé, avec le
+Rien de cette colonne n'est sauvegardé : à chaque lancement, l'automatique repart non gelé, sans quartier forcé, avec le
 choix par défaut. Les déclencheurs `district:neon`, `district:suburb` et `district:residential` restent disponibles pour
-le MIDI, mais ne sont pas répétés dans la liste des événements.
+le MIDI, mais n'ont pas de puce (la colonne les remplace).
 
 En qualité basse (niveau 2 ou plus, le même seuil que les façades ci-dessous), les couleurs propres aux quartiers
 s'effacent en 1,5 s, en fondu régulier, et la palette du thème revient telle quelle ; elles reviennent de même, en
@@ -154,7 +173,7 @@ Limites connues : aucune vérification visuelle n'a encore été faite et le tem
 Les couleurs des quartiers (`district_grades.ron`) comme la géométrie de la banlieue et du résidentiel sont un premier
 réglage, à vérifier et ajuster à l'œil.
 
-**Façades : deux curseurs.** En haut de la fenêtre Debug monde, de 0 à 1 (1 : plein effet, la valeur de départ) :
+**Façades : deux curseurs.** Dans « Réglages monde » (dock de l'onglet Debug), de 0 à 1 (1 : plein effet, la valeur de départ) :
 
 - **Suivi de la voiture** : force de la traîne de lumière que la voiture laisse sur les façades qu'elle longe. À 0, les
   façades ignorent la voiture.

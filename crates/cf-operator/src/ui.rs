@@ -11,7 +11,7 @@ use crate::loading::{self, LoadingView};
 use crate::prepare::{self, PrepSession};
 use crate::quit::{QuitDecision, QuitPrompt, QuitSource};
 use crate::shell::{self, ShellParams, Tab};
-use crate::tabs::debug::debug_panel::{self, DebugState};
+use crate::tabs::debug::{self, DebugParams, Shared};
 use crate::tabs::settings::update_panel::{self, InstallUpdate, UpdateStatus};
 use crate::tabs::settings::{audio_panel, controls_panel, learn_panel};
 use crate::tabs::stats::diagnostics;
@@ -36,7 +36,7 @@ pub(crate) fn main_panel(
     mut learn: MessageWriter<LearnCommand>,
     update: Res<UpdateStatus>,
     mut install: MessageWriter<InstallUpdate>,
-    mut debug: ResMut<DebugState>,
+    mut debug: DebugParams,
     mut shell: ShellParams,
 ) {
     // Depuis egui 0.36 les panneaux se posent dans un `Ui` racine, pas directement sur le contexte.
@@ -53,11 +53,8 @@ pub(crate) fn main_panel(
     let mut state = shell.state.clone();
     state.refresh(data.now_s, data.slot_seq);
     let (picked, actions) = shell::header(&mut root, &mut state, mode, &data);
-    if let Some(tab) = picked
-        && state.select(tab, mode)
-        && tab == Tab::Debug
-    {
-        debug.open = true;
+    if let Some(tab) = picked {
+        state.select(tab, mode);
     }
     shell.state.set_if_neq(state);
     if !actions.is_empty() {
@@ -70,13 +67,12 @@ pub(crate) fn main_panel(
             return;
         }
         Tab::Debug => {
-            egui::CentralPanel::default().show(&mut root, |ui| {
-                ui.horizontal(|ui| {
-                    ui.heading("Debug monde");
-                    debug_panel::toggle_button(ui, &mut debug);
-                });
-                ui.weak("La fenêtre « Debug monde » s'ouvre par-dessus cet onglet.");
-            });
+            let shared = Shared {
+                automation: &mut shell.automation,
+                active: &mut shell.active,
+                clock: shell.clock.as_deref(),
+            };
+            debug::show(&mut root, &mut debug, shared, &mut live.orders.0);
             return;
         }
     }
@@ -86,7 +82,6 @@ pub(crate) fn main_panel(
         return;
     }
     let features_copy = features.as_deref().copied();
-    // À droite : la fenêtre flottante de debug s'ouvre à gauche et ne doit pas recouvrir l'audio.
     egui::Panel::right("audio_panel")
         .default_size(AUDIO_PANEL_WIDTH)
         .show(&mut root, |ui| {

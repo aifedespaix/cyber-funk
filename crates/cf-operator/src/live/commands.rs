@@ -117,7 +117,7 @@ pub(crate) const ALL: [LiveCommand; 39] = [
     LiveCommand::MacroDown(7),
 ];
 
-/// Les touches de macro : F5 à F12 (F1 à F4 restent à l'opérateur ; F4 ouvre la fenêtre Debug monde).
+/// Les touches de macro : F5 à F12 (F1 à F4 restent à l'opérateur).
 const MACRO_KEYS: [(Key, &str, &str); MACROS] = [
     (Key::F5, "F5", "Maj+F5"),
     (Key::F6, "F6", "Maj+F6"),

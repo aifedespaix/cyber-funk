@@ -2454,6 +2454,7 @@ dependencies = [
  "cf-control",
  "cf-render",
  "cf-show",
+ "cf-world-neon",
  "tempfile",
  "tracing",
 ]

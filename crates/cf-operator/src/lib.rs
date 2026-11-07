@@ -25,7 +25,6 @@ use bevy::prelude::*;
 use bevy_egui::input::EguiWantsInput;
 use bevy_egui::{EguiGlobalSettings, EguiPlugin, EguiPrimaryContextPass};
 use cf_render::{CfSet, TextInputFocus};
-use tabs::debug::debug_panel;
 
 /// Plugin de la fenêtre opérateur : fenêtre, contexte egui, panneau principal et dialogue de sortie.
 ///
@@ -51,9 +50,9 @@ impl Plugin for OperatorPlugin {
             .add_systems(Startup, prepare::init_session);
         // Le binaire écrit l'état de la mise à jour (J9-06) ; l'opérateur ne fait que l'afficher.
         app.init_resource::<UpdateStatus>().add_message::<InstallUpdate>();
-        // Le panneau Debug monde écrit des ordres de quartier ; le monde enregistre le même message (idempotent), et
-        // sans monde ils restent simplement sans lecteur.
-        app.init_resource::<debug_panel::DebugState>()
+        // L'onglet Debug écrit des ordres de quartier ; le monde enregistre le même message (idempotent), et sans monde
+        // ils restent simplement sans lecteur.
+        app.init_resource::<tabs::debug::DebugState>()
             .add_message::<cf_render::DistrictOrder>();
         live::build(app);
         shell::build(app);
@@ -67,7 +66,6 @@ impl Plugin for OperatorPlugin {
                 shell::shell_input,
                 ui::main_panel,
                 shell::persist_tab,
-                debug_panel::debug_window,
                 live::mode_dialog,
                 ui::quit_dialog,
                 live::flush_orders,

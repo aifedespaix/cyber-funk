@@ -1,58 +1,46 @@
-//! Fenêtre « Debug monde » : régler les façades, changer la voiture, piloter les quartiers et lancer à la main les
-//! événements du monde (trafic, immeubles-vitrines…) pour voir ce qu'ils font.
+//! Le dock à droite de la grille : plans caméra, pad voiture, « Autres » (familles sans colonne) et « Réglages monde »
+//! (façades et choix de la voiture, repris de l'ancienne fenêtre « Debug monde »).
 //!
-//! Elle n'existe qu'en Préparation (jamais en Live : un clic de trop ne doit pas lancer un événement devant le public) et
-//! s'ouvre par `F4` ou par le bouton de l'en-tête. Un bouton « Lancer » écrit `Action::Trigger(id)`, le même chemin que le
-//! MIDI : le limiteur de flashs reste aux commandes. Les ordres de quartier passent par `DistrictOrder`, lu par le monde.
-//!
-//! Tout le contenu défile dans une seule `ScrollArea` (petits écrans), en quatre sections repliables. Les sections
-//! repliées, les familles ouvertes et la voiture choisie sont retenues dans les réglages sauvegardés ([`persist`]) ;
-//! l'état des quartiers (gel, forçage, choix en cours) ne l'est jamais.
+//! Plans caméra : le réalisateur (`cf-cinema`) n'offre aujourd'hui que deux entrées, « Plan suivant »
+//! (`Action::SkipShot`, touche `N`) et « Enseigne DJ » (`Action::ShowDj`, touche `T`). Choisir un plan précis ou sa
+//! transition d'entrée n'a pas de point d'entrée : l'interface le dit au lieu d'en inventer un.
 
-mod districts;
-mod events;
-mod persist;
-#[cfg(test)]
-mod tests;
-
-use bevy::prelude::*;
-use bevy_egui::{EguiContext, PrimaryEguiContext, egui};
-use cf_render::{
-    CarSelection, DistrictGradeState, DistrictOrder, DistrictState, FacadeTuning, Settings, WorldEventCatalog,
-};
+use bevy_egui::egui;
+use cf_control::Action;
+use cf_render::{CarSelection, FacadeTuning};
 use cf_show::persist::{AppSettings, CarChoice};
 
-use crate::OperatorMode;
-use crate::live::LiveOrders;
-use crate::shell::{ShellState, Tab};
-use districts::{DistrictPick, district_orders, draw_districts};
-use events::draw_events;
-use persist::{section_is_open, set_section_open};
+use super::chip::{ChipClick, chip_run, draw_chip, fire, push_order};
+use super::pad::draw_pad;
+use super::persist::{family_is_open, section_is_open};
+use super::{DebugState, DebugView, Gesture};
+use cf_render::ActiveEvents;
 
-/// Les sections de la fenêtre, dans l'ordre d'affichage.
+/// Largeur du dock (px), celle de la maquette.
+pub(crate) const DOCK_WIDTH: f32 = 250.0;
+
+/// Clé retenue (`DebugPanelPrefs::open_families`) pour le dépliage de « Autres ».
+pub(crate) const OTHERS_KEY: &str = "Autres";
+
+/// Les sections repliables de « Réglages monde ».
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum Section {
     /// Curseurs des façades.
     Facades,
     /// Choix de la voiture.
     Car,
-    /// Moteur de quartiers.
-    Districts,
-    /// Événements du catalogue.
-    Events,
 }
 
 impl Section {
     /// Toutes les sections, dans l'ordre d'affichage.
-    pub(crate) const ALL: [Section; 4] = [Self::Facades, Self::Car, Self::Districts, Self::Events];
+    pub(crate) const ALL: [Section; 2] = [Self::Facades, Self::Car];
 
-    /// Identifiant stable, écrit dans les réglages : ne jamais le renommer.
+    /// Identifiant stable, écrit dans les réglages : ne jamais le renommer (`DebugPanelPrefs::closed_sections`, déjà
+    /// présent dans les fichiers de l'ancienne fenêtre).
     pub(crate) fn key(self) -> &'static str {
         match self {
             Self::Facades => "facades",
             Self::Car => "car",
-            Self::Districts => "districts",
-            Self::Events => "events",
         }
     }
 
@@ -61,29 +49,13 @@ impl Section {
         match self {
             Self::Facades => "Façades",
             Self::Car => "Voiture",
-            Self::Districts => "Quartiers",
-            Self::Events => "Événements",
         }
     }
 }
 
-/// Les sections montrées dans ce mode : aucune en Live.
-pub(crate) fn sections(mode: OperatorMode) -> &'static [Section] {
-    match mode {
-        OperatorMode::Preparation => &Section::ALL,
-        OperatorMode::Live => &[],
-    }
-}
-
-/// État de la fenêtre (jamais sauvegardé).
-#[derive(Resource, Debug, Default)]
-pub(crate) struct DebugState {
-    /// La fenêtre est ouverte.
-    pub open: bool,
-    filter: String,
-    last_fired: Option<(&'static str, f64)>,
-    /// Le quartier que l'opérateur s'apprête à forcer.
-    district: DistrictPick,
+/// Les ordres caméra qui existent, dans l'ordre des boutons.
+pub(crate) fn camera_actions() -> [Action; 2] {
+    [Action::SkipShot, Action::ShowDj]
 }
 
 /// Demande cette voiture et la retient dans les réglages. Ne fait rien (`false`) si elle est déjà celle qu'on veut, pas
@@ -96,114 +68,124 @@ pub(crate) fn choose_car(selection: &mut CarSelection, settings: &mut AppSetting
     true
 }
 
-/// Le bouton de l'en-tête qui ouvre ou ferme la fenêtre.
-pub(crate) fn toggle_button(ui: &mut egui::Ui, state: &mut DebugState) {
-    if ui.button("Debug monde  [F4]").clicked() {
-        state.open = !state.open;
-    }
+/// Le dock, qui défile seul.
+pub(crate) fn draw_dock(ui: &mut egui::Ui, view: &mut DebugView<'_>) {
+    egui::ScrollArea::vertical()
+        .id_salt("debug-dock")
+        .auto_shrink([false, false])
+        .show(ui, |ui| {
+            egui::Frame::group(ui.style()).show(ui, |ui| {
+                ui.set_width(ui.available_width());
+                draw_cameras(ui, view.orders);
+            });
+            egui::Frame::group(ui.style()).show(ui, |ui| {
+                ui.set_width(ui.available_width());
+                ui.strong("Voiture");
+                draw_pad(ui, view.orders);
+            });
+            draw_others(ui, view);
+            draw_world_settings(ui, view);
+        });
 }
 
-/// La fenêtre « Debug monde ». Chaque section dit ce qui lui manque (monde absent) au lieu de s'afficher à vide.
-#[allow(clippy::too_many_arguments)] // Paramètres de système Bevy : chacun est une ressource distincte.
-pub(crate) fn debug_window(
-    mut context: Single<&mut EguiContext, With<PrimaryEguiContext>>,
-    catalog: Option<Res<WorldEventCatalog>>,
-    selection: Option<ResMut<CarSelection>>,
-    tuning: Option<ResMut<FacadeTuning>>,
-    mut settings: Option<ResMut<Settings>>,
-    (district, grades): (Option<Res<DistrictState>>, Option<Res<DistrictGradeState>>),
-    mut district_writer: MessageWriter<DistrictOrder>,
-    mut orders: ResMut<LiveOrders>,
-    mut state: ResMut<DebugState>,
-    (mode, shell): (Res<OperatorMode>, Res<ShellState>),
-    time: Res<Time<Real>>,
-) {
-    let ctx = context.get_mut();
-    if *mode != OperatorMode::Preparation {
-        state.open = false;
+fn draw_cameras(ui: &mut egui::Ui, orders: &mut Vec<Action>) {
+    ui.strong("Plans caméra");
+    let [skip, dj] = camera_actions();
+    if ui
+        .button("Plan suivant")
+        .on_hover_text("Le réalisateur coupe vers un autre plan (comme la touche N).")
+        .clicked()
+    {
+        push_order(orders, skip);
+    }
+    if ui
+        .button("Enseigne DJ")
+        .on_hover_text("Le réalisateur montre l'enseigne du DJ (comme la touche T).")
+        .clicked()
+    {
+        push_order(orders, dj);
+    }
+    ui.weak("Choisir un plan / sa transition : pas encore pilotable");
+}
+
+/// Les événements d'une famille sans colonne (normalement aucun : le test du catalogue l'interdit).
+fn draw_others(ui: &mut egui::Ui, view: &mut DebugView<'_>) {
+    let Some(catalog) = view.catalog else {
+        return;
+    };
+    let count = view.state.plan.others_len();
+    if count == 0 {
         return;
     }
-    // Provisoire (task 6) : la fenêtre ne vit que dans l'onglet Debug ; ailleurs elle est masquée sans être fermée.
-    if shell.shown(*mode) != Tab::Debug {
-        return;
-    }
-    if ctx.input(|input| input.key_pressed(egui::Key::F4)) {
-        state.open = !state.open;
-    }
-    if !state.open {
-        return;
-    }
-    let now = time.elapsed_secs_f64();
-    let mut open = true;
-    let state = &mut *state;
-    let (mut tuning, mut selection) = (tuning, selection);
-    egui::Window::new("Debug monde (F4)")
-        .open(&mut open)
-        .default_pos(egui::pos2(16.0, 48.0))
-        .default_width(380.0)
-        .default_height(520.0)
-        .show(ctx, |ui| {
-            egui::ScrollArea::vertical().auto_shrink([false, true]).show(ui, |ui| {
-                for &section in sections(*mode) {
-                    let header = egui::CollapsingHeader::new(section.title())
-                        .id_salt(("debug-section", section.key()))
-                        .default_open(remembered_open(settings.as_deref(), section));
-                    let response = header.show(ui, |ui| match section {
-                        Section::Facades => match tuning.as_mut() {
-                            // Écriture seulement sur un geste : sinon la ressource serait marquée changée à chaque image.
-                            Some(tuning) => {
-                                if let Some(next) = draw_tuning(ui, **tuning) {
-                                    **tuning = next;
-                                }
-                            }
-                            None => {
-                                ui.weak("Réglages des façades absents (monde absent).");
-                            }
-                        },
-                        Section::Car => match selection.as_mut() {
-                            Some(selection) => draw_cars(ui, selection, &mut settings),
-                            None => {
-                                ui.weak("Aucune voiture à choisir (monde absent).");
-                            }
-                        },
-                        Section::Districts => {
-                            let library = grades.as_deref().map(DistrictGradeState::library);
-                            let gestures = draw_districts(ui, district.as_deref(), library, &mut state.district);
-                            district_writer.write_batch(district_orders(*mode, &state.district, &gestures));
+    let pinned = view.pinned();
+    let remembered = view.settings.is_some_and(|s| family_is_open(s, OTHERS_KEY));
+    let empty = ActiveEvents::default();
+    let active = view.active.unwrap_or(&empty);
+    let DebugState { plan, gestures, .. } = &mut *view.state;
+    let response = egui::CollapsingHeader::new(format!("Autres ({count})"))
+        .id_salt("debug-others")
+        .default_open(remembered)
+        .show(ui, |ui| {
+            ui.horizontal_wrapped(|ui| {
+                for event in plan.others(catalog) {
+                    let run = chip_run(event.id, active, view.now_s);
+                    let color = ui.visuals().selection.bg_fill;
+                    match draw_chip(ui, event, pinned.contains(event.id), run, color) {
+                        Some(ChipClick::Fire) => {
+                            fire(view.orders, event);
                         }
-                        Section::Events => match catalog.as_deref() {
-                            Some(catalog) => draw_events(ui, catalog, state, &mut settings, &mut orders.0, now),
-                            None => {
-                                ui.weak("Aucun événement inscrit (monde absent).");
-                            }
-                        },
-                    });
-                    remember_open(&mut settings, section, response.openness > 0.5);
+                        Some(ChipClick::TogglePin) => gestures.push(Gesture::TogglePin(event.id)),
+                        None => {}
+                    }
                 }
             });
         });
-    if !open {
-        state.open = false;
+    let open = response.openness > 0.5;
+    if view.settings.is_some() && open != remembered {
+        gestures.push(Gesture::OthersOpen(open));
     }
 }
 
-/// La section était-elle dépliée (vrai sans réglages) ?
-fn remembered_open(settings: Option<&Settings>, section: Section) -> bool {
-    settings.is_none_or(|s| section_is_open(&s.value, section))
-}
-
-/// Retient le dépliage d'une section. `ResMut` n'est déréférencé en écriture que sur un vrai changement : sinon
-/// l'écriture automatique des réglages se réveillerait à chaque image.
-fn remember_open(settings: &mut Option<ResMut<Settings>>, section: Section, open: bool) {
-    if open != remembered_open(settings.as_deref(), section)
-        && let Some(settings) = settings.as_mut()
-    {
-        set_section_open(&mut settings.value, section, open);
+/// « Réglages monde » : façades et voiture, chacune repliable et retenue.
+fn draw_world_settings(ui: &mut egui::Ui, view: &mut DebugView<'_>) {
+    ui.separator();
+    ui.strong("Réglages monde");
+    for section in Section::ALL {
+        let remembered = view.settings.is_none_or(|s| section_is_open(s, section));
+        let response = egui::CollapsingHeader::new(section.title())
+            .id_salt(("debug-section", section.key()))
+            .default_open(remembered)
+            .show(ui, |ui| match section {
+                Section::Facades => match view.tuning {
+                    Some(tuning) => {
+                        if let Some(next) = draw_tuning(ui, tuning) {
+                            view.state.gestures.push(Gesture::Tuning(next));
+                        }
+                    }
+                    None => {
+                        ui.weak("Réglages des façades absents (monde absent).");
+                    }
+                },
+                Section::Car => match view.cars {
+                    Some(cars) => {
+                        if let Some(key) = draw_cars(ui, cars) {
+                            view.state.gestures.push(Gesture::Car(key));
+                        }
+                    }
+                    None => {
+                        ui.weak("Aucune voiture à choisir (monde absent).");
+                    }
+                },
+            });
+        let open = response.openness > 0.5;
+        if view.settings.is_some() && open != remembered {
+            view.state.gestures.push(Gesture::SectionOpen(section, open));
+        }
     }
 }
 
-/// Les deux curseurs des façades. Ils n'écrivent que si la valeur bouge : le monde et les réglages sauvegardés ne sont
-/// réveillés que par un geste de l'opérateur.
+/// Les deux curseurs des façades. Rendent la nouvelle valeur seulement si elle bouge : le monde et les réglages
+/// sauvegardés ne sont réveillés que par un geste de l'opérateur.
 fn draw_tuning(ui: &mut egui::Ui, tuning: FacadeTuning) -> Option<FacadeTuning> {
     let mut next = tuning;
     ui.add(egui::Slider::new(&mut next.car_follow, 0.0..=1.0).text("Suivi de la voiture"));
@@ -211,11 +193,11 @@ fn draw_tuning(ui: &mut egui::Ui, tuning: FacadeTuning) -> Option<FacadeTuning> 
     (next != tuning).then(|| next.clamped())
 }
 
-fn draw_cars(ui: &mut egui::Ui, selection: &mut CarSelection, settings: &mut Option<ResMut<Settings>>) {
-    let options = selection.options.clone();
+/// Les voitures proposées ; rend celle cliquée.
+fn draw_cars(ui: &mut egui::Ui, selection: &CarSelection) -> Option<&'static str> {
     let mut picked = None;
     ui.horizontal_wrapped(|ui| {
-        for option in &options {
+        for option in &selection.options {
             let selected = option.key == selection.requested;
             let response = ui.add_enabled(option.ready, egui::Button::selectable(selected, option.label));
             if response.clicked() {
@@ -226,18 +208,5 @@ fn draw_cars(ui: &mut egui::Ui, selection: &mut CarSelection, settings: &mut Opt
             }
         }
     });
-    if let Some(key) = picked {
-        match settings.as_mut() {
-            Some(settings) => {
-                // Écrire dans `value` réveille l'écriture automatique ; seulement si la demande a vraiment changé.
-                let mut copy = settings.value.clone();
-                if choose_car(selection, &mut copy, key) {
-                    settings.value = copy;
-                }
-            }
-            None => {
-                selection.request(key);
-            }
-        }
-    }
+    picked
 }

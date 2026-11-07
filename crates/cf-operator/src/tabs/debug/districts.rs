@@ -1,4 +1,6 @@
-//! Section « Quartiers » : lire l'état du moteur de quartiers et lui donner des ordres de debug.
+//! Colonne « Quartiers » : lire l'état du moteur de quartiers et lui donner des ordres de debug (destination,
+//! transition, « Changer de quartier », « Geler »). Les transitions pas encore implémentées sont barrées : le monde les
+//! joue en dégradé.
 //!
 //! Le monde (`cf-world-neon`) écrit [`DistrictState`] et lit [`DistrictOrder`] ; le panneau ne fait qu'afficher l'un et
 //! écrire l'autre. Un forçage contourne les règles du gouverneur (outil de debug) mais jamais le limiteur de flashs.
@@ -26,6 +28,9 @@ const FADE_RANGE_S: std::ops::RangeInclusive<f32> = 1.0..=10.0;
 
 /// Mention affichée quand la transition choisie n'existe pas encore.
 const FALLBACK_NOTE: &str = "(repli : dégradé)";
+
+/// Infobulle d'une transition pas encore implémentée (affichée barrée).
+pub(crate) const TRANSITION_FALLBACK_TIP: &str = "Pas encore implémentée : retombe sur Dégradé";
 
 /// Le quartier que l'opérateur s'apprête à forcer. Vit dans `DebugState`, jamais dans les réglages.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -90,6 +95,12 @@ pub(crate) fn fallback_note(transition: TransitionKind) -> Option<&'static str> 
     (!transition.implemented()).then_some(FALLBACK_NOTE)
 }
 
+/// L'infobulle d'une transition : `Some` pour celles qui ne sont pas encore implémentées (jouées en dégradé), comme le
+/// dit `TransitionKind::implemented`.
+pub(crate) fn transition_tooltip(transition: TransitionKind) -> Option<&'static str> {
+    (!transition.implemented()).then_some(TRANSITION_FALLBACK_TIP)
+}
+
 /// La raison de la dernière décision du gouverneur, en clair.
 pub(crate) fn reason_label(state: &DistrictState) -> &'static str {
     state.last_reason.label()
@@ -112,8 +123,9 @@ pub(crate) fn fresh_fade(current_s: f32, wanted_s: f32) -> Option<f32> {
     ((wanted - current_s).abs() > f32::EPSILON).then_some(wanted)
 }
 
-/// Le contenu de la section. Renvoie les gestes de l'image ; l'appelant les traduit en ordres.
-pub(super) fn draw_districts(
+/// Le contenu de la colonne « Quartiers » (au-dessus de son couloir). Renvoie les gestes de l'image ; l'appelant les
+/// traduit en ordres.
+pub(super) fn draw_district_column(
     ui: &mut egui::Ui,
     state: Option<&DistrictState>,
     library: Option<&GradeLibrary>,
@@ -125,21 +137,16 @@ pub(super) fn draw_districts(
         return gestures;
     };
     draw_status(ui, state);
-    ui.separator();
 
-    egui::Grid::new("debug-districts-pick").num_columns(2).show(ui, |ui| {
-        ui.label("Type");
-        egui::ComboBox::from_id_salt("debug-district-kind")
-            .selected_text(pick.kind.label())
-            .show_ui(ui, |ui| {
-                for kind in DistrictKind::ALL {
-                    ui.selectable_value(&mut pick.kind, kind, kind.label());
-                }
-            });
-        ui.end_row();
-
-        let count = variant_count(library, pick.kind);
-        pick.clamp_variant(count);
+    ui.small("DESTINATION");
+    ui.horizontal_wrapped(|ui| {
+        for kind in DistrictKind::ALL {
+            ui.selectable_value(&mut pick.kind, kind, kind.label());
+        }
+    });
+    let count = variant_count(library, pick.kind);
+    pick.clamp_variant(count);
+    ui.horizontal(|ui| {
         ui.label("Variante");
         let mut shown = u16::from(pick.variant) + 1;
         ui.add(
@@ -149,51 +156,49 @@ pub(super) fn draw_districts(
         );
         pick.variant = u8::try_from(shown.saturating_sub(1)).unwrap_or(0);
         pick.clamp_variant(count);
-        ui.end_row();
+    });
 
-        ui.label("Transition");
-        egui::ComboBox::from_id_salt("debug-district-transition")
-            .selected_text(pick.transition.label())
-            .show_ui(ui, |ui| {
-                for transition in TRANSITIONS {
-                    let text = match fallback_note(transition) {
-                        Some(note) => format!("{} {note}", transition.label()),
-                        None => transition.label().to_owned(),
-                    };
-                    ui.selectable_value(&mut pick.transition, transition, text);
-                }
-            });
-        ui.end_row();
+    ui.small("TRANSITION");
+    ui.horizontal_wrapped(|ui| {
+        for transition in TRANSITIONS {
+            let mut text = egui::RichText::new(transition.label());
+            if !transition.implemented() {
+                text = text.strikethrough();
+            }
+            let response = ui.selectable_value(&mut pick.transition, transition, text);
+            if let Some(tip) = transition_tooltip(transition) {
+                response.on_hover_text(tip);
+            }
+        }
     });
     if let Some(note) = fallback_note(pick.transition) {
         ui.weak(note);
     }
 
     let mut fade = state.fade_s;
-    ui.add(
-        egui::Slider::new(&mut fade, FADE_RANGE_S)
-            .text("Durée du dégradé")
-            .suffix(" s"),
-    );
+    ui.add(egui::Slider::new(&mut fade, FADE_RANGE_S).text("Durée").suffix(" s"));
     gestures.fade_s = fresh_fade(state.fade_s, fade);
 
-    ui.horizontal(|ui| {
+    ui.horizontal_wrapped(|ui| {
         gestures.force = ui
-            .button("Forcer")
+            .button("→ Changer de quartier")
             .on_hover_text(concat!(
                 "Lance tout de suite la transition, sans attendre les règles : la ville change au loin, ",
                 "la couleur quand la voiture y arrive (~30 s à vitesse de croisière). Le limiteur reste actif."
             ))
             .clicked();
-        let mut frozen = state.frozen;
-        if ui.checkbox(&mut frozen, "Geler l'automatique").changed() {
-            gestures.frozen = Some(frozen);
+        if ui
+            .selectable_label(state.frozen, "Geler")
+            .on_hover_text("Gèle l'automatique des quartiers (les changements demandés ici passent quand même).")
+            .clicked()
+        {
+            gestures.frozen = Some(!state.frozen);
         }
     });
     gestures
 }
 
-/// Quartier courant, cible, progression, raison et historique.
+/// Quartier courant, cible, raison et historique.
 fn draw_status(ui: &mut egui::Ui, state: &DistrictState) {
     ui.label(format!("Courant : {}", district_label(state.current)));
     if let Some(target) = state.target {
@@ -202,18 +207,17 @@ fn draw_status(ui: &mut egui::Ui, state: &DistrictState) {
             district_label(target),
             state.transition.label()
         ));
-        ui.add(egui::ProgressBar::new(state.progress.clamp(0.0, 1.0)).show_percentage());
         if state.fallback {
             ui.weak(FALLBACK_NOTE);
         }
     }
-    ui.label(format!("Dernière décision : {}", reason_label(state)));
+    ui.weak(format!("Dernière décision : {}", reason_label(state)));
     if state.frozen {
         ui.colored_label(egui::Color32::LIGHT_BLUE, "Automatique gelé");
     }
-    egui::CollapsingHeader::new(format!("{DISTRICT_HISTORY} derniers quartiers (du plus récent)"))
+    egui::CollapsingHeader::new(format!("{DISTRICT_HISTORY} derniers quartiers"))
         .id_salt("debug-district-history")
-        .default_open(true)
+        .default_open(false)
         .show(ui, |ui| {
             for id in state.history.iter().rev().flatten() {
                 ui.label(district_label(*id));

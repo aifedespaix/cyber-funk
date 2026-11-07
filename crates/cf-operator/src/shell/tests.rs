@@ -12,7 +12,6 @@ use super::shortcuts::{self, KeyGuard, SHORTCUTS, ShellKey, poll, tab_for_shortc
 use super::status_bar::{self, StatusAction, StatusData, clock_text, enabled, remaining_s};
 use super::{ShellState, Tab, persist_tab, restore_tab};
 use crate::OperatorMode;
-use crate::tabs::debug::debug_panel::DebugState;
 
 const PREP: OperatorMode = OperatorMode::Preparation;
 const LIVE: OperatorMode = OperatorMode::Live;
@@ -98,23 +97,6 @@ struct SettingsChanges(Vec<bool>);
 
 fn watch_settings(settings: Res<Settings>, mut seen: ResMut<SettingsChanges>) {
     seen.0.push(settings.is_changed());
-}
-
-#[test]
-fn restoring_the_debug_tab_opens_its_window_only_in_preparation() {
-    let opened = |mode: OperatorMode| {
-        let mut value = AppSettings::default();
-        value.operator.last_tab = "debug".to_owned();
-        let mut app = App::new();
-        app.insert_resource(Settings::new(value, "inutilise.ron".into()))
-            .insert_resource(mode)
-            .init_resource::<ShellState>()
-            .init_resource::<DebugState>()
-            .add_systems(Startup, restore_tab);
-        app.update();
-        app.world().resource::<DebugState>().open
-    };
-    assert_eq!((opened(PREP), opened(LIVE)), (true, false));
 }
 
 #[test]
