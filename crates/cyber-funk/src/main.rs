@@ -23,9 +23,9 @@ use bevy::winit::WinitSettings;
 use cf_cinema::CinemaPlugin;
 use cf_operator::{OperatorPlugin, PrepConfig, QuitGuardPlugin};
 use cf_render::{
-    AudioConfig, AudioSource, CfAudioPlugin, ControlsPlugin, CorePlugin, CullingPlugin, DiagnosticsPlugin,
-    LayersPlugin, OutputChoice, PalettePlugin, PostFxPlugin, QualityPlugin, SettingsPlugin, ShowPlugin, TitlesPlugin,
-    WarmupPlugin, settings,
+    ActiveEventsPlugin, AudioConfig, AudioSource, CfAudioPlugin, ControlsPlugin, CorePlugin, CullingPlugin,
+    DiagnosticsPlugin, LayersPlugin, OutputChoice, PalettePlugin, PostFxPlugin, QualityPlugin, SettingsPlugin,
+    ShowPlugin, TitlesPlugin, WarmupPlugin, settings,
 };
 use cf_show::persist::AppSettings;
 use cf_world_neon::{CarPlugin, NeonCinemaPlugin, NeonWorldPlugin, PilotPlugin, TrafficPlugin};
@@ -146,6 +146,8 @@ fn build_app(
         QualityPlugin,
         // Les cartons-titres (niveau, DJ, drop) sur la surcouche 2D.
         TitlesPlugin,
+        // Registre des événements du monde en cours et mode manuel.
+        ActiveEventsPlugin,
     ))
     .add_plugins((
         DiagnosticsPlugin::default(),

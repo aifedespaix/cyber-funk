@@ -1,7 +1,9 @@
 //! Socle de rendu de cyber-funk : ordre des systèmes dans l'image, puis (jalon J4) couches de rendu,
 //! post-process, streaming du monde, culling, qualité adaptative et palettes.
 
+mod active_events;
 pub mod audio;
+mod automation;
 mod car_selection;
 pub mod controls;
 pub mod culling;
@@ -24,10 +26,14 @@ mod tuning;
 pub mod warmup;
 pub mod world;
 
+pub use active_events::{
+    ActiveEvent, ActiveEvents, ActiveEventsPlugin, ActiveId, EventCategory, EventOrigin, expire_active_events,
+};
 pub use audio::{
     AudioCommand, AudioConfig, AudioFeatures, AudioSource, AudioStatus, CfAudioPlugin, InputBackendChoice, Kick,
     OutputChoice, SectionChanged, VisualLatency,
 };
+pub use automation::WorldAutomation;
 pub use car_selection::{CarOption, CarSelection};
 pub use controls::{
     ControlAction, ControlBridge, ControllerLibrary, ControlsConfig, ControlsPlugin, ControlsStatus, LastInput,
