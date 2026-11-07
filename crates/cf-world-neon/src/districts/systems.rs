@@ -5,12 +5,13 @@ use bevy::prelude::*;
 use cf_analysis::Section;
 use cf_render::{
     AbsolutePosition, AudioFeatures, ChunkStream, CurrentShow, DistrictGradeState, DistrictOrder, DistrictState,
-    QualityLevers, ShowRuntime, StreamFocus, World as _,
+    EventCategory, QualityLevers, ShowRuntime, StreamFocus, World as _,
 };
 use cf_show::district::{DistrictId, DistrictKind, Governor, TransitionKind};
 
 use super::kind_of;
 use super::state::{Change, DistrictBrain, DistrictDriver, DistrictInput};
+use crate::automation::{Automation, Launch, origin};
 use crate::facade::{LOW_QUALITY_LEVEL, LowQualityMix};
 use crate::scenery::LEAD_ROWS;
 use crate::traffic::TrafficDirector;
@@ -175,7 +176,13 @@ pub fn tick_districts(
     mut state: ResMut<DistrictState>,
     mut world: Option<ResMut<NeonWorld>>,
     mut grade: Option<ResMut<DistrictGradeState>>,
+    mut automation: Automation,
 ) {
+    // Mode manuel : le gouverneur ne décide plus rien ; les forçages (déclencheurs `district:<type>`) passent.
+    let manual = !automation.may_spawn();
+    if driver.manual() != manual {
+        driver.set_manual(manual);
+    }
     let input = sources.input();
     let (last_generated, first_live) = match (world.as_deref(), input.car_z) {
         (Some(world), Some(z)) => {
@@ -220,6 +227,19 @@ pub fn tick_districts(
         world.prune_districts(first);
     }
     state.set_if_neq(next);
+
+    // La transition lancée est au registre des événements en cours jusqu'à sa fin réelle.
+    let running = driver.running();
+    automation.track(driver.changes(), running.is_some(), || {
+        let (to, forced) = running.unwrap_or((next.current, true));
+        Launch {
+            event_id: super::trigger_id(to.kind),
+            label: to.kind.label(),
+            category: EventCategory::District,
+            origin: origin(!forced),
+            duration_s: None,
+        }
+    });
 }
 
 #[cfg(test)]

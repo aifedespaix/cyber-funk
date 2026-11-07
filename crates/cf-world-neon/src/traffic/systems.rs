@@ -21,6 +21,7 @@ use super::frame::{TrafficBeat, TrafficDrive, TrafficFrame, TrafficShow};
 use super::names::EventName;
 use super::render::TrafficEntities;
 use super::scheduler::{NoShow, ShowLink};
+use crate::automation::Automation;
 use crate::facade::{FacadeLook, NO_BLACKOUT};
 use crate::pilot::{CarAnimation, PilotTraffic};
 use crate::route::floor_altitude;
@@ -131,7 +132,17 @@ pub(crate) struct SignAccess<'w> {
 ///
 /// Un identifiant qui n'est pas un événement du trafic (une cascade, par exemple) n'est pas pris : il reste dans la file
 /// pour le système à qui il est destiné. Un seul déclencheur par image : `TrafficDirector::force` ne retient qu'un nom.
-pub(crate) fn take_triggers(runtime: Option<ResMut<ShowRuntime>>, mut director: ResMut<TrafficDirector>) {
+///
+/// Il applique aussi le mode manuel avant le pas du trafic : plus de tirage spontané, les déclencheurs passent.
+pub(crate) fn take_triggers(
+    runtime: Option<ResMut<ShowRuntime>>,
+    automation: Automation,
+    mut director: ResMut<TrafficDirector>,
+) {
+    let spontaneous = automation.may_spawn();
+    if director.spontaneous() != spontaneous {
+        director.set_spontaneous(spontaneous);
+    }
     let Some(mut runtime) = runtime else { return };
     let wanted = runtime
         .director()
@@ -272,6 +283,40 @@ pub(crate) fn drive_traffic(
         entities: entities.as_deref().map_or(0, TrafficEntities::entity_count),
     };
     stats.set_if_neq(next);
+}
+
+/// `CfSet::Simulate`, juste après `drive_traffic` : les événements que le directeur a acceptés à cette image sont inscrits
+/// au registre des événements en cours, ceux qui ont fini en sortent. `listed` garde l'entrée de chaque événement
+/// (identifiant unique du directeur → entrée), réservée au départ : aucune allocation par image.
+pub(crate) fn publish_traffic_events(
+    director: Res<TrafficDirector>,
+    mut automation: Automation,
+    mut listed: Local<Vec<(u32, cf_render::ActiveId)>>,
+) {
+    if !automation.publishing() {
+        return;
+    }
+    let mut i = listed.len();
+    while i > 0 {
+        i -= 1;
+        let uid = listed[i].0;
+        if director.active_entries().all(|(running, _, _)| running != uid) {
+            let (_, id) = listed.swap_remove(i);
+            automation.end(id);
+        }
+    }
+    for (uid, name, origin) in director.active_entries() {
+        if listed.iter().any(|(known, _)| *known == uid) {
+            continue;
+        }
+        let category = super::catalog::category(name);
+        if let Some(id) = automation.begin(name.as_str(), super::catalog::label(name), category, origin, None) {
+            if listed.capacity() == 0 {
+                listed.reserve(super::names::MAX_PARALLEL + 1);
+            }
+            listed.push((uid, id));
+        }
+    }
 }
 
 /// `CfSet::Simulate`, après le pas : transmet à la ville les zones que les événements réclament, quand elles changent.

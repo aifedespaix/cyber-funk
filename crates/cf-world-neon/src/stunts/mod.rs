@@ -92,7 +92,8 @@ impl Plugin for StuntsPlugin {
             )
             .add_systems(
                 Update,
-                systems::drive_stunts
+                (systems::gate_stunts, systems::drive_stunts, systems::publish_stunts)
+                    .chain()
                     .in_set(StuntSet)
                     .run_if(resource_exists::<TrafficDirector>)
                     .run_if(resource_exists::<crate::CarAnimation>),

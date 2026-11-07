@@ -35,6 +35,9 @@
 //! invisible pour la caméra du monde. Les pièces que les tronçons créent (J5-02) en héritent par le bundle qu'on
 //! déclare à `PieceRegistry::add` : y mettre `WorldLayer`.
 
+pub mod automation;
+#[cfg(test)]
+mod automation_tests;
 pub mod beams;
 pub mod car;
 pub mod chase;

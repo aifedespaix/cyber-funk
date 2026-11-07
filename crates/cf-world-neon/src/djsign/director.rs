@@ -6,12 +6,13 @@
 //! Pur : le hasard est injecté (graine), la palette et l'état du spectacle sont passés à chaque image.
 
 use bevy::math::{DVec3, Vec3};
-use cf_render::{SceneColor, ScenePalette};
+use cf_render::{EventOrigin, SceneColor, ScenePalette};
 use rand_core::{Rng, SeedableRng};
 use rand_pcg::Pcg32;
 
 use super::frame::LEG_HEIGHT;
 use super::sign::{DjSign, Measure, SignInput};
+use crate::automation::origin;
 use crate::scenery::{BASE_DEPTH_M, Clearing};
 
 /// Distance d'apparition devant la voiture : au-delà de la brume des façades (380 m), seul le néon se devine.
@@ -160,6 +161,11 @@ pub struct DjSignDirector {
     started: bool,
     /// Monte à chaque pose ou rangement de l'immeuble : la couche Bevy le reconstruit.
     site_seq: u32,
+    /// Faux en mode manuel : plus de retour périodique.
+    spontaneous: bool,
+    /// Monte à chaque pose, et qui l'a demandée (registre des événements en cours).
+    spawns: u32,
+    origin: EventOrigin,
 }
 
 impl DjSignDirector {
@@ -179,7 +185,33 @@ impl DjSignDirector {
             allowed: 1.0,
             started: false,
             site_seq: 0,
+            spontaneous: true,
+            spawns: 0,
+            origin: EventOrigin::Manual,
         }
+    }
+
+    /// Mode manuel (`false`) : plus de retour périodique ; pré-intro, changement de DJ et « afficher le DJ » passent.
+    pub fn set_spontaneous(&mut self, on: bool) {
+        self.spontaneous = on;
+    }
+
+    /// Le retour périodique est permis.
+    #[must_use]
+    pub fn spontaneous(&self) -> bool {
+        self.spontaneous
+    }
+
+    /// Monte à chaque pose de l'enseigne.
+    #[must_use]
+    pub fn spawns(&self) -> u32 {
+        self.spawns
+    }
+
+    /// Qui a demandé la dernière pose : le retour périodique (`Auto`) ou le spectacle et l'opérateur (`Manual`).
+    #[must_use]
+    pub fn last_origin(&self) -> EventOrigin {
+        self.origin
     }
 
     /// L'enseigne elle-même (poses des lettres, mise en page).
@@ -280,13 +312,14 @@ impl DjSignDirector {
             self.retire();
         }
         if self.site.is_none() {
-            let periodic = show.level > 0 && c.time - self.last_spawn > self.next_return;
-            if c.intro.is_some() || dj_changed || show_requested || periodic {
-                self.spawn(c, palette);
+            let periodic = self.spontaneous && show.level > 0 && c.time - self.last_spawn > self.next_return;
+            let asked = c.intro.is_some() || dj_changed || show_requested;
+            if asked || periodic {
+                self.spawn(c, palette, origin(!asked));
             }
         } else if dj_changed && !still_ahead {
             self.retire();
-            self.spawn(c, palette);
+            self.spawn(c, palette, EventOrigin::Manual);
         }
         if self.site.is_none() {
             return;
@@ -308,7 +341,9 @@ impl DjSignDirector {
         f64::from(self.rng.next_u32()) / 4_294_967_296.0
     }
 
-    fn spawn(&mut self, c: &SignContext<'_>, palette: &ScenePalette) {
+    fn spawn(&mut self, c: &SignContext<'_>, palette: &ScenePalette, origin: EventOrigin) {
+        self.spawns = self.spawns.wrapping_add(1);
+        self.origin = origin;
         let side: i8 = if self.unit() < 0.5 { -1 } else { 1 };
         self.sign.rearm();
         let width = self.sign.layout().width;

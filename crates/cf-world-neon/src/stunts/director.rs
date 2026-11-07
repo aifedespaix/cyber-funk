@@ -7,6 +7,7 @@
 
 use bevy::math::DVec3;
 use bevy::prelude::Resource;
+use cf_render::EventOrigin;
 
 use super::kind::{StuntKind, StuntTier};
 use super::math::{between, lerp};
@@ -118,6 +119,10 @@ pub struct StuntDirector {
     scale: f64,
     warned_unknown: bool,
     rng: Rand,
+    /// Faux en mode manuel : plus de tirage au hasard.
+    spontaneous: bool,
+    launches: u32,
+    origin: EventOrigin,
 }
 
 impl std::fmt::Debug for StuntDirector {
@@ -161,6 +166,9 @@ impl StuntDirector {
             scale: 1.0,
             warned_unknown: false,
             rng,
+            spontaneous: true,
+            launches: 0,
+            origin: EventOrigin::Auto,
         }
     }
 
@@ -196,6 +204,35 @@ impl StuntDirector {
             progress: self.progress as f32,
             focus: self.pose.focus,
         })
+    }
+
+    /// Mode manuel (`false`) : plus de tirage au hasard ; l'Ascension demandée et la cascade du drop préparé passent.
+    pub fn set_spontaneous(&mut self, on: bool) {
+        self.spontaneous = on;
+    }
+
+    /// Le tirage au hasard est permis (faux en mode manuel).
+    #[must_use]
+    pub fn spontaneous(&self) -> bool {
+        self.spontaneous
+    }
+
+    /// Qui a lancé la dernière cascade : le tirage (`Auto`), l'opérateur ou le spectacle (`Manual`).
+    #[must_use]
+    pub fn last_origin(&self) -> EventOrigin {
+        self.origin
+    }
+
+    /// Monte à chaque cascade lancée (le registre des événements en cours le suit).
+    #[must_use]
+    pub fn launches(&self) -> u32 {
+        self.launches
+    }
+
+    /// La cascade en cours (même pendant son fondu de sortie) et sa durée, s.
+    #[must_use]
+    pub fn running(&self) -> Option<(StuntKind, f64)> {
+        self.run.as_ref().map(|run| (self.kind, run.duration()))
     }
 
     /// À appeler une fois par image, avant de poser la voiture. Renvoie l'abscisse de la voiture (la pose fondue sur
@@ -358,7 +395,15 @@ impl StuntDirector {
         if f.show.is_some()
             && (bar || drop)
             && self.ascension.queued(f.now)
-            && self.launch(StuntKind::Ascension, false, &env, registry, world, link)
+            && self.launch(
+                StuntKind::Ascension,
+                false,
+                EventOrigin::Manual,
+                &env,
+                registry,
+                world,
+                link,
+            )
         {
             return;
         }
@@ -370,7 +415,7 @@ impl StuntDirector {
             match planned {
                 Planned::Kind(kind) => {
                     let cooled = kind != StuntKind::Ascension || self.ascension.ready(f.now);
-                    if cooled && self.launch(kind, false, &env, registry, world, link) {
+                    if cooled && self.launch(kind, false, EventOrigin::Manual, &env, registry, world, link) {
                         return;
                     }
                 }
@@ -386,6 +431,10 @@ impl StuntDirector {
             self.warned_unknown = false;
         }
 
+        // Mode manuel : le tirage au hasard est le seul lancement spontané.
+        if !self.spontaneous {
+            return;
+        }
         // Un drop interrompt l'attente : c'est le moment de la plus grosse cascade.
         if !(self.wait <= 0.0 || (drop && self.wait < 10.0)) {
             return;
@@ -417,7 +466,7 @@ impl StuntDirector {
                 break;
             }
         }
-        self.launch(chosen, true, &env, registry, world, link);
+        self.launch(chosen, true, EventOrigin::Auto, &env, registry, world, link);
     }
 
     /// Remplit `candidates` et `weights` ; `relaxed` : au drop, faute de cascade alignée « drop », toutes les autres
@@ -478,11 +527,13 @@ impl StuntDirector {
     }
 
     /// Lance `kind` si la route le permet ; `mark` : noter l'usage (le chef des drops l'a déjà fait pour sa cascade
-    /// préparée).
+    /// préparée) ; `origin` : qui la demande.
+    #[allow(clippy::too_many_arguments)] // Le contexte du lancement : une struct de plus n'éclairerait rien.
     fn launch(
         &mut self,
         kind: StuntKind,
         mark: bool,
+        origin: EventOrigin,
         env: &StuntEnv<'_>,
         registry: &StuntRegistry,
         world: &mut dyn StuntWorld,
@@ -529,6 +580,8 @@ impl StuntDirector {
         if self.history.len() > HISTORY {
             self.history.remove(0);
         }
+        self.launches = self.launches.wrapping_add(1);
+        self.origin = origin;
         true
     }
 

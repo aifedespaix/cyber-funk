@@ -151,8 +151,20 @@ impl Scheduler {
         bar_started: bool,
         rng: &mut Rand,
     ) -> Option<EventName> {
-        // Événement demandé par l'opérateur : tout de suite, sans compte à rebours (les règles de structures et de
-        // ciel restent).
+        self.ordered(frame, running, registry, link, rng)
+            .or_else(|| self.drawn(frame, running, registry, link, bar_started, rng))
+    }
+
+    /// L'événement demandé par l'opérateur (ordre « événement au hasard ») : tout de suite, sans compte à rebours (les
+    /// règles de structures et de ciel restent). Passe aussi en mode manuel.
+    pub fn ordered(
+        &mut self,
+        frame: &TrafficFrame<'_>,
+        running: &[Running],
+        registry: &EventRegistry,
+        link: &mut dyn ShowLink,
+        rng: &mut Rand,
+    ) -> Option<EventName> {
         if frame.show.is_some()
             && link.take_random_event()
             && let Some(name) = self.choose(frame, running, registry, link, rng)
@@ -160,6 +172,19 @@ impl Scheduler {
             self.pending = None;
             return Some(name);
         }
+        None
+    }
+
+    /// Le tirage spontané : l'attente d'un début de mesure ou le délai écoulé. Coupé en mode manuel.
+    pub fn drawn(
+        &mut self,
+        frame: &TrafficFrame<'_>,
+        running: &[Running],
+        registry: &EventRegistry,
+        link: &mut dyn ShowLink,
+        bar_started: bool,
+        rng: &mut Rand,
+    ) -> Option<EventName> {
         // Un événement en attente que les portes n'autorisent plus (changement de niveau, respiration) est abandonné.
         if self.pending.is_some_and(|name| !Self::allows(name, frame)) {
             self.pending = None;

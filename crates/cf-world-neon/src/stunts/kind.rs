@@ -92,6 +92,25 @@ impl StuntKind {
         }
     }
 
+    /// Le nom affiché à l'opérateur (registre des événements en cours).
+    #[must_use]
+    pub const fn label(self) -> &'static str {
+        match self {
+            Self::OffRoad => "Cascade : hors-piste",
+            Self::Slalom => "Cascade : slalom",
+            Self::NearMiss => "Cascade : frôlement",
+            Self::Loop => "Cascade : looping",
+            Self::HeadOn => "Cascade : face-à-face",
+            Self::Inverted => "Cascade : à l'envers",
+            Self::WallRide => "Cascade : sur le mur",
+            Self::Threading => "Cascade : enfilade",
+            Self::SignHop => "Cascade : saut de panneau",
+            Self::Rooftop => "Cascade : sur les toits",
+            Self::BigJump => "Cascade : grand saut",
+            Self::Ascension => "Cascade : Ascension",
+        }
+    }
+
     /// L'identifiant de fraîcheur (`stunt:<slug>`), celui que le chef du spectacle connaît. Statique : le tirage le
     /// demande à chaque image d'attente, sans rien formater.
     #[must_use]

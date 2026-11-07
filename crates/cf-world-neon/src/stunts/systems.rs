@@ -13,6 +13,7 @@ use super::kind::StuntKind;
 use super::permit::StuntLink;
 use super::script::{Planned, StuntRegistry, StuntShow};
 use super::world::TrafficStuntWorld;
+use crate::automation::{Automation, Launch};
 use crate::pilot::rand::Rand;
 use crate::pilot::{CarAnimation, PilotBrain, PilotCar};
 use crate::traffic::{TrafficBeat, TrafficDirector};
@@ -171,5 +172,33 @@ pub(crate) fn drive_stunts(
         weight: director.weight() as f32,
         fx_off: director.fx_off(),
         view: if grounded { None } else { director.view() },
+    });
+}
+
+/// `StuntSet`, avant [`drive_stunts`] : le mode manuel coupe le tirage au hasard (l'Ascension demandée et le drop
+/// préparé passent toujours).
+pub(crate) fn gate_stunts(automation: Automation, mut director: ResMut<StuntDirector>) {
+    let spontaneous = automation.may_spawn();
+    if director.spontaneous() != spontaneous {
+        director.set_spontaneous(spontaneous);
+    }
+}
+
+/// `StuntSet`, après [`drive_stunts`] : la cascade acceptée est inscrite au registre des événements en cours, et en sort
+/// à sa fin.
+pub(crate) fn publish_stunts(mut automation: Automation, director: Res<StuntDirector>) {
+    if !automation.publishing() {
+        return;
+    }
+    let running = director.running();
+    automation.track(director.launches(), running.is_some(), || {
+        let (kind, duration) = running.unwrap_or((StuntKind::Loop, 0.0));
+        Launch {
+            event_id: kind.freshness_id(),
+            label: kind.label(),
+            category: cf_render::EventCategory::Car,
+            origin: director.last_origin(),
+            duration_s: Some(duration),
+        }
     });
 }

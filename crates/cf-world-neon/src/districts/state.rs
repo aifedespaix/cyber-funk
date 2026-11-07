@@ -105,6 +105,10 @@ pub struct DistrictDriver {
     last_z: Option<f64>,
     last_events: Option<usize>,
     running: Option<Running>,
+    /// Mode manuel : le gouverneur ne décide plus rien de lui-même (les forçages passent).
+    manual: bool,
+    /// Monte à chaque transition lancée (registre des événements en cours).
+    changes: u32,
 }
 
 impl DistrictDriver {
@@ -112,6 +116,29 @@ impl DistrictDriver {
     #[must_use]
     pub fn speed_mps(&self) -> f32 {
         self.speed_mps
+    }
+
+    /// Mode manuel : plus de changement décidé par le gouverneur ; un forçage (`DistrictOrder::Force`) passe toujours.
+    pub fn set_manual(&mut self, manual: bool) {
+        self.manual = manual;
+    }
+
+    /// Le mode manuel est en place.
+    #[must_use]
+    pub fn manual(&self) -> bool {
+        self.manual
+    }
+
+    /// Monte à chaque transition lancée.
+    #[must_use]
+    pub fn changes(&self) -> u32 {
+        self.changes
+    }
+
+    /// La transition en cours : le quartier visé et s'il est forcé.
+    #[must_use]
+    pub fn running(&self) -> Option<(DistrictId, bool)> {
+        self.running.map(|r| (r.to, r.forced))
     }
 
     /// Longueur du dégradé : la distance parcourue en `fade_s` secondes à la vitesse courante (spec, règle 7), bornée à
@@ -163,6 +190,7 @@ impl DistrictDriver {
     /// Une transition démarre : `from_index` est le début du segment posé dans le plan (`None` s'il n'a pas pu l'être,
     /// sans monde ni voiture : seul l'étalonnage change alors, tout de suite).
     pub fn begin(&mut self, change: &Change, from_index: Option<i64>, state: &mut DistrictState) {
+        self.changes = self.changes.wrapping_add(1);
         self.running = Some(Running {
             to: change.to,
             blend_rows: change.blend_rows,
@@ -212,7 +240,15 @@ impl DistrictDriver {
         };
         let held = self.advance(governor, input, &snapshot, grade, state);
 
+        // Mode manuel : le gouverneur est tenu gelé le temps de sa décision (il suit quand même la musique et les drops),
+        // puis rendu au gel choisi par l'opérateur. Il rend donc `Stay { Frozen }`.
+        if self.manual {
+            governor.set_frozen(true);
+        }
         let decision = governor.tick(&snapshot);
+        if self.manual {
+            governor.set_frozen(state.frozen);
+        }
         copy_history(governor, state);
         match decision {
             Decision::Stay { reason } => {

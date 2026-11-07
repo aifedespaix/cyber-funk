@@ -188,7 +188,12 @@ impl Plugin for TrafficPlugin {
             Update,
             (
                 systems::publish_traffic.in_set(TrafficSet::Publish).before(PilotSet),
-                (systems::take_triggers, systems::drive_traffic, systems::apply_clearings)
+                (
+                    systems::take_triggers,
+                    systems::drive_traffic,
+                    systems::publish_traffic_events,
+                    systems::apply_clearings,
+                )
                     .chain()
                     .in_set(TrafficSet::Step)
                     .after(CullingSet::Lod)

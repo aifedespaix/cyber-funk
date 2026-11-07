@@ -3,7 +3,7 @@
 //! Le `match` est exhaustif exprès : ajouter un `EventName` sans libellé ne compile plus, donc la liste de l'opérateur
 //! ne peut pas rester en retard sur le trafic.
 
-use cf_render::WorldEvent;
+use cf_render::{EventCategory, WorldEvent};
 
 use super::names::EventName;
 
@@ -39,6 +39,41 @@ fn describe(name: EventName) -> (&'static str, &'static str) {
             "Saut de moto",
             "Une moto saute par-dessus la route, d'un immeuble à l'autre.",
         ),
+    }
+}
+
+/// Le nom affiché d'un événement du trafic.
+#[must_use]
+pub fn label(name: EventName) -> &'static str {
+    describe(name).0
+}
+
+/// La colonne de l'interface opérateur où un événement du trafic se range : les immeubles (méga-tour, immeuble-vitrine,
+/// panne de courant, pulsation des façades), les enseignes (vaisseau publicitaire, titre holographique) ; le reste
+/// (véhicules, ciel, structures de la route) avec les voitures.
+#[must_use]
+pub const fn category(name: EventName) -> EventCategory {
+    match name {
+        EventName::Tower | EventName::Landmark | EventName::Blackout | EventName::CityPulse => EventCategory::Building,
+        EventName::Adship | EventName::HoloTitle => EventCategory::Sign,
+        EventName::Chase
+        | EventName::Convoy
+        | EventName::Crossroad
+        | EventName::Airship
+        | EventName::Swarm
+        | EventName::Escort
+        | EventName::Bikes
+        | EventName::Storm
+        | EventName::Aurora
+        | EventName::Fireworks
+        | EventName::Race
+        | EventName::Lanterns
+        | EventName::Dancer
+        | EventName::Fish
+        | EventName::Toll
+        | EventName::Refuel
+        | EventName::Tunnel
+        | EventName::MotoJump => EventCategory::Car,
     }
 }
 

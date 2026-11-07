@@ -7,7 +7,7 @@
 
 use bevy::ecs::resource::Resource;
 use bevy::math::Vec3;
-use cf_render::{Subject, SubjectKind};
+use cf_render::{EventOrigin, Subject, SubjectKind};
 
 use super::air_lanes::AirLanes;
 use super::event::{EventCtx, EventRegistry, SignLender, TrafficEvent};
@@ -40,9 +40,11 @@ struct ActiveEvent {
     name: EventName,
     event: Box<dyn TrafficEvent>,
     uid: u32,
+    origin: EventOrigin,
 }
 
 /// Le directeur du trafic. En ressource Bevy : un seul propriétaire, le système `drive_traffic`.
+#[allow(clippy::struct_excessive_bools)] // Des drapeaux d'état indépendants (cascade, mode manuel, survol, zones à transmettre).
 #[derive(Resource)]
 pub struct TrafficDirector {
     /// Tous les véhicules volants.
@@ -64,6 +66,8 @@ pub struct TrafficDirector {
     forced: Option<EventName>,
     /// Une cascade de la voiture est en cours : plus d'événements aléatoires.
     held: bool,
+    /// Faux en mode manuel : plus de tirage spontané (l'ordre de l'opérateur et les déclencheurs passent).
+    spontaneous: bool,
     /// Mesure en cours sur l'horloge de danse (quatre temps) : un événement part au début d'une mesure.
     bar: i64,
     flyby: bool,
@@ -101,6 +105,7 @@ impl TrafficDirector {
             uids: 0,
             forced: None,
             held: false,
+            spontaneous: true,
             bar: 0,
             flyby: false,
             claims: Vec::with_capacity(8),
@@ -114,6 +119,22 @@ impl TrafficDirector {
     /// Suspend (ou reprend) le tirage des événements aléatoires : une cascade scénarisée a la ville pour elle.
     pub fn hold(&mut self, on: bool) {
         self.held = on;
+    }
+
+    /// Mode manuel (`false`) : plus de tirage spontané ; `force` et l'ordre « événement au hasard » passent.
+    pub fn set_spontaneous(&mut self, on: bool) {
+        self.spontaneous = on;
+    }
+
+    /// Le tirage spontané est permis.
+    #[must_use]
+    pub fn spontaneous(&self) -> bool {
+        self.spontaneous
+    }
+
+    /// Les événements en cours : identifiant unique, nom, déclencheur.
+    pub fn active_entries(&self) -> impl Iterator<Item = (u32, EventName, EventOrigin)> + '_ {
+        self.active.iter().map(|a| (a.uid, a.name, a.origin))
     }
 
     /// Outil de développement : lance cet événement à la prochaine image, quelles que soient les portes.
@@ -265,7 +286,7 @@ impl TrafficDirector {
                     &mut self.forced,
                     registry,
                     link,
-                    bar_started,
+                    (bar_started, self.spontaneous),
                     &mut ctx,
                 );
             }
@@ -328,7 +349,7 @@ impl TrafficDirector {
         forced: &mut Option<EventName>,
         registry: &mut EventRegistry,
         link: &mut dyn ShowLink,
-        bar_started: bool,
+        (bar_started, spontaneous): (bool, bool),
         ctx: &mut EventCtx<'_>,
     ) {
         let frame = ctx.frame;
@@ -343,10 +364,18 @@ impl TrafficDirector {
                 structure: a.event.structure(),
             };
         }
+        // Le forçage (déclencheur, outil) et l'ordre de l'opérateur passent toujours ; le tirage, seulement en automatique.
         let next = forced
             .take()
-            .or_else(|| scheduler.next(frame, &running[..n], registry, link, bar_started, ctx.rng));
-        let Some(name) = next else { return };
+            .or_else(|| scheduler.ordered(frame, &running[..n], registry, link, ctx.rng))
+            .map(|name| (name, EventOrigin::Manual))
+            .or_else(|| {
+                spontaneous
+                    .then(|| scheduler.drawn(frame, &running[..n], registry, link, bar_started, ctx.rng))
+                    .flatten()
+                    .map(|name| (name, EventOrigin::Auto))
+            });
+        let Some((name, origin)) = next else { return };
         // Une structure ne se pose pas sur une arche-immeuble : on retente un peu plus tard.
         if name.is_structure_kind() && is_near_bridge(frame.car.z - BRIDGE_BACK_M, BRIDGE_MARGIN_M) {
             scheduler.postponed();
@@ -361,6 +390,7 @@ impl TrafficDirector {
             name,
             event,
             uid: *uids,
+            origin,
         });
     }
 

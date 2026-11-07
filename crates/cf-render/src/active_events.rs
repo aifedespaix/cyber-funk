@@ -36,6 +36,12 @@ pub enum EventOrigin {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct ActiveId(u64);
 
+impl ActiveId {
+    /// Valeur à mettre dans [`ActiveEvent::id`] avant [`ActiveEvents::begin`], qui la remplace : sans elle, aucune autre
+    /// crate ne pourrait construire un [`ActiveEvent`] (le champ de l'identifiant est privé).
+    pub const UNSET: Self = Self(u64::MAX);
+}
+
 /// Un événement en cours.
 #[derive(Debug, Clone)]
 pub struct ActiveEvent {

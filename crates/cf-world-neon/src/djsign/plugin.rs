@@ -7,14 +7,15 @@ use bevy::prelude::*;
 use bevy::render::render_resource::{Extent3d, TextureDimension, TextureFormat};
 use bevy::shader::Shader;
 use cf_render::{
-    AbsolutePosition, AudioFeatures, CfSet, ChunkStream, CurrentShow, LoadTracker, SceneMood, ScenePalette, ShowSheet,
-    StreamFocus, WarmupAppExt, WorldSet,
+    AbsolutePosition, AudioFeatures, CfSet, ChunkStream, CurrentShow, EventCategory, LoadTracker, SceneMood,
+    ScenePalette, ShowSheet, StreamFocus, WarmupAppExt, WorldSet,
 };
 
 use super::director::{DjSignDirector, ShowView, SignContext};
 use super::glyphs::{bake, charset};
 use super::material::{LetterMaterial, embed_shader};
 use super::rig::{self, DjSignGlyphs, DjSignRig};
+use crate::automation::{Automation, Launch};
 use crate::beams::safety::BeamPulse;
 use crate::world::NeonWorld;
 
@@ -190,8 +191,14 @@ pub(crate) fn step_sign(
     mut director: ResMut<DjSignRes>,
     world: Option<ResMut<NeonWorld>>,
     stream: Option<ResMut<ChunkStream<NeonWorld>>>,
+    mut automation: Automation,
 ) {
     let Ok(car) = car.single() else { return };
+    // Mode manuel : plus de retour périodique de l'enseigne (le spectacle et l'opérateur la demandent toujours).
+    let spontaneous = automation.may_spawn();
+    if director.0.spontaneous() != spontaneous {
+        director.0.set_spontaneous(spontaneous);
+    }
     let dt = time.delta_secs().min(MAX_DT_S);
     let now = time.elapsed_secs_f64();
     let palette = palette.as_deref().copied().unwrap_or_default();
@@ -231,6 +238,16 @@ pub(crate) fn step_sign(
         },
         &palette,
     );
+
+    // L'enseigne posée est au registre des événements en cours jusqu'à son rangement.
+    let sign = &director.0;
+    automation.track(sign.spawns(), sign.site().is_some(), || Launch {
+        event_id: "dj-sign",
+        label: "Enseigne du DJ",
+        category: EventCategory::Sign,
+        origin: sign.last_origin(),
+        duration_s: None,
+    });
 
     // La ville s'écarte autour de l'immeuble support ; les tronçons vivants sont re-tirés quand la zone change.
     if let (Some(mut world), Some(mut stream)) = (world, stream)
