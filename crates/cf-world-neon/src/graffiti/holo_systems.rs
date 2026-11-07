@@ -15,6 +15,7 @@ use cf_render::{CfSet, SceneColor, ScenePalette, WarmupAppExt};
 use super::bake::GraffitiAtlas;
 use super::holo_material::{HoloMaterial, HoloParams, embed_shader};
 use super::projector::{MAX_PROJECTORS, ProjectorPool, ProjectorState, layout};
+use super::quality::GraffitiQuality;
 use crate::scenery::graffiti_plan::Projector;
 use crate::signs::flash::SignFlash;
 use crate::signs::systems::SignFrame;
@@ -94,6 +95,7 @@ pub(crate) fn drive_holo(
     palette: Res<ScenePalette>,
     frame: Option<Res<SignFrame>>,
     atlas: Option<Res<GraffitiAtlas>>,
+    quality: Res<GraffitiQuality>,
     pool: Res<ProjectorPool>,
     state: Res<ProjectorState>,
     mut materials: ResMut<Assets<HoloMaterial>>,
@@ -135,7 +137,12 @@ pub(crate) fn drive_holo(
         let text = HoloParams {
             tint,
             state: state_v,
-            shape: Vec4::new(lay.cell_share, lay.bar_share, HALO_GAIN, BEAM_GAIN),
+            shape: Vec4::new(
+                lay.cell_share,
+                lay.bar_share,
+                if quality.halo { HALO_GAIN } else { 0.0 },
+                BEAM_GAIN,
+            ),
             sharp: rect(cell.sharp),
             halo: rect(cell.halo),
         };

@@ -6,7 +6,7 @@ use bevy::prelude::*;
 use bevy::render::render_resource::ShaderType;
 
 use super::FacadeMaterial;
-use crate::graffiti::GraffitiAtlas;
+use crate::graffiti::{GraffitiAtlas, GraffitiQuality};
 use crate::scenery::SceneryAssets;
 
 /// Nombre d'entrées de la table : le tag réserve 5 bits au motif (0 : aucun), donc 31 motifs.
@@ -16,7 +16,8 @@ pub const WALL_SLOTS: usize = 32;
 /// motif `k` du tag (l'entrée 0 reste vide). Table vide par défaut : aucun motif n'existe, la façade est celle d'avant.
 #[derive(Debug, Clone, Copy, PartialEq, Default, ShaderType)]
 pub struct WallCells {
-    /// `x` : largeur d'une couche de l'atlas (px), `y` : hauteur, `z` : nombre de couches.
+    /// `x` : largeur d'une couche de l'atlas (px), `y` : hauteur, `z` : nombre de couches, `w` : distance où le graffiti a
+    /// disparu (m ; la qualité la raccourcit).
     pub atlas: Vec4,
     /// Par motif : `x`, `y`, largeur, hauteur du rectangle utile dans la couche (px).
     pub rects: [Vec4; WALL_SLOTS],
@@ -27,13 +28,13 @@ pub struct WallCells {
 impl WallCells {
     /// La table d'un atlas cuit.
     #[must_use]
-    pub fn from_atlas(atlas: &GraffitiAtlas) -> Self {
+    pub fn from_atlas(atlas: &GraffitiAtlas, quality: &GraffitiQuality) -> Self {
         let mut cells = Self {
             atlas: Vec4::new(
                 atlas.wall_size.x as f32,
                 atlas.wall_size.y as f32,
                 atlas.wall_size.z as f32,
-                0.0,
+                quality.wall_reach_m(),
             ),
             ..Self::default()
         };
@@ -57,6 +58,7 @@ impl WallCells {
 /// au `setup` du monde, qui peut venir après la fin de la cuisson).
 pub(super) fn bind_wall_atlas(
     atlas: Res<GraffitiAtlas>,
+    quality: Res<GraffitiQuality>,
     scenery: Option<Res<SceneryAssets>>,
     materials: Option<ResMut<Assets<FacadeMaterial>>>,
 ) {
@@ -70,5 +72,26 @@ pub(super) fn bind_wall_atlas(
         return;
     };
     material.wall = Some(atlas.wall.clone());
-    material.wall_cells = WallCells::from_atlas(&atlas);
+    material.wall_cells = WallCells::from_atlas(&atlas, &quality);
+}
+
+/// `Update` : la portée des graffitis muraux suit le niveau de qualité (rien n'est re-tiré : seul le fondu lointain bouge).
+pub(super) fn apply_wall_quality(
+    quality: Res<GraffitiQuality>,
+    scenery: Option<Res<SceneryAssets>>,
+    materials: Option<ResMut<Assets<FacadeMaterial>>>,
+) {
+    let (Some(scenery), Some(mut materials)) = (scenery, materials) else {
+        return;
+    };
+    let reach = quality.wall_reach_m();
+    if materials
+        .get(&scenery.material)
+        .is_none_or(|m| m.wall.is_none() || (m.wall_cells.atlas.w - reach).abs() < f32::EPSILON)
+    {
+        return;
+    }
+    if let Some(mut material) = materials.get_mut(&scenery.material) {
+        material.wall_cells.atlas.w = reach;
+    }
 }

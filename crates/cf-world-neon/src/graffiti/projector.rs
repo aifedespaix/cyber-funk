@@ -15,6 +15,7 @@ use cf_render::{AbsolutePosition, StreamFocus, WorldLayer};
 use super::atlas::HoloCell;
 use super::bake::GraffitiAtlas;
 use super::holo_material::HoloMaterial;
+use super::quality::GraffitiQuality;
 use crate::NeonWorld;
 use crate::scenery::fog_range;
 use crate::scenery::graffiti_plan::{LETTER_LIFT, Projector, ProjectorList, row_projectors};
@@ -250,6 +251,7 @@ fn row_of(z: f64) -> i64 {
 pub fn place_projectors(
     world: Res<NeonWorld>,
     atlas: Option<Res<GraffitiAtlas>>,
+    quality: Res<GraffitiQuality>,
     pool: Res<ProjectorPool>,
     mut state: ResMut<ProjectorState>,
     car: Query<&AbsolutePosition, (With<StreamFocus>, Without<ProjectorRoot>)>,
@@ -259,7 +261,8 @@ pub fn place_projectors(
     let Ok(car) = car.single() else { return };
     let state = &mut *state;
     let row = row_of(car.0.z);
-    let city_changed = world.is_changed() || atlas.as_ref().is_some_and(DetectChanges::is_changed);
+    let city_changed =
+        world.is_changed() || quality.is_changed() || atlas.as_ref().is_some_and(DetectChanges::is_changed);
     if state.row == Some(row) && !city_changed {
         return;
     }
@@ -276,7 +279,10 @@ pub fn place_projectors(
                     continue;
                 }
                 let (dx, dz) = (f64::from(p.x) - car.0.x, p.z - car.0.z);
-                state.candidates.push((dx * dx + dz * dz, *p));
+                let d2 = dx * dx + dz * dz;
+                if quality.keeps_projector(p.size, d2.sqrt()) {
+                    state.candidates.push((d2, *p));
+                }
             }
         }
         keep_nearest(&mut state.candidates);

@@ -10,7 +10,7 @@ use cf_render::CorePlugin;
 use cf_render::warmup::LoadTracker;
 use cf_world_neon::FacadeMaterial;
 use cf_world_neon::facade::{WALL_SLOTS, WallCells};
-use cf_world_neon::graffiti::{GraffitiAtlas, GraffitiPlugin};
+use cf_world_neon::graffiti::{GraffitiAtlas, GraffitiPlugin, GraffitiQuality};
 
 const ASSETS: &str = "../../assets";
 
@@ -33,7 +33,7 @@ fn baked_cells() -> (WallCells, usize) {
     }
     let atlas = app.world().resource::<GraffitiAtlas>();
     let walls = (1..=31u8).filter(|k| atlas.wall_cell(*k).is_some()).count();
-    (WallCells::from_atlas(atlas), walls)
+    (WallCells::from_atlas(atlas, &GraffitiQuality::default()), walls)
 }
 
 #[test]

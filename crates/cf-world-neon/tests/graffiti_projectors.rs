@@ -158,3 +158,56 @@ fn un_slot_libere_est_cache_pas_detruit() {
     );
     assert!(visible_roots(&mut app) <= MAX_PROJECTORS);
 }
+
+fn set_quality(app: &mut App, from: usize, to: usize) {
+    app.world_mut().write_message(cf_render::QualityChanged { from, to });
+    app.update();
+}
+
+#[test]
+fn en_qualite_minimale_seuls_les_proches_restent() {
+    use cf_world_neon::graffiti::quality::MIN_QUALITY_RANGE_M;
+    let mut app = app(0.0, 60.0);
+    for _ in 0..600 {
+        app.update();
+    }
+    set_quality(&mut app, 0, 3);
+    for _ in 0..600 {
+        app.update();
+        let car = app
+            .world_mut()
+            .query_filtered::<&AbsolutePosition, With<StreamFocus>>()
+            .single(app.world())
+            .expect("la voiture")
+            .0;
+        // Le choix est refait à chaque nouvelle rangée : on laisse une rangée de marge.
+        for (_, p) in active(&app) {
+            let d = ((f64::from(p.x) - car.x).powi(2) + (p.z - car.z).powi(2)).sqrt();
+            assert!(
+                d <= MIN_QUALITY_RANGE_M + 60.0,
+                "projecteur à {d:.0} m en qualité minimale"
+            );
+        }
+    }
+}
+
+#[test]
+fn changer_de_qualite_ne_detruit_aucune_entite() {
+    let mut app = app(0.0, 60.0);
+    for _ in 0..120 {
+        app.update();
+    }
+    let count = app.world().iter_entities().count();
+    for (from, to) in [(0, 1), (1, 2), (2, 3), (3, 0)] {
+        set_quality(&mut app, from, to);
+        for _ in 0..120 {
+            app.update();
+        }
+        assert!(visible_roots(&mut app) <= MAX_PROJECTORS);
+    }
+    assert_eq!(
+        app.world().iter_entities().count(),
+        count,
+        "des entités ont été créées ou détruites"
+    );
+}

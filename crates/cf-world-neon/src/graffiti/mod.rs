@@ -10,6 +10,7 @@ pub mod holo_material;
 pub mod holo_systems;
 pub mod placements;
 pub mod projector;
+pub mod quality;
 pub mod raster;
 pub mod words;
 
@@ -20,12 +21,15 @@ mod holo_tests;
 #[cfg(test)]
 mod projector_tests;
 #[cfg(test)]
+mod quality_tests;
+#[cfg(test)]
 mod tests;
 
 pub use bake::{GraffitiAtlas, GraffitiPlugin};
 pub use holo_material::HoloMaterial;
 pub use holo_systems::HoloPlugin;
 pub use placements::{Placement, load_placements};
+pub use quality::GraffitiQuality;
 pub use words::{GraffitiStyle, GraffitiWord, licensed_fonts, load_words};
 
 use serde::Deserialize;

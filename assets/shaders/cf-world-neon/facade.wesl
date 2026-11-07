@@ -70,7 +70,7 @@ struct Facade {
 // Les graffitis muraux (`facade_paint.wesl`) : l'atlas en tableau de couches, et où lire chaque motif. Même ordre de champs
 // que `WallCells` (Rust). Le motif k du tag est l'entrée k (l'entrée 0 n'est jamais lue).
 struct Wall {
-    // x : largeur d'une couche (px), y : hauteur, z : nombre de couches.
+    // x : largeur d'une couche (px), y : hauteur, z : nombre de couches, w : distance où le graffiti a disparu (m ; la qualité la raccourcit).
     atlas: vec4<f32>,
     // Par motif : x, y, largeur, hauteur du rectangle utile (px).
     rects: array<vec4<f32>, 32>,
@@ -354,7 +354,7 @@ fn fragment(in: FacadeVarying) -> @location(0) vec4<f32> {
         // Graffiti mural : un décalque dans la zone basse, jamais de variation brusque (la lumière ne suit ni le kick ni
         // l'audio, seulement l'éclairage ambiant, la pluie et la distance).
         if in.graffiti != 0u && !far {
-            let paint_fade = 1.0 - smoothstep(70.0, 140.0, dist);
+            let paint_fade = 1.0 - smoothstep(0.5 * wall.atlas.w, wall.atlas.w, dist);
             let paint_gain = (0.5 + 0.4 * lambert) * (1.0 - 0.3 * wet) * paint_fade;
             col = paint_wall(vec2<f32>(u, h), vec3<f32>(face, width, seed), in.graffiti, col, paint_gain);
         }

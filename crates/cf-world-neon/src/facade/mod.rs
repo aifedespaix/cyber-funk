@@ -103,7 +103,8 @@ impl Plugin for FacadePlugin {
             // Sans `PalettePlugin` (exemples, tests) : le thème de départ de Sillage. `PalettePlugin` réécrira la ressource.
             app.insert_resource(velvet_palette());
         }
-        app.init_resource::<FacadeLook>()
+        app.init_resource::<crate::graffiti::GraffitiQuality>()
+            .init_resource::<FacadeLook>()
             .init_resource::<CarTrail>()
             .init_resource::<cf_render::FacadeTuning>()
             .add_systems(
@@ -114,8 +115,11 @@ impl Plugin for FacadePlugin {
             )
             .add_systems(
                 Update,
-                wall::bind_wall_atlas
-                    .run_if(resource_exists::<crate::graffiti::GraffitiAtlas>)
+                (
+                    wall::bind_wall_atlas.run_if(resource_exists::<crate::graffiti::GraffitiAtlas>),
+                    wall::apply_wall_quality,
+                )
+                    .chain()
                     .in_set(CfSet::Present),
             );
     }

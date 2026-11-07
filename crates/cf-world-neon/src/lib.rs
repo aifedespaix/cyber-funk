@@ -154,6 +154,7 @@ impl Plugin for NeonWorldPlugin {
         .init_resource::<RoutePlan>()
         .init_resource::<RoutePlanner>()
         .init_resource::<graffiti::projector::ProjectorState>()
+        .init_resource::<graffiti::GraffitiQuality>()
         .add_message::<cf_render::QualityChanged>()
         .add_systems(
             Update,
@@ -206,9 +207,12 @@ fn apply_quality(
     mut changes: MessageReader<cf_render::QualityChanged>,
     mut world: ResMut<NeonWorld>,
     mut stream: ResMut<cf_render::ChunkStream<NeonWorld>>,
+    mut graffiti: ResMut<graffiti::GraffitiQuality>,
 ) {
     // Seul le dernier niveau compte si plusieurs changements tombent dans la même image.
     let Some(last) = changes.read().last() else { return };
+    // Graffitis et projecteurs : un cran de plus ne re-tire rien, il cache des emplacements et raccourcit la portée des murs.
+    graffiti.set_if_neq(graffiti::GraffitiQuality::for_level(last.to));
     if world.set_quality(last.to) {
         stream.replan_all();
     }

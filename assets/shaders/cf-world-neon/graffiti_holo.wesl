@@ -105,7 +105,11 @@ fn fragment(in: VertexOutput) -> @location(0) vec4<f32> {
         for (var c = 0; c < 3; c++) {
             core[c] = holo_mask(holo.sharp, vec2<f32>(a.x + jump + (f32(c) - 1.0) * shift, a.y));
         }
-        let glow = holo_mask(holo.halo, vec2<f32>(a.x + jump, a.y));
+        // Qualité réduite : `shape.z` = 0 coupe le halo (valeur uniforme, la lecture est sautée).
+        var glow = 0.0;
+        if holo.shape.z > 0.0 {
+            glow = holo_mask(holo.halo, vec2<f32>(a.x + jump, a.y));
+        }
         // Lignes de balayage : lentes et continues, sans à-coup.
         let scan = 0.9 + 0.1 * sin(a.y * 160.0 - t * 2.0);
         let hot = mix(tint, vec3<f32>(1.0), 0.45);
