@@ -72,7 +72,10 @@ fn main() -> anyhow::Result<ExitCode> {
     if let Some((recorder, _)) = &session {
         app.add_plugins(cf_render::DebugLogPlugin {
             recorder: recorder.clone(),
-        });
+        })
+        // Le journal en direct de l'onglet Statistiques : la même poignée que celle que remplit l'enregistreur. Sans
+        // enregistreur (disque refusé), la ressource manque et l'onglet dit « Journal indisponible ».
+        .insert_resource(cf_operator::OperatorLog(recorder.log_buffer()));
     }
     let exit = app.run();
     tracing::info!(?exit, "cyber-funk s'arrête");

@@ -86,6 +86,27 @@ lui-même ; vos clics passent toujours), nombre d'événements en cours, horloge
   entre-temps.
 - **■ Noir** (ou `Échap`) bascule le noir complet, dans tous les onglets. `Échap` ne fait pas le noir quand il sert à
   autre chose : fermer un dialogue, un menu ou une liste déroulante, ou pendant la saisie d'un texte.
+- `M` (**Marquer ce moment**) pose un repère `mark` dans le journal de session, dans tous les onglets et en Live (sauf
+  pendant la saisie d'un texte). Faites-le dès que quelque chose cloche : l'agent ou la personne qui relira le journal
+  saura où regarder.
+
+**Onglet Statistiques** (disponible en Live : il ne lance rien).
+
+- En haut, quatre tuiles : images par seconde (et p99 du temps d'image), tempo détecté et confiance, événements joués
+  depuis l'ouverture de la fenêtre, état du limiteur de flashs (**OK** ou **Coupés** par FLASHS ou RESPIRATION).
+- Dessous, quatre cartes : énergie audio sur 60 s, bandes du spectre (basses, médiums, aigus), événements par famille,
+  temps d'antenne par DJ (mesuré depuis l'ouverture). Une carte sans données l'écrit au lieu d'afficher des zéros.
+- **Diagnostic détaillé et sessions de mesure** (repliable) : passes de rendu, entités, export CSV.
+- **Journal de session en direct**, dans tout le bas de l'onglet : boutons de niveau (debug, info, warn, error ; au
+  moins un reste allumé), filtre texte, « Garder 100 / 200 / 500 lignes », **Pause** (l'affichage se fige, le journal
+  continue d'enregistrer ; **Reprendre** revient au direct), **Vider**. Cliquer le nom d'un événement (en magenta) filtre
+  dessus. La liste reste collée en bas tant que vous ne remontez pas. Le compteur dit « lignes visibles / lignes
+  gardées ».
+- **Copier les 20 / 50 / 100 / 200 dernières** : **Copier pour un agent** copie les dernières lignes *visibles*
+  (niveaux et filtre appliqués) avec un en-tête (session, date, niveaux, filtre, format) ; **Warn + erreurs** copie les
+  dernières lignes warn et error quel que soit l'affichage. Collez le tout dans la conversation avec l'agent.
+  « N lignes copiées » s'affiche deux secondes.
+- Sans journal de session (disque refusé au démarrage), l'onglet affiche « Journal indisponible ».
 
 ## 4. Préparer une soirée
 
@@ -214,7 +235,8 @@ Vue Live. Les gros boutons et leurs raccourcis (affichés sur chaque bouton) :
 | Mode | Ctrl+M | change le mode du créneau |
 
 Toujours disponibles, au-dessus de la vue (barre de statut) : **■ Noir** / `Échap`, **Passer au suivant** (avec
-confirmation), Pause / Reprendre. Les mesures (images, mémoire) sont dans l'onglet **Statistiques** (`Ctrl+2`).
+confirmation), Pause / Reprendre, et le repère `M` du journal. Les mesures (images, mémoire) et le journal en direct sont
+dans l'onglet **Statistiques** (`Ctrl+2`), lui aussi disponible en Live.
 
 À retenir : **BLACKOUT, LOOK CALME, FLASHS et RESPIRATION** sont les commandes de sécurité. Les flashs passent toujours
 par un limiteur (3 par seconde au plus, jamais de rouge plein écran) : même avec les flashs permis, le public ne reçoit
@@ -238,6 +260,8 @@ Passation de DJ : armez le suivant (J) si l'ordre prévu change, puis G au momen
 | Image saccadée | onglet Statistiques (`Ctrl+2`) pour mesurer ; baisser la qualité n'est pas manuel : elle est adaptative |
 
 Dans les versions livrées (pas en développement), le journal est écrit dans un fichier ; son dossier exact n'est pas documenté ici. Joignez-le à tout signalement.
+Sur le moment : `M` pour marquer l'instant, puis onglet Statistiques, **Warn + erreurs** ou **Copier pour un agent**, et
+collez le texte dans votre signalement.
 Les pannes injectables et leurs tests sont décrits dans `docs/PANNES.md`.
 
 ## 7. Après le set

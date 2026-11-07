@@ -2,7 +2,7 @@
 //!
 //! ```text
 //! EguiPrimaryContextPass :
-//!   shell_input   Ctrl+1/2/3 (onglets), ? (aide), Échap (Noir)  ─▶ ShellState, LiveOrders
+//!   shell_input   Ctrl+1/2/3 (onglets), ? (aide), Échap (Noir), M (repère)  ─▶ ShellState, LiveOrders, journal
 //!   main_panel    en-tête (onglets + barre de statut) puis l'onglet affiché
 //!   persist_tab   ShellState::tab ─▶ Settings.value.operator.last_tab (seulement s'il a changé)
 //! ```
@@ -24,12 +24,16 @@ use bevy_egui::{EguiContext, PrimaryEguiContext, egui};
 use cf_control::{Action, Switch};
 use cf_render::WorldAutomation;
 use cf_render::audio::{AudioFeatures, AudioStatus};
-use cf_render::{ActiveEvents, DiagnosticsSnapshot, MeasurementSession, Settings, ShowSheet, SimClock, SimControl};
+use cf_render::{
+    ActiveEvents, DebugLog, DiagnosticsSnapshot, MeasurementSession, Settings, ShowSheet, SimClock, SimControl,
+};
 use cf_show::director::ShowState;
 
 use crate::OperatorMode;
 use crate::live::{LiveOrders, ModePrompt};
 use crate::quit::QuitPrompt;
+use crate::services::logbuf::{self, OperatorLog};
+use crate::tabs::stats::LogViewState;
 use crate::tabs::stats::diagnostics::PanelState;
 pub(crate) use confirm::Confirm;
 use shortcuts::{KeyGuard, ShellKey};
@@ -176,6 +180,8 @@ pub(crate) fn shell_input(
     mut state: ResMut<ShellState>,
     mut orders: ResMut<LiveOrders>,
     mut pressed: Local<Vec<ShellKey>>,
+    marks: MarkParams,
+    mut log_view: ResMut<LogViewState>,
 ) {
     let ctx = context.get_mut();
     let guard = KeyGuard {
@@ -193,7 +199,38 @@ pub(crate) fn shell_input(
             }
             ShellKey::Help => state.help_open = !state.help_open,
             ShellKey::Blackout => orders.0.push(Action::Blackout(Switch::Toggle)),
+            ShellKey::Mark => {
+                if marks.mark() {
+                    log_view.notify("Repère posé dans le journal".to_owned(), ctx.input(|i| i.time));
+                }
+            }
         }
+    }
+}
+
+/// Ce que le repère `M` lit : l'enregistreur (s'il est là, le repère rejoint aussi `events.jsonl`), le tampon du
+/// journal, et l'horloge de simulation pour le libellé.
+#[derive(SystemParam)]
+pub(crate) struct MarkParams<'w> {
+    recorder: Option<Res<'w, DebugLog>>,
+    log: Option<Res<'w, OperatorLog>>,
+    clock: Option<Res<'w, SimClock>>,
+}
+
+impl MarkParams<'_> {
+    /// Pose le repère ; `false` s'il n'y a aucun journal à marquer.
+    fn mark(&self) -> bool {
+        let recorder = self.recorder.as_deref().map(|r| &r.0);
+        let buffer = self.log.as_deref().map(|l| &l.0);
+        if recorder.is_none() && buffer.is_none() {
+            return false;
+        }
+        let label = self.clock.as_deref().map_or_else(
+            || "repère opérateur".to_owned(),
+            |c| format!("repère opérateur · sim {:.3} s", c.sim_s()),
+        );
+        logbuf::mark(recorder, buffer, &label);
+        true
     }
 }
 

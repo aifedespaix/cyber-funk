@@ -5,7 +5,9 @@
 //! - les chiffres seuls sont liés à `GotoCue(n)` : les onglets passent donc par `Ctrl+1/2/3`. Le pont exige que Ctrl
 //!   corresponde exactement (`key_matches` de `cf-control`), Ctrl+chiffre ne saute donc jamais de cue ;
 //! - `Échap` n'est lié à rien (Sillage s'en servait pour sortir, cyber-funk jamais) : c'est le Noir ;
-//! - `?` n'est lié à rien ; sur AZERTY c'est Maj+`,`, et la vue Live n'écoute `,` que sans Maj.
+//! - `?` n'est lié à rien ; sur AZERTY c'est Maj+`,`, et la vue Live n'écoute `,` que sans Maj ;
+//! - `M` seul n'est lié à rien (la vue Live ne prend que `Ctrl+M`, le changement de mode) : c'est le repère du journal.
+//!   Lu sur la touche **logique** (la lettre M, où qu'elle soit sur le clavier), jamais avec Ctrl, Alt ou Cmd.
 //!
 //! Les chiffres sont reconnus par leur caractère **ou** leur position : sur AZERTY la rangée du haut donne « & é " »
 //! sans Maj, seule la touche physique dit « 1 2 3 ».
@@ -25,6 +27,8 @@ pub(crate) const KEY_TAB_3: &str = "Ctrl+3";
 pub(crate) const KEY_HELP: &str = "?";
 /// Voir [`KEY_TAB_1`].
 pub(crate) const KEY_BLACKOUT: &str = "Échap";
+/// Voir [`KEY_TAB_1`].
+pub(crate) const KEY_MARK: &str = "M";
 
 /// Tous les raccourcis de la coque : (touche, effet). L'aide les liste dans cet ordre.
 pub(crate) const SHORTCUTS: &[(&str, &str)] = &[
@@ -35,6 +39,10 @@ pub(crate) const SHORTCUTS: &[(&str, &str)] = &[
     (
         KEY_BLACKOUT,
         "Noir : bascule le blackout (sauf dialogue, menu ouvert ou saisie de texte)",
+    ),
+    (
+        KEY_MARK,
+        "Marquer ce moment : repère « mark » dans le journal de session (sauf saisie de texte)",
     ),
 ];
 
@@ -47,17 +55,20 @@ pub(crate) enum ShellKey {
     Help,
     /// Basculer le Noir.
     Blackout,
+    /// Poser un repère dans le journal.
+    Mark,
 }
 
 impl ShellKey {
     /// Toutes les commandes de la coque (l'aide doit les lister toutes).
     #[cfg(test)]
-    pub(crate) const ALL: [ShellKey; 5] = [
+    pub(crate) const ALL: [ShellKey; 6] = [
         Self::Tab(Tab::Settings),
         Self::Tab(Tab::Stats),
         Self::Tab(Tab::Debug),
         Self::Help,
         Self::Blackout,
+        Self::Mark,
     ];
 
     /// Le texte de la touche, tel que [`SHORTCUTS`] l'affiche.
@@ -68,6 +79,7 @@ impl ShellKey {
             Self::Tab(Tab::Debug) => KEY_TAB_3,
             Self::Help => KEY_HELP,
             Self::Blackout => KEY_BLACKOUT,
+            Self::Mark => KEY_MARK,
         }
     }
 }
@@ -131,6 +143,9 @@ pub(crate) fn poll(input: &egui::InputState, mode: OperatorMode, guard: KeyGuard
                     out.push(ShellKey::Tab(tab));
                 } else if *key == Key::Escape && guard.escape_is_blackout() {
                     out.push(ShellKey::Blackout);
+                } else if *key == Key::M && !(modifiers.ctrl || modifiers.command || modifiers.alt || modifiers.mac_cmd)
+                {
+                    out.push(ShellKey::Mark);
                 }
             }
             Event::Text(text) if text == KEY_HELP => out.push(ShellKey::Help),

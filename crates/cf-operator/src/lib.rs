@@ -10,6 +10,7 @@ mod loading;
 mod prepare;
 mod preview;
 mod quit;
+mod services;
 mod shell;
 mod tabs;
 mod ui;
@@ -18,6 +19,7 @@ mod window;
 pub use live::OperatorMode;
 pub use prepare::PrepConfig;
 pub use quit::{QuitConfirmation, QuitDecision, QuitGuardPlugin, QuitPrompt, QuitSource};
+pub use services::logbuf::{OperatorLog, mark_moment};
 pub use tabs::settings::update_panel::{InstallUpdate, UpdateStatus};
 pub use window::OperatorWindow;
 
@@ -56,6 +58,7 @@ impl Plugin for OperatorPlugin {
             .add_message::<cf_render::DistrictOrder>();
         live::build(app);
         shell::build(app);
+        tabs::stats::build(app);
         preview::build(app);
         freecam::build(app);
         app.add_systems(Startup, window::spawn_operator_window).add_systems(

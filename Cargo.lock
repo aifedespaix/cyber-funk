@@ -2452,6 +2452,7 @@ dependencies = [
  "bevy",
  "bevy_egui",
  "cf-control",
+ "cf-debuglog",
  "cf-render",
  "cf-show",
  "cf-world-neon",

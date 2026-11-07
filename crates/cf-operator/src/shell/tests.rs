@@ -298,6 +298,39 @@ fn tab_shortcut_uses_the_physical_key_on_azerty_and_never_while_typing() {
 }
 
 #[test]
+fn m_marks_the_log_but_never_with_ctrl_or_while_typing() {
+    for mode in [PREP, LIVE] {
+        with_events(vec![key(Key::M, Modifiers::NONE)], |input| {
+            let mut out = Vec::new();
+            poll(input, mode, KeyGuard::default(), &mut out);
+            assert_eq!(out, [ShellKey::Mark], "le repère existe aussi en Live");
+        });
+    }
+    // Ctrl+M est le changement de mode de la vue Live ; Alt+M (AltGr sous Windows) n'est pas M.
+    with_events(
+        vec![key(Key::M, Modifiers::CTRL), key(Key::M, Modifiers::ALT)],
+        |input| {
+            let mut out = Vec::new();
+            poll(input, LIVE, KeyGuard::default(), &mut out);
+            assert_eq!(out, Vec::<ShellKey>::new());
+        },
+    );
+    with_events(vec![key(Key::M, Modifiers::NONE)], |input| {
+        let mut out = Vec::new();
+        let typing = KeyGuard {
+            typing: true,
+            ..KeyGuard::default()
+        };
+        poll(input, PREP, typing, &mut out);
+        assert_eq!(
+            out,
+            Vec::<ShellKey>::new(),
+            "un « m » tapé dans le filtre n'est pas un repère"
+        );
+    });
+}
+
+#[test]
 fn the_status_bar_draws_with_and_without_values_and_says_when_missing() {
     let ctx = egui::Context::default();
     for armed in [false, true] {

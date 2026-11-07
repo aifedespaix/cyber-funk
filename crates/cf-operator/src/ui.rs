@@ -14,7 +14,7 @@ use crate::shell::{self, ShellParams, Tab};
 use crate::tabs::debug::{self, DebugParams, Shared};
 use crate::tabs::settings::update_panel::{self, InstallUpdate, UpdateStatus};
 use crate::tabs::settings::{audio_panel, controls_panel, learn_panel};
-use crate::tabs::stats::diagnostics;
+use crate::tabs::stats::{self, StatsParams};
 
 /// Largeur initiale du panneau audio (points egui) : assez pour les vumètres et la ligne des compteurs.
 const AUDIO_PANEL_WIDTH: f32 = 560.0;
@@ -38,6 +38,7 @@ pub(crate) fn main_panel(
     mut install: MessageWriter<InstallUpdate>,
     mut debug: DebugParams,
     mut shell: ShellParams,
+    mut stats: StatsParams,
 ) {
     // Depuis egui 0.36 les panneaux se posent dans un `Ui` racine, pas directement sur le contexte.
     let ctx = context.get_mut();
@@ -63,7 +64,7 @@ pub(crate) fn main_panel(
     match shell.state.shown(mode) {
         Tab::Settings => {}
         Tab::Stats => {
-            stats_tab(&mut root, &mut shell);
+            stats::show(&mut root, &mut shell, &mut stats, features.as_deref());
             return;
         }
         Tab::Debug => {
@@ -140,26 +141,6 @@ pub(crate) fn main_panel(
         });
         egui::ScrollArea::vertical().show(ui, |ui| {
             draw_controls(ui, live.show(), controls.as_deref(), features_copy);
-        });
-    });
-}
-
-/// L'onglet Statistiques : le panneau de diagnostic, ou la raison de son absence.
-fn stats_tab(root: &mut egui::Ui, shell: &mut ShellParams) {
-    let now_s = shell.time.elapsed_secs_f64();
-    let ShellParams {
-        diagnostics,
-        session,
-        stats,
-        ..
-    } = shell;
-    egui::CentralPanel::default().show(root, |ui| {
-        ui.heading("Statistiques");
-        egui::ScrollArea::vertical().show(ui, |ui| match (diagnostics.as_deref(), session.as_deref_mut()) {
-            (Some(snapshot), Some(session)) => diagnostics::draw(ui, snapshot, session, stats, now_s),
-            _ => {
-                ui.weak("Diagnostic non branché (DiagnosticsPlugin absent).");
-            }
         });
     });
 }
