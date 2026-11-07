@@ -147,7 +147,7 @@ impl Fonts {
 }
 
 /// Convertit les commandes de contour de `swash` (y vers le haut) en chemin `tiny-skia` (y vers le bas), décalé de `x`.
-fn outline(commands: &[cosmic_text::Command], x: f32) -> Option<Path> {
+pub(crate) fn outline(commands: &[cosmic_text::Command], x: f32) -> Option<Path> {
     use cosmic_text::Command::{Close, CurveTo, LineTo, MoveTo, QuadTo};
     let mut pb = PathBuilder::new();
     for command in commands {
