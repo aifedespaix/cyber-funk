@@ -6,6 +6,8 @@
 
 use bevy::prelude::*;
 
+use crate::active_events::EventCategory;
+
 /// Un événement lançable.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct WorldEvent {
@@ -17,6 +19,19 @@ pub struct WorldEvent {
     pub family: &'static str,
     /// Une ligne pour dire ce que ça fait (`""` si rien à ajouter).
     pub note: &'static str,
+    /// La colonne de l'interface opérateur, quand la famille ne suffit pas à la dire : une famille peut mêler des
+    /// enseignes, des immeubles et des véhicules (« Trafic et ciel »). Ce doit être la catégorie que le monde écrit dans
+    /// `ActiveEvents` en lançant l'événement, sinon la puce et son entrée « En cours » tomberaient dans deux colonnes.
+    /// `None` : la colonne vient de la famille (table de l'opérateur).
+    pub category: Option<EventCategory>,
+}
+
+impl WorldEvent {
+    /// La colonne de l'événement : sa catégorie explicite, sinon celle que `by_family` donne à sa famille.
+    #[must_use]
+    pub fn column(&self, by_family: impl FnOnce(&str) -> Option<EventCategory>) -> Option<EventCategory> {
+        self.category.or_else(|| by_family(self.family))
+    }
 }
 
 /// Tous les événements inscrits, dans l'ordre d'inscription.
@@ -99,6 +114,7 @@ mod tests {
             label,
             family,
             note: "",
+            category: None,
         }
     }
 
@@ -131,6 +147,33 @@ mod tests {
         assert_eq!(catalog.search("vitrines").len(), 1, "par famille");
         assert_eq!(catalog.search("  ").len(), 2, "recherche vide : tout");
         assert_eq!(catalog.search("introuvable").len(), 0);
+    }
+
+    #[test]
+    fn la_categorie_explicite_l_emporte_sur_la_famille() {
+        let by_family = |family: &str| (family == "Trafic").then_some(EventCategory::Car);
+        let plain = event("storm", "Orage", "Trafic");
+        assert_eq!(plain.column(by_family), Some(EventCategory::Car), "repli : la famille");
+        let adship = WorldEvent {
+            category: Some(EventCategory::Sign),
+            ..event("adship", "Vaisseau publicitaire", "Trafic")
+        };
+        assert_eq!(adship.column(by_family), Some(EventCategory::Sign));
+        assert_eq!(
+            event("x", "X", "Inconnue").column(by_family),
+            None,
+            "ni l'une ni l'autre"
+        );
+    }
+
+    #[test]
+    fn l_inscription_garde_la_categorie() {
+        let mut catalog = WorldEventCatalog::default();
+        catalog.register(WorldEvent {
+            category: Some(EventCategory::Building),
+            ..event("tower", "Méga-tour", "Trafic")
+        });
+        assert_eq!(catalog.all()[0].category, Some(EventCategory::Building));
     }
 
     #[test]

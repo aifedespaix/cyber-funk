@@ -89,6 +89,8 @@ pub fn world_events() -> Vec<WorldEvent> {
                 label,
                 family: FAMILY,
                 note,
+                // La famille mêle trois colonnes : celle de l'événement est la catégorie qu'il porte en cours.
+                category: Some(category(name)),
             }
         })
         .collect()
@@ -110,6 +112,8 @@ mod tests {
             assert_ne!(event.label, "", "{}", name.as_str());
             // L'identifiant se relit comme un événement du trafic : le bouton « Lancer » est pris par `take_triggers`.
             assert_eq!(EventName::from_slug(event.id), Some(name));
+            // La colonne de l'opérateur est celle de l'entrée « En cours » publiée au lancement.
+            assert_eq!(event.category, Some(category(name)), "{}", name.as_str());
         }
     }
 }

@@ -4,7 +4,7 @@
 //! montre. Le `match` des libellés est exhaustif : un immeuble ajouté sans libellé ne compile pas.
 
 use bevy::prelude::*;
-use cf_render::{ShowRuntime, WorldEvent};
+use cf_render::{EventCategory, ShowRuntime, WorldEvent};
 
 use super::landmark::LandmarkKind;
 use super::plugin::LandmarkHandle;
@@ -50,6 +50,8 @@ pub fn world_events() -> Vec<WorldEvent> {
             label: label(kind),
             family: FAMILY,
             note: "",
+            // Lancé par l'événement `landmark` du trafic, publié en `Building`.
+            category: Some(EventCategory::Building),
         })
         .collect()
 }

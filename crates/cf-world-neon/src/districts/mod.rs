@@ -21,7 +21,7 @@ mod state;
 mod systems;
 
 use bevy::prelude::*;
-use cf_render::{CfSet, WorldEvent, WorldEventAppExt, WorldSet};
+use cf_render::{CfSet, EventCategory, WorldEvent, WorldEventAppExt, WorldSet};
 use cf_show::district::DistrictKind;
 
 pub use cf_render::{DistrictOrder, DistrictState};
@@ -88,6 +88,7 @@ pub fn world_events() -> Vec<WorldEvent> {
             label: kind.label(),
             family: FAMILY,
             note: "variante tirée au hasard, transition en dégradé",
+            category: Some(EventCategory::District),
         })
         .collect()
 }
