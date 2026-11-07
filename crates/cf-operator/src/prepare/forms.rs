@@ -21,7 +21,7 @@ const PRESETS: [(PresetTheme, &str); 6] = [
 ];
 
 /// Réglages de l'événement : nom, flashs, latence, écran, look de secours, enseignes, profils, langue.
-pub(super) fn event_form(
+pub(crate) fn event_form(
     ui: &mut egui::Ui,
     event: &mut Event,
     looks: &[LookId],
@@ -83,7 +83,7 @@ pub(super) fn event_form(
 }
 
 /// Créneau d'un DJ : identité, horaires, thème, mode, profil audio, profils de contrôle.
-pub(super) fn slot_form(ui: &mut egui::Ui, slot: &mut DjSlot, library_ids: &[String], touch: &mut Touch) {
+pub(crate) fn slot_form(ui: &mut egui::Ui, slot: &mut DjSlot, library_ids: &[String], touch: &mut Touch) {
     row(ui, "Identifiant", |ui| {
         ui.label(slot.id.as_str());
     });
@@ -154,7 +154,7 @@ pub(super) fn slot_form(ui: &mut egui::Ui, slot: &mut DjSlot, library_ids: &[Str
 
 /// Choix d'un look parmi ceux qui existent (un identifiant absent de la liste reste affiché, signalé par la
 /// validation).
-pub(super) fn look_choice(ui: &mut egui::Ui, touch: &mut Touch, salt: &str, value: &mut LookId, looks: &[LookId]) {
+pub(crate) fn look_choice(ui: &mut egui::Ui, touch: &mut Touch, salt: &str, value: &mut LookId, looks: &[LookId]) {
     let mut options: Vec<(LookId, String)> = looks.iter().map(|id| (id.clone(), id.to_string())).collect();
     if !looks.contains(value) {
         options.insert(0, (value.clone(), format!("{value} (introuvable)")));

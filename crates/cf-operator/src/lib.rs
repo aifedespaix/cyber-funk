@@ -49,7 +49,7 @@ impl Plugin for OperatorPlugin {
             .add_systems(Update, sync_text_focus.before(CfSet::Input));
         // Où chercher les looks et quel événement ouvrir en Préparation (le binaire peut l'avoir posé avant).
         app.init_resource::<PrepConfig>()
-            .add_systems(Startup, prepare::init_session);
+            .add_systems(Startup, tabs::settings::restore::init_session);
         // Le binaire écrit l'état de la mise à jour (J9-06) ; l'opérateur ne fait que l'afficher.
         app.init_resource::<UpdateStatus>().add_message::<InstallUpdate>();
         // L'onglet Debug écrit des ordres de quartier ; le monde enregistre le même message (idempotent), et sans monde
@@ -69,6 +69,7 @@ impl Plugin for OperatorPlugin {
                 shell::shell_input,
                 ui::main_panel,
                 shell::persist_tab,
+                tabs::settings::restore::remember_evening,
                 live::mode_dialog,
                 ui::quit_dialog,
                 live::flush_orders,

@@ -22,6 +22,9 @@ pub struct PrepConfig {
     pub assets_dir: PathBuf,
     /// Événement à ouvrir au démarrage (le `--show` de la ligne de commande).
     pub show_path: Option<PathBuf>,
+    /// Dossier des profils de soirée (`<config>/cyber-funk/profiles`) ; `None` : pas de profils, l'enregistrement
+    /// passe par le chemin saisi, comme avant.
+    pub profiles_dir: Option<PathBuf>,
 }
 
 impl Default for PrepConfig {
@@ -29,6 +32,7 @@ impl Default for PrepConfig {
         Self {
             assets_dir: PathBuf::from("assets"),
             show_path: None,
+            profiles_dir: None,
         }
     }
 }
@@ -68,18 +72,32 @@ pub(crate) struct PrepSession {
     pub status: Status,
     /// Champ « chemin du fichier » de la barre.
     pub path_input: String,
+    /// Profil de soirée dont vient l'événement (nom du fichier sans `.ron`) ; `None` : aucun.
+    active_profile: Option<String>,
 }
 
 impl PrepSession {
-    /// Session de départ : le fichier de la configuration s'il y en a un, sinon un événement neuf.
+    /// Session de départ : le fichier de la configuration s'il y en a un, sinon un événement neuf (tests).
+    #[cfg(test)]
     pub(crate) fn start(config: &PrepConfig) -> Option<Self> {
+        Self::start_from(config, config.show_path.as_slice())
+    }
+
+    /// Session de départ : le premier des `candidates` qui s'ouvre (validation comprise), sinon un événement neuf.
+    /// Un candidat refusé est noté dans le journal : il n'empêche jamais de démarrer.
+    pub(crate) fn start_from(config: &PrepConfig, candidates: &[PathBuf]) -> Option<Self> {
         let (library, library_error) = match LookLibrary::load_dir(&config.assets_dir.join("looks")) {
             Ok(library) => (library, None),
             Err(e) => (LookLibrary::new(), Some(format!("looks illisibles : {e}"))),
         };
         let mut session = Self::blank(library)?;
-        if let Some(path) = &config.show_path {
-            session.open(path);
+        for path in candidates {
+            if session.open(path) {
+                break;
+            }
+            if let Status::Error(reason) = &session.status {
+                tracing::warn!(path = %path.display(), "soirée non reprise : {reason}");
+            }
         }
         if let Some(message) = library_error {
             session.status = Status::Error(message);
@@ -87,12 +105,16 @@ impl PrepSession {
         Some(session)
     }
 
-    fn blank(library: LookLibrary) -> Option<Self> {
-        let safe_look = match library.iter().next() {
-            Some((id, _)) => id.clone(),
-            None => LookId::new("calme").ok()?,
-        };
-        let event = edit::new_event(safe_look)?;
+    /// Le look de secours d'un événement neuf : le premier de la bibliothèque, sinon `calme`.
+    fn default_safe_look(library: &LookLibrary) -> Option<LookId> {
+        match library.iter().next() {
+            Some((id, _)) => Some(id.clone()),
+            None => LookId::new("calme").ok(),
+        }
+    }
+
+    pub(crate) fn blank(library: LookLibrary) -> Option<Self> {
+        let event = edit::new_event(Self::default_safe_look(&library)?)?;
         let mut session = Self {
             baseline: event.clone(),
             doc: EventDocument::new(event),
@@ -102,6 +124,7 @@ impl PrepSession {
             selection: Selection::default(),
             status: Status::Quiet,
             path_input: String::new(),
+            active_profile: None,
         };
         session.revalidate();
         Some(session)
@@ -180,7 +203,7 @@ impl PrepSession {
 
     /// Ouvre un fichier d'événement : l'édition en cours est remplacée (l'appelant a déjà confirmé si elle était
     /// modifiée). Une erreur laisse l'édition intacte.
-    pub(crate) fn open(&mut self, path: &Path) {
+    pub(crate) fn open(&mut self, path: &Path) -> bool {
         match EventDocument::open(path, &self.library) {
             Ok((doc, _)) => {
                 self.baseline = doc.event().clone();
@@ -189,8 +212,12 @@ impl PrepSession {
                 self.path_input = path.display().to_string();
                 self.after_change();
                 self.status = Status::Info(format!("{} ouvert", path.display()));
+                true
             }
-            Err(e) => self.status = Status::Error(format!("ouverture impossible : {e}")),
+            Err(e) => {
+                self.status = Status::Error(format!("ouverture impossible : {e}"));
+                false
+            }
         }
     }
 
@@ -205,21 +232,116 @@ impl PrepSession {
     }
 
     /// Enregistre sous `path`, qui devient le fichier associé.
-    pub(crate) fn save_as(&mut self, path: &Path) {
+    pub(crate) fn save_as(&mut self, path: &Path) -> bool {
         let result = self.doc.save_as(path);
         self.path_input = path.display().to_string();
-        self.finish_save(result);
+        self.finish_save(result)
     }
 
-    fn finish_save(&mut self, result: Result<(), cf_show::persist::PersistError>) {
+    fn finish_save(&mut self, result: Result<(), cf_show::persist::PersistError>) -> bool {
         match result {
             Ok(()) => {
                 self.baseline = self.doc.event().clone();
                 let name = self.doc.path().map(|p| p.display().to_string()).unwrap_or_default();
                 self.status = Status::Info(format!("{name} enregistré"));
+                true
             }
-            Err(e) => self.status = Status::Error(format!("enregistrement impossible : {e}")),
+            Err(e) => {
+                self.status = Status::Error(format!("enregistrement impossible : {e}"));
+                false
+            }
         }
+    }
+
+    /// Le fichier associé (profil ou fichier ouvert), s'il y en a un.
+    pub(crate) fn doc_path(&self) -> Option<&Path> {
+        self.doc.path()
+    }
+
+    /// Le profil de soirée actif.
+    pub(crate) fn active_profile(&self) -> Option<&str> {
+        self.active_profile.as_deref()
+    }
+
+    pub(crate) fn set_active_profile(&mut self, name: Option<String>) {
+        self.active_profile = name;
+    }
+
+    /// Importe un fichier d'événement : son contenu remplace l'édition, mais la version enregistrée de référence
+    /// reste celle d'avant (le profil actif n'a pas encore reçu l'import : la session est donc « modifiée »).
+    pub(crate) fn import(&mut self, path: &Path) -> bool {
+        let saved = self.baseline.clone();
+        if !self.open(path) {
+            return false;
+        }
+        self.baseline = saved;
+        self.status = Status::Info(format!("{} importé (à enregistrer)", path.display()));
+        true
+    }
+
+    /// Exporte une copie de l'événement sous `path` (écriture atomique, `.bak` de l'ancien fichier), sans changer le
+    /// fichier associé ni l'état « modifié ».
+    pub(crate) fn export(&mut self, path: &Path) -> bool {
+        match EventDocument::new(self.doc.event().clone()).save_as(path) {
+            Ok(()) => {
+                self.status = Status::Info(format!("{} exporté", path.display()));
+                true
+            }
+            Err(e) => {
+                self.status = Status::Error(format!("export impossible : {e}"));
+                false
+            }
+        }
+    }
+
+    /// Repart d'un événement neuf (nouveau profil) : historique vidé, rien de modifié, aucun fichier associé.
+    pub(crate) fn restart_blank(&mut self) -> bool {
+        let Some(event) = Self::default_safe_look(&self.library).and_then(edit::new_event) else {
+            return false;
+        };
+        self.baseline = event.clone();
+        self.doc = EventDocument::new(event);
+        self.history.clear();
+        self.selection = Selection::default();
+        self.after_change();
+        true
+    }
+
+    /// Le créneau `index` diffère-t-il de sa version enregistrée (même identifiant) ? Un créneau neuf l'est toujours.
+    pub(crate) fn slot_modified(&self, index: usize) -> bool {
+        let Some(slot) = self.doc.event().slots.get(index) else {
+            return false;
+        };
+        self.baseline.slots.iter().find(|s| s.id == slot.id) != Some(slot)
+    }
+
+    /// Les réglages de l'événement (hors créneaux) diffèrent-ils de leur version enregistrée ?
+    pub(crate) fn settings_modified(&self) -> bool {
+        let event = self.doc.event();
+        event.settings != self.baseline.settings || event.looks != self.baseline.looks
+    }
+
+    /// Ramène le créneau `index` à sa version enregistrée ; un créneau neuf est retiré si l'événement le permet
+    /// (`edit::remove_slot`). Une étape d'annulation.
+    pub(crate) fn revert_slot(&mut self, index: usize) {
+        let mut edited = self.doc.event().clone();
+        let Some(slot) = edited.slots.get_mut(index) else {
+            return;
+        };
+        if let Some(saved) = self.baseline.slots.iter().find(|s| s.id == slot.id) {
+            *slot = saved.clone();
+        } else {
+            edit::remove_slot(&mut edited, index);
+        }
+        self.commit(edited, None);
+    }
+
+    /// Ramène les réglages de l'événement à leur version enregistrée. Une étape d'annulation.
+    pub(crate) fn revert_settings(&mut self) {
+        let mut edited = self.doc.event().clone();
+        edited.settings = self.baseline.settings.clone();
+        edited.looks.clone_from(&self.baseline.looks);
+        self.commit(edited, None);
     }
 
     /// Valide l'événement tel qu'il est maintenant et recadre la sélection dans ses bornes.
@@ -246,15 +368,6 @@ impl PrepSession {
     }
 }
 
-/// Crée la session au démarrage (lecture de fichiers : permise, le show n'est pas encore en cours).
-pub(crate) fn init_session(config: Res<PrepConfig>, mut commands: Commands) {
-    if let Some(session) = PrepSession::start(&config) {
-        commands.insert_resource(session);
-    } else {
-        tracing::error!("préparation indisponible : impossible de créer un événement neuf");
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -267,6 +380,7 @@ mod tests {
         let config = PrepConfig {
             assets_dir: assets(),
             show_path: Some(assets().join("shows/demo.ron")),
+            profiles_dir: None,
         };
         PrepSession::start(&config).expect("session de démonstration")
     }

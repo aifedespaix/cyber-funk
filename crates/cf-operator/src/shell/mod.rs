@@ -33,7 +33,9 @@ use crate::OperatorMode;
 use crate::live::{LiveOrders, ModePrompt};
 use crate::quit::QuitPrompt;
 use crate::services::logbuf::{self, OperatorLog};
+use crate::tabs::settings::SettingsTab;
 use crate::tabs::stats::LogViewState;
+
 use crate::tabs::stats::diagnostics::PanelState;
 pub(crate) use confirm::Confirm;
 use shortcuts::{KeyGuard, ShellKey};
@@ -176,7 +178,7 @@ pub(crate) fn shell_input(
     mut context: Single<&mut EguiContext, With<PrimaryEguiContext>>,
     mode: Res<OperatorMode>,
     prompt: Res<ModePrompt>,
-    quit: Option<Res<QuitPrompt>>,
+    (quit, settings_tab): (Option<Res<QuitPrompt>>, Option<Res<SettingsTab>>),
     mut state: ResMut<ShellState>,
     mut orders: ResMut<LiveOrders>,
     mut pressed: Local<Vec<ShellKey>>,
@@ -186,7 +188,10 @@ pub(crate) fn shell_input(
     let ctx = context.get_mut();
     let guard = KeyGuard {
         typing: ctx.egui_wants_keyboard_input(),
-        dialog_open: prompt.target.is_some() || quit.is_some_and(|q| q.pending.is_some()),
+        // Une confirmation de l'onglet Réglages garde Échap pour elle (« Rester »), comme les autres dialogues.
+        dialog_open: prompt.target.is_some()
+            || quit.is_some_and(|q| q.pending.is_some())
+            || settings_tab.is_some_and(|t| t.pending.is_some()),
         // Mémoire d'egui, donc l'état de l'image précédente : la passe en cours n'a encore rien dessiné.
         popup_open: egui::Popup::is_any_open(ctx),
     };

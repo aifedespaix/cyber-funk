@@ -4,7 +4,7 @@ use bevy_egui::egui;
 
 /// Ce qu'une image d'édition a changé : sert à regrouper la frappe dans un champ en une seule étape d'annulation.
 #[derive(Debug, Default)]
-pub(super) struct Touch {
+pub(crate) struct Touch {
     /// Au moins un champ a changé pendant cette image.
     changed: bool,
     /// Identité du champ modifié, seulement s'il est unique et regroupable (texte, curseur) ; `None` sinon.
@@ -15,7 +15,7 @@ pub(super) struct Touch {
 
 impl Touch {
     /// Note le changement d'un champ discret (liste, case, bouton) : une étape d'annulation à lui seul.
-    pub(super) fn discrete(&mut self, response: &egui::Response) {
+    pub(crate) fn discrete(&mut self, response: &egui::Response) {
         if response.changed() {
             self.changed = true;
             self.mixed = true;
@@ -24,7 +24,7 @@ impl Touch {
 
     /// Note le changement d'un champ continu (texte, valeur glissée) : les changements successifs du même champ
     /// ne font qu'une étape.
-    pub(super) fn continuous(&mut self, response: &egui::Response) {
+    pub(crate) fn continuous(&mut self, response: &egui::Response) {
         if !response.changed() {
             return;
         }
@@ -37,19 +37,19 @@ impl Touch {
     }
 
     /// Note un changement quelconque (modification structurelle) : jamais regroupé.
-    pub(super) fn structural(&mut self) {
+    pub(crate) fn structural(&mut self) {
         self.changed = true;
         self.mixed = true;
     }
 
     /// La clé de regroupement à donner à l'historique.
-    pub(super) fn key(&self) -> Option<u64> {
+    pub(crate) fn key(&self) -> Option<u64> {
         if self.changed && !self.mixed { self.key } else { None }
     }
 }
 
 /// Une ligne « libellé : contrôle » dont le libellé a une largeur fixe pour aligner les champs.
-pub(super) fn row(ui: &mut egui::Ui, label: &str, add: impl FnOnce(&mut egui::Ui)) {
+pub(crate) fn row(ui: &mut egui::Ui, label: &str, add: impl FnOnce(&mut egui::Ui)) {
     ui.horizontal(|ui| {
         ui.add_sized([150.0, 20.0], egui::Label::new(label));
         add(ui);
@@ -57,13 +57,13 @@ pub(super) fn row(ui: &mut egui::Ui, label: &str, add: impl FnOnce(&mut egui::Ui
 }
 
 /// Champ texte d'une ligne, borné à `max` caractères.
-pub(super) fn text_field(ui: &mut egui::Ui, touch: &mut Touch, value: &mut String, max: usize) {
+pub(crate) fn text_field(ui: &mut egui::Ui, touch: &mut Touch, value: &mut String, max: usize) {
     let response = ui.add(egui::TextEdit::singleline(value).desired_width(260.0).char_limit(max));
     touch.continuous(&response);
 }
 
 /// Liste déroulante sur un ensemble fini de valeurs `(valeur, libellé)`.
-pub(super) fn choice<T: PartialEq + Clone>(
+pub(crate) fn choice<T: PartialEq + Clone>(
     ui: &mut egui::Ui,
     touch: &mut Touch,
     salt: &str,
@@ -95,13 +95,13 @@ pub(super) fn choice<T: PartialEq + Clone>(
 }
 
 /// Interrupteur avec son libellé à droite.
-pub(super) fn toggle(ui: &mut egui::Ui, touch: &mut Touch, value: &mut bool, label: &str) {
+pub(crate) fn toggle(ui: &mut egui::Ui, touch: &mut Touch, value: &mut bool, label: &str) {
     let response = ui.checkbox(value, label);
     touch.discrete(&response);
 }
 
 /// Un nombre à virgule glissable, borné.
-pub(super) fn number(
+pub(crate) fn number(
     ui: &mut egui::Ui,
     touch: &mut Touch,
     value: &mut f32,

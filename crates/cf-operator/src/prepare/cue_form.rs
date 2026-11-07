@@ -48,7 +48,7 @@ const TRIGGER_KINDS: [(TriggerKind, &str); 6] = [
 ];
 
 /// Édite un cue.
-pub(super) fn cue_form(ui: &mut egui::Ui, cue: &mut Cue, looks: &[LookId], touch: &mut Touch) {
+pub(crate) fn cue_form(ui: &mut egui::Ui, cue: &mut Cue, looks: &[LookId], touch: &mut Touch) {
     row(ui, "Identifiant", |ui| {
         ui.label(cue.id.as_str());
     });

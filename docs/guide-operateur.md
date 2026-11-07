@@ -121,7 +121,37 @@ DJ), chaque créneau contient une liste de **cues**, chaque cue joue un **look**
 2. Un créneau par DJ : nom, thème propre éventuel, plage de tempo, sensibilité, mode (voir plus bas).
 3. Les cues du créneau : look, façon d'entrer (coupe sur un temps fort, ou fondu), et règle d'avancée (après N secondes,
    N mesures, à une heure, ou à la main).
-4. Enregistrez ; le fichier est un `.ron` lisible. Le **look calme** doit exister, sinon l'ouverture est refusée.
+4. Enregistrez (`Ctrl+S`) ; le fichier est un `.ron` lisible. Le **look calme** doit exister, sinon l'ouverture est
+   refusée. Un événement qui a des problèmes (liste rouge sous la barre) n'est pas enregistré : corrigez d'abord.
+
+**Disposition de l'onglet.** En haut : le profil de soirée, la barre « Fichier » (import / export) et Annuler /
+Rétablir (`Ctrl+Z`, `Ctrl+Maj+Z`). À gauche, la carte **DJs de la soirée** : un DJ par ligne (avec la durée prévue
+si ses horaires sont remplis), le nombre de DJ et le total des minutes, « + Ajouter un DJ », « Dupliquer »,
+« Supprimer » (refusé pour le dernier DJ : une soirée en garde toujours un), et « Réglages de l'événement ». Pour
+réordonner : glisser une ligne, ou `Alt+↑` / `Alt+↓` sur la ligne qui a le focus (`Tab` pour l'y amener). Au centre,
+la **fiche du DJ** choisi : nom, logo, thème, horaires, mode, profil audio, profils de contrôle, puis ses cues. Le pied
+de la fiche dit « ● Modifications non enregistrées » ou « ✓ Enregistré » ; **Annuler** remet la fiche à sa version
+enregistrée, **Enregistrer** (`Ctrl+S`) enregistre toute la soirée. Choisir un autre DJ alors que la fiche est modifiée
+demande quoi faire : enregistrer, abandonner les modifications, changer sans enregistrer (elles restent en attente),
+ou rester.
+
+**Profils de soirée.** Un profil est un fichier d'événement rangé dans le dossier de configuration
+(`%APPDATA%\cyber-funk\profiles\<nom>.ron` sous Windows, `~/.config/cyber-funk/profiles/` sous Linux). Le sélecteur
+liste les profils lisibles par ordre alphabétique ; en choisir un l'ouvre. Pour en créer un, tapez son nom puis
+**Nouveau** (soirée vide) ou **Dupliquer** (copie de la soirée en cours sous ce nom). **Supprimer** efface le fichier
+du profil actif, après confirmation (la soirée reste à l'écran). Le premier `Ctrl+S` sans profil actif crée le profil
+« Soirée » (ou « Soirée 2 »… si le nom est pris). Ouvrir ou créer un profil alors que la soirée est modifiée demande
+d'abord s'il faut l'enregistrer. Les noms vides, avec `/ \ : * ? " < > |` ou `..` sont refusés.
+
+**Import / export.** Tapez un chemin dans « Fichier » : **Importer** ouvre ce fichier d'événement dans l'édition (à
+enregistrer ensuite dans le profil : la soirée est marquée modifiée) ; **Exporter** écrit une copie de la soirée dans
+ce fichier, sans changer de profil. Chaque écriture est atomique et garde l'ancienne version en `.bak`.
+
+**Reprise au relancement.** Au démarrage sans `--show`, cyber-funk rouvre dans l'onglet Réglages le profil actif, ou à
+défaut le dernier fichier ouvert ou enregistré ; un fichier absent ou illisible est sauté (avertissement dans le
+journal) et l'on repart d'une soirée neuve. `--show` garde la priorité. La reprise ne concerne que l'édition : pour
+jouer la soirée, relancez avec `--show <fichier>`. En quittant avec des modifications non enregistrées, le dialogue de
+sortie propose « Enregistrer et quitter ».
 
 **Modes d'un créneau** : *Auto* (le show avance seul), *Semi* (il avance seul mais GO prend la main), *Manuel* (seul GO
 fait avancer).

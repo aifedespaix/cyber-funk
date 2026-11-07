@@ -62,7 +62,9 @@ lignes (règle 11).
 
 ### Onglet Réglages
 - Liste des DJ de la soirée : glisser-déposer et `Alt+↑/↓` pour réordonner, ajout, suppression.
-- Fiche du DJ sélectionné : nom, durée du créneau, style, source audio, couleur d'enseigne, look, animation d'entrée.
+- Fiche du DJ sélectionné : les champs réels du `DjSlot` (nom, logo, thème, horaires, mode, profil audio, profils de
+  contrôle, cues). *Écart (tâche 9)* : « style » et « couleur d'enseigne » de la maquette n'existent pas dans le
+  modèle et ne sont pas créés ; un DJ est un `DjSlot` de l'`Event`, pas une liste dans `AppSettings`.
   Indicateur « modifications non enregistrées », `Annuler`, `Enregistrer` (`Ctrl+S`). Changer de DJ avec une fiche
   modifiée demande confirmation.
 - **Profils de soirée** : plusieurs listes de DJ nommées, choisies dans un sélecteur, dupliquables.

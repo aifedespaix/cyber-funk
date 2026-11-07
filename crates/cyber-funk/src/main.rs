@@ -200,6 +200,8 @@ fn build_app(
         app.insert_resource(PrepConfig {
             assets_dir: cli.assets_dir.clone(),
             show_path: cli.show.clone(),
+            // En `--soak`, ni réglages ni profils : une mesure ne touche pas aux soirées de l'opérateur.
+            profiles_dir: if cli.soak.is_some() { None } else { profiles_dir() },
         })
         .add_plugins((OperatorPlugin, update::UpdatePlugin));
     }
@@ -240,6 +242,12 @@ fn load_settings(cli: &Cli) -> Option<SettingsPlugin> {
         tracing::warn!("{problem}");
     }
     Some(SettingsPlugin { path, initial })
+}
+
+/// Dossier des profils de soirée de l'onglet Réglages : `<config>/cyber-funk/profiles` (un fichier d'événement RON
+/// par profil). `None` sans dossier de configuration : l'opérateur enregistre alors dans un fichier choisi.
+fn profiles_dir() -> Option<PathBuf> {
+    Some(dirs::config_dir()?.join("cyber-funk").join("profiles"))
 }
 
 /// Traduit la sortie de Bevy en code de retour du processus.

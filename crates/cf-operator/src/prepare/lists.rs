@@ -4,23 +4,26 @@ use bevy_egui::egui;
 
 /// Ce que l'utilisateur a fait d'une liste pendant l'image.
 #[derive(Debug, Default, PartialEq, Eq)]
-pub(super) struct ListAction {
+pub(crate) struct ListAction {
     /// Rang cliqué.
     pub select: Option<usize>,
     /// Glissé-déposé : (rang d'origine, rang d'arrivée).
     pub moved: Option<(usize, usize)>,
+    /// Rang de la ligne qui a le focus clavier à la fin de l'image.
+    pub focused: Option<usize>,
 }
 
 /// Une ligne de liste.
-pub(super) struct ListRow {
+pub(crate) struct ListRow {
     pub label: String,
     pub selected: bool,
     /// Le contenu pose un problème de validation (affiché en rouge).
     pub flagged: bool,
 }
 
-/// Affiche une liste réordonnable. `salt` distingue les listes entre elles (identifiants egui des lignes).
-pub(super) fn reorderable(ui: &mut egui::Ui, salt: &str, rows: &[ListRow]) -> ListAction {
+/// Affiche une liste réordonnable. `salt` distingue les listes entre elles (identifiants egui des lignes) ;
+/// `focus` donne le focus clavier à cette ligne (après un déplacement au clavier, le focus suit la ligne).
+pub(crate) fn reorderable(ui: &mut egui::Ui, salt: &str, rows: &[ListRow], focus: Option<usize>) -> ListAction {
     let mut action = ListAction::default();
     let mut rects = Vec::with_capacity(rows.len());
     let (_, dropped) = ui.dnd_drop_zone::<usize, ()>(egui::Frame::default().inner_margin(4.0), |ui| {
@@ -37,9 +40,16 @@ pub(super) fn reorderable(ui: &mut egui::Ui, salt: &str, rows: &[ListRow]) -> Li
                     egui::Button::selectable(row.selected, text),
                 )
             });
+            if focus == Some(i) {
+                inner.inner.request_focus();
+            }
             if inner.inner.clicked() {
                 action.select = Some(i);
             }
+            if inner.inner.has_focus() {
+                action.focused = Some(i);
+            }
+
             rects.push(inner.response.rect);
         }
     });
