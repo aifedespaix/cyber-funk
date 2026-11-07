@@ -11,6 +11,7 @@ use std::time::{Duration, Instant};
 use crossbeam_channel::{Receiver, Sender};
 use serde_json::{Map, Value, json};
 
+use crate::buffer::{LogBuffer, LogLine};
 use crate::time::{compact_utc, epoch_ms, iso_utc};
 
 /// Nombre de sessions conservées sur le disque (les plus anciennes sont supprimées au démarrage).
@@ -25,7 +26,7 @@ const RESTART_COUNT_VAR: &str = "CF_RESTART_COUNT";
 const MAX_RESTARTS: u32 = 3;
 
 /// Gravité d'un fait.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub enum Level {
     /// Détail utile seulement en enquête.
     Debug,
@@ -38,6 +39,17 @@ pub enum Level {
 }
 
 impl Level {
+    /// Nom en majuscules, pour l'affichage et la copie vers un agent.
+    #[must_use]
+    pub const fn label(self) -> &'static str {
+        match self {
+            Self::Debug => "DEBUG",
+            Self::Info => "INFO",
+            Self::Warn => "WARN",
+            Self::Error => "ERROR",
+        }
+    }
+
     const fn as_str(self) -> &'static str {
         match self {
             Self::Debug => "debug",
@@ -121,6 +133,7 @@ struct Shared {
     stalls: AtomicU64,
     stop: AtomicBool,
     dir: PathBuf,
+    log: LogBuffer,
 }
 
 /// Poignée de l'enregistreur : peu coûteuse à cloner, utilisable depuis n'importe quel thread **sauf** les callbacks
@@ -179,6 +192,7 @@ impl Recorder {
             stalls: AtomicU64::new(0),
             stop: AtomicBool::new(false),
             dir: dir.clone(),
+            log: LogBuffer::default(),
         });
         let recorder = Self { shared };
 
@@ -230,6 +244,12 @@ impl Recorder {
     #[must_use]
     pub fn dir(&self) -> &Path {
         &self.shared.dir
+    }
+
+    /// Tampon des dernières lignes du journal (même poignée partagée que celle de l'enregistreur).
+    #[must_use]
+    pub fn log_buffer(&self) -> LogBuffer {
+        self.shared.log.clone()
     }
 
     /// Millisecondes écoulées depuis le démarrage du processus.
@@ -330,12 +350,25 @@ impl Recorder {
             }
             Level::Debug | Level::Info => {}
         }
+        let seq = s.seq.fetch_add(1, Ordering::Relaxed) + 1;
+        let up = self.uptime_ms();
+        let frame = s.frame.load(Ordering::Relaxed);
+        // Tous les faits (ponctuels ou qui durent, dont ceux de la couche `tracing`) passent ici : le tampon de
+        // l'interface opérateur voit donc exactement ce que voit `events.jsonl`.
+        s.log.push(LogLine {
+            seq,
+            uptime_ms: up,
+            frame,
+            level,
+            ev: ev.to_owned(),
+            label: label.unwrap_or_default().to_owned(),
+        });
         let mut line = Map::new();
-        line.insert("seq".into(), json!(s.seq.fetch_add(1, Ordering::Relaxed) + 1));
+        line.insert("seq".into(), json!(seq));
         line.insert("wall".into(), json!(iso_utc(epoch_ms())));
-        line.insert("up".into(), json!(self.uptime_ms()));
+        line.insert("up".into(), json!(up));
         line.insert("sim".into(), json!(s.sim_ms.load(Ordering::Relaxed)));
-        line.insert("frame".into(), json!(s.frame.load(Ordering::Relaxed)));
+        line.insert("frame".into(), json!(frame));
         line.insert("lvl".into(), json!(level.as_str()));
         line.insert("ph".into(), json!(phase.as_str()));
         line.insert("ev".into(), json!(ev));
@@ -566,6 +599,21 @@ mod tests {
                 .unwrap()
                 .starts_with("session-")
         );
+    }
+
+    #[test]
+    fn recorder_point_lands_in_buffer() {
+        let root = tempfile::tempdir().unwrap();
+        let (rec, guard) = Recorder::start(root.path(), &StartOptions::default()).unwrap();
+        rec.tick(9, 0);
+        rec.point(Level::Warn, "test.event", None, Some("détail"), Value::Null);
+        let lines = rec.log_buffer().snapshot();
+        let last = lines.last().unwrap();
+        assert_eq!(last.ev, "test.event");
+        assert_eq!(last.label, "détail");
+        assert_eq!(last.level, Level::Warn);
+        assert_eq!(last.frame, 9);
+        drop(guard);
     }
 
     #[test]
