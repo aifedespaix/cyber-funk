@@ -24,6 +24,7 @@ use cf_show::persist::{AppSettings, CarChoice};
 
 use crate::OperatorMode;
 use crate::live::LiveOrders;
+use crate::shell::{ShellState, Tab};
 use districts::{DistrictPick, district_orders, draw_districts};
 use events::draw_events;
 use persist::{section_is_open, set_section_open};
@@ -114,12 +115,16 @@ pub(crate) fn debug_window(
     mut district_writer: MessageWriter<DistrictOrder>,
     mut orders: ResMut<LiveOrders>,
     mut state: ResMut<DebugState>,
-    mode: Res<OperatorMode>,
+    (mode, shell): (Res<OperatorMode>, Res<ShellState>),
     time: Res<Time<Real>>,
 ) {
     let ctx = context.get_mut();
     if *mode != OperatorMode::Preparation {
         state.open = false;
+        return;
+    }
+    // Provisoire (task 6) : la fenêtre ne vit que dans l'onglet Debug ; ailleurs elle est masquée sans être fermée.
+    if shell.shown(*mode) != Tab::Debug {
         return;
     }
     if ctx.input(|input| input.key_pressed(egui::Key::F4)) {

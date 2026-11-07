@@ -10,14 +10,16 @@ use crate::live::{self, LiveParams};
 use crate::loading::{self, LoadingView};
 use crate::prepare::{self, PrepSession};
 use crate::quit::{QuitDecision, QuitPrompt, QuitSource};
+use crate::shell::{self, ShellParams, Tab};
 use crate::tabs::debug::debug_panel::{self, DebugState};
 use crate::tabs::settings::update_panel::{self, InstallUpdate, UpdateStatus};
 use crate::tabs::settings::{audio_panel, controls_panel, learn_panel};
+use crate::tabs::stats::diagnostics;
 
 /// Largeur initiale du panneau audio (points egui) : assez pour les vumètres et la ligne des compteurs.
 const AUDIO_PANEL_WIDTH: f32 = 560.0;
 
-/// Panneau de l'opérateur : l'audio pour l'instant (J1-06) ; les autres panneaux arrivent avec les tâches suivantes.
+/// Panneau de l'opérateur : l'en-tête de la coque (onglets + barre de statut), puis l'onglet affiché.
 ///
 /// Sans `CfAudioPlugin`, les ressources audio manquent : le panneau le dit au lieu de s'afficher à vide.
 #[allow(clippy::too_many_arguments)] // Paramètres de système Bevy : chacun est une ressource distincte.
@@ -35,6 +37,7 @@ pub(crate) fn main_panel(
     update: Res<UpdateStatus>,
     mut install: MessageWriter<InstallUpdate>,
     mut debug: ResMut<DebugState>,
+    mut shell: ShellParams,
 ) {
     // Depuis egui 0.36 les panneaux se posent dans un `Ui` racine, pas directement sur le contexte.
     let ctx = context.get_mut();
@@ -45,13 +48,44 @@ pub(crate) fn main_panel(
             .layer_id(egui::LayerId::background())
             .max_rect(ctx.viewport_rect()),
     );
-    // Vue Live : elle remplace tous les panneaux (édition verrouillée, rien d'autre à l'écran que le pupitre).
+    let mode = *live.mode;
+    let data = shell.status_data(status.as_deref(), features.as_deref(), live.show_and_sheet());
+    let mut state = shell.state.clone();
+    let (picked, actions) = shell::header(&mut root, &mut state, mode, &data);
+    if let Some(tab) = picked
+        && state.select(tab, mode)
+        && tab == Tab::Debug
+    {
+        debug.open = true;
+    }
+    shell.state.set_if_neq(state);
+    if !actions.is_empty() {
+        shell.apply(&actions, &mut live.orders.0);
+    }
+    match shell.state.shown(mode) {
+        Tab::Settings => {}
+        Tab::Stats => {
+            stats_tab(&mut root, &mut shell);
+            return;
+        }
+        Tab::Debug => {
+            egui::CentralPanel::default().show(&mut root, |ui| {
+                ui.horizontal(|ui| {
+                    ui.heading("Debug monde");
+                    debug_panel::toggle_button(ui, &mut debug);
+                });
+                ui.weak("La fenêtre « Debug monde » s'ouvre par-dessus cet onglet.");
+            });
+            return;
+        }
+    }
+    // Onglet 1 en Live : la vue Live, intacte (édition verrouillée, rien d'autre que le pupitre sous l'en-tête).
     if !loading.is_loading() && live.is_live() {
         live.draw(&mut root, features.as_deref(), controls.as_deref());
         return;
     }
     let features_copy = features.as_deref().copied();
-    // À droite : la fenêtre flottante de diagnostic s'ouvre à gauche et ne doit pas recouvrir l'audio.
+    // À droite : la fenêtre flottante de debug s'ouvre à gauche et ne doit pas recouvrir l'audio.
     egui::Panel::right("audio_panel")
         .default_size(AUDIO_PANEL_WIDTH)
         .show(&mut root, |ui| {
@@ -101,17 +135,35 @@ pub(crate) fn main_panel(
             let library_ids = controls.as_deref().map_or(&[][..], |c| c.library_ids.as_slice());
             prepare::draw(ui, session, library_ids, |ui| {
                 live::mode_button(ui, &mut live);
-                debug_panel::toggle_button(ui, &mut debug);
             });
             return;
         }
         ui.horizontal(|ui| {
-            ui.heading("cyber-funk");
+            ui.heading("Réglages");
             live::mode_button(ui, &mut live);
-            debug_panel::toggle_button(ui, &mut debug);
         });
         egui::ScrollArea::vertical().show(ui, |ui| {
             draw_controls(ui, live.show(), controls.as_deref(), features_copy);
+        });
+    });
+}
+
+/// L'onglet Statistiques : le panneau de diagnostic, ou la raison de son absence.
+fn stats_tab(root: &mut egui::Ui, shell: &mut ShellParams) {
+    let now_s = shell.time.elapsed_secs_f64();
+    let ShellParams {
+        diagnostics,
+        session,
+        stats,
+        ..
+    } = shell;
+    egui::CentralPanel::default().show(root, |ui| {
+        ui.heading("Statistiques");
+        egui::ScrollArea::vertical().show(ui, |ui| match (diagnostics.as_deref(), session.as_deref_mut()) {
+            (Some(snapshot), Some(session)) => diagnostics::draw(ui, snapshot, session, stats, now_s),
+            _ => {
+                ui.weak("Diagnostic non branché (DiagnosticsPlugin absent).");
+            }
         });
     });
 }

@@ -32,6 +32,7 @@ use cf_show::director::{ShowEvent, ShowState};
 
 use commands::LiveCommand;
 use holds::HoldTracker;
+pub(crate) use text::{clock, dj_name};
 use view::LiveData;
 
 /// Le mode de la fenêtre opérateur.
@@ -111,6 +112,11 @@ impl LiveParams<'_> {
     /// L'état du spectacle de l'image, s'il y a un show.
     pub(crate) fn show(&self) -> Option<&ShowState> {
         self.show.as_deref().map(|s| &s.0)
+    }
+
+    /// L'état du spectacle et sa feuille de conduite, s'il y a un show (lus par la barre de statut).
+    pub(crate) fn show_and_sheet(&self) -> Option<(&ShowState, &ShowSheet)> {
+        self.show.as_deref().map(|s| &s.0).zip(self.sheet.as_deref())
     }
 
     /// Dessine la vue Live. Ne fait rien sans show.

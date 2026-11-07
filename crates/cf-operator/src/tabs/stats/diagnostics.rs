@@ -1,14 +1,13 @@
 //! Panneau de diagnostic de la fenêtre opérateur : i/s, temps d'image, passes de rendu, entités, tronçons, session de
 //! mesure. Les chiffres viennent de `cf_render::DiagnosticsSnapshot` ; ce module ne mesure rien.
 //!
-//! Le panneau est une fenêtre egui de la fenêtre opérateur : il n'existe pas dans le projecteur. `F3` l'affiche ou le
-//! cache.
+//! Le panneau est le contenu de l'onglet Statistiques de la fenêtre opérateur : il n'existe pas dans le projecteur.
 
 use std::path::{Path, PathBuf};
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use bevy::prelude::*;
-use bevy_egui::{EguiContext, PrimaryEguiContext, egui};
+use bevy_egui::egui;
 use cf_render::{DiagnosticsSnapshot, MeasurementSession};
 
 /// Dossier où les sessions de mesure sont écrites (relatif au dossier de lancement).
@@ -16,60 +15,11 @@ const EXPORT_DIR: &str = "measures";
 /// Budget d'une image à 60 i/s, en ms : au-delà, le p99 est signalé.
 const FRAME_BUDGET_MS: f32 = 1000.0 / 60.0;
 
-/// État du panneau.
-#[derive(Debug)]
+/// État du panneau (dernier export), tenu par l'onglet Statistiques.
+#[derive(Debug, Default)]
 pub(crate) struct PanelState {
-    open: bool,
-    /// Le mode Live a déjà fermé la fenêtre une fois : elle ne doit pas recouvrir la liste de cues à l'ouverture,
-    /// mais F3 la rouvre.
-    closed_for_live: bool,
     /// Résultat du dernier export, affiché sous les boutons.
     last_export: Option<String>,
-}
-
-impl Default for PanelState {
-    fn default() -> Self {
-        Self {
-            open: true,
-            closed_for_live: false,
-            last_export: None,
-        }
-    }
-}
-
-/// Fenêtre « Diagnostic » de l'opérateur. Sans `DiagnosticsPlugin`, rien n'est affiché.
-pub(crate) fn diagnostics_window(
-    mut context: Single<&mut EguiContext, With<PrimaryEguiContext>>,
-    snapshot: Option<Res<DiagnosticsSnapshot>>,
-    session: Option<ResMut<MeasurementSession>>,
-    time: Res<Time<Real>>,
-    mode: Res<crate::OperatorMode>,
-    mut state: Local<PanelState>,
-) {
-    let (Some(snapshot), Some(mut session)) = (snapshot, session) else {
-        return;
-    };
-    let ctx = context.get_mut();
-    if *mode == crate::OperatorMode::Live && !state.closed_for_live {
-        state.open = false;
-        state.closed_for_live = true;
-    }
-    if ctx.input(|input| input.key_pressed(egui::Key::F3)) {
-        state.open = !state.open;
-    }
-    if !state.open {
-        return;
-    }
-    let now_s = time.elapsed_secs_f64();
-    let mut open = true;
-    egui::Window::new("Diagnostic (F3)")
-        .open(&mut open)
-        .default_pos(egui::pos2(16.0, 48.0))
-        .resizable(false)
-        .show(ctx, |ui| draw(ui, &snapshot, &mut session, &mut state, now_s));
-    if !open {
-        state.open = false;
-    }
 }
 
 /// Contenu du panneau (séparé de la fenêtre pour être testé sans écran).

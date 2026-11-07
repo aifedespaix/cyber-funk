@@ -10,7 +10,7 @@ mod loading;
 mod prepare;
 mod preview;
 mod quit;
-mod sim_bar;
+mod shell;
 mod tabs;
 mod ui;
 mod window;
@@ -26,7 +26,6 @@ use bevy_egui::input::EguiWantsInput;
 use bevy_egui::{EguiGlobalSettings, EguiPlugin, EguiPrimaryContextPass};
 use cf_render::{CfSet, TextInputFocus};
 use tabs::debug::debug_panel;
-use tabs::stats::diagnostics;
 
 /// Plugin de la fenêtre opérateur : fenêtre, contexte egui, panneau principal et dialogue de sortie.
 ///
@@ -57,6 +56,7 @@ impl Plugin for OperatorPlugin {
         app.init_resource::<debug_panel::DebugState>()
             .add_message::<cf_render::DistrictOrder>();
         live::build(app);
+        shell::build(app);
         preview::build(app);
         freecam::build(app);
         app.add_systems(Startup, window::spawn_operator_window).add_systems(
@@ -64,9 +64,9 @@ impl Plugin for OperatorPlugin {
             (
                 preview::sync_egui,
                 live::live_input,
+                shell::shell_input,
                 ui::main_panel,
-                sim_bar::sim_bar,
-                diagnostics::diagnostics_window,
+                shell::persist_tab,
                 debug_panel::debug_window,
                 live::mode_dialog,
                 ui::quit_dialog,
