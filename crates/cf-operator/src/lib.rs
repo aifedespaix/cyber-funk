@@ -15,6 +15,7 @@ mod loading;
 mod prepare;
 mod preview;
 mod quit;
+mod sim_bar;
 mod ui;
 mod update_panel;
 mod window;
@@ -67,6 +68,7 @@ impl Plugin for OperatorPlugin {
                 preview::sync_egui,
                 live::live_input,
                 ui::main_panel,
+                sim_bar::sim_bar,
                 diagnostics::diagnostics_window,
                 debug_panel::debug_window,
                 live::mode_dialog,

@@ -90,7 +90,7 @@ pub fn open_file_writer(dir: &Path) -> anyhow::Result<(NonBlocking, WorkerGuard)
 /// # Errors
 /// Si `RUST_LOG` est invalide ou si un abonné est déjà installé. Un fichier journal impossible à ouvrir n'est pas
 /// une erreur : on continue sur la console et on le signale.
-pub fn init(config: &LogConfig) -> anyhow::Result<LogGuard> {
+pub fn init(config: &LogConfig, recorder: Option<cf_debuglog::Recorder>) -> anyhow::Result<LogGuard> {
     let filter = build_filter(config.level, std::env::var("RUST_LOG").ok().as_deref())?;
 
     // Un journal de fichier manquant ne doit pas empêcher de jouer : on garde l'erreur pour la journaliser une
@@ -110,6 +110,8 @@ pub fn init(config: &LogConfig) -> anyhow::Result<LogGuard> {
         .with(filter)
         .with(fmt::layer().with_writer(std::io::stderr))
         .with(file_layer)
+        // Avertissements et erreurs de toutes les bibliothèques (dont wgpu) dans le journal de session.
+        .with(recorder.map(cf_debuglog::RecorderLayer::new))
         .try_init()
         .context("installation de l'abonné tracing")?;
 

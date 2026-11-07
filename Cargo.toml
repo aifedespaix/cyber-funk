@@ -16,6 +16,7 @@ cf-audio = { path = "crates/cf-audio" }
 cf-analysis = { path = "crates/cf-analysis" }
 cf-control = { path = "crates/cf-control" }
 cf-show = { path = "crates/cf-show" }
+cf-debuglog = { path = "crates/cf-debuglog" }
 cf-render = { path = "crates/cf-render" }
 cf-cinema = { path = "crates/cf-cinema" }
 cf-world-neon = { path = "crates/cf-world-neon" }

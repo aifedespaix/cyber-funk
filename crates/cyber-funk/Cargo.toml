@@ -20,6 +20,7 @@ cargo-packager-updater.workspace = true
 bevy.workspace = true
 cf-audio.workspace = true
 cf-cinema.workspace = true
+cf-debuglog.workspace = true
 cf-operator.workspace = true
 cf-render.workspace = true
 cf-show.workspace = true

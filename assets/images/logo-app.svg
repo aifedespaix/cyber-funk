@@ -1,0 +1,121 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="100%" height="100%">
+  <defs>
+    <!-- Background et Carrosserie -->
+    <linearGradient id="bgGrad" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#050508" />
+      <stop offset="100%" stop-color="#150a21" />
+    </linearGradient>
+    
+    <linearGradient id="carPaint" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#2a1b54" />
+      <stop offset="100%" stop-color="#090514" />
+    </linearGradient>
+
+    <!-- Néons -->
+    <linearGradient id="neonCyan" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0%" stop-color="#00f2fe" />
+      <stop offset="100%" stop-color="#4facfe" />
+    </linearGradient>
+    
+    <linearGradient id="neonPink" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0%" stop-color="#ff0844" />
+      <stop offset="100%" stop-color="#ffb199" />
+    </linearGradient>
+
+    <!-- Filtres de lueur (Glow) -->
+    <filter id="glow" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="6" result="blur" />
+      <feComposite in="SourceGraphic" in2="blur" operator="over" />
+    </filter>
+    
+    <filter id="glowHeavy" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="15" result="blur" />
+      <feComposite in="SourceGraphic" in2="blur" operator="over" />
+    </filter>
+  </defs>
+
+  <!-- Fond global -->
+  <rect width="512" height="512" rx="90" fill="url(#bgGrad)" />
+
+  <!-- Halo d'ambiance en arrière-plan -->
+  <circle cx="256" cy="300" r="140" fill="#ff007f" opacity="0.15" filter="url(#glowHeavy)" />
+  <circle cx="256" cy="450" r="140" fill="#00f2fe" opacity="0.10" filter="url(#glowHeavy)" />
+
+  <!-- Sol : Grille Cyberpunk en perspective -->
+  <g stroke="#00f2fe" stroke-width="1.5" opacity="0.2">
+    <!-- Lignes horizontales -->
+    <path d="M 0 440 L 512 440 M 0 465 L 512 465 M 0 495 L 512 495" />
+    <!-- Lignes fuyantes -->
+    <path d="M 256 420 L 256 512 M 200 420 L 100 512 M 312 420 L 412 512 M 150 420 L -50 512 M 362 420 L 562 512" />
+  </g>
+
+  <!-- ================= VOITURE ================= -->
+
+  <!-- Pneus arrière massifs -->
+  <rect x="50" y="340" width="75" height="110" rx="10" fill="#030305" stroke="#1a1a24" stroke-width="2" />
+  <rect x="387" y="340" width="75" height="110" rx="10" fill="#030305" stroke="#1a1a24" stroke-width="2" />
+  <!-- Reflets sur les pneus -->
+  <rect x="58" y="345" width="59" height="100" rx="6" fill="none" stroke="#111" stroke-width="4" />
+  <rect x="395" y="345" width="59" height="100" rx="6" fill="none" stroke="#111" stroke-width="4" />
+
+  <!-- Diffuseur arrière et bas de caisse -->
+  <path d="M 80 410 L 432 410 L 400 475 L 112 475 Z" fill="#08080a" stroke="#222" stroke-width="2" />
+  <!-- Ailettes du diffuseur éclairées en néon cyan -->
+  <path d="M 150 410 L 150 475 M 200 410 L 200 475 M 256 410 L 256 475 M 312 410 L 312 475 M 362 410 L 362 475" stroke="#00f2fe" stroke-width="3" opacity="0.6" filter="url(#glow)" />
+
+  <!-- Carrosserie principale (Face arrière) -->
+  <path d="M 70 330 L 442 330 L 420 410 L 92 410 Z" fill="url(#carPaint)" stroke="#4a3675" stroke-width="2" />
+  <!-- Ombre sous le pare-chocs -->
+  <path d="M 92 410 L 420 410 L 400 435 L 112 435 Z" fill="#030206" />
+
+  <!-- Carrosserie haute (Ailes élargies) -->
+  <path d="M 70 330 L 115 240 L 397 240 L 442 330 Z" fill="url(#carPaint)" />
+  <!-- Côtés du cockpit -->
+  <path d="M 115 240 L 160 205 L 352 205 L 397 240 Z" fill="#130c22" />
+
+  <!-- Entrées d'air latérales (Cyber vents) -->
+  <path d="M 85 340 L 115 340 L 105 390 L 75 390 Z" fill="#030305" stroke="#111" stroke-width="2" />
+  <path d="M 427 340 L 397 340 L 407 390 L 437 390 Z" fill="#030305" stroke="#111" stroke-width="2" />
+
+  <!-- Échappements (Style réacteur) -->
+  <circle cx="150" cy="380" r="22" fill="#050505" stroke="#ff0844" stroke-width="4" filter="url(#glow)" />
+  <circle cx="150" cy="380" r="10" fill="#ffb199" />
+  <circle cx="362" cy="380" r="22" fill="#050505" stroke="#ff0844" stroke-width="4" filter="url(#glow)" />
+  <circle cx="362" cy="380" r="10" fill="#ffb199" />
+
+  <!-- Vitre arrière avec Persiennes (Louvers style 80s) -->
+  <g fill="#050508" stroke="#1a1a24" stroke-width="2">
+    <!-- Lamelle 1 -->
+    <path d="M 155 215 L 357 215 L 365 228 L 147 228 Z" />
+    <!-- Lamelle 2 -->
+    <path d="M 143 238 L 369 238 L 377 251 L 135 251 Z" />
+    <!-- Lamelle 3 -->
+    <path d="M 131 261 L 381 261 L 389 274 L 123 274 Z" />
+  </g>
+
+  <!-- ================= AILERON (SPOILER) ================= -->
+  <!-- Mâts de l'aileron -->
+  <path d="M 190 205 L 190 125 L 165 125 L 155 205 Z" fill="#08080a" stroke="#222" stroke-width="2" />
+  <path d="M 322 205 L 322 125 L 347 125 L 357 205 Z" fill="#08080a" stroke="#222" stroke-width="2" />
+  
+  <!-- Lame principale ultra-large -->
+  <path d="M 20 115 L 492 115 L 472 135 L 40 135 Z" fill="#150d22" stroke="#4a3675" stroke-width="2" />
+  <path d="M 40 135 L 472 135 L 462 150 L 50 150 Z" fill="#05030a" />
+  
+  <!-- Plaques latérales (Endplates) lumineuses -->
+  <path d="M 20 95 L 45 95 L 45 170 L 20 185 Z" fill="#ff0844" filter="url(#glow)" />
+  <path d="M 492 95 L 467 95 L 467 170 L 492 185 Z" fill="#ff0844" filter="url(#glow)" />
+
+  <!-- ================= PHARE ARRIÈRE / ONDE AUDIO ================= -->
+  <!-- Creux dans la carrosserie pour le phare -->
+  <rect x="85" y="295" width="342" height="36" rx="6" fill="#030305" stroke="#111" stroke-width="2" />
+  
+  <!-- ONDE AUDIO NEON (Halo de couleur) -->
+  <path d="M 95 313 L 200 313 L 215 285 L 235 340 L 256 265 L 277 340 L 297 285 L 312 313 L 417 313" fill="none" stroke="#ff0844" stroke-width="12" stroke-linecap="round" stroke-linejoin="round" filter="url(#glowHeavy)" />
+        
+  <!-- ONDE AUDIO NEON (Cœur blanc éclatant) -->
+  <path d="M 95 313 L 200 313 L 215 285 L 235 340 L 256 265 L 277 340 L 297 285 L 312 313 L 417 313" fill="none" stroke="#ffffff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round" />
+        
+  <!-- Petit logo/détail centré bas (signature cyber) -->
+  <path d="M 246 360 L 266 360 M 256 355 L 256 365" stroke="#00f2fe" stroke-width="2" opacity="0.5" />
+</svg>

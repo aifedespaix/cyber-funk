@@ -1,0 +1,16 @@
+tout le visuel devra avoir lieu penbdant un ou plusieurs djset,
+ce que 'jaimeria, ce serait une vraie intro, je verrai bien audébut, la caméra qui filme jsute la route et en tournant autour un point, genre une sorte d'naiamtion de cam d'attente,
+masi aucune bvoite et aucune imeuble.
+ensuite on lance le set via l'interface de gestion , un bouton start,
+et là la voiture se matérialsie via une belle aniamtion sur la route, et elle commence à rouler, (genre 10 - 15s)
+la caméra la suite toruve un bon plan de cam
+ puis la vboiture  passe sous une gros panneau qui suprombe la route et sur ce panneau c'eeest écrit le nom du DJ actuel, (5s)
+ aporès avoir passé le ,panneau, les elemnts du quartier commecnent à se materialsier en genre 10 - 15 s et ensuite tout se déroulle comme actuellement
+
+ et pour la transition vers u nnovueau dj, elle se lance via la gestion aussi. dans ce cas, on à un evment où la voiture roule au sol, et se met du coté droite,
+ pendant ce temps le quartier se replie de façon inverse à la scène d'intro
+ une nouvelle voiture avec d'autre couleurs arrive par derrière gauche et vien à son niveau,
+ elle représente le novueau dj. Ensuite la voiture de droite commecne à buguer / clignotter poru s'eteindre et commecne à ralentir . ainsi la nouvelle voiture passe devant et la caméra se met à la suivre
+ et là on relance l'aniamtion du panneau avec le nouveau dj, puis apapritino du quartier avec le thème des couleurs deu novueua dj et c'ets reparti
+
+ et ainsi de sutie si on change encore de dj

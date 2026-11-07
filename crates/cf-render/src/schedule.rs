@@ -42,6 +42,8 @@ impl Plugin for CorePlugin {
             )
                 .chain(),
         );
+        // Pause, reset et horloge de simulation : portés par le même ordonnancement.
+        crate::sim::build(app);
     }
 }
 

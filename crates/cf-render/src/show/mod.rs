@@ -29,6 +29,7 @@ use crate::CfSet;
 use crate::audio::AudioFeatures;
 use crate::controls::ControlAction;
 use crate::postfx::{CurrentShowFx, ShowFxInput};
+use crate::sim::{SimClock, SimReset};
 
 /// Secondes dans un jour.
 const DAY_S: u64 = 86_400;
@@ -85,6 +86,16 @@ pub struct ShowRuntime {
     utc_offset_s: f64,
     /// Isole une panique du chef du spectacle : le show garde le dernier état publié (skill `live-safety`).
     guard: Guard,
+    /// De quoi reconstruire le chef du spectacle au reset de l'opérateur.
+    source: ShowSource,
+}
+
+/// L'événement chargé, ses titres et sa graine : tout ce qu'il faut pour recréer un chef du spectacle neuf.
+#[derive(Debug, Clone)]
+struct ShowSource {
+    show: LoadedShow,
+    titles: DropTitles,
+    seed: u64,
 }
 
 impl fmt::Debug for ShowRuntime {
@@ -162,7 +173,13 @@ impl Plugin for ShowPlugin {
                         utc_offset_s: self.utc_offset_s,
                         // 3 images de suite en panique : le chef est désactivé, le show garde son dernier état.
                         guard: Guard::new(3),
+                        source: ShowSource {
+                            show: show.clone(),
+                            titles: self.titles.clone(),
+                            seed: self.seed,
+                        },
                     });
+                app.add_systems(Update, reset_show.in_set(CfSet::Input).after(crate::sim::apply_control));
                 app.add_systems(
                     Update,
                     // L'horloge du show ne court pas pendant le chargement (J4-07).
@@ -192,6 +209,7 @@ fn run_show(
     mut runtime: ResMut<ShowRuntime>,
     mut current: ResMut<CurrentShow>,
     time: Res<Time<Real>>,
+    clock: Res<SimClock>,
     features: Res<AudioFeatures>,
     mut received: MessageReader<ControlAction>,
     mut events: MessageWriter<ShowEventMessage>,
@@ -201,7 +219,8 @@ fn run_show(
     runtime.actions.extend(received.read().map(|a| a.0.action.clone()));
     let input = ShowInput {
         dt: time.delta_secs(),
-        now: time.elapsed_secs_f64(),
+        // Horloge de simulation : elle ne compte pas les pauses, le chef ne voit donc pas de saut à la reprise.
+        now: clock.sim_s(),
         local_time_s: local_time_s(runtime.utc_offset_s),
         audio: &features.0,
         // Aucun détecteur de drop réel dans l'analyse pour l'instant : le chef d'orchestre du drop se fie à
@@ -221,6 +240,32 @@ fn run_show(
     }
     for event in director.drain_events() {
         events.write(ShowEventMessage(event));
+    }
+}
+
+/// Reset de l'opérateur : un chef du spectacle neuf (retour au premier cue du premier créneau), et le garde-fou de
+/// panique réarmé. C'est ce qui sort le show d'un état « désactivé après trois paniques » où l'image reste figée
+/// pendant que la musique continue.
+fn reset_show(
+    mut resets: MessageReader<SimReset>,
+    runtime: Option<ResMut<ShowRuntime>>,
+    current: Option<ResMut<CurrentShow>>,
+) {
+    if resets.read().count() == 0 {
+        return;
+    }
+    let (Some(mut runtime), Some(mut current)) = (runtime, current) else {
+        return;
+    };
+    let source = runtime.source.clone();
+    match ShowDirector::<Pcg32>::new(&source.show, source.titles, source.seed) {
+        Ok(director) => {
+            current.0.clone_from(director.state());
+            runtime.director = director;
+            runtime.guard.reset();
+            runtime.actions.clear();
+        }
+        Err(error) => tracing::error!(%error, "reset du spectacle : chef du spectacle indisponible"),
     }
 }
 

@@ -42,3 +42,9 @@ Thumbs.db
 
 # Python
 __pycache__/
+
+# Journaux de session du débogage (cf-debuglog)
+/logs/
+
+# Journaux de session du debogage (cf-debuglog)
+/logs/

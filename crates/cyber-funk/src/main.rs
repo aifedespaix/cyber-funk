@@ -49,10 +49,15 @@ fn main() -> anyhow::Result<ExitCode> {
     } else {
         logging::default_log_dir()
     };
-    let _log_guard = logging::init(&LogConfig {
-        level: cli.log,
-        dir: log_dir,
-    })?;
+    // Journal de session structuré (relu par la skill `debug-logs`). Un échec n'empêche pas de jouer.
+    let session = open_session_log();
+    let _log_guard = logging::init(
+        &LogConfig {
+            level: cli.log,
+            dir: log_dir,
+        },
+        session.as_ref().map(|(recorder, _)| recorder.clone()),
+    )?;
     tracing::info!(version = env!("CARGO_PKG_VERSION"), "cyber-funk démarre");
 
     if let Some(show) = &cli.show {
@@ -63,9 +68,42 @@ fn main() -> anyhow::Result<ExitCode> {
     let preload = PreloadPlan::new(&cli, show.show.as_ref());
     let settings = load_settings(&cli);
 
-    let exit = build_app(&cli, controls, show, preload, settings).run();
+    let mut app = build_app(&cli, controls, show, preload, settings);
+    if let Some((recorder, _)) = &session {
+        app.add_plugins(cf_render::DebugLogPlugin {
+            recorder: recorder.clone(),
+        });
+    }
+    let exit = app.run();
     tracing::info!(?exit, "cyber-funk s'arrête");
     Ok(exit_code(&exit))
+}
+
+/// Dossier racine des journaux de session : `./logs` en développement (ignoré par git), le dossier de données en
+/// release.
+fn session_log_root() -> PathBuf {
+    if cfg!(debug_assertions) {
+        PathBuf::from("logs")
+    } else {
+        dirs::data_dir().map_or_else(|| PathBuf::from("logs"), |dir| dir.join("cyber-funk").join("sessions"))
+    }
+}
+
+/// Ouvre le journal de session ; `None` (et un message sur la console) si le disque refuse.
+// Les journaux `tracing` ne sont pas encore installés à ce stade : la console est le seul recours.
+#[allow(clippy::print_stderr)]
+fn open_session_log() -> Option<(cf_debuglog::Recorder, cf_debuglog::Guard)> {
+    let options = cf_debuglog::StartOptions {
+        args: std::env::args().skip(1).collect(),
+        ..cf_debuglog::StartOptions::default()
+    };
+    match cf_debuglog::Recorder::start(&session_log_root(), &options) {
+        Ok(session) => Some(session),
+        Err(error) => {
+            eprintln!("journal de session indisponible : {error}");
+            None
+        }
+    }
 }
 
 /// Assemble l'application : les plugins de cyber-funk, les fenêtres et la scène de test.

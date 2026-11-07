@@ -2435,6 +2435,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "cf-debuglog"
+version = "0.1.0"
+dependencies = [
+ "crossbeam-channel",
+ "serde_json",
+ "tempfile",
+ "tracing",
+ "tracing-subscriber",
+]
+
+[[package]]
 name = "cf-operator"
 version = "0.1.0"
 dependencies = [
@@ -2455,10 +2466,12 @@ dependencies = [
  "cf-analysis",
  "cf-audio",
  "cf-control",
+ "cf-debuglog",
  "cf-show",
  "rand_pcg",
  "ron",
  "serde",
+ "serde_json",
  "tempfile",
  "thiserror 2.0.21",
  "tracing",
@@ -3044,6 +3057,7 @@ dependencies = [
  "cf-audio",
  "cf-cinema",
  "cf-control",
+ "cf-debuglog",
  "cf-operator",
  "cf-render",
  "cf-show",

@@ -5,6 +5,7 @@ pub mod audio;
 mod car_selection;
 pub mod controls;
 pub mod culling;
+mod debuglog;
 pub mod diagnostics;
 pub mod district;
 mod events_catalog;
@@ -16,6 +17,7 @@ pub mod quality;
 mod schedule;
 pub mod settings;
 pub mod show;
+mod sim;
 pub mod streaming;
 pub mod titles;
 mod tuning;
@@ -35,6 +37,7 @@ pub use culling::{
     Cadence, CullingPlugin, CullingSet, CullingSettings, CullingView, FOG_FULL_M, LodBands, LodClock, SimulationLod,
     aabb_encloses_mesh, displaced_bounds, follow_camera_bounds, lod_ranges, mesh_aabb, padded, until_fog,
 };
+pub use debuglog::{DebugLog, DebugLogPlugin};
 pub use diagnostics::{
     DiagnosticsPlugin, DiagnosticsSnapshot, ExportError, MeasurementSession, PassTiming, RenderScale, SessionRow,
 };
@@ -58,6 +61,7 @@ pub use quality::{
 pub use schedule::{CfSet, CorePlugin};
 pub use settings::{Settings, SettingsPlugin};
 pub use show::{CurrentShow, SheetCue, SheetSlot, ShowControls, ShowEventMessage, ShowPlugin, ShowRuntime, ShowSheet};
+pub use sim::{SimClock, SimControl, SimReset, sim_running};
 pub use streaming::{ChunkInfo, ChunkPlan, ChunkStream, EntityPool, PieceRegistry, StreamLayout, StreamStats};
 pub use titles::{ActiveTitle, TitleCard, TitleKind, TitleSettings, TitlesPlugin};
 pub use tuning::{CAR_FOLLOW_KEY, FacadeTuning, WINDOW_LIFE_KEY, store_tuning, tuning_from_entries};

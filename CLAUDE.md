@@ -56,6 +56,7 @@ cyber-funk/
 │   ├── cf-control/             Actions, clavier abstrait, MIDI, clock, Link, OSC   (sans Bevy)
 │   ├── cf-show/                Événement/Créneau/Cue/Look, chef du spectacle,      (sans Bevy)
 │   │                           portes, drop, fraîcheur, limiteur, sauvegarde
+│   ├── cf-debuglog/            journal de session JSONL, battement de cœur, watchdog   (sans Bevy)
 │   ├── cf-render/              plugin Bevy : couches, post-process, streaming, culling, qualité, palettes
 │   ├── cf-cinema/              plugin Bevy : réalisateur, plans, transitions
 │   ├── cf-world-neon/          plugin Bevy : le monde de Sillage
@@ -170,4 +171,5 @@ Charger le skill dès que la tâche touche son domaine :
 | `realtime-audio` | `cf-audio`, `cf-analysis`, threads audio, latence |
 | `midi-control` | `cf-control` : Actions, MIDI, clock, Link, OSC, learn |
 | `show-model` | `cf-show` : Événement/Créneau/Cue/Look, portes, drop, fichiers RON |
+| `debug-logs` | Plantage, gel, incohérence, ou id d'un cue à améliorer : lire `logs/` via `tools/debuglog/dbg.py` |
 | `live-safety` | Limiteur de flashs, replis, sauvegarde, préchargement, tests d'endurance |

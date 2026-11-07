@@ -1,0 +1,14 @@
+Alors, au niveau de l'interface, il faudrait améliorer l'interface globalement. J'aurais bien vu un système d'onglets où on peut naviguer entre les onglets : un onglet pour paramétrer — sachant que quand on paramètre, si on clique sur un DJ, on doit pouvoir éditer ce DJ-là, l'ordonner, et modifier tout ça, et quand on sauvegarde, ça enregistre. Et quand on relance l'application, il faudrait que ces informations soient sauvegardées.
+
+Ensuite, il faudrait un onglet où on a toutes les infos statistiques, etc., bien affichées avec une belle interface. Et un troisième onglet où on aurait le mode debug. Dans cet onglet-là, en gros, on devrait pouvoir avoir un affichage. Je verrais bien une grille de deux lignes et deux colonnes avec : les événements de type panneau, les événements de type immeuble, les événements de type voiture et les événements de type changer de quartier. Et pour les quartiers, je crois qu'il y a des types de transition entre les quartiers, donc on pourrait choisir quelle transition on a.
+Il faudrait aovir une lsite des evenments actifs et une info visuelle sur leur porucentage d'avancement , uen sorte de zone de suivi globale, ça permettrait de saovir ce qui se cumule etc
+
+Et il faudrait un bouton de toggle quand on passe en mode « uniquement modifier la main » ; comme ça, c'est à moi de choisir au clic les événements qui peuvent arriver. Et si on désactive le mode « à la main », les événements s'activent automatiquement via la logique de l'application, via l'orchestrateur.
+
+Et pourquoi pas aussi une nouvelle colonne avec tous les effets de caméra pour pouvoir changer les switches de caméra pour pouvoir les tester indépendamment. Et pourquoi pas, donc en fait, une colonne avec l'input du haut avec tout ça, et l'input du bas avec les contrôles de la voiture : monter, descendre, backflip, frontflip, aller à droite, aller à gauche... Voilà, il me faudrait tout ça dans l'interface.
+
+J'aimerais également qu'on puisse pouvoir sélectionner l'écran de destination du rendu parce que, par défaut, c'est sur l'écran principal, mais j'aimerais bien pouvoir le mettre ailleurs. Et on part du principe que la fenêtre de configuration, elle serait en plein écran. Donc on peut l'agrandir ou la rétrécir comme on veut, mais du coup on prépare l'affichage pour qu'il soit bien en 16/9, mais on le rend quand même un peu responsif pour avoir quelque chose de plutôt quali.
+
+et au passage met l'icone en icon d'app etc, génère les diffèrent si beosin, l'icones est assets\images\logo-app.svg
+
+Propose moi un apperçu de 'lui que l'ont veut faire, genre un poc, sous format html pour qu'on puisse tester rapidement acvant de le faire bien. Pense biezn au feature simportantes et l'ux optimale
