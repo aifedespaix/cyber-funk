@@ -14,6 +14,7 @@ use cf_show::district::DistrictId;
 use cf_show::model::ShowGates;
 
 use crate::facade::FacadeMaterial;
+use crate::graffiti::projector::ProjectorPool;
 use crate::scenery::arches::ArchPool;
 use crate::scenery::{self, Clearing, MAX_PARTS, Row, SceneryAssets, SceneryConfig, SpotAnchor};
 use crate::traffic::TrafficDirector;
@@ -188,6 +189,13 @@ impl World for NeonWorld {
         self.family = Some(family);
         let arches = ArchPool::spawn(ecs, &mesh, &material);
         ecs.insert_resource(arches);
+        // Les projecteurs holographiques (X-12) : douze emplacements cachés, leur matériau vient avec le shader.
+        let quad = ecs
+            .get_resource_mut::<Assets<Mesh>>()
+            .ok_or(WorldError::MissingResource("Assets<Mesh>"))?
+            .add(Rectangle::new(1.0, 1.0));
+        let projectors = ProjectorPool::spawn(ecs, &mesh, &quad);
+        ecs.insert_resource(projectors);
         ecs.insert_resource(SceneryAssets {
             mesh,
             material,

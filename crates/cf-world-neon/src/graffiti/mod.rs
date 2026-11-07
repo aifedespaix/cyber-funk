@@ -7,11 +7,14 @@ pub mod atlas;
 pub mod bake;
 pub mod fonts;
 pub mod placements;
+pub mod projector;
 pub mod raster;
 pub mod words;
 
 #[cfg(test)]
 mod bake_tests;
+#[cfg(test)]
+mod projector_tests;
 #[cfg(test)]
 mod tests;
 

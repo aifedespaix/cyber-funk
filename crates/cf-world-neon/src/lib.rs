@@ -143,7 +143,6 @@ impl Plugin for NeonWorldPlugin {
             SkyPlugin,
             MeteorsPlugin,
             SignsPlugin::default(),
-            graffiti::GraffitiPlugin::default(),
             DjSignPlugin::default(),
             LandmarksPlugin::default(),
             WeatherPlugin,
@@ -153,6 +152,7 @@ impl Plugin for NeonWorldPlugin {
         ))
         .init_resource::<RoutePlan>()
         .init_resource::<RoutePlanner>()
+        .init_resource::<graffiti::projector::ProjectorState>()
         .add_message::<cf_render::QualityChanged>()
         .add_systems(
             Update,
@@ -172,7 +172,18 @@ impl Plugin for NeonWorldPlugin {
                 .in_set(cf_render::CfSet::Simulate)
                 .after(route::update_route_plan)
                 .run_if(resource_exists::<scenery::arches::ArchPool>),
+        )
+        .add_systems(
+            Update,
+            graffiti::projector::place_projectors
+                .in_set(cf_render::CfSet::Simulate)
+                .after(cf_render::WorldSet::Chunks)
+                .run_if(resource_exists::<graffiti::projector::ProjectorPool>),
         );
+        // Cuisson des graffitis (X-12) ; les tests d'intégration peuvent y mettre leur propre `GraffitiPlugin`.
+        if !app.is_plugin_added::<graffiti::GraffitiPlugin>() {
+            app.add_plugins(graffiti::GraffitiPlugin::default());
+        }
         // Moteur de quartiers (X-11) : gouverneur, plan de la ville et étalonnage.
         if !app.is_plugin_added::<DistrictsPlugin>() {
             app.add_plugins(DistrictsPlugin);

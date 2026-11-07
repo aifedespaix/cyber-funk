@@ -63,7 +63,10 @@ fn tout_ce_que_le_monde_dessine_est_dans_la_couche_monde() {
     // La route, le point suivi et les six pavés des arches ont un nom ; les pièces des tronçons n'en ont pas (voir `city.rs`).
     // S'y ajoutent la pluie et la brume (J5-04, une entité chacune, créées au démarrage), les voiles de brume basse (un par hauteur), les pools préalloués des
     // projecteurs (un cône et une tache chacun) et du paquet du drop (les ondes et la gerbe) : tous dans la couche monde.
-    let pools = cf_world_neon::beams::MAX_BEAMS * 2 + cf_world_neon::dropfx::RINGS + 1;
+    let pools = cf_world_neon::beams::MAX_BEAMS * 2
+        + cf_world_neon::dropfx::RINGS
+        + 1
+        + cf_world_neon::graffiti::projector::MAX_PROJECTORS * 2;
     assert_eq!(
         found.len(),
         2 + 6 + 2 + cf_world_neon::weather::haze::LAYERS.len() + pools,
