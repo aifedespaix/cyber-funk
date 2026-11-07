@@ -26,17 +26,17 @@ Reprises de `CLAUDE.md` du dépôt, valables pour chaque tâche :
 
 ## Revue : cas que les tâches doivent couvrir
 
-- Un `settings.ron` de version 1, tronqué, ou avec un champ invalide ne doit jamais empêcher de démarrer (tâche 2).
-- L'écran de sortie mémorisé n'est plus branché : retomber sur l'écran principal **sans effacer** le réglage (tâche 9).
-- Une famille d'événements du catalogue absente de la table des colonnes : test en échec, pas d'oubli silencieux (tâche 6).
-- Un directeur du monde qui ignorerait le mode manuel (tâche 4).
-- Un événement refusé (limiteur, file pleine) ne doit pas apparaître « en cours » (tâche 3).
-- Copier le journal quand il est vide, quand le filtre ne laisse rien, ou quand N dépasse le nombre de lignes (tâche 1).
-- Changer de DJ avec une fiche modifiée, ou fermer l'appli avec des modifications non enregistrées (tâche 8).
+- Un `settings.ron` de version 1, tronqué, ou avec un champ invalide ne doit jamais empêcher de démarrer (task 2).
+- L'écran de sortie mémorisé n'est plus branché : retomber sur l'écran principal **sans effacer** le réglage (task 9).
+- Une famille d'événements du catalogue absente de la table des colonnes : test en échec, pas d'oubli silencieux (task 6).
+- Un directeur du monde qui ignorerait le mode manuel (task 4).
+- Un événement refusé (limiteur, file pleine) ne doit pas apparaître « en cours » (task 3).
+- Copier le journal quand il est vide, quand le filtre ne laisse rien, ou quand N dépasse le nombre de lignes (task 1).
+- Changer de DJ avec une fiche modifiée, ou fermer l'appli avec des modifications non enregistrées (task 8).
 
 ---
 
-### Tâche 1 : tampon de journal et formatage pour agent
+### Task 1: tampon de journal et formatage pour agent
 
 **Fichiers :**
 - Créer : `crates/cf-debuglog/src/buffer.rs`
@@ -48,7 +48,7 @@ Reprises de `CLAUDE.md` du dépôt, valables pour chaque tâche :
   - `pub struct LogLine { pub seq: u64, pub uptime_ms: u64, pub frame: u64, pub level: Level, pub ev: String, pub label: String }` (`Clone`, `Debug`).
   - `pub struct LogBuffer` : `Clone` (poignée partagée), `LogBuffer::new(capacity: usize) -> Self`, `push(&self, line: LogLine)`, `snapshot(&self) -> Vec<LogLine>` (du plus ancien au plus récent), `clear(&self)`, `set_capacity(&self, capacity: usize)`.
   - `pub struct LogFilter { pub levels: BTreeSet<Level>, pub text: String }` ; `LogFilter::matches(&self, line: &LogLine) -> bool` (texte insensible à la casse, cherché dans `ev` et `label`).
-  - `pub fn format_for_agent(lines: &[LogLine], filter: &LogFilter, last: usize, header: &SessionHeader) -> String`, avec `SessionHeader { session: String, copied_at: String, context: Vec<(String, String)> }` (le contexte complet de la tâche 11 y passe ses paires clé/valeur).
+  - `pub fn format_for_agent(lines: &[LogLine], filter: &LogFilter, last: usize, header: &SessionHeader) -> String`, avec `SessionHeader { session: String, copied_at: String, context: Vec<(String, String)> }` (le contexte complet de la task 11 y passe ses paires clé/valeur).
   - `Recorder::log_buffer(&self) -> LogBuffer`.
 - Consomme : `Level` de `recorder.rs`.
 
@@ -61,7 +61,7 @@ Reprises de `CLAUDE.md` du dépôt, valables pour chaque tâche :
 
 ---
 
-### Tâche 2 : réglages version 2 (préférences de l'opérateur)
+### Task 2: réglages version 2 (préférences de l'opérateur)
 
 **Fichiers :**
 - Modifier : `crates/cf-show/src/persist/settings.rs`
@@ -85,7 +85,7 @@ Reprises de `CLAUDE.md` du dépôt, valables pour chaque tâche :
 
 ---
 
-### Tâche 3 : `WorldAutomation` et `ActiveEvents` (cf-render)
+### Task 3: `WorldAutomation` et `ActiveEvents` (cf-render)
 
 **Fichiers :**
 - Créer : `crates/cf-render/src/automation.rs`, `crates/cf-render/src/active_events.rs`
@@ -109,14 +109,14 @@ Reprises de `CLAUDE.md` du dépôt, valables pour chaque tâche :
 
 ---
 
-### Tâche 4 : les directeurs du monde respectent le mode manuel et publient leurs événements
+### Task 4: les directeurs du monde respectent le mode manuel et publient leurs événements
 
 **Fichiers :**
 - Modifier : les directeurs de `crates/cf-world-neon/src/` : `stunts/director.rs`, `traffic/director.rs`, `djsign/director.rs`, `signs/` (publication des enseignes/pubs), `traffic/grand/landmark.rs`, `districts/systems.rs` (changements de quartier automatiques). L'implémenteur dresse la liste exacte en cherchant tout ce qui lance un événement de lui-même (`grep -rn "Orchestr\|orchestr"` donne le point de départ) et l'ajoute en commentaire du test.
 - Créer : `crates/cf-world-neon/src/automation_tests.rs`
 
 **Interfaces :**
-- Consomme : `WorldAutomation`, `ActiveEvents`, `ActiveEvent`, `EventCategory`, `EventOrigin` (tâche 3).
+- Consomme : `WorldAutomation`, `ActiveEvents`, `ActiveEvent`, `EventCategory`, `EventOrigin` (task 3).
 - Règle : chaque directeur lit `Res<WorldAutomation>` (absent = autorisé) et ne lance **rien de spontané** quand `manual` est vrai. Un déclenchement venant d'une `Action::Trigger` passe toujours. Le directeur écrit dans `ActiveEvents` **au moment où le monde accepte le lancement**, avec `EventOrigin::Auto` ou `Manual` selon la source, et l'enlève à la fin de l'événement. Un lancement refusé (limiteur, pas de place) n'écrit rien.
 - Rangement catégorie : enseignes, pubs, ticker, graffitis, projecteurs holographiques → `Sign` ; immeubles-vitrines, façades, repères → `Building` ; trafic, cascades, motos → `Car` ; changements de quartier → `District`.
 
@@ -128,7 +128,7 @@ Reprises de `CLAUDE.md` du dépôt, valables pour chaque tâche :
 
 ---
 
-### Tâche 5 : coque, onglets et barre de statut (panneaux déplacés sans changement)
+### Task 5: coque, onglets et barre de statut (panneaux déplacés sans changement)
 
 **Fichiers :**
 - Créer : `crates/cf-operator/src/shell/mod.rs` (état, enum des onglets), `shell/status_bar.rs`, `shell/shortcuts.rs`, `shell/help.rs`, `crates/cf-operator/src/tabs/mod.rs`, `tabs/settings/mod.rs`, `tabs/stats/mod.rs`, `tabs/debug/mod.rs`
@@ -140,9 +140,9 @@ Reprises de `CLAUDE.md` du dépôt, valables pour chaque tâche :
   - `#[derive(Resource)] pub(crate) struct ShellState { pub tab: Tab, pub help_open: bool, pub confirm_next_dj: bool, pub confirm_reset: bool }` ; `Tab { Settings, Stats, Debug }` avec `Tab::key() -> &'static str` (les valeurs de `OperatorPrefs::last_tab`) et `Tab::visible_in(mode: OperatorMode) -> bool` (`Debug` faux en Live).
   - `fn tab_for_shortcut(key: egui::Key, mode: OperatorMode) -> Option<Tab>` (`1`, `2`, `3`).
   - `status_bar::draw(ui, &StatusData, &mut ShellState) -> Vec<StatusAction>` avec `StatusAction { Blackout, NextDj, TogglePause, ToggleManual, ConfirmReset }` ; `StatusData` regroupe les valeurs lues (source audio, fps, BPM, DJ en cours, temps restant, nombre d'événements actifs, mode manuel, pause).
-- Consomme : `OperatorMode`, `SimControl`, `ActiveEvents`, `WorldAutomation`, `OperatorPrefs` (tâche 2).
+- Consomme : `OperatorMode`, `SimControl`, `ActiveEvents`, `WorldAutomation`, `OperatorPrefs` (task 2).
 - Comportement : la barre de statut est dessinée dans **tous** les onglets et en Live. En Live l'onglet Debug n'est ni affiché ni accessible par raccourci. « Passer au suivant » demande une confirmation en deux temps (comme le reset). Le bouton Noir est actif partout et répond à Échap. L'onglet courant est restauré au démarrage depuis `OperatorPrefs::last_tab` et sauvegardé à chaque changement.
-- Les panneaux actuels sont placés dans l'onglet qui leur correspond sans modifier leur code : audio + learn + contrôles + mise à jour → Réglages ; diagnostics → Statistiques ; `debug_panel` reste provisoirement une fenêtre dans l'onglet Debug (remplacé à la tâche 6).
+- Les panneaux actuels sont placés dans l'onglet qui leur correspond sans modifier leur code : audio + learn + contrôles + mise à jour → Réglages ; diagnostics → Statistiques ; `debug_panel` reste provisoirement une fenêtre dans l'onglet Debug (remplacé à la task 6).
 
 - [ ] **Étape 1 : tests en échec** : `tab_shortcuts_map_1_2_3`, `debug_tab_hidden_in_live`, `debug_shortcut_ignored_in_live`, `tab_key_roundtrips`, `restores_last_tab_and_falls_back_to_settings_on_unknown_value`, `next_dj_needs_two_clicks`, `blackout_is_always_available`.
 - [ ] **Étape 2 :** `cargo nextest run -p cf-operator shell` : échec.
@@ -153,7 +153,7 @@ Reprises de `CLAUDE.md` du dépôt, valables pour chaque tâche :
 
 ---
 
-### Tâche 6 : onglet Debug en grille
+### Task 6: onglet Debug en grille
 
 **Fichiers :**
 - Créer : `tabs/debug/columns.rs` (table familles → colonnes), `tabs/debug/grid.rs`, `tabs/debug/chip.rs`, `tabs/debug/lane.rs`, `tabs/debug/districts.rs` (repris de `debug_panel/districts.rs`), `tabs/debug/dock.rs` (plans caméra), `tabs/debug/pad.rs` (pilotage voiture), `tabs/debug/top_bar.rs`
@@ -170,14 +170,14 @@ Reprises de `CLAUDE.md` du dépôt, valables pour chaque tâche :
 
 - [ ] **Étape 1 : tests en échec** : `every_catalog_family_has_a_column` (parcourt le catalogue réel assemblé avec tous les plugins du monde ; échoue en nommant la famille manquante), `plan_columns_puts_pinned_first`, `plan_columns_filter_is_case_insensitive`, `unknown_family_goes_to_others`, `fire_respects_per_frame_cap`, `district_fallback_transition_is_marked_unimplemented`, `manual_toggle_writes_world_automation`, `stop_all_clears_active_events`, `chip_progress_uses_max_of_running_instances`.
 - [ ] **Étape 2 :** `cargo nextest run -p cf-operator tabs::debug` : échec.
-- [ ] **Étape 3 :** implémenter table, plan, puces, couloirs, barre du haut, dock. L'onglet n'existe qu'en Préparation (voir tâche 5).
+- [ ] **Étape 3 :** implémenter table, plan, puces, couloirs, barre du haut, dock. L'onglet n'existe qu'en Préparation (voir task 5).
 - [ ] **Étape 4 :** supprimer de `debug_panel/` ce qui est repris ; garder les fonctions de persistance (`DebugPanelPrefs`) tant que `AppSettings` les contient.
 - [ ] **Étape 5 :** vérification manuelle : lancer l'appli, lancer un événement par colonne, voir la puce se remplir et l'entrée « En cours » apparaître et disparaître ; basculer en manuel et constater qu'aucun événement automatique ne part pendant 30 s. Consigner le résultat dans le message de commit.
 - [ ] **Étape 6 :** tests, clippy, **commit** `Opérateur : onglet Debug en grille`, push.
 
 ---
 
-### Tâche 7 : onglet Statistiques et journal en direct
+### Task 7: onglet Statistiques et journal en direct
 
 **Fichiers :**
 - Créer : `tabs/stats/tiles.rs`, `tabs/stats/charts.rs`, `tabs/stats/log_view.rs`, `tabs/stats/copy.rs`, `services/logbuf.rs` (ressource Bevy qui détient la poignée `LogBuffer`)
@@ -185,7 +185,7 @@ Reprises de `CLAUDE.md` du dépôt, valables pour chaque tâche :
 - Test : `tabs/stats/tests.rs`
 
 **Interfaces :**
-- Consomme : `LogBuffer`, `LogFilter`, `LogLine`, `format_for_agent`, `SessionHeader` (tâche 1), `DiagnosticsSnapshot`, `AudioFeatures`.
+- Consomme : `LogBuffer`, `LogFilter`, `LogLine`, `format_for_agent`, `SessionHeader` (task 1), `DiagnosticsSnapshot`, `AudioFeatures`.
 - Produit : `#[derive(Resource)] pub struct OperatorLog(pub LogBuffer)` ; `LogViewState { levels: BTreeSet<Level>, text: String, paused: bool, capacity: usize, copy_n: usize, frozen: Option<Vec<LogLine>> }` (en pause, l'affichage lit `frozen`) ; `fn copy_text(state: &LogViewState, lines: &[LogLine], header: &SessionHeader) -> String` ; `fn mark_moment(buffer: &LogBuffer, label: &str)` (pousse une ligne `ev = "mark"`, niveau info).
 - Comportement : capacité 100 / 200 / 500 ; boutons de niveau ; filtre texte ; pause ; vider ; clic sur un nom d'événement pose le filtre dessus ; copier N dernières lignes **visibles** (20/50/100/200) ; variante « warn + erreurs » ; raccourci `M` pour marquer. Copie via `ctx.copy_text`. Défilement collé en bas tant que l'utilisateur n'a pas remonté.
 - Disponible en Live (ne lance rien).
@@ -197,14 +197,14 @@ Reprises de `CLAUDE.md` du dépôt, valables pour chaque tâche :
 
 ---
 
-### Tâche 8 : contexte complet pour l'agent (point 7)
+### Task 8: contexte complet pour l'agent (point 7)
 
 **Fichiers :**
 - Créer : `tabs/stats/context.rs`
 - Test : `tabs/stats/tests.rs`
 
 **Interfaces :**
-- Produit : `fn build_context(snapshot: &ContextSnapshot) -> Vec<(String, String)>` où `ContextSnapshot` regroupe : événements actifs (id, catégorie, pourcentage, origine), quartier et transition (`DistrictState`), plan caméra courant, DJ courant et temps restant, mode d'automatisation, pause, version de l'appli. La sortie alimente `SessionHeader.context` (tâche 1).
+- Produit : `fn build_context(snapshot: &ContextSnapshot) -> Vec<(String, String)>` où `ContextSnapshot` regroupe : événements actifs (id, catégorie, pourcentage, origine), quartier et transition (`DistrictState`), plan caméra courant, DJ courant et temps restant, mode d'automatisation, pause, version de l'appli. La sortie alimente `SessionHeader.context` (task 1).
 - Bouton « Copier le contexte complet » à côté de « Copier pour un agent ».
 
 - [ ] **Étape 1 : tests en échec** : `context_lists_active_events_with_progress`, `context_marks_unknown_camera_as_none_instead_of_omitting`, `context_includes_manual_mode_and_pause`.
@@ -213,7 +213,7 @@ Reprises de `CLAUDE.md` du dépôt, valables pour chaque tâche :
 
 ---
 
-### Tâche 9 : onglet Réglages (DJ, profils, import/export, reprise au relancement)
+### Task 9: onglet Réglages (DJ, profils, import/export, reprise au relancement)
 
 **Fichiers :**
 - Créer : `tabs/settings/dj_list.rs`, `tabs/settings/dj_form.rs` (réutilise `prepare::forms` et `prepare::edit`), `tabs/settings/profiles.rs`, `tabs/settings/transfer.rs`, `tabs/settings/restore.rs`
@@ -237,7 +237,7 @@ Reprises de `CLAUDE.md` du dépôt, valables pour chaque tâche :
 
 ---
 
-### Tâche 10 : écran de sortie du rendu
+### Task 10: écran de sortie du rendu
 
 **Fichiers :**
 - Créer : `crates/cf-operator/src/services/screens.rs`, `tabs/settings/screens_view.rs`
@@ -257,7 +257,7 @@ Reprises de `CLAUDE.md` du dépôt, valables pour chaque tâche :
 
 ---
 
-### Tâche 11 : icône d'application
+### Task 11: icône d'application
 
 **Fichiers :**
 - Créer : `tools/icons/generate.py` (ou script du même genre dans l'outillage existant de `tools/`), `assets/images/icons/` (PNG 16, 32, 48, 64, 128, 256, 512 + `app.ico`), `crates/cyber-funk/build.rs`
@@ -275,10 +275,10 @@ Reprises de `CLAUDE.md` du dépôt, valables pour chaque tâche :
 
 ---
 
-### Tâche 12 : finitions, documentation et vérification finale
+### Task 12: finitions, documentation et vérification finale
 
 **Fichiers :**
-- Modifier : `docs/superpowers/specs/2026-11-07-interface-operateur-design.md` (reporter l'écart sur les profils, tâche 9), `CLAUDE.md` du dépôt si la structure de `cf-operator` y est décrite, skill `show-model` ou autre skill si elle cite le panneau F4
+- Modifier : `docs/superpowers/specs/2026-11-07-interface-operateur-design.md` (reporter l'écart sur les profils, task 9), `CLAUDE.md` du dépôt si la structure de `cf-operator` y est décrite, skill `show-model` ou autre skill si elle cite le panneau F4
 - Test : tests existants
 
 - [ ] **Étape 1 :** parcourir le spec section par section et cocher chaque exigence face au code ; lister tout écart dans le message de commit.
