@@ -11,6 +11,7 @@
 //   bits 14..15  type : 0 corps, 1 couronne, 2 antenne, 3 tour d'arrière-plan (`aInfo.z`)
 //   bits 16..23  étage de la ceinture lumineuse + 1, 0 : aucune (`aInfo.y`)
 //   bits 24..26  tempérament de l'immeuble : indice dans `facade.tempers` (voir `temperament.rs`, Rust)
+//   bits 27..31  motif de graffiti mural, 0 : aucun (`facade_paint.wesl`, ajouté au bout de ce fichier)
 // Le décalage vertical du bloc (`aInfo.w`) est l'altitude de l'instance (sa base) : un corps commence à −BASE_DEPTH, une
 // couronne à la hauteur du corps, ce qui prolonge ses étages.
 //
@@ -65,6 +66,21 @@ struct Facade {
 }
 
 @group(constants::MATERIAL_BIND_GROUP) @binding(0) var<uniform> facade: Facade;
+
+// Les graffitis muraux (`facade_paint.wesl`) : l'atlas en tableau de couches, et où lire chaque motif. Même ordre de champs
+// que `WallCells` (Rust). Le motif k du tag est l'entrée k (l'entrée 0 n'est jamais lue).
+struct Wall {
+    // x : largeur d'une couche (px), y : hauteur, z : nombre de couches.
+    atlas: vec4<f32>,
+    // Par motif : x, y, largeur, hauteur du rectangle utile (px).
+    rects: array<vec4<f32>, 32>,
+    // Par motif : x couche, y part de la hauteur occupée par les lettres, w 1 si le motif existe.
+    info: array<vec4<f32>, 32>,
+}
+
+@group(constants::MATERIAL_BIND_GROUP) @binding(2) var wall_map: texture_2d_array<f32>;
+@group(constants::MATERIAL_BIND_GROUP) @binding(3) var wall_sampler: sampler;
+@group(constants::MATERIAL_BIND_GROUP) @binding(4) var<uniform> wall: Wall;
 
 // Hauteur d'un étage et largeur d'une travée de fenêtres, en mètres.
 const FLOOR_HEIGHT: f32 = 2.4;
@@ -139,6 +155,8 @@ struct FacadeVarying {
     @location(6) @interpolate(flat) tint: vec3<f32>,
     // Indice du tempérament de l'immeuble (bits 24..26 du tag).
     @location(7) @interpolate(flat) temper: u32,
+    // Motif de graffiti mural (bits 27..31 du tag), 0 : aucun.
+    @location(8) @interpolate(flat) graffiti: u32,
 }
 
 @vertex
@@ -162,6 +180,7 @@ fn vertex(v: FacadeVertex) -> FacadeVarying {
     out.info = vec4<f32>(f32(tag & 0x3FFu), spot_y, f32((tag >> 14u) & 3u), m[3].y);
     out.tint = facade.cycle[(tag >> 10u) & 0xFu].rgb;
     out.temper = (tag >> 24u) & 7u;
+    out.graffiti = tag >> 27u;
     out.clip = position_world_to_clip(wp.xyz);
     return out;
 }
@@ -331,6 +350,14 @@ fn fragment(in: FacadeVarying) -> @location(0) vec4<f32> {
 
         // Pied d'immeuble éclairé par la route, façon halo.
         col += v_c * exp(-max(h, 0.0) / 7.0) * (0.04 + pulse * 0.1);
+
+        // Graffiti mural : un décalque dans la zone basse, jamais de variation brusque (la lumière ne suit ni le kick ni
+        // l'audio, seulement l'éclairage ambiant, la pluie et la distance).
+        if in.graffiti != 0u && !far {
+            let paint_fade = 1.0 - smoothstep(70.0, 140.0, dist);
+            let paint_gain = (0.5 + 0.4 * lambert) * (1.0 - 0.3 * wet) * paint_fade;
+            col = paint_wall(vec2<f32>(u, h), vec3<f32>(face, width, seed), in.graffiti, col, paint_gain);
+        }
 
         // Ceinture lumineuse à l'étage des projecteurs.
         let spot = step(0.0, in.info.y) * sstep(0.7, 0.2, abs(h - in.info.y));

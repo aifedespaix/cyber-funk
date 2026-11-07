@@ -1,6 +1,7 @@
 //! Le matériau de façade : un shader WESL (`assets/shaders/cf-world-neon/facade.wesl`) et son bloc d'uniformes.
 
 use bevy::asset::{Asset, Handle, uuid_handle};
+use bevy::image::Image;
 use bevy::math::Vec4;
 use bevy::pbr::Material;
 use bevy::reflect::TypePath;
@@ -9,13 +10,14 @@ use bevy::shader::{Shader, ShaderRef};
 
 use super::temperament::TEMPER_COUNT;
 use super::trail::TRAIL_POINTS;
+use super::wall::WallCells;
 use crate::landmarks::field::FieldParams;
 
 /// Le shader des façades, embarqué dans le binaire : aucun fichier lu pendant un show (règle 8 de `CLAUDE.md`).
 pub(crate) const FACADE_SHADER: Handle<Shader> = uuid_handle!("2b8c5e1d-7a43-4f9b-86d0-c3e17a5b9d24");
 /// Source du shader : `facade.wesl`, suivi de `facade_shapes.wesl` (formes de lumière), `facade_motion.wesl` (mouvements),
-/// `facade_trail.wesl` (traîne de la voiture), `facade_life.wesl` (vie des fenêtres) et `field.wesl` (champ de la ville,
-/// partagé avec la route : immeubles-vitrines, zone de glitch, panne de courant).
+/// `facade_trail.wesl` (traîne de la voiture), `facade_life.wesl` (vie des fenêtres), `field.wesl` (champ de la ville,
+/// partagé avec la route : immeubles-vitrines, zone de glitch, panne de courant) et `facade_paint.wesl` (graffitis muraux).
 pub(crate) const FACADE_SOURCE: &str = concat!(
     include_str!("../../../../assets/shaders/cf-world-neon/facade.wesl"),
     "\n",
@@ -27,7 +29,10 @@ pub(crate) const FACADE_SOURCE: &str = concat!(
     "\n",
     include_str!("../../../../assets/shaders/cf-world-neon/facade_life.wesl"),
     "\n",
-    include_str!("../../../../assets/shaders/cf-world-neon/field.wesl")
+    include_str!("../../../../assets/shaders/cf-world-neon/field.wesl"),
+    "
+",
+    include_str!("../../../../assets/shaders/cf-world-neon/facade_paint.wesl")
 );
 /// Chemin logique du shader (messages d'erreur de Bevy, imports).
 pub(crate) const FACADE_SHADER_PATH: &str = "cf-world-neon/facade.wesl";
@@ -97,6 +102,14 @@ pub struct FacadeMaterial {
     /// Le champ de la ville : lumières des immeubles-vitrines, zone de glitch, panne de courant (J7-08).
     #[uniform(1)]
     pub field: FieldParams,
+    /// L'atlas mural des graffitis (tableau de couches) ; `None` tant qu'il n'est pas cuit : la texture de repli de Bevy est
+    /// liée, aucun motif n'existe dans `wall_cells` et rien n'est peint.
+    #[texture(2, dimension = "2d_array")]
+    #[sampler(3)]
+    pub wall: Option<Handle<Image>>,
+    /// Où lire chaque motif dans l'atlas mural.
+    #[uniform(4)]
+    pub wall_cells: WallCells,
 }
 
 impl Material for FacadeMaterial {

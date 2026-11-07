@@ -14,6 +14,7 @@ mod material;
 mod systems;
 mod temperament;
 mod trail;
+mod wall;
 
 #[cfg(test)]
 mod life_tests;
@@ -23,6 +24,8 @@ mod motion_tests;
 mod shapes_tests;
 #[cfg(test)]
 mod tuning_tests;
+#[cfg(test)]
+mod wall_tests;
 
 use bevy::prelude::*;
 use bevy::shader::Shader;
@@ -35,6 +38,7 @@ pub use systems::{
 };
 pub use temperament::{LightShape, MotionKind, TEMPER_COUNT, TEMPERAMENTS, Temperament, temper_of, temper_weights};
 pub use trail::{CarTrail, FALLOFF_M, MIN_STEP_M, TRAIL_LIFETIME_S, TRAIL_POINTS};
+pub use wall::{WALL_SLOTS, WallCells};
 
 /// Le front de panne de courant au repos : profondeur nulle, la ville est entièrement éclairée.
 pub const NO_BLACKOUT: Vec4 = Vec4::new(0.0, 1.0, 0.0, 1.0);
@@ -106,6 +110,12 @@ impl Plugin for FacadePlugin {
                 Update,
                 (systems::apply_tuning, trail::record_car_trail, systems::update_material)
                     .chain()
+                    .in_set(CfSet::Present),
+            )
+            .add_systems(
+                Update,
+                wall::bind_wall_atlas
+                    .run_if(resource_exists::<crate::graffiti::GraffitiAtlas>)
                     .in_set(CfSet::Present),
             );
     }
