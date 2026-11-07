@@ -26,7 +26,7 @@ cyber-funk --show assets/shows/demo.ron
 ```
 
 Options utiles : `--windowed` (projecteur en fenêtre, pour répéter), `--projector-monitor <n ou nom>` (écran du
-projecteur), `--audio-source mic|line|demo`, `--no-midi`, `--no-operator`, `--log debug`. Un écran de chargement précède
+projecteur, prioritaire sur celui choisi dans Réglages), `--audio-source mic|line|demo`, `--no-midi`, `--no-operator`, `--log debug`. Un écran de chargement précède
 le show : tout est préchargé à l'ouverture, **rien ne se charge pendant le set**.
 
 ## 2. Brancher le son
@@ -161,6 +161,22 @@ journal) et l'on démarre sans show, comme avant. `--show` garde la priorité et
 `--soak` ni `--no-operator` ne la lisent. Seuls vos gestes sur les profils (enregistrer, ouvrir, créer, supprimer) la
 changent. Les modifications faites dans l'éditeur sont jouées **au prochain lancement** : rien ne se recharge pendant
 un show. En quittant avec des modifications non enregistrées, le dialogue de sortie propose « Enregistrer et quitter ».
+
+**Écran de sortie.** La carte « Écran de sortie du rendu » (colonne de droite de l'onglet Réglages ; dans le repli
+« Écran de sortie du rendu » au-dessus des colonnes quand la fenêtre est étroite) liste les écrans branchés : numéro,
+nom, résolution, fréquence, et « principal » / « projecteur ». L'écran qui porte le projecteur est en surbrillance.
+Cliquer sur un autre écran y déplace **tout de suite** le projecteur (la fenêtre est déplacée, pas recréée : rien ne
+se recharge) ; la fenêtre opérateur ne bouge pas. **Plein écran** passe le projecteur en plein écran ou en fenêtre
+ordinaire (avec bordure et curseur, pour répéter). Les deux choix sont retenus pour le prochain lancement : l'écran
+par son **nom** (pas son numéro, qui change quand on débranche un écran). Au démarrage, `--projector-monitor` passe
+avant l'écran retenu, qui passe avant l'écran principal ; `--windowed` passe avant le plein écran retenu. Si l'écran
+retenu n'est pas branché ce jour-là, le projecteur s'ouvre sur l'écran principal, le journal le dit une fois, et le
+réglage est **gardé** (il servira quand l'écran reviendra). Un écran sans nom ne peut pas être retenu : il se choisit
+par son numéro avec `--projector-monitor` (le numéro de l'option est donné au survol, il commence à 0). Avec un seul
+écran, la carte l'affiche, sélectionné, avec « Un seul écran détecté ». Le bouton « Afficher le numéro sur chaque
+écran (3 s) » est grisé (pas encore disponible : il faudrait une fenêtre par écran). Si la carte est utilisée en
+mode Live, changer d'écran demande deux clics (le second confirme), pour qu'un clic de travers ne déplace pas la
+projection devant le public ; aujourd'hui l'onglet Réglages n'est affiché qu'en Préparation.
 
 **Modes d'un créneau** : *Auto* (le show avance seul), *Semi* (il avance seul mais GO prend la main), *Manuel* (seul GO
 fait avancer).

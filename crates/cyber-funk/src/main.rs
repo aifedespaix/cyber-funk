@@ -123,10 +123,8 @@ fn build_app(
     preload: PreloadPlan,
     settings: Option<SettingsPlugin>,
 ) -> App {
-    let projector = ProjectorConfig {
-        monitor: cli.projector_monitor.clone().unwrap_or_default(),
-        windowed: cli.windowed,
-    };
+    // Écran du projecteur : la ligne de commande, sinon celui mémorisé par l'opérateur, sinon l'écran principal.
+    let projector = ProjectorConfig::new(cli, settings.as_ref().map(|plugin| &plugin.initial.operator));
 
     let mut app = App::new();
     app.add_plugins(

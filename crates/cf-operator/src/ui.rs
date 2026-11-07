@@ -4,7 +4,7 @@ use bevy::prelude::*;
 use bevy_egui::{EguiContext, PrimaryEguiContext, egui};
 
 use cf_render::audio::{AudioCommand, AudioFeatures, AudioStatus, VisualLatency};
-use cf_render::{ControlsStatus, LearnCommand};
+use cf_render::{ControlsStatus, LearnCommand, ScreenList, ScreenOrder};
 
 use crate::live::{self, LiveParams};
 use crate::loading::{self, LoadingView};
@@ -12,6 +12,7 @@ use crate::prepare::PrepSession;
 use crate::quit::{QuitDecision, QuitPrompt, QuitSource};
 use crate::shell::{self, ShellParams, Tab};
 use crate::tabs::debug::{self, DebugParams, Shared};
+use crate::tabs::settings::screens_view::ScreenCard;
 use crate::tabs::settings::update_panel::{self, InstallUpdate, UpdateStatus};
 use crate::tabs::settings::{self as settings_tab, PrepParams, QuitChoice, audio_panel, controls_panel, learn_panel};
 use crate::tabs::stats::{self, StatsParams};
@@ -39,6 +40,7 @@ pub(crate) fn main_panel(
     mut debug: DebugParams,
     mut shell: ShellParams,
     mut stats: StatsParams,
+    mut screens: ScreenParams,
 ) {
     // Depuis egui 0.36 les panneaux se posent dans un `Ui` racine, pas directement sur le contexte.
     let ctx = context.get_mut();
@@ -132,9 +134,19 @@ pub(crate) fn main_panel(
         }
         if let (Some(session), Some(tab)) = (prep.session.as_deref_mut(), prep.tab.as_deref_mut()) {
             let library_ids = controls.as_deref().map_or(&[][..], |c| c.library_ids.as_slice());
-            settings_tab::draw(ui, session, tab, library_ids, |ui| {
+            let empty = ScreenList::default();
+            let card = ScreenCard {
+                list: screens.list.as_deref().unwrap_or(&empty),
+                // Les réglages sont tenus par l'onglet Debug (même système) : on les y lit.
+                fullscreen: debug.operator_prefs().is_none_or(|prefs| prefs.fullscreen),
+                live: mode == crate::OperatorMode::Live,
+                now_s: shell.time.elapsed_secs_f64(),
+            };
+            let mut orders = Vec::new();
+            settings_tab::draw(ui, session, tab, library_ids, card, &mut orders, |ui| {
                 live::mode_button(ui, &mut live);
             });
+            screens.orders.write_batch(orders);
             return;
         }
         ui.horizontal(|ui| {
@@ -145,6 +157,13 @@ pub(crate) fn main_panel(
             draw_controls(ui, live.show(), controls.as_deref(), features_copy);
         });
     });
+}
+
+/// La carte « Écran de sortie » : la liste écrite par le projecteur (binaire), et ses ordres.
+#[derive(bevy::ecs::system::SystemParam)]
+pub(crate) struct ScreenParams<'w> {
+    list: Option<Res<'w, ScreenList>>,
+    orders: MessageWriter<'w, ScreenOrder>,
 }
 
 /// Le panneau des contrôles, ou la raison de son absence.

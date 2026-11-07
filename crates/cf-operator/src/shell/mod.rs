@@ -11,7 +11,7 @@
 //! accessible au clavier (un clic de trop ne doit pas lancer un événement devant le public). L'onglet choisi est gardé
 //! tel quel : on le retrouve en revenant en Préparation.
 
-mod confirm;
+pub(crate) mod confirm;
 mod help;
 pub(crate) mod shortcuts;
 pub(crate) mod status_bar;

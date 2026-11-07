@@ -17,6 +17,7 @@ pub mod palette;
 pub mod postfx;
 pub mod quality;
 mod schedule;
+pub mod screens;
 pub mod settings;
 pub mod show;
 mod sim;
@@ -65,6 +66,7 @@ pub use quality::{
     QualityPlugin, levers_for,
 };
 pub use schedule::{CfSet, CorePlugin};
+pub use screens::{ScreenInfo, ScreenList, ScreenOrder, describe_screens};
 pub use settings::{Settings, SettingsPlugin};
 pub use show::{CurrentShow, SheetCue, SheetSlot, ShowControls, ShowEventMessage, ShowPlugin, ShowRuntime, ShowSheet};
 pub use sim::{SimClock, SimControl, SimReset, sim_running};

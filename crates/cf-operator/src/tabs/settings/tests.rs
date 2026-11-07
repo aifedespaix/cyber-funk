@@ -426,9 +426,18 @@ fn draw_at(width: f32, height: f32) -> egui::Rect {
             ..egui::RawInput::default()
         };
         ctx.run_ui(raw, |ui| {
-            list = draw(ui, &mut session, &mut tab, &[], |ui| {
+            let screens = cf_render::ScreenList::default();
+            let card = ScreenCard {
+                list: &screens,
+                fullscreen: true,
+                live: false,
+                now_s: 0.0,
+            };
+            let mut orders = Vec::new();
+            list = draw(ui, &mut session, &mut tab, &[], card, &mut orders, |ui| {
                 ui.label("mode");
             });
+            assert!(orders.is_empty(), "aucun clic, aucun ordre");
         })
         .drop_without_applying_deltas();
     }

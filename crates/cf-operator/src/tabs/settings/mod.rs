@@ -4,12 +4,15 @@
 //! ```text
 //! barre : Réglages ● modifié · [Passer en Live] · profil ▾ · Nouveau · Dupliquer · Supprimer
 //!         Fichier [chemin] Importer Exporter · Annuler/Rétablir
-//! ┌ DJs de la soirée ─┐┌ Édition du DJ ───────────────┐( Écran de sortie : tâche suivante, Panel::right )
-//! │ 1. … (glisser,    ││ formulaires du créneau, cues │
-//! │    Alt+↑/↓)       ││──────────────────────────────│
+//! ┌ DJs de la soirée ─┐┌ Édition du DJ ───────────────┐┌ Écran de sortie ─┐
+//! │ 1. … (glisser,    ││ formulaires du créneau, cues ││ 1 DP-1 …  ▣      │
+//! │    Alt+↑/↓)       ││──────────────────────────────││ ☑ Plein écran    │
 //! │ + Ajouter …       ││ ● non enregistré  Annuler  Enregistrer [Ctrl+S]
-//! └───────────────────┘└──────────────────────────────┘
+//! └───────────────────┘└──────────────────────────────┘└──────────────────┘
 //! ```
+//!
+//! Trop étroit pour trois colonnes ([`SCREENS_COLUMN_MIN_WIDTH`]), la carte de l'écran de sortie passe dans un repli
+//! au-dessus des colonnes.
 //!
 //! Les changements qui feraient perdre ou contourner des modifications non enregistrées (changer de DJ, de profil,
 //! importer, quitter) demandent d'abord confirmation. En Live, cet onglet n'est pas dessiné (la vue Live le remplace)
@@ -23,6 +26,7 @@ mod dj_list;
 pub(crate) mod learn_panel;
 pub(crate) mod profiles;
 pub(crate) mod restore;
+pub(crate) mod screens_view;
 #[cfg(test)]
 mod tests;
 mod transfer;
@@ -37,11 +41,19 @@ use bevy_egui::egui;
 use crate::prepare::panel::{self, Op};
 use crate::prepare::widgets::Touch;
 use crate::prepare::{PrepSession, Status};
+use crate::services::screens::ScreenCardState;
 #[cfg(test)]
 use confirm::{Choice, resolve};
 pub(crate) use confirm::{Pending, guard};
 use dj_form::DjFormView;
 use dj_list::ListFocus;
+use screens_view::ScreenCard;
+
+/// Largeur de l'onglet en dessous de laquelle la carte de l'écran de sortie passe dans un repli (points egui) : la
+/// liste (260) et la fiche ont besoin de place.
+pub(crate) const SCREENS_COLUMN_MIN_WIDTH: f32 = 900.0;
+/// Largeur de la colonne de l'écran de sortie (points egui).
+const SCREENS_COLUMN_WIDTH: f32 = 280.0;
 
 /// Une demande de la liste ou de la fiche, traitée après le dessin (la session est alors à jour).
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -63,6 +75,8 @@ pub(crate) struct SettingsTab {
     pub pending: Option<Pending>,
     /// Geste de l'opérateur sur les profils à recopier dans les réglages (`restore::remember_evening`).
     pub remember: Option<Remembered>,
+    /// Carte de l'écran de sortie (confirmation en Live).
+    pub screens: ScreenCardState,
     focus: ListFocus,
 }
 
@@ -150,13 +164,15 @@ pub(crate) fn quit_choices(dirty: bool) -> &'static [(QuitChoice, &'static str)]
     }
 }
 
-/// Dessine l'onglet en Préparation. `mode_button` ajoute « Passer en Live » à la barre. Rend le rectangle de la
-/// carte des DJ (tests de mise en page).
+/// Dessine l'onglet en Préparation. `mode_button` ajoute « Passer en Live » à la barre ; les ordres de la carte de
+/// l'écran de sortie vont dans `screen_orders`. Rend le rectangle de la carte des DJ (tests de mise en page).
 pub(crate) fn draw(
     ui: &mut egui::Ui,
     session: &mut PrepSession,
     tab: &mut SettingsTab,
     library_ids: &[String],
+    screens: ScreenCard<'_>,
+    screen_orders: &mut Vec<cf_render::ScreenOrder>,
     mode_button: impl FnOnce(&mut egui::Ui),
 ) -> egui::Rect {
     if panel::shortcuts(ui.ctx(), session) && tab.pending.is_none() {
@@ -179,6 +195,15 @@ pub(crate) fn draw(
     });
     panel::messages(ui, session);
     ui.separator();
+    let wide = ui.available_width() >= SCREENS_COLUMN_MIN_WIDTH;
+    if !wide {
+        egui::CollapsingHeader::new("Écran de sortie du rendu")
+            .id_salt("screens_fold")
+            .default_open(false)
+            .show(ui, |ui| {
+                screens_view::draw(ui, screens, &mut tab.screens, screen_orders);
+            });
+    }
 
     let mut draft = session.event().clone();
     let mut touch = Touch::default();
@@ -209,7 +234,16 @@ pub(crate) fn draw(
         })
         .response
         .rect;
-    // La carte « Écran de sortie » viendra ici, en `Panel::right`, avant la fiche centrale.
+    if wide {
+        egui::Panel::right("screens_card")
+            .default_size(SCREENS_COLUMN_WIDTH)
+            .resizable(true)
+            .show(ui, |ui| {
+                egui::ScrollArea::vertical().id_salt("screens_scroll").show(ui, |ui| {
+                    screens_view::draw(ui, screens, &mut tab.screens, screen_orders);
+                });
+            });
+    }
     egui::CentralPanel::default().show(ui, |ui| {
         DjFormView {
             event: &mut draft,

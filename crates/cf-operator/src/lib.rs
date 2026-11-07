@@ -57,6 +57,10 @@ impl Plugin for OperatorPlugin {
         // ils restent simplement sans lecteur.
         app.init_resource::<tabs::debug::DebugState>()
             .add_message::<cf_render::DistrictOrder>();
+        // La carte « Écran de sortie » lit la liste des écrans et écrit des ordres ; le projecteur (binaire) enregistre
+        // les mêmes (idempotent). Sans lui la liste reste vide et les ordres sans lecteur.
+        app.init_resource::<cf_render::ScreenList>()
+            .add_message::<cf_render::ScreenOrder>();
         live::build(app);
         shell::build(app);
         tabs::stats::build(app);
@@ -70,6 +74,7 @@ impl Plugin for OperatorPlugin {
                 shell::shell_input,
                 ui::main_panel,
                 shell::persist_tab,
+                services::screens::remember_screen_orders,
                 tabs::settings::restore::remember_evening,
                 live::mode_dialog,
                 ui::quit_dialog,
