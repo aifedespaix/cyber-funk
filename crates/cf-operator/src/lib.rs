@@ -20,6 +20,7 @@ pub use live::OperatorMode;
 pub use prepare::PrepConfig;
 pub use quit::{QuitConfirmation, QuitDecision, QuitGuardPlugin, QuitPrompt, QuitSource};
 pub use services::logbuf::{OperatorLog, mark_moment};
+pub use tabs::settings::restore::startup_event_path;
 pub use tabs::settings::update_panel::{InstallUpdate, UpdateStatus};
 pub use window::OperatorWindow;
 

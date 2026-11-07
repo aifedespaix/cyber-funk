@@ -1,15 +1,18 @@
 //! Les profils de soirée : un profil est un fichier d'événement RON, `<config>/cyber-funk/profiles/<nom>.ron`. Ses DJ
 //! sont les créneaux (`DjSlot`) de l'événement ; aucune seconde représentation n'existe.
 //!
-//! `Ctrl+S` enregistre dans le profil actif ; sans profil actif, il crée « Soirée » (ou « Soirée 2 »… si le nom est
-//! pris) et le rend actif. L'écriture est celle d'`EventDocument` : copie `.bak` de l'ancien fichier puis
-//! `write_atomic`.
+//! `Ctrl+S` enregistre là d'où vient la soirée : le profil actif ; sinon le fichier ouvert (`--show`, Importer), qui
+//! est réécrit sans toucher aux profils ; sinon (soirée neuve, sans fichier) un nouveau profil « Soirée » (ou
+//! « Soirée 2 »… si le nom est pris), rendu actif. « Dupliquer » enregistre sous un profil nommé depuis n'importe
+//! quelle soirée. L'écriture est celle d'`EventDocument` : copie `.bak` de l'ancien fichier puis `write_atomic`.
+//!
+//! Seuls ces gestes sur les profils font retenir le profil actif pour le prochain lancement (`Remembered`).
 
 use std::path::{Path, PathBuf};
 
 use bevy_egui::egui;
 
-use super::{Pending, SettingsTab};
+use super::{Pending, Remembered, SettingsTab};
 use crate::prepare::{PrepSession, Status};
 
 /// Nom du premier profil créé par un enregistrement sans profil actif.
@@ -20,15 +23,28 @@ const EXTENSION: &str = "ron";
 const FORBIDDEN: &[char] = &['<', '>', ':', '"', '/', '\\', '|', '?', '*'];
 
 /// Le fichier du profil `name` dans `dir`. `None` pour un nom vide (une fois les espaces retirés), contenant un
-/// séparateur de chemin, `..`, un caractère interdit sous Windows ou un caractère de contrôle.
+/// séparateur de chemin, `..`, un caractère interdit sous Windows, un caractère de contrôle, un nom réservé de
+/// Windows (`CON`, `NUL`, `COM1`…, avec ou sans extension) ou un nom qui finit par un point.
 pub(crate) fn profile_path(dir: &Path, name: &str) -> Option<PathBuf> {
     let name = name.trim();
     let refused = name.is_empty()
         || name.contains("..")
+        || name.ends_with('.')
+        || reserved_on_windows(name)
         || name
             .chars()
             .any(|c| FORBIDDEN.contains(&c) || c.is_control() || std::path::is_separator(c));
     (!refused).then(|| dir.join(format!("{name}.{EXTENSION}")))
+}
+
+/// Les noms de périphériques de Windows, refusés même suivis d'une extension (`nul.txt` ouvre le périphérique).
+fn reserved_on_windows(name: &str) -> bool {
+    let stem = name.split('.').next().unwrap_or(name).trim_end().to_ascii_uppercase();
+    let numbered = |prefix: &str| {
+        stem.strip_prefix(prefix)
+            .is_some_and(|n| n.len() == 1 && n != "0" && n.bytes().all(|b| b.is_ascii_digit()))
+    };
+    matches!(stem.as_str(), "CON" | "PRN" | "AUX" | "NUL") || numbered("COM") || numbered("LPT")
 }
 
 /// Le nom du profil d'un fichier situé dans `dir`, s'il en est un.
@@ -79,28 +95,32 @@ fn refuse_invalid(session: &mut PrepSession) -> bool {
     true
 }
 
-/// `Ctrl+S` / « Enregistrer » : dans le profil actif, ou un nouveau profil « Soirée » rendu actif. Sans dossier de
-/// profils, le fichier associé ou le chemin saisi (comportement d'avant les profils). Rend `true` si c'est enregistré.
+/// `Ctrl+S` / « Enregistrer » : dans le profil actif ; sinon dans le fichier ouvert (sans toucher aux profils) ;
+/// sinon dans un nouveau profil « Soirée » rendu actif. Sans dossier de profils, le chemin saisi en dernier recours.
+/// Rend `true` si c'est enregistré.
 pub(crate) fn save_evening(session: &mut PrepSession, tab: &mut SettingsTab) -> bool {
     if refuse_invalid(session) {
         return false;
     }
-    let Some(dir) = tab.profiles_dir.clone() else {
-        return save_without_profiles(session);
+    let dir = tab.profiles_dir.clone();
+    if let (Some(dir), Some(name)) = (&dir, session.active_profile().map(str::to_owned)) {
+        return save_to_profile(session, tab, dir, &name);
+    }
+    if session.doc_path().is_some() {
+        session.save();
+        return matches!(session.status, Status::Info(_));
+    }
+    let Some(dir) = dir else {
+        return save_to_typed_path(session);
     };
-    let Some(name) = session
-        .active_profile()
-        .map(str::to_owned)
-        .or_else(|| free_name(&dir, FIRST_PROFILE))
-    else {
+    let Some(name) = free_name(&dir, FIRST_PROFILE) else {
         session.status = Status::Error("Aucun nom de profil libre.".to_owned());
         return false;
     };
-
     save_to_profile(session, tab, &dir, &name)
 }
 
-/// Enregistre l'événement dans le profil `name` et le rend actif.
+/// Enregistre l'événement dans le profil `name` et le rend actif (et retenu pour le prochain lancement).
 fn save_to_profile(session: &mut PrepSession, tab: &mut SettingsTab, dir: &Path, name: &str) -> bool {
     let Some(path) = profile_path(dir, name) else {
         session.status = Status::Error(format!("Nom de profil invalide : « {name} »."));
@@ -113,17 +133,16 @@ fn save_to_profile(session: &mut PrepSession, tab: &mut SettingsTab, dir: &Path,
     if !session.save_as(&path) {
         return false;
     }
-    session.set_active_profile(Some(name.trim().to_owned()));
-    session.status = Status::Info(format!("Profil « {} » enregistré", name.trim()));
+    let name = name.trim().to_owned();
+    session.set_active_profile(Some(name.clone()));
+    session.status = Status::Info(format!("Profil « {name} » enregistré"));
+    tab.remember = Some(Remembered::Profile { name, path });
     tab.refresh_profiles();
     true
 }
 
-fn save_without_profiles(session: &mut PrepSession) -> bool {
-    if session.doc_path().is_some() {
-        session.save();
-        return matches!(session.status, Status::Info(_));
-    }
+/// Sans dossier de profils ni fichier associé : le chemin saisi dans la barre (comportement d'avant les profils).
+fn save_to_typed_path(session: &mut PrepSession) -> bool {
     let typed = session.path_input.trim().to_owned();
     if typed.is_empty() {
         session.status = Status::Error("Indique d'abord un chemin de fichier (Exporter).".to_owned());
@@ -133,7 +152,7 @@ fn save_without_profiles(session: &mut PrepSession) -> bool {
 }
 
 /// Ouvre le profil `name` et le rend actif (l'appelant a déjà confirmé si la session était modifiée).
-pub(crate) fn open_profile(session: &mut PrepSession, tab: &SettingsTab, name: &str) -> bool {
+pub(crate) fn open_profile(session: &mut PrepSession, tab: &mut SettingsTab, name: &str) -> bool {
     let Some(path) = tab.profiles_dir.as_deref().and_then(|dir| profile_path(dir, name)) else {
         return false;
     };
@@ -141,6 +160,10 @@ pub(crate) fn open_profile(session: &mut PrepSession, tab: &SettingsTab, name: &
         return false;
     }
     session.set_active_profile(Some(name.to_owned()));
+    tab.remember = Some(Remembered::Profile {
+        name: name.to_owned(),
+        path,
+    });
     true
 }
 
@@ -155,8 +178,8 @@ pub(crate) fn new_profile(session: &mut PrepSession, tab: &mut SettingsTab, name
     save_to_profile(session, tab, &dir, name)
 }
 
-/// Supprime le fichier du profil `name` (après confirmation). L'édition en cours reste ; si c'était le profil actif,
-/// il n'y a plus de profil actif (le prochain `Ctrl+S` en recrée un).
+/// Supprime le fichier du profil `name` (après confirmation). L'édition en cours reste à l'écran ; si c'était le
+/// profil actif, elle n'a plus de fichier (le prochain `Ctrl+S` crée un nouveau profil, jamais l'ancien fichier).
 pub(crate) fn delete_profile(session: &mut PrepSession, tab: &mut SettingsTab, name: &str) {
     let Some(path) = tab.profiles_dir.as_deref().and_then(|dir| profile_path(dir, name)) else {
         return;
@@ -165,8 +188,15 @@ pub(crate) fn delete_profile(session: &mut PrepSession, tab: &mut SettingsTab, n
         Ok(()) => {
             if session.active_profile() == Some(name) {
                 session.set_active_profile(None);
+                session.detach_file();
+                tab.remember = Some(Remembered::NoProfile);
+                session.status = Status::Info(format!(
+                    "Profil « {name} » supprimé : la soirée affichée n'est plus enregistrée sur le disque (Ctrl+S \
+                     crée un nouveau profil)."
+                ));
+            } else {
+                session.status = Status::Info(format!("Profil « {name} » supprimé"));
             }
-            session.status = Status::Info(format!("Profil « {name} » supprimé"));
         }
         Err(e) => session.status = Status::Error(format!("suppression impossible : {e}")),
     }

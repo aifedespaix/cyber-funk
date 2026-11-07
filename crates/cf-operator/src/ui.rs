@@ -218,7 +218,7 @@ pub(crate) fn quit_dialog(
     };
     if confirmed {
         if let Some(settings) = settings.as_deref_mut() {
-            settings_tab::restore::flush_on_quit(settings, prep.session.as_deref());
+            settings_tab::restore::flush_on_quit(settings, prep.tab.as_deref_mut());
         }
         decisions.write(QuitDecision::Confirm);
     }

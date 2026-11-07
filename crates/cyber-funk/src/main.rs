@@ -41,7 +41,7 @@ use crate::projector::{ProjectorConfig, ProjectorPlugin};
 pub struct ShowRequest(pub Option<PathBuf>);
 
 fn main() -> anyhow::Result<ExitCode> {
-    let cli = Cli::parse();
+    let mut cli = Cli::parse();
 
     // Fichier journal en release seulement : en développement la console suffit et on évite d'encombrer le disque.
     let log_dir = if cfg!(debug_assertions) {
@@ -63,10 +63,16 @@ fn main() -> anyhow::Result<ExitCode> {
     if let Some(show) = &cli.show {
         ensure!(show.is_file(), "le fichier de show {} n'existe pas", show.display());
     }
-    let show = show_setup::show_plugin(&cli)?;
+    let settings = load_settings(&cli);
+    // Sans `--show`, la soirée retenue (profil actif, sinon dernier fichier) est jouée ; illisible, on démarre sans.
+    let remembered = show_setup::remembered_show(
+        &cli,
+        settings.as_ref().map(|plugin| &plugin.initial.operator),
+        profiles_dir().as_deref(),
+    );
+    let show = show_setup::show_plugin_with_fallback(&mut cli, remembered)?;
     let controls = show_setup::controls_plugin(&cli)?;
     let preload = PreloadPlan::new(&cli, show.show.as_ref());
-    let settings = load_settings(&cli);
 
     let mut app = build_app(&cli, controls, show, preload, settings);
     if let Some((recorder, _)) = &session {

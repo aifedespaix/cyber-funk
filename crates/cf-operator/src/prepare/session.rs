@@ -267,16 +267,10 @@ impl PrepSession {
         self.active_profile = name;
     }
 
-    /// Importe un fichier d'événement : son contenu remplace l'édition, mais la version enregistrée de référence
-    /// reste celle d'avant (le profil actif n'a pas encore reçu l'import : la session est donc « modifiée »).
-    pub(crate) fn import(&mut self, path: &Path) -> bool {
-        let saved = self.baseline.clone();
-        if !self.open(path) {
-            return false;
-        }
-        self.baseline = saved;
-        self.status = Status::Info(format!("{} importé (à enregistrer)", path.display()));
-        true
+    /// Détache l'édition de son fichier (profil supprimé) : le prochain enregistrement ne recrée jamais l'ancien
+    /// fichier. L'édition et son historique restent.
+    pub(crate) fn detach_file(&mut self) {
+        self.doc = EventDocument::new(self.doc.event().clone());
     }
 
     /// Exporte une copie de l'événement sous `path` (écriture atomique, `.bak` de l'ancien fichier), sans changer le

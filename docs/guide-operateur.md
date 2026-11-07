@@ -137,21 +137,30 @@ ou rester.
 
 **Profils de soirée.** Un profil est un fichier d'événement rangé dans le dossier de configuration
 (`%APPDATA%\cyber-funk\profiles\<nom>.ron` sous Windows, `~/.config/cyber-funk/profiles/` sous Linux). Le sélecteur
-liste les profils lisibles par ordre alphabétique ; en choisir un l'ouvre. Pour en créer un, tapez son nom puis
-**Nouveau** (soirée vide) ou **Dupliquer** (copie de la soirée en cours sous ce nom). **Supprimer** efface le fichier
-du profil actif, après confirmation (la soirée reste à l'écran). Le premier `Ctrl+S` sans profil actif crée le profil
-« Soirée » (ou « Soirée 2 »… si le nom est pris). Ouvrir ou créer un profil alors que la soirée est modifiée demande
-d'abord s'il faut l'enregistrer. Les noms vides, avec `/ \ : * ? " < > |` ou `..` sont refusés.
+liste les profils lisibles par ordre alphabétique ; en choisir un l'ouvre et le rend actif. Pour en créer un, tapez son
+nom puis **Nouveau** (soirée vide) ou **Dupliquer** (enregistre la soirée en cours, quelle qu'elle soit, sous ce nom :
+c'est « enregistrer sous un profil »). **Supprimer** efface le fichier du profil actif, après confirmation : la soirée
+reste à l'écran mais n'est plus enregistrée sur le disque (la barre d'état le dit ; le prochain `Ctrl+S` crée un
+nouveau profil). Ouvrir ou créer un profil alors que la soirée est modifiée demande d'abord s'il faut l'enregistrer.
+Les noms vides, avec `/ \ : * ? " < > |` ou `..`, finissant par un point, ou réservés par Windows (`CON`, `PRN`,
+`AUX`, `NUL`, `COM1`…`COM9`, `LPT1`…`LPT9`, même suivis d'une extension) sont refusés.
 
-**Import / export.** Tapez un chemin dans « Fichier » : **Importer** ouvre ce fichier d'événement dans l'édition (à
-enregistrer ensuite dans le profil : la soirée est marquée modifiée) ; **Exporter** écrit une copie de la soirée dans
-ce fichier, sans changer de profil. Chaque écriture est atomique et garde l'ancienne version en `.bak`.
+**Où enregistre `Ctrl+S`.** Dans le profil actif s'il y en a un ; sinon dans le fichier d'où vient la soirée (ouvert
+par `--show` ou **Importer**), qui est réécrit tel quel sans créer de profil ; sinon (soirée neuve, sans fichier) dans
+un nouveau profil « Soirée » (ou « Soirée 2 »… si le nom est pris), qui devient actif.
 
-**Reprise au relancement.** Au démarrage sans `--show`, cyber-funk rouvre dans l'onglet Réglages le profil actif, ou à
-défaut le dernier fichier ouvert ou enregistré ; un fichier absent ou illisible est sauté (avertissement dans le
-journal) et l'on repart d'une soirée neuve. `--show` garde la priorité. La reprise ne concerne que l'édition : pour
-jouer la soirée, relancez avec `--show <fichier>`. En quittant avec des modifications non enregistrées, le dialogue de
-sortie propose « Enregistrer et quitter ».
+**Import / export.** Tapez un chemin dans « Fichier » : **Importer** ouvre ce fichier d'événement dans l'édition ; il
+devient la cible de `Ctrl+S` (la session n'a plus de profil actif, mais le profil retenu pour le prochain lancement ne
+change pas). **Exporter** écrit une copie de la soirée dans ce fichier, sans changer de profil. Chaque écriture est
+atomique et garde l'ancienne version en `.bak`.
+
+**Reprise au relancement.** Au démarrage sans `--show`, cyber-funk **joue** et rouvre dans l'onglet Réglages la soirée
+retenue : le profil actif, ou à défaut le dernier profil ouvert ou enregistré. Elle est chargée à l'ouverture comme
+avec `--show` (même vérification, même préchargement) ; un fichier absent ou illisible est sauté (avertissement dans le
+journal) et l'on démarre sans show, comme avant. `--show` garde la priorité et ne change pas la soirée retenue, ni
+`--soak` ni `--no-operator` ne la lisent. Seuls vos gestes sur les profils (enregistrer, ouvrir, créer, supprimer) la
+changent. Les modifications faites dans l'éditeur sont jouées **au prochain lancement** : rien ne se recharge pendant
+un show. En quittant avec des modifications non enregistrées, le dialogue de sortie propose « Enregistrer et quitter ».
 
 **Modes d'un créneau** : *Auto* (le show avance seul), *Semi* (il avance seul mais GO prend la main), *Manuel* (seul GO
 fait avancer).

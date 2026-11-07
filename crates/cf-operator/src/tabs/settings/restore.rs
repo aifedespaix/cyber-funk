@@ -3,7 +3,7 @@
 //!
 //! ```text
 //! priorité au démarrage : --show  ▶  profil actif (s'il existe et se lit)  ▶  last_event_path (idem)  ▶  neuf
-//! remember_evening : PrepSession ─▶ Settings.value.operator.{active_profile, last_event_path} (sur vrai changement)
+//! remember_evening : geste sur un profil (SettingsTab::remember) ─▶ Settings.value.operator (sur vrai changement)
 //! ```
 //!
 //! Un fichier manquant ou illisible passe au candidat suivant avec un avertissement dans le journal : il n'empêche
@@ -15,8 +15,8 @@ use bevy::prelude::*;
 use cf_render::Settings;
 use cf_show::persist::OperatorPrefs;
 
-use super::SettingsTab;
 use super::profiles::{profile_name_of, profile_path};
+use super::{Remembered, SettingsTab};
 use crate::prepare::{PrepConfig, PrepSession};
 
 /// Les fichiers à essayer au démarrage, dans l'ordre (sans toucher au disque). Un `--show` explicite est seul : on
@@ -45,7 +45,8 @@ fn startup_candidates(prefs: &OperatorPrefs, profiles: Option<&Path>, cli_show: 
 /// L'événement à ouvrir au démarrage : `--show`, puis le profil actif, puis `last_event_path`, chacun seulement s'il
 /// existe et se lit (RON d'une version connue) ; `None` : événement neuf. Le `--show` est pris tel quel (le binaire
 /// l'a déjà vérifié, et un show demandé explicitement ne se remplace pas en douce).
-pub(crate) fn startup_event_path(prefs: &OperatorPrefs, profiles: &Path, cli_show: Option<&Path>) -> Option<PathBuf> {
+#[must_use]
+pub fn startup_event_path(prefs: &OperatorPrefs, profiles: &Path, cli_show: Option<&Path>) -> Option<PathBuf> {
     pick(prefs, Some(profiles), cli_show)
 }
 
@@ -101,39 +102,35 @@ pub(crate) fn init_session(config: Res<PrepConfig>, settings: Option<Res<Setting
     commands.insert_resource(session);
 }
 
-/// Retient le profil actif et le dernier fichier dans les réglages. Comparaison sans allocation ; `Settings` n'est
-/// touché (donc réécrit sur disque) que sur un vrai changement.
-pub(crate) fn remember_evening(session: Option<Res<PrepSession>>, settings: Option<ResMut<Settings>>) {
-    let (Some(session), Some(mut settings)) = (session, settings) else {
+/// Recopie dans les réglages ce que l'opérateur vient de faire sur les profils (`SettingsTab::remember`). Rien
+/// d'autre n'y écrit : un repli au démarrage ou un lancement `--show` ne fait jamais oublier le profil retenu.
+/// `Settings` n'est touché (donc réécrit sur disque) que sur un vrai changement.
+pub(crate) fn remember_evening(tab: Option<ResMut<SettingsTab>>, settings: Option<ResMut<Settings>>) {
+    let (Some(mut tab), Some(mut settings)) = (tab, settings) else {
         return;
     };
-    if session.is_changed() && evening_differs(&settings.value.operator, &session) {
-        write_evening(&mut settings.value.operator, &session);
+    if tab.remember.is_none() {
+        return;
+    }
+    if let Some(remembered) = tab.remember.take() {
+        apply_remembered(&mut settings, &remembered);
     }
 }
 
-/// Les préférences diffèrent-elles de la session (profil actif, dernier fichier) ? Sans allocation.
-pub(crate) fn evening_differs(prefs: &OperatorPrefs, session: &PrepSession) -> bool {
-    prefs.active_profile.as_deref() != session.active_profile()
-        || session
-            .doc_path()
-            .is_some_and(|path| prefs.last_event_path.as_deref().map(Path::new) != Some(path))
-}
-
-/// Recopie le profil actif et le dernier fichier de la session dans les préférences. Un événement sans fichier ne
-/// fait pas oublier le dernier fichier connu.
-pub(crate) fn write_evening(prefs: &mut OperatorPrefs, session: &PrepSession) {
-    prefs.active_profile = session.active_profile().map(str::to_owned);
-    if let Some(path) = session.doc_path() {
-        prefs.last_event_path = Some(path.display().to_string());
+/// Applique un geste retenu aux préférences, seulement s'il change quelque chose.
+pub(crate) fn apply_remembered(settings: &mut Settings, remembered: &Remembered) {
+    let mut prefs = settings.value.operator.clone();
+    remembered.apply(&mut prefs);
+    if prefs != settings.value.operator {
+        settings.value.operator = prefs;
     }
 }
 
 /// À la fermeture confirmée : les réglages sont écrits tout de suite, sans attendre le délai de calme de l'écriture
 /// automatique (sinon un « Enregistrer et quitter » perdrait le profil actif). Une erreur est seulement journalisée.
-pub(crate) fn flush_on_quit(settings: &mut Settings, session: Option<&PrepSession>) {
-    if let Some(session) = session.filter(|s| evening_differs(&settings.value.operator, s)) {
-        write_evening(&mut settings.value.operator, session);
+pub(crate) fn flush_on_quit(settings: &mut Settings, tab: Option<&mut SettingsTab>) {
+    if let Some(remembered) = tab.and_then(|t| t.remember.take()) {
+        apply_remembered(settings, &remembered);
     }
     if let Err(error) = settings.value.save(settings.path()) {
         tracing::warn!(%error, "réglages : écriture à la fermeture impossible");

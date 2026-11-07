@@ -9,7 +9,7 @@ use cf_show::load::event_to_ron;
 use cf_show::persist::{AppSettings, OperatorPrefs};
 
 use super::profiles::{list_profiles, profile_path, save_evening};
-use super::restore::{init_session, startup_event_path, write_evening};
+use super::restore::{init_session, remember_evening, startup_event_path};
 use super::*;
 use crate::prepare::edit;
 use crate::prepare::{PrepConfig, PrepSession};
@@ -46,7 +46,8 @@ fn started_app(config: PrepConfig, prefs: OperatorPrefs, settings_path: &Path) -
     app.add_plugins(MinimalPlugins)
         .insert_resource(config)
         .insert_resource(Settings::new(value, settings_path.to_path_buf()))
-        .add_systems(Startup, init_session);
+        .add_systems(Startup, init_session)
+        .add_systems(Update, remember_evening);
     app.update();
     app
 }
@@ -173,7 +174,9 @@ fn reorder_persists_after_save_and_reopen() {
     assert!(!session.is_dirty());
 
     let mut prefs = OperatorPrefs::default();
-    write_evening(&mut prefs, &session);
+    tab.remember.take().expect("geste retenu").apply(&mut prefs);
+    assert_eq!(prefs.active_profile.as_deref(), Some("Soirée"));
+
     let app = started_app(config(Some(&profiles)), prefs, &root.path().join("settings.ron"));
     let reopened = app.world().resource::<PrepSession>();
     assert_eq!(names(reopened), ["Charlie", "Alpha", "Bravo"]);
@@ -279,6 +282,133 @@ fn an_invalid_event_is_refused_at_save() {
     assert!(matches!(session.status, Status::Error(_)));
 
     assert!(list_profiles(root.path()).is_empty(), "rien n'est écrit");
+}
+
+#[test]
+fn profile_path_rejects_windows_reserved_names() {
+    let dir = Path::new("profils");
+    for bad in [
+        "CON", "con", "Prn", "aux", "NUL", "nul.txt", "COM1", "com9", "LPT1", "lpt9.ron", "CON .x", "Soirée.", "a. ",
+    ] {
+        assert_eq!(profile_path(dir, bad), None, "{bad:?} doit être refusé");
+    }
+    for good in ["CONcert", "COM0", "COM10", "Nulle part", "Aux platines", "LPT"] {
+        assert!(profile_path(dir, good).is_some(), "{good:?} doit être accepté");
+    }
+}
+
+// --- Ce qui est retenu pour le prochain lancement ---
+
+/// Les préférences retenues après quelques images.
+fn prefs_after_frames(app: &mut App) -> OperatorPrefs {
+    for _ in 0..3 {
+        app.update();
+    }
+    app.world().resource::<Settings>().value.operator.clone()
+}
+
+#[test]
+fn show_launch_does_not_touch_remembered_profile() {
+    let root = tempfile::tempdir().expect("dossier temporaire");
+    let profiles = root.path().join("profiles");
+    std::fs::create_dir(&profiles).expect("dossier");
+    let profile = profiles.join("Soirée.ron");
+    write_valid_event(&profile);
+    let prefs = OperatorPrefs {
+        active_profile: Some("Soirée".to_owned()),
+        last_event_path: Some(profile.display().to_string()),
+        ..OperatorPrefs::default()
+    };
+    let mut config = config(Some(&profiles));
+    config.show_path = Some(assets().join("shows/demo.ron"));
+    let mut app = started_app(config, prefs.clone(), &root.path().join("settings.ron"));
+    assert_eq!(app.world().resource::<PrepSession>().active_profile(), None);
+    assert_eq!(
+        prefs_after_frames(&mut app),
+        prefs,
+        "un --show ne réécrit pas la soirée retenue"
+    );
+}
+
+#[test]
+fn fallback_does_not_clear_active_profile() {
+    let root = tempfile::tempdir().expect("dossier temporaire");
+    let profiles = root.path().join("profiles");
+    std::fs::create_dir(&profiles).expect("dossier");
+    std::fs::write(profiles.join("Soirée.ron"), "pas du RON").expect("écriture");
+    let prefs = OperatorPrefs {
+        active_profile: Some("Soirée".to_owned()),
+        ..OperatorPrefs::default()
+    };
+    let mut app = started_app(
+        config(Some(&profiles)),
+        prefs.clone(),
+        &root.path().join("settings.ron"),
+    );
+    assert_eq!(
+        app.world().resource::<PrepSession>().active_profile(),
+        None,
+        "repli : soirée neuve"
+    );
+    assert_eq!(prefs_after_frames(&mut app), prefs, "le profil retenu n'est pas oublié");
+}
+
+#[test]
+fn ctrl_s_in_show_session_rewrites_that_file_and_creates_no_profile() {
+    let root = tempfile::tempdir().expect("dossier temporaire");
+    let profiles = root.path().join("profiles");
+    let show = root.path().join("show.ron");
+    std::fs::copy(assets().join("shows/demo.ron"), &show).expect("copie");
+    let mut config = config(Some(&profiles));
+    config.show_path = Some(show.clone());
+    let mut app = started_app(config, OperatorPrefs::default(), &root.path().join("settings.ron"));
+    let mut session = app.world_mut().remove_resource::<PrepSession>().expect("session");
+    let mut tab = app.world_mut().remove_resource::<SettingsTab>().expect("onglet");
+
+    let mut draft = session.event().clone();
+    draft.settings.name = "Renommée".to_owned();
+    session.commit(draft, None);
+    assert!(save_evening(&mut session, &mut tab), "{:?}", session.status);
+    assert_eq!(session.active_profile(), None);
+    assert_eq!(tab.remember, None, "aucun profil retenu");
+    assert_eq!(list_profiles(&profiles), Vec::<String>::new(), "aucun profil créé");
+    let text = std::fs::read_to_string(&show).expect("lecture");
+    assert!(text.contains("Renommée"), "le fichier ouvert est réécrit");
+}
+
+#[test]
+fn ctrl_s_new_session_creates_soiree_then_soiree_2() {
+    let root = tempfile::tempdir().expect("dossier temporaire");
+    for expected in ["Soirée", "Soirée 2"] {
+        let mut session = PrepSession::start(&config(Some(root.path()))).expect("session neuve");
+        let mut tab = SettingsTab::new(Some(root.path().to_path_buf()));
+        assert!(save_evening(&mut session, &mut tab), "{:?}", session.status);
+        assert_eq!(session.active_profile(), Some(expected));
+        let remembered = tab.remember.clone().expect("geste retenu");
+        assert!(matches!(remembered, Remembered::Profile { ref name, .. } if name == expected));
+        // Un deuxième Ctrl+S réécrit le même profil.
+        assert!(save_evening(&mut session, &mut tab));
+        assert_eq!(session.active_profile(), Some(expected));
+    }
+    assert_eq!(list_profiles(root.path()), ["Soirée", "Soirée 2"]);
+}
+
+#[test]
+fn deleting_the_active_profile_detaches_the_evening() {
+    let root = tempfile::tempdir().expect("dossier temporaire");
+    let mut session = PrepSession::start(&config(Some(root.path()))).expect("session neuve");
+    let mut tab = SettingsTab::new(Some(root.path().to_path_buf()));
+    assert!(save_evening(&mut session, &mut tab));
+    profiles::delete_profile(&mut session, &mut tab, "Soirée");
+    assert_eq!((session.active_profile(), session.doc_path()), (None, None));
+    assert_eq!(tab.remember, Some(Remembered::NoProfile));
+    assert!(matches!(&session.status, Status::Info(text) if text.contains("plus enregistrée")));
+    assert!(save_evening(&mut session, &mut tab));
+    assert_eq!(
+        session.active_profile(),
+        Some("Soirée"),
+        "un nouveau profil, pas l'ancien fichier en douce"
+    );
 }
 
 // --- Mise en page (sans fenêtre) ---

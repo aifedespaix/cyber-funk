@@ -1,11 +1,12 @@
 //! Chargement du show et des profils de contrôle demandés par la ligne de commande.
 
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 use anyhow::Context as _;
 use cf_render::{ControllerLibrary, ControlsConfig, ControlsPlugin, MidiChoice, ShowPlugin};
 use cf_show::drop::DropTitles;
 use cf_show::load::{LoadedShow, LookLibrary};
+use cf_show::persist::OperatorPrefs;
 
 use crate::cli::Cli;
 
@@ -62,6 +63,38 @@ pub fn show_plugin(cli: &Cli) -> anyhow::Result<ShowPlugin> {
         seed: DEFAULT_SEED,
         utc_offset_s: 0.0,
     })
+}
+
+/// Le show à jouer quand `--show` manque : la soirée retenue par l'opérateur (profil actif, sinon dernier fichier),
+/// résolue comme l'éditeur la résout (`cf_operator::startup_event_path`). Rien avec `--show` (il garde la priorité),
+/// en `--soak` ou `--no-operator` (comportement inchangé), ni sans réglages ou dossier de profils.
+pub fn remembered_show(cli: &Cli, prefs: Option<&OperatorPrefs>, profiles: Option<&Path>) -> Option<PathBuf> {
+    if cli.show.is_some() || cli.soak.is_some() || cli.no_operator {
+        return None;
+    }
+    cf_operator::startup_event_path(prefs?, profiles?, None)
+}
+
+/// [`show_plugin`], en jouant `remembered` s'il y en a un (il devient le `--show` de la suite du démarrage). Un show
+/// retenu qui ne se charge pas n'empêche jamais de démarrer : avertissement, puis « aucun show » comme avant. Tout se
+/// lit ici, à l'ouverture (règle 8).
+///
+/// # Errors
+///
+/// Celles de [`show_plugin`] sans show retenu (un `--show` invalide reste une erreur de démarrage).
+pub fn show_plugin_with_fallback(cli: &mut Cli, remembered: Option<PathBuf>) -> anyhow::Result<ShowPlugin> {
+    let Some(path) = remembered else {
+        return show_plugin(cli);
+    };
+    cli.show = Some(path);
+    match show_plugin(cli) {
+        Ok(plugin) => Ok(plugin),
+        Err(error) => {
+            tracing::warn!("soirée retenue non jouée : {error:#}");
+            cli.show = None;
+            show_plugin(cli)
+        }
+    }
 }
 
 /// Le plugin des contrôles : MIDI du système (sauf `--no-midi`) et profils de `assets/controllers`.
@@ -129,5 +162,46 @@ mod tests {
         let broken = format!("{assets}/README.md");
         let cli = cli(&["--show", &broken, "--assets-dir", &assets]);
         assert!(show_plugin(&cli).is_err());
+    }
+
+    #[test]
+    fn startup_show_path_falls_back_when_profile_invalid() {
+        let root = tempfile::tempdir().expect("dossier temporaire");
+        let profiles = root.path().join("profiles");
+        std::fs::create_dir(&profiles).expect("dossier");
+        std::fs::write(profiles.join("Soirée.ron"), "(version: 1, cassé").expect("écriture");
+        let assets = assets();
+        let last = PathBuf::from(format!("{assets}/shows/demo.ron"));
+        let prefs = OperatorPrefs {
+            active_profile: Some("Soirée".to_owned()),
+            last_event_path: Some(last.display().to_string()),
+            ..OperatorPrefs::default()
+        };
+        let base = cli(&["--assets-dir", &assets, "--no-midi"]);
+        // Profil illisible : on retombe sur le dernier fichier, joué comme un `--show`.
+        assert_eq!(
+            remembered_show(&base, Some(&prefs), Some(&profiles)),
+            Some(last.clone())
+        );
+        let mut played = cli(&["--assets-dir", &assets, "--no-midi"]);
+        let plugin = show_plugin_with_fallback(&mut played, Some(last.clone())).expect("show retenu");
+        assert!(plugin.show.is_some());
+        assert_eq!(played.show, Some(last));
+
+        // `--show`, `--soak` et `--no-operator` gardent leur comportement.
+        let explicit = cli(&["--show", "x.ron"]);
+        assert_eq!(remembered_show(&explicit, Some(&prefs), Some(&profiles)), None);
+        assert_eq!(
+            remembered_show(&cli(&["--no-operator"]), Some(&prefs), Some(&profiles)),
+            None
+        );
+        assert_eq!(remembered_show(&base, None, Some(&profiles)), None);
+
+        // Un show retenu qui ne se charge pas : aucun show, jamais d'erreur de démarrage.
+        let mut broken = cli(&["--assets-dir", &assets]);
+        let plugin = show_plugin_with_fallback(&mut broken, Some(PathBuf::from(format!("{assets}/README.md"))))
+            .expect("le démarrage continue");
+        assert!(plugin.show.is_none());
+        assert_eq!(broken.show, None);
     }
 }
