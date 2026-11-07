@@ -24,6 +24,9 @@ cf-operator = { path = "crates/cf-operator" }
 
 # Moteur. Pas de feature `audio` : bevy_audio tirerait sa propre version de cpal/alsa, en conflit avec cf-audio.
 bevy = { version = "0.20", default-features = false, features = ["3d", "jpeg", "webp"] }
+# Seule raison : `winit::window::Icon` (icône de fenêtre), que Bevy 0.20 ne réexporte pas. Même version et mêmes
+# features que `bevy_winit` : doit rester aligné sur bevy_winit ; à revoir à chaque montée de Bevy.
+winit = { version = "0.30", default-features = false, features = ["rwh_06"] }
 bevy_egui = { version = "0.43", default-features = false, features = ["render", "default_fonts"] }
 
 # Audio
@@ -63,6 +66,8 @@ clap = { version = "4.6", features = ["derive"] }
 dirs = "7.0"
 sysinfo = { version = "0.40", default-features = false, features = ["system"] }
 cargo-packager-updater = "0.2"
+# Icône de l'exécutable Windows (build.rs de cyber-funk, jamais compilée ailleurs).
+embed-resource = "3.0"
 
 # Tests et mesures
 insta = { version = "1.49", features = ["ron"] }

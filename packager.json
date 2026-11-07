@@ -9,7 +9,14 @@
   "outDir": "dist",
   "binariesDir": "target/release",
   "binaries": [{ "path": "cyber-funk", "main": true }],
-  "icons": ["packaging/icons/icon.png"],
+  "icons": [
+    "assets/images/icons/icon-32.png",
+    "assets/images/icons/icon-64.png",
+    "assets/images/icons/icon-128.png",
+    "assets/images/icons/icon-256.png",
+    "assets/images/icons/icon-512.png",
+    "assets/images/icons/app.ico"
+  ],
   "resources": [{ "src": "assets", "target": "assets" }],
   "appimage": { "files": { "assets": "usr/bin/assets" } },
   "macos": { "minimumSystemVersion": "12.0" },

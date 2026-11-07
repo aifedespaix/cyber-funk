@@ -56,8 +56,9 @@ macOS).
    (journal sans erreur d'asset). Sur macOS, voir la section précédente.
 6. Supprimer le brouillon et le tag de test : `git push --delete origin v0.1.0-test`.
 
-L'icône `packaging/icons/icon.png` est un **emplacement réservé** généré (anneau néon) ; à remplacer par le vrai logo
-(512x512 minimum, PNG).
+Les icônes viennent de `assets/images/logo-app.svg` : `python3 -I tools/icons/generate.py` (ImageMagick et Pillow, hors
+build) régénère `assets/images/icons/` (PNG 16 à 512 et `app.ico`). `packager.json` en cite les PNG (deb, AppImage, macOS)
+et l'`.ico` (Windows) ; l'icône de l'exécutable Windows est embarquée par `crates/cyber-funk/build.rs`.
 
 ## Signature (sans aucun secret dans le dépôt)
 

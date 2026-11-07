@@ -5,6 +5,7 @@
 
 mod assets;
 mod cli;
+mod icon;
 mod logging;
 mod preload;
 mod projector;
@@ -181,6 +182,7 @@ fn build_app(
         },
         NeonCinemaPlugin,
         wiring::WiringPlugin,
+        icon::WindowIconPlugin,
     ));
 
     app.add_systems(Startup, preload::start_preload);

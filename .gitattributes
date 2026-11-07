@@ -10,3 +10,4 @@
 *.wav binary
 *.ron text
 *.wgsl text
+*.ico binary
