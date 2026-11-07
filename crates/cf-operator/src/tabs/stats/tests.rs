@@ -6,6 +6,7 @@ use std::collections::BTreeSet;
 use bevy_egui::egui;
 use cf_debuglog::{Level, LogBuffer, LogLine, SessionHeader};
 
+use super::context::{ContextDistrict, ContextEvent, ContextSnapshot, build_context};
 use super::copy::{copy_text, copy_warn_errors_text};
 use super::log_view::LogViewState;
 use super::{StatsView, draw};
@@ -187,5 +188,97 @@ fn the_tab_draws_with_and_without_a_log_at_two_sizes() {
         assert!(with > 0.0, "journal sans hauteur à {size:?}");
         let without = draw_at(size, None);
         assert!(without > 0.0, "zone « Journal indisponible » sans hauteur à {size:?}");
+    }
+}
+
+fn value<'a>(pairs: &'a [(String, String)], key: &str) -> &'a str {
+    pairs
+        .iter()
+        .find(|(k, _)| k == key)
+        .map_or("<clé absente>", |(_, v)| v.as_str())
+}
+
+fn snapshot() -> ContextSnapshot {
+    ContextSnapshot {
+        events: Some(vec![
+            ContextEvent {
+                event_id: "sign.glitch".into(),
+                category: "sign".into(),
+                percent: Some(40),
+                origin: "manuel".into(),
+            },
+            ContextEvent {
+                event_id: "car.convoy".into(),
+                category: "car".into(),
+                percent: None,
+                origin: "auto".into(),
+            },
+        ]),
+        district: Some(ContextDistrict {
+            current: "Banlieue v2".into(),
+            target: Some("Centre néon v1".into()),
+            transition: "Dégradé".into(),
+            progress: 0.5,
+            frozen: false,
+            fallback: true,
+        }),
+        camera: None,
+        dj: Some("DJ Test".into()),
+        remaining_s: Some(125.0),
+        manual: Some(false),
+        paused: Some(false),
+        version: "1.2.3".into(),
+        mode: "live".into(),
+    }
+}
+
+#[test]
+fn context_lists_active_events_with_progress() {
+    let pairs = build_context(&snapshot());
+    let events = value(&pairs, "active_events");
+    assert!(events.contains("sign.glitch (sign, 40 %, manuel)"), "{events}");
+    assert!(events.contains("car.convoy (car, durée libre, auto)"), "{events}");
+    assert!(events.contains("; "), "{events}");
+    assert!(
+        value(&pairs, "district").contains("Banlieue v2 -> Centre néon v1"),
+        "{pairs:?}"
+    );
+    assert!(value(&pairs, "dj").starts_with("DJ Test, reste "), "{pairs:?}");
+    assert_eq!(value(&pairs, "version"), "1.2.3");
+}
+
+#[test]
+fn context_marks_unknown_camera_as_none_instead_of_omitting() {
+    let pairs = build_context(&snapshot());
+    assert_eq!(value(&pairs, "camera"), "inconnu");
+    for (key, val) in &pairs {
+        assert!(key.is_ascii() && *key == key.to_lowercase(), "clé instable : {key}");
+        assert!(!val.contains('\n'), "valeur sur plusieurs lignes : {key}");
+    }
+}
+
+#[test]
+fn context_includes_manual_mode_and_pause() {
+    let mut snap = snapshot();
+    snap.manual = Some(true);
+    snap.paused = Some(true);
+    let pairs = build_context(&snap);
+    assert_eq!(value(&pairs, "automation"), "manuelle");
+    assert_eq!(value(&pairs, "paused"), "oui");
+    let unknown = build_context(&ContextSnapshot::default());
+    assert_eq!(value(&unknown, "automation"), "inconnu");
+    assert_eq!(value(&unknown, "active_events"), "inconnu");
+}
+
+#[test]
+fn copied_text_with_context_header_contains_each_pair() {
+    let pairs = build_context(&snapshot());
+    let mut head = header();
+    head.context.clone_from(&pairs);
+    let mut state = LogViewState::default();
+    state.levels = BTreeSet::from([Level::Info, Level::Warn, Level::Error]);
+    let text = copy_text(&state, &sample(), &head);
+    for (key, val) in &pairs {
+        assert!(text.contains(&format!("{key}: {val}\n")), "{key} manque dans\n{text}");
     }
 }

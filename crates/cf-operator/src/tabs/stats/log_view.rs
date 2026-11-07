@@ -10,6 +10,7 @@ use bevy::prelude::*;
 use bevy_egui::egui::{self, Color32, RichText};
 use cf_debuglog::{DEFAULT_CAPACITY, Level, LogBuffer, LogFilter, LogLine};
 
+use super::context::{self, ContextSnapshot};
 use super::copy;
 
 /// Capacités proposées (lignes gardées par le tampon).
@@ -54,6 +55,8 @@ pub(crate) struct LogViewState {
     pub frozen: Option<Vec<LogLine>>,
     /// Confirmation affichée et l'instant (temps d'egui, s) où elle s'efface.
     toast: Option<(String, f64)>,
+    /// « Marquer ce moment » a été cliqué : la coque pose le repère (elle seule tient l'enregistreur).
+    mark_requested: bool,
     /// Rangs des lignes visibles dans la liste affichée (tampon réutilisé).
     visible: Vec<usize>,
     visible_key: Option<VisibleKey>,
@@ -69,6 +72,7 @@ impl Default for LogViewState {
             copy_n: DEFAULT_COPY_N,
             frozen: None,
             toast: None,
+            mark_requested: false,
             visible: Vec::new(),
             visible_key: None,
         }
@@ -126,6 +130,11 @@ impl LogViewState {
         self.toast = Some((message, now_s + TOAST_S));
     }
 
+    /// Rend `true` une fois si le bouton « Marquer ce moment » a été cliqué depuis le dernier appel.
+    pub(crate) fn take_mark_request(&mut self) -> bool {
+        std::mem::take(&mut self.mark_requested)
+    }
+
     /// La confirmation encore affichée à `now_s`, s'il y en a une.
     pub(crate) fn toast(&self, now_s: f64) -> Option<&str> {
         self.toast
@@ -173,6 +182,7 @@ pub(crate) fn draw(
     buffer: &LogBuffer,
     live: &[LogLine],
     session: &str,
+    context: &dyn Fn() -> ContextSnapshot,
 ) -> f32 {
     let now_s = ui.input(|i| i.time);
     // Le filtre est calculé sur les lignes affichées (figées en pause) ; la copie figée est prise à part pour que
@@ -180,7 +190,7 @@ pub(crate) fn draw(
     let frozen = state.frozen.take();
     let lines = frozen.as_deref().unwrap_or(live);
     state.refresh_visible(lines);
-    toolbar(ui, state, buffer, lines, session, now_s);
+    toolbar(ui, state, buffer, lines, session, context, now_s);
     let height = rows(ui, state, lines);
     // « Vider », « Pause » ou « Reprendre » ont pu remplacer la copie figée pendant la barre d'outils : on n'écrase
     // que l'absence laissée par le `take` ci-dessus.
@@ -215,6 +225,7 @@ fn toolbar(
     buffer: &LogBuffer,
     lines: &[LogLine],
     session: &str,
+    context: &dyn Fn() -> ContextSnapshot,
     now_s: f64,
 ) {
     ui.horizontal_wrapped(|ui| {
@@ -266,6 +277,14 @@ fn toolbar(
         if ui.button("Vider").clicked() {
             state.clear(buffer);
         }
+        let mark = format!("Marquer ce moment  [{}]", crate::shell::shortcuts::KEY_MARK);
+        if ui
+            .button(mark)
+            .on_hover_text(crate::shell::shortcuts::describe(crate::shell::shortcuts::KEY_MARK))
+            .clicked()
+        {
+            state.mark_requested = true;
+        }
         ui.separator();
         ui.label("Copier les");
         egui::ComboBox::from_id_salt("log_copy_n")
@@ -280,11 +299,20 @@ fn toolbar(
         let agent = ui
             .button(RichText::new("Copier pour un agent").color(INFO_COLOR))
             .on_hover_text("Les dernières lignes visibles (niveaux et filtre appliqués), avec un en-tête de session");
+        let full = ui
+            .button(RichText::new("⧉ Copier le contexte complet").color(INFO_COLOR))
+            .on_hover_text(
+                "Comme « Copier pour un agent », avec en plus l'état de l'appli : événements actifs, quartier, DJ, mode",
+            );
         let errors = ui
             .button("Warn + erreurs")
             .on_hover_text("Les dernières lignes warn et error, quels que soient les niveaux et le filtre affichés");
         let text = if agent.clicked() {
             Some(copy::copy_text(state, lines, &copy::header(session)))
+        } else if full.clicked() {
+            let mut header = copy::header(session);
+            header.context = context::build_context(&context());
+            Some(copy::copy_text(state, lines, &header))
         } else if errors.clicked() {
             Some(copy::copy_warn_errors_text(state, lines, &copy::header(session)))
         } else {

@@ -106,6 +106,10 @@ lui-même ; vos clics passent toujours), nombre d'événements en cours, horloge
   (niveaux et filtre appliqués) avec un en-tête (session, date, niveaux, filtre, format) ; **Warn + erreurs** copie les
   dernières lignes warn et error quel que soit l'affichage. Collez le tout dans la conversation avec l'agent.
   « N lignes copiées » s'affiche deux secondes.
+- **⧉ Copier le contexte complet** fait la même copie, avec en plus dans l'en-tête l'état de l'appli : événements actifs
+  (avec leur avancement), quartier et transition, DJ et temps restant, automatisation, pause, version, mode. Le plan
+  caméra n'est pas lisible : il s'écrit « inconnu ». **Marquer ce moment** (même geste que `M`) pose le repère depuis
+  la barre du journal.
 - Sans journal de session (disque refusé au démarrage), l'onglet affiche « Journal indisponible ».
 
 ## 4. Préparer une soirée

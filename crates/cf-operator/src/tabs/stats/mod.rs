@@ -11,6 +11,7 @@
 //! Disponible en Live : l'onglet ne lance rien (le journal, le repère et les copies ne touchent pas au spectacle).
 
 mod charts;
+mod context;
 mod copy;
 pub(crate) mod diagnostics;
 mod history;
@@ -24,11 +25,15 @@ use bevy::prelude::*;
 use bevy_egui::egui;
 use cf_debuglog::LogBuffer;
 use cf_render::audio::AudioFeatures;
-use cf_render::{DebugLog, DiagnosticsSnapshot, MeasurementSession, PostFxState, ShowSheet};
+use cf_render::{
+    CurrentShow, DebugLog, DiagnosticsSnapshot, DistrictState, MeasurementSession, PostFxState, ShowSheet,
+};
 
+use crate::OperatorMode;
 use crate::services::logbuf::{self, OperatorLog};
-use crate::shell::ShellParams;
+use crate::shell::{MarkParams, ShellParams};
 use charts::ChartData;
+use context::{ContextSnapshot, Sources};
 use diagnostics::PanelState;
 use history::{Airtime, EnergyHistory, EventTally};
 pub(crate) use log_view::LogViewState;
@@ -70,6 +75,8 @@ pub(crate) struct StatsView<'a> {
     pub tiles: TileData<'a>,
     pub charts: ChartData<'a>,
     pub detail: Option<Detail<'a>>,
+    /// Photographie du contexte pour « Copier le contexte complet », prise seulement au clic.
+    pub context: &'a dyn Fn() -> ContextSnapshot,
 }
 
 #[cfg(test)]
@@ -83,6 +90,7 @@ impl<'a> StatsView<'a> {
             tiles: TileData::default(),
             charts: ChartData::default(),
             detail: None,
+            context: &ContextSnapshot::default,
         }
     }
 }
@@ -113,7 +121,7 @@ pub(crate) fn draw(ui: &mut egui::Ui, view: &mut StatsView<'_>) -> f32 {
         Some(buffer) => {
             // Une seule copie du tampon par image : la barre d'outils, le filtre et les lignes la partagent.
             let live = buffer.snapshot();
-            log_view::draw(ui, view.state, buffer, &live, view.session)
+            log_view::draw(ui, view.state, buffer, &live, view.session, view.context)
         }
         None => log_view::draw_unavailable(ui),
     }
@@ -130,6 +138,11 @@ pub(crate) struct StatsParams<'w> {
     energy: Res<'w, EnergyHistory>,
     airtime: Res<'w, Airtime>,
     sheet: Option<Res<'w, ShowSheet>>,
+    show: Option<Res<'w, CurrentShow>>,
+    district: Option<Res<'w, DistrictState>>,
+    mode: Res<'w, OperatorMode>,
+    /// « Marquer ce moment » du bouton du journal : le même chemin que la touche `M`.
+    marks: MarkParams<'w>,
 }
 
 /// L'onglet dans le panneau central de la fenêtre opérateur.
@@ -157,6 +170,18 @@ pub(crate) fn show(
         }),
         _ => None,
     };
+    let sources = || {
+        Sources {
+            active: shell.active.as_deref(),
+            clock: shell.clock.as_deref(),
+            district: stats.district.as_deref(),
+            show: stats.show.as_deref().map(|s| &s.0).zip(stats.sheet.as_deref()),
+            automation: shell.automation.as_deref(),
+            sim: shell.sim.as_deref(),
+            mode: *stats.mode,
+        }
+        .snapshot()
+    };
     let mut view = StatsView {
         state: &mut stats.view,
         log: stats.log.as_deref().map(|l| &l.0),
@@ -174,8 +199,19 @@ pub(crate) fn show(
             airtime: stats.sheet.as_deref().map(|sheet| (&*stats.airtime, sheet)),
         },
         detail,
+        context: &sources,
     };
     egui::CentralPanel::default().show(root, |ui| {
         draw(ui, &mut view);
     });
+    if stats.view.take_mark_request() && stats.marks.mark() {
+        stats
+            .view
+            .notify("Repère posé dans le journal".to_owned(), now_s_ui(root));
+    }
+}
+
+/// Le temps d'egui, celui que lit [`LogViewState::toast`].
+fn now_s_ui(root: &egui::Ui) -> f64 {
+    root.input(|i| i.time)
 }

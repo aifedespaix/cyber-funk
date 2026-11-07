@@ -219,7 +219,7 @@ pub(crate) struct MarkParams<'w> {
 
 impl MarkParams<'_> {
     /// Pose le repère ; `false` s'il n'y a aucun journal à marquer.
-    fn mark(&self) -> bool {
+    pub(crate) fn mark(&self) -> bool {
         let recorder = self.recorder.as_deref().map(|r| &r.0);
         let buffer = self.log.as_deref().map(|l| &l.0);
         if recorder.is_none() && buffer.is_none() {
@@ -238,7 +238,7 @@ impl MarkParams<'_> {
 #[derive(SystemParam)]
 pub(crate) struct ShellParams<'w, 's> {
     pub state: ResMut<'w, ShellState>,
-    sim: Option<ResMut<'w, SimControl>>,
+    pub sim: Option<ResMut<'w, SimControl>>,
     /// Horloge de simulation (barre de statut et onglet Debug).
     pub clock: Option<Res<'w, SimClock>>,
     /// Mode manuel du monde (barre de statut et onglet Debug).
