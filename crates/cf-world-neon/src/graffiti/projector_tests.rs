@@ -73,7 +73,8 @@ fn la_pose_suit_la_classe_de_taille() {
         };
         let lay = layout(&p, &cell(1000, 250, 0.5));
         assert!((lay.bar_scale.z - size.bar_len_m()).abs() < 1e-6);
-        let letters_h = lay.text_scale.y * 0.5;
+        let cell_h = lay.text_scale.y * lay.cell_share;
+        let letters_h = cell_h * 0.5;
         assert!(
             letters_h <= size.letter_h_m() + 1e-4 && letters_h > size.letter_h_m() * 0.4,
             "{size:?} : lettres de {letters_h} m"
@@ -83,8 +84,23 @@ fn la_pose_suit_la_classe_de_taille() {
             "le texte déborde de deux barres"
         );
         // Le texte flotte au-dessus de la barre, séparé d'elle par le faisceau.
-        let bottom = lay.text_pos.y - letters_h / 2.0;
-        assert!((bottom - (0.25 + letters_h * LETTER_LIFT)).abs() < 1e-3);
+        let top = lay.text_pos.y + lay.text_scale.y / 2.0;
+        let bottom = top - cell_h / 2.0 - letters_h / 2.0;
+        let margin = (cell_h - letters_h) / 2.0;
+        let expected = 0.25 + (letters_h * LETTER_LIFT - margin).max(letters_h * 0.1) + margin;
+        assert!(
+            (bottom - expected).abs() < 1e-3,
+            "{size:?} : bas des lettres à {bottom}, attendu {expected}"
+        );
+        assert!(
+            bottom >= 0.25 + letters_h * LETTER_LIFT - 1e-3,
+            "les lettres flottent au moins à la hauteur du faisceau voulue"
+        );
+        assert!(
+            (lay.text_pos.y - lay.text_scale.y / 2.0 - 0.25).abs() < 1e-4,
+            "le panneau repose sur la barre"
+        );
+        assert!(lay.cell_share > 0.0 && lay.cell_share < 1.0 && lay.bar_share > 0.0 && lay.bar_share <= 1.0);
     }
 }
 

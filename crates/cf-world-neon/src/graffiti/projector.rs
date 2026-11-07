@@ -14,6 +14,7 @@ use cf_render::{AbsolutePosition, StreamFocus, WorldLayer};
 
 use super::atlas::HoloCell;
 use super::bake::GraffitiAtlas;
+use super::holo_material::HoloMaterial;
 use crate::NeonWorld;
 use crate::scenery::fog_range;
 use crate::scenery::graffiti_plan::{LETTER_LIFT, Projector, ProjectorList, row_projectors};
@@ -30,11 +31,13 @@ const CANDIDATES_CAP: usize = 512;
 /// Épaisseur de la barre (m) et profondeur de son pavé (m).
 const BAR_HEIGHT_M: f32 = 0.25;
 const BAR_DEPTH_M: f32 = 0.5;
+/// Part de la hauteur des lettres que le faisceau garde au minimum.
+const MIN_BEAM: f32 = 0.1;
 /// Le texte ne dépasse pas deux fois la longueur de la barre : au-delà, il est réduit en gardant ses proportions.
 const MAX_TEXT_TO_BAR: f32 = 2.0;
 
-/// Les trois entités d'un emplacement.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+/// Les trois entités d'un emplacement et les matériaux de ses deux pièces.
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ProjectorSlot {
     /// Racine : position absolue et rotation du projecteur.
     pub root: Entity,
@@ -42,6 +45,10 @@ pub struct ProjectorSlot {
     pub bar: Entity,
     /// Le panneau du texte.
     pub text: Entity,
+    /// Matériau de la barre.
+    pub bar_material: Handle<HoloMaterial>,
+    /// Matériau du panneau.
+    pub text_material: Handle<HoloMaterial>,
 }
 
 /// Racine d'un emplacement ; porte son rang.
@@ -64,9 +71,16 @@ pub struct ProjectorPool {
 
 impl ProjectorPool {
     /// Crée les douze emplacements, cachés. Démarrage seulement. `block` : pavé unité (base à y = 0) ; `quad` : carré
-    /// unité dans le plan XY, face vers +Z.
-    pub fn spawn(ecs: &mut World, block: &Handle<Mesh>, quad: &Handle<Mesh>) -> Self {
+    /// unité dans le plan XY, face vers +Z ; `materials` : deux matériaux par emplacement (barre, texte).
+    pub fn spawn(
+        ecs: &mut World,
+        block: &Handle<Mesh>,
+        quad: &Handle<Mesh>,
+        materials: [(Handle<HoloMaterial>, Handle<HoloMaterial>); MAX_PROJECTORS],
+    ) -> Self {
+        let mut materials = materials.into_iter();
         let slots = std::array::from_fn(|i| {
+            let (bar_material, text_material) = materials.next().unwrap_or_default();
             let root = ecs
                 .spawn((
                     Name::new(format!("projecteur {i}")),
@@ -83,6 +97,7 @@ impl ProjectorPool {
                     ProjectorBar,
                     WorldLayer,
                     Mesh3d(block.clone()),
+                    MeshMaterial3d(bar_material.clone()),
                     Transform::default(),
                     Visibility::Inherited,
                     fog_range(),
@@ -95,13 +110,20 @@ impl ProjectorPool {
                     ProjectorText,
                     WorldLayer,
                     Mesh3d(quad.clone()),
+                    MeshMaterial3d(text_material.clone()),
                     Transform::default(),
                     Visibility::Inherited,
                     fog_range(),
                     ChildOf(root),
                 ))
                 .id();
-            ProjectorSlot { root, bar, text }
+            ProjectorSlot {
+                root,
+                bar,
+                text,
+                bar_material,
+                text_material,
+            }
         });
         Self { slots }
     }
@@ -167,42 +189,53 @@ pub fn assign(active: &mut [Option<Projector>; MAX_PROJECTORS], chosen: &[(f64, 
     changed
 }
 
-/// La pose des deux pavés d'un projecteur, relative à sa racine (le pied de la barre).
+/// La pose des deux pièces d'un projecteur, relative à sa racine (le pied de la barre).
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct SlotLayout {
     /// Échelle de la barre (le pavé unité a sa base à y = 0).
     pub bar_scale: Vec3,
-    /// Position du panneau du texte.
+    /// Position du panneau.
     pub text_pos: Vec3,
     /// Échelle du panneau (largeur, hauteur).
     pub text_scale: Vec3,
     /// Rotation du panneau : tourné vers la route, le texte se lit de gauche à droite depuis l'axe.
     pub text_rot: Quat,
+    /// Part de la hauteur du panneau portée par la cellule de l'atlas (en haut) ; le reste, en bas, porte le faisceau.
+    pub cell_share: f32,
+    /// Largeur de la barre / largeur du panneau, de 0 à 1 : l'ouverture du faisceau côté barre.
+    pub bar_share: f32,
 }
 
 /// Dimensions et pose d'un projecteur d'après la cellule de son mot. La barre est le long de z (la rotation du projecteur
-/// est sur la racine). Le panneau mesure `hauteur des lettres / part occupée par les lettres` de haut ; sa largeur suit la
-/// cellule.
+/// est sur la racine). Le panneau va du dessus de la barre au haut de la cellule : sa partie haute porte la cellule (qui
+/// mesure `hauteur des lettres / part occupée par les lettres`, sa largeur suit la cellule), sa partie basse le faisceau.
 #[must_use]
 pub fn layout(p: &Projector, cell: &HoloCell) -> SlotLayout {
     let bar_len = p.size.bar_len_m();
     let letters = cell.sharp.letters.max(0.05);
-    let mut panel_h = p.size.letter_h_m() / letters;
+    let mut cell_h = p.size.letter_h_m() / letters;
     let aspect = f32::from(cell.sharp.w) / f32::from(cell.sharp.h.max(1));
-    let mut panel_w = panel_h * aspect;
+    let mut cell_w = cell_h * aspect;
     let max_w = bar_len * MAX_TEXT_TO_BAR;
-    if panel_w > max_w {
-        panel_h *= max_w / panel_w;
-        panel_w = max_w;
+    if cell_w > max_w {
+        cell_h *= max_w / cell_w;
+        cell_w = max_w;
     }
-    let letters_h = panel_h * letters;
-    let centre_y = BAR_HEIGHT_M + letters_h * LETTER_LIFT + letters_h / 2.0;
+    let letters_h = cell_h * letters;
+    // Du dessus de la barre au haut de la cellule : le faisceau, puis la cellule. Les lettres flottent à `LETTER_LIFT` de leur
+    // hauteur au-dessus de la barre ; la marge vide de la cellule en prend une part, et le faisceau garde au moins un dixième
+    // de la hauteur des lettres (si la marge dépasse la hauteur voulue, les lettres montent d'autant).
+    let margin = (cell_h - letters_h) / 2.0;
+    let beam_h = (letters_h * LETTER_LIFT - margin).max(letters_h * MIN_BEAM);
+    let total_h = beam_h + cell_h;
     SlotLayout {
         bar_scale: Vec3::new(BAR_DEPTH_M, BAR_HEIGHT_M, bar_len),
-        text_pos: Vec3::new(0.0, centre_y, 0.0),
-        text_scale: Vec3::new(panel_w, panel_h, 1.0),
+        text_pos: Vec3::new(0.0, BAR_HEIGHT_M + total_h / 2.0, 0.0),
+        text_scale: Vec3::new(cell_w, total_h, 1.0),
         // La normale du panneau (+Z) pointe vers l'axe de la route : x = −côté ; son +X devient `côté × z`.
         text_rot: Quat::from_rotation_y(-f32::from(p.side) * std::f32::consts::FRAC_PI_2),
+        cell_share: cell_h / total_h,
+        bar_share: (bar_len / cell_w).min(1.0),
     }
 }
 

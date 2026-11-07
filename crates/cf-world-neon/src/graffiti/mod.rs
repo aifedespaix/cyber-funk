@@ -6,6 +6,8 @@
 pub mod atlas;
 pub mod bake;
 pub mod fonts;
+pub mod holo_material;
+pub mod holo_systems;
 pub mod placements;
 pub mod projector;
 pub mod raster;
@@ -14,11 +16,15 @@ pub mod words;
 #[cfg(test)]
 mod bake_tests;
 #[cfg(test)]
+mod holo_tests;
+#[cfg(test)]
 mod projector_tests;
 #[cfg(test)]
 mod tests;
 
 pub use bake::{GraffitiAtlas, GraffitiPlugin};
+pub use holo_material::HoloMaterial;
+pub use holo_systems::HoloPlugin;
 pub use placements::{Placement, load_placements};
 pub use words::{GraffitiStyle, GraffitiWord, licensed_fonts, load_words};
 

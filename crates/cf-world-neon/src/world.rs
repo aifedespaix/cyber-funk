@@ -14,6 +14,7 @@ use cf_show::district::DistrictId;
 use cf_show::model::ShowGates;
 
 use crate::facade::FacadeMaterial;
+use crate::graffiti::holo_material::HoloMaterial;
 use crate::graffiti::projector::ProjectorPool;
 use crate::scenery::arches::ArchPool;
 use crate::scenery::{self, Clearing, MAX_PARTS, Row, SceneryAssets, SceneryConfig, SpotAnchor};
@@ -194,7 +195,13 @@ impl World for NeonWorld {
             .get_resource_mut::<Assets<Mesh>>()
             .ok_or(WorldError::MissingResource("Assets<Mesh>"))?
             .add(Rectangle::new(1.0, 1.0));
-        let projectors = ProjectorPool::spawn(ecs, &mesh, &quad);
+        let materials = {
+            let mut assets = ecs
+                .get_resource_mut::<Assets<HoloMaterial>>()
+                .ok_or(WorldError::MissingResource("Assets<HoloMaterial>"))?;
+            std::array::from_fn(|_| (assets.add(HoloMaterial::default()), assets.add(HoloMaterial::default())))
+        };
+        let projectors = ProjectorPool::spawn(ecs, &mesh, &quad, materials);
         ecs.insert_resource(projectors);
         ecs.insert_resource(SceneryAssets {
             mesh,
