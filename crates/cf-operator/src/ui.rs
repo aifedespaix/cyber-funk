@@ -6,13 +6,13 @@ use bevy_egui::{EguiContext, PrimaryEguiContext, egui};
 use cf_render::audio::{AudioCommand, AudioFeatures, AudioStatus, VisualLatency};
 use cf_render::{ControlsStatus, LearnCommand};
 
-use crate::debug_panel::{self, DebugState};
 use crate::live::{self, LiveParams};
 use crate::loading::{self, LoadingView};
 use crate::prepare::{self, PrepSession};
 use crate::quit::{QuitDecision, QuitPrompt, QuitSource};
-use crate::update_panel::{self, InstallUpdate, UpdateStatus};
-use crate::{audio_panel, controls_panel, learn_panel};
+use crate::tabs::debug::debug_panel::{self, DebugState};
+use crate::tabs::settings::update_panel::{self, InstallUpdate, UpdateStatus};
+use crate::tabs::settings::{audio_panel, controls_panel, learn_panel};
 
 /// Largeur initiale du panneau audio (points egui) : assez pour les vumètres et la ligne des compteurs.
 const AUDIO_PANEL_WIDTH: f32 = 560.0;

@@ -4,32 +4,29 @@
 //! seconde fenêtre, avec sa propre caméra 2D qui porte le contexte egui : egui ne dessine donc jamais dans le
 //! projecteur.
 
-mod audio_panel;
-mod controls_panel;
-mod debug_panel;
-mod diagnostics;
 mod freecam;
-mod learn_panel;
 mod live;
 mod loading;
 mod prepare;
 mod preview;
 mod quit;
 mod sim_bar;
+mod tabs;
 mod ui;
-mod update_panel;
 mod window;
 
 pub use live::OperatorMode;
 pub use prepare::PrepConfig;
 pub use quit::{QuitConfirmation, QuitDecision, QuitGuardPlugin, QuitPrompt, QuitSource};
-pub use update_panel::{InstallUpdate, UpdateStatus};
+pub use tabs::settings::update_panel::{InstallUpdate, UpdateStatus};
 pub use window::OperatorWindow;
 
 use bevy::prelude::*;
 use bevy_egui::input::EguiWantsInput;
 use bevy_egui::{EguiGlobalSettings, EguiPlugin, EguiPrimaryContextPass};
 use cf_render::{CfSet, TextInputFocus};
+use tabs::debug::debug_panel;
+use tabs::stats::diagnostics;
 
 /// Plugin de la fenêtre opérateur : fenêtre, contexte egui, panneau principal et dialogue de sortie.
 ///
