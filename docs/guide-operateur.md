@@ -272,6 +272,44 @@ perdent d'elles-mêmes ce qui coûte le plus : la traîne de la voiture, le scin
 écrans qui défilent (ils redeviennent de simples fenêtres). Le reste de la ville est inchangé. Les curseurs ne rétablissent
 rien tant que la qualité reste basse ; ils reprennent leur effet dès que la qualité remonte.
 
+## 4 ter. Graffitis et projecteurs holographiques
+
+La ville porte des **graffitis muraux** (peints sur le bas des façades, surtout en banlieue) et des **projecteurs
+holographiques** : une barre posée sur un toit ou au bord de la route qui projette un texte néon dans l'air. Trois
+classes de taille : petit (barre de 2 m, lettres de 1 m), moyen (6 m, 3 m) et grand (20 m, 10 m) ; au plus douze
+projecteurs en même temps, les plus proches de la voiture. Les textures sont cuites une seule fois, à l'ouverture
+(étape « Graffitis (textures) » du chargement) : rien ne se charge pendant un show.
+
+**Où sont les données.** Trois fichiers, à modifier sans toucher au code (relancer l'application pour les relire) :
+
+- `assets/graffiti/words.ron` : les mots. Une entrée par ligne : `text` (le texte), `font` (nom du fichier de police sans
+  extension), `style` (`Fill` plein, `Outline` contour, `Extrude` relief), `wall` (peint sur les murs), `holo`
+  (projeté par un projecteur), `hues` (teintes des murs en degrés ; les hologrammes prennent la palette du show).
+  **Ajouter un mot** : ajouter une ligne. Une entrée cassée est ignorée avec un avertissement dans le journal, les autres
+  restent ; un fichier vide donne simplement une ville sans graffiti.
+- `assets/graffiti/placements.ron` : les projecteurs posés à la main. `z_m` (distance depuis le départ, en m, positive),
+  `side` (`-1` gauche, `1` droite), `height_m` (hauteur de la barre), `size` (`Small`, `Medium` ou `Large`), `word` (un
+  mot de `words.ron` marqué `holo: true`) et `yaw_deg` (rotation autour de la verticale). **Ajouter un placement** :
+  ajouter une ligne. Un placement hors route (distance négative), à hauteur négative ou dont le mot est inconnu est
+  ignoré avec un avertissement ; un placement posé sur un projecteur automatique le remplace.
+- `assets/fonts/` et `assets/fonts/LICENCES.md` : les polices. **Ajouter une police** : copier le fichier `.ttf` ou
+  `.otf` dans `assets/fonts/` **et** ajouter sa ligne dans `LICENCES.md` (nom du fichier sans extension, source,
+  licence, date). Une police absente, ou sans ligne de licence remplie (ou marquée `À COMPLÉTER`), fait sauter ses mots
+  avec un avertissement : l'application démarre quand même. Ne versionnez que des polices dont la licence le permet.
+
+**Réglages en Préparation (onglet Debug, `Ctrl+3`, section « Graffitis »).** Deux interrupteurs (graffitis muraux,
+projecteurs), deux curseurs de densité (de 0 à 4 fois la densité livrée ; 0 coupe) et un **mot imposé** : tous les
+projecteurs proches affichent ce mot, pratique pour juger une police ou un style. Ces réglages ne sont pas sauvegardés :
+chaque session repart des densités livrées.
+
+**Sécurité photosensible.** Un hologramme ne clignote jamais de lui-même : son instabilité (tranches décalées,
+aberration de couleur) suit le niveau que le limiteur de flashs accorde (au plus trois changements par seconde). Quand
+les flashs sont coupés, en mode respiration ou si le limiteur est indisponible, le texte reste stable et allumé.
+
+**Qualité basse.** Les graffitis et projecteurs s'allègent dans cet ordre : d'abord les petits projecteurs lointains,
+puis le halo flou, puis les graffitis muraux lointains. À la qualité minimale, seuls les projecteurs et les graffitis
+proches restent. Rien ne disparaît d'un coup : les murs s'estompent avec la distance.
+
 ## 5. Jouer
 
 Vue Live. Les gros boutons et leurs raccourcis (affichés sur chaque bouton) :
