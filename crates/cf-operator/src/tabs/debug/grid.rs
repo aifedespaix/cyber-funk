@@ -13,7 +13,6 @@ use super::columns::{COLUMNS, column_color, column_index, column_title};
 use super::districts::{district_orders, draw_district_column};
 use super::lane::{draw_lane, draw_lane_header};
 use super::{DebugState, DebugView, Gesture};
-use crate::OperatorMode;
 
 /// Écart entre deux colonnes, et entre la grille et le dock (px).
 pub(crate) const GAP: f32 = 10.0;
@@ -21,6 +20,8 @@ pub(crate) const GAP: f32 = 10.0;
 const HEADER_HEIGHT: f32 = 24.0;
 /// Hauteur de l'en-tête du couloir « En cours » (px).
 const LANE_HEADER_HEIGHT: f32 = 24.0;
+/// Largeur d'en-tête (px) à partir de laquelle le compteur dit « N actifs » plutôt que « N ».
+const WIDE_HEADER: f32 = 150.0;
 /// Marge intérieure d'une colonne (px).
 const INNER_MARGIN: f32 = 6.0;
 
@@ -102,10 +103,16 @@ fn draw_column(ui: &mut egui::Ui, column: EventCategory, rect: Rect, view: &mut 
     let parts = split_column(rect.shrink(INNER_MARGIN), HEADER_HEIGHT, LANE_HEADER_HEIGHT);
     let running = view.active.map_or(0, |active| active.in_category(column).count());
     in_rect(ui, parts.header, |ui| {
-        ui.horizontal(|ui| {
-            ui.strong(egui::RichText::new(column_title(column)).color(color));
-            ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+        // Le compteur d'abord, à droite (« actifs » seulement s'il y a la place), puis le titre tronqué dans le reste :
+        // sur une fenêtre étroite (640 px, colonnes de ~80 px) rien ne se chevauche.
+        ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+            if parts.header.width() >= WIDE_HEADER {
                 ui.weak(format!("{running} actifs"));
+            } else {
+                ui.weak(running.to_string()).on_hover_text("événements en cours");
+            }
+            ui.with_layout(egui::Layout::left_to_right(egui::Align::Center), |ui| {
+                ui.add(egui::Label::new(egui::RichText::new(column_title(column)).strong().color(color)).truncate());
             });
         });
     });
@@ -174,6 +181,6 @@ fn draw_chips(ui: &mut egui::Ui, column: EventCategory, view: &mut DebugView<'_>
 fn draw_districts(ui: &mut egui::Ui, view: &mut DebugView<'_>) {
     let DebugState { district, gestures, .. } = &mut *view.state;
     let pick = draw_district_column(ui, view.district, view.library, district);
-    // L'onglet n'existe qu'en Préparation : la coque ne le dessine jamais en Live.
-    gestures.extend(district_orders(OperatorMode::Preparation, district, &pick).map(Gesture::District));
+    // La coque ne dessine jamais l'onglet en Live ; `district_orders` refuse en plus tout ordre hors Préparation.
+    gestures.extend(district_orders(view.mode, district, &pick).map(Gesture::District));
 }

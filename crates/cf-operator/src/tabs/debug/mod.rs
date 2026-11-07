@@ -39,6 +39,8 @@ use cf_render::{
 };
 use cf_show::persist::AppSettings;
 
+use crate::OperatorMode;
+
 use columns::PlanCache;
 use districts::DistrictPick;
 pub(crate) use dock::Section;
@@ -94,6 +96,8 @@ pub(crate) enum Gesture {
 #[derive(Debug)]
 pub(crate) struct DebugView<'a> {
     pub state: &'a mut DebugState,
+    /// Mode de l'opérateur (seconde sûreté : aucun ordre de quartier hors Préparation).
+    pub mode: OperatorMode,
     pub catalog: Option<&'a WorldEventCatalog>,
     pub active: Option<&'a ActiveEvents>,
     pub manual: Option<bool>,
@@ -255,7 +259,13 @@ pub(crate) struct Shared<'a, 'w> {
 }
 
 /// Dessine l'onglet dans le panneau central puis applique les gestes de l'image.
-pub(crate) fn show(root: &mut egui::Ui, params: &mut DebugParams, shared: Shared<'_, '_>, orders: &mut Vec<Action>) {
+pub(crate) fn show(
+    root: &mut egui::Ui,
+    params: &mut DebugParams,
+    shared: Shared<'_, '_>,
+    mode: OperatorMode,
+    orders: &mut Vec<Action>,
+) {
     let DebugParams {
         state,
         catalog,
@@ -269,6 +279,7 @@ pub(crate) fn show(root: &mut egui::Ui, params: &mut DebugParams, shared: Shared
     egui::CentralPanel::default().show(root, |ui| {
         let mut view = DebugView {
             state,
+            mode,
             catalog: catalog.as_deref(),
             active: shared.active.as_deref(),
             manual: shared.automation.as_deref().map(|a| a.manual),

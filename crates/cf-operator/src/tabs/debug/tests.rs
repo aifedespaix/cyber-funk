@@ -20,9 +20,9 @@ use super::chip::{MAX_ORDERS_PER_FRAME, chip_run, chip_text, fire, push_order};
 use super::columns::{PlanCache, column_for_family, column_of, plan_columns, runs_as};
 use super::districts::{TRANSITION_FALLBACK_TIP, TRANSITIONS, transition_tooltip};
 use super::grid::{split_column, split_columns};
-use super::lane::{lane_rows, row_time_text};
+use super::lane::{LaneRow, draw_row_line, lane_rows, row_time_text};
 use super::pad::PadMove;
-use super::top_bar::{load_ratio, wants_search_focus};
+use super::top_bar::{BarLayout, TopBar, load_ratio, wants_search_focus};
 use super::{DebugState, DebugView, Gesture, apply_gestures, camera_actions, draw};
 
 fn event(id: &'static str, label: &'static str, family: &'static str) -> WorldEvent {
@@ -460,6 +460,7 @@ fn the_tab_draws_headless_and_a_frame_without_click_does_nothing() {
         ctx.run_ui(raw, |ui| {
             let mut view = DebugView {
                 state: &mut state,
+                mode: crate::OperatorMode::Preparation,
                 catalog: Some(&catalog),
                 active: Some(&active),
                 manual: Some(false),
@@ -477,6 +478,75 @@ fn the_tab_draws_headless_and_a_frame_without_click_does_nothing() {
     }
     assert!(orders.is_empty(), "aucun clic, aucun ordre");
     assert!(state.gestures.is_empty(), "aucun clic, aucun geste");
+}
+
+/// Dessine `add` dans un `Ui` de `width` px de large (à partir de x = 0) ; rend ce que `add` rend et le rectangle du `Ui`.
+fn in_width<R>(width: f32, add: impl FnOnce(&mut egui::Ui) -> R) -> (R, egui::Rect) {
+    let ctx = egui::Context::default();
+    let mut out = None;
+    let raw = egui::RawInput {
+        screen_rect: Some(egui::Rect::from_min_size(egui::Pos2::ZERO, egui::vec2(2000.0, 400.0))),
+        ..egui::RawInput::default()
+    };
+    let mut add = Some(add);
+    ctx.run_ui(raw, |root| {
+        let rect = egui::Rect::from_min_size(egui::Pos2::ZERO, egui::vec2(width, 300.0));
+        let mut ui = root.new_child(egui::UiBuilder::new().max_rect(rect));
+        if let Some(add) = add.take() {
+            out = Some((add(&mut ui), rect));
+        }
+    })
+    .drop_without_applying_deltas();
+    out.unwrap()
+}
+
+#[test]
+fn the_stop_cross_stays_inside_a_narrow_lane_with_a_long_label() {
+    let row = LaneRow {
+        id: ActiveId::UNSET,
+        label: "Vaisseau publicitaire géant qui traverse toute la ville en affichant une publicité interminable",
+        auto: true,
+        progress: Some(0.42),
+        remaining_s: Some(7.0),
+    };
+    let (cross, rect) = in_width(200.0, |ui| draw_row_line(ui, &row).rect);
+    assert!(cross.width() > 0.0, "✕ dessiné : {cross:?}");
+    assert!(
+        rect.contains_rect(cross),
+        "✕ hors de la ligne de 200 px (coupé par le défilement) : {cross:?} / {rect:?}"
+    );
+}
+
+#[test]
+fn the_top_bar_does_not_overlap_at_the_minimum_window_width() {
+    assert!(BarLayout::for_width(1200.0).sentence);
+    assert!(
+        !BarLayout::for_width(600.0).sentence,
+        "phrase masquée sur une fenêtre étroite"
+    );
+    // 640 px de fenêtre moins les marges du panneau central.
+    for width in [624.0, 1264.0] {
+        let mut filter = String::new();
+        let mut gestures = Vec::new();
+        let bar = TopBar {
+            manual: Some(false),
+            running: Some(9),
+        };
+        let (rects, rect) = in_width(width, |ui| super::top_bar::draw(ui, bar, &mut filter, &mut gestures));
+        assert!(
+            rect.contains_rect(rects.stop),
+            "{width} px : « Tout arrêter » hors de la barre"
+        );
+        assert!(
+            rect.contains_rect(rects.toggle),
+            "{width} px : bascule hors de la barre"
+        );
+        assert!(
+            !rects.toggle.intersects(rects.stop) && rects.toggle.max.x <= rects.stop.min.x,
+            "{width} px : {rects:?}"
+        );
+        assert!(gestures.is_empty(), "{width} px : aucun clic, aucun geste");
+    }
 }
 
 /// Une image egui avec ces événements ; `check` lit son `InputState`.

@@ -86,23 +86,9 @@ pub(crate) fn draw_lane(
         egui::Frame::group(ui.style())
             .inner_margin(egui::Margin::symmetric(6, 3))
             .show(ui, |ui| {
-                ui.horizontal(|ui| {
-                    ui.add(egui::Label::new(row.label).truncate());
-                    if row.auto {
-                        ui.small("auto")
-                            .on_hover_text("Lancé par le monde de lui-même (orchestrateur).");
-                    }
-                    ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                        if ui
-                            .small_button("✕")
-                            .on_hover_text("Retire de la liste ; le monde finit l'événement lui-même.")
-                            .clicked()
-                        {
-                            gestures.push(Gesture::Stop(row.id));
-                        }
-                        ui.weak(row_time_text(&row));
-                    });
-                });
+                if draw_row_line(ui, &row).clicked() {
+                    gestures.push(Gesture::Stop(row.id));
+                }
                 let bar = match row.progress.or(indeterminate) {
                     Some(progress) => egui::ProgressBar::new(progress).desired_height(5.0),
                     None => egui::ProgressBar::new(0.0).text("durée inconnue"),
@@ -113,4 +99,25 @@ pub(crate) fn draw_lane(
     if !any {
         ui.weak("Rien en cours");
     }
+}
+
+/// La ligne de titre d'une entrée : ✕ et temps restant posés **d'abord**, à droite, puis le tag `auto` et le nom dans ce
+/// qui reste. Un libellé tronqué prend toute la largeur restante : dessiné en premier, il pousserait ✕ hors de la
+/// colonne (coupé par le défilement) et l'arrêt deviendrait inaccessible. Rend la réponse de ✕.
+pub(crate) fn draw_row_line(ui: &mut egui::Ui, row: &LaneRow<'_>) -> egui::Response {
+    ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+        let stop = ui
+            .small_button("✕")
+            .on_hover_text("Retire de la liste ; le monde finit l'événement lui-même.");
+        ui.weak(row_time_text(row));
+        ui.with_layout(egui::Layout::left_to_right(egui::Align::Center), |ui| {
+            if row.auto {
+                ui.small("auto")
+                    .on_hover_text("Lancé par le monde de lui-même (orchestrateur).");
+            }
+            ui.add(egui::Label::new(row.label).truncate());
+        });
+        stop
+    })
+    .inner
 }

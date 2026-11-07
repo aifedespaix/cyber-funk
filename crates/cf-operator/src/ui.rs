@@ -72,7 +72,7 @@ pub(crate) fn main_panel(
                 active: &mut shell.active,
                 clock: shell.clock.as_deref(),
             };
-            debug::show(&mut root, &mut debug, shared, &mut live.orders.0);
+            debug::show(&mut root, &mut debug, shared, mode, &mut live.orders.0);
             return;
         }
     }
