@@ -6,11 +6,13 @@ use bevy_egui::egui::{self, Event, Key, Modifiers};
 use cf_render::Settings;
 use cf_show::persist::AppSettings;
 
+use super::confirm::{CONFIRM_DELAY_S, CONFIRM_TIMEOUT_S};
 use super::help;
 use super::shortcuts::{self, KeyGuard, SHORTCUTS, ShellKey, poll, tab_for_shortcut};
 use super::status_bar::{self, StatusAction, StatusData, clock_text, enabled, remaining_s};
 use super::{ShellState, Tab, persist_tab, restore_tab};
 use crate::OperatorMode;
+use crate::tabs::debug::debug_panel::DebugState;
 
 const PREP: OperatorMode = OperatorMode::Preparation;
 const LIVE: OperatorMode = OperatorMode::Live;
@@ -99,6 +101,23 @@ fn watch_settings(settings: Res<Settings>, mut seen: ResMut<SettingsChanges>) {
 }
 
 #[test]
+fn restoring_the_debug_tab_opens_its_window_only_in_preparation() {
+    let opened = |mode: OperatorMode| {
+        let mut value = AppSettings::default();
+        value.operator.last_tab = "debug".to_owned();
+        let mut app = App::new();
+        app.insert_resource(Settings::new(value, "inutilise.ron".into()))
+            .insert_resource(mode)
+            .init_resource::<ShellState>()
+            .init_resource::<DebugState>()
+            .add_systems(Startup, restore_tab);
+        app.update();
+        app.world().resource::<DebugState>().open
+    };
+    assert_eq!((opened(PREP), opened(LIVE)), (true, false));
+}
+
+#[test]
 fn persisting_an_unchanged_tab_does_not_touch_the_settings() {
     let mut app = App::new();
     app.insert_resource(Settings::new(AppSettings::default(), "inutilise.ron".into()))
@@ -121,14 +140,82 @@ fn persisting_an_unchanged_tab_does_not_touch_the_settings() {
 #[test]
 fn next_dj_needs_two_clicks() {
     let mut state = ShellState::default();
-    assert!(!state.click_next_dj(), "le premier clic arme seulement");
-    assert!(state.confirm_next_dj);
-    assert!(state.click_next_dj(), "le second confirme");
-    assert!(!state.confirm_next_dj, "et désarme");
-    assert!(!state.click_next_dj(), "un nouveau changement redemande deux clics");
+    assert!(!state.click_next_dj(10.0, 1), "le premier clic arme seulement");
+    assert!(state.confirm_next_dj.is_armed());
+    assert!(state.click_next_dj(11.0, 1), "le second confirme");
+    assert!(!state.confirm_next_dj.is_armed(), "et désarme");
+    assert!(
+        !state.click_next_dj(12.0, 1),
+        "un nouveau changement redemande deux clics"
+    );
     // Le reset garde le même geste.
-    assert!(!state.click_reset());
-    assert!(state.click_reset());
+    assert!(!state.click_reset(20.0));
+    assert!(state.click_reset(21.0));
+}
+
+#[test]
+fn arming_then_immediate_confirm_is_refused() {
+    let mut state = ShellState::default();
+    assert!(!state.click_next_dj(10.0, 1));
+    // Un double-clic : le second clic arrive avant le délai de confirmation.
+    assert!(
+        !state.click_next_dj(10.0 + CONFIRM_DELAY_S / 2.0, 1),
+        "double-clic refusé"
+    );
+    assert!(
+        !state.confirm_next_dj.ready(10.0 + CONFIRM_DELAY_S / 2.0),
+        "bouton encore grisé"
+    );
+    assert!(
+        state.confirm_next_dj.is_armed(),
+        "reste armé : un vrai second clic passe"
+    );
+    assert!(
+        state.click_next_dj(10.0 + CONFIRM_DELAY_S + 0.01, 1),
+        "confirmé après le délai"
+    );
+    // Même règle pour le reset.
+    assert!(!state.click_reset(30.0));
+    assert!(!state.click_reset(30.1));
+    assert!(state.click_reset(30.0 + CONFIRM_DELAY_S + 0.01));
+}
+
+#[test]
+fn confirm_after_timeout_is_refused() {
+    let mut state = ShellState::default();
+    assert!(!state.click_next_dj(10.0, 1));
+    let late = 10.0 + CONFIRM_TIMEOUT_S;
+    assert!(!state.confirm_next_dj.ready(late));
+    state.refresh(late, 1);
+    assert!(!state.confirm_next_dj.is_armed(), "expirée à l'image suivante");
+    // Même sans `refresh`, un clic tardif ne confirme pas : il réarme.
+    assert!(!state.click_reset(0.0));
+    assert!(
+        !state.click_reset(CONFIRM_TIMEOUT_S + 1.0),
+        "clic tardif : réarme seulement"
+    );
+    assert!(state.confirm_reset.is_armed());
+}
+
+#[test]
+fn dj_change_disarms_next_dj() {
+    let mut state = ShellState::default();
+    assert!(!state.click_next_dj(10.0, 1));
+    state.refresh(11.0, 2);
+    assert!(!state.confirm_next_dj.is_armed(), "un autre DJ est arrivé tout seul");
+    assert!(!state.click_next_dj(11.0, 2), "il faut réarmer pour le nouveau DJ");
+    // Un clic directement après le changement (sans `refresh` intermédiaire) ne confirme pas non plus.
+    assert!(!state.click_next_dj(12.0, 3));
+}
+
+#[test]
+fn tab_change_disarms_confirmations() {
+    let mut state = ShellState::default();
+    assert!(!state.click_next_dj(10.0, 1));
+    assert!(!state.click_reset(10.0));
+    assert!(state.select(Tab::Stats, PREP));
+    assert!(!state.confirm_next_dj.is_armed());
+    assert!(!state.confirm_reset.is_armed());
 }
 
 #[test]
@@ -145,6 +232,8 @@ fn blackout_is_always_available() {
         clock: Some((1000, 60)),
         has_show: true,
         blackout_on: true,
+        now_s: 1.0,
+        slot_seq: 1,
     };
     for data in [StatusData::default(), everything] {
         assert!(enabled(&data).blackout);
@@ -158,17 +247,22 @@ fn blackout_is_always_available() {
             assert_eq!(out, [ShellKey::Blackout]);
         });
     }
-    // …sauf quand un dialogue l'utilise pour annuler, ou pendant une saisie de texte.
+    // …sauf quand un dialogue l'utilise pour annuler, pendant une saisie de texte, ou quand un menu est ouvert.
     for guard in [
         KeyGuard {
             dialog_open: true,
-            typing: false,
+            ..KeyGuard::default()
         },
         KeyGuard {
-            dialog_open: false,
             typing: true,
+            ..KeyGuard::default()
+        },
+        KeyGuard {
+            popup_open: true,
+            ..KeyGuard::default()
         },
     ] {
+        assert!(!guard.escape_is_blackout(), "{guard:?}");
         with_events(vec![key(Key::Escape, Modifiers::NONE)], |input| {
             let mut out = Vec::new();
             poll(input, PREP, guard, &mut out);
@@ -214,7 +308,7 @@ fn tab_shortcut_uses_the_physical_key_on_azerty_and_never_while_typing() {
         let mut out = Vec::new();
         let typing = KeyGuard {
             typing: true,
-            dialog_open: false,
+            ..KeyGuard::default()
         };
         poll(input, PREP, typing, &mut out);
         assert_eq!(out, Vec::<ShellKey>::new());
@@ -224,12 +318,13 @@ fn tab_shortcut_uses_the_physical_key_on_azerty_and_never_while_typing() {
 #[test]
 fn the_status_bar_draws_with_and_without_values_and_says_when_missing() {
     let ctx = egui::Context::default();
-    for confirm in [false, true] {
-        let mut state = ShellState {
-            confirm_next_dj: confirm,
-            confirm_reset: confirm,
-            ..ShellState::default()
-        };
+    for armed in [false, true] {
+        let mut state = ShellState::default();
+        if armed {
+            state.click_next_dj(0.0, 0);
+            state.click_reset(0.0);
+        }
+        let confirm = state.confirm_next_dj;
         let data = StatusData {
             has_show: true,
             paused: Some(true),

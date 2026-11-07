@@ -2,7 +2,8 @@
 //! temps restant, automatisme du monde, événements en cours, horloge et pilotage de la simulation (repris de l'ancienne
 //! `sim_bar`), « Passer au suivant » et le bouton Noir.
 //!
-//! Deux gestes sont en deux temps (clic, puis confirmation dans la barre) : le reset et « Passer au suivant ». En live, un
+//! Deux gestes sont en deux temps (clic, puis confirmation dans la barre, voir `confirm`) : le reset et « Passer au
+//! suivant ». En live, un
 //! clic involontaire ne doit ni relancer le show ni couper un DJ. Le Noir, lui, est toujours actif et immédiat : c'est
 //! le geste de sécurité. Il passe par `Action::Blackout`, donc par le chef du spectacle (règle 7 inchangée).
 //!
@@ -13,6 +14,7 @@ use std::time::{SystemTime, UNIX_EPOCH};
 use bevy_egui::egui::{self, Color32, RichText};
 
 use super::ShellState;
+use super::confirm::{CONFIRM_DELAY_S, Confirm};
 use super::shortcuts::{self, KEY_BLACKOUT};
 
 /// Secondes de la journée : la bibliothèque standard ne donne pas le fuseau, l'heure murale est donc affichée en UTC,
@@ -65,6 +67,11 @@ pub(crate) struct StatusData<'a> {
     pub has_show: bool,
     /// Le Noir est allumé.
     pub blackout_on: bool,
+    /// Secondes réelles de l'application (délais des confirmations).
+    pub now_s: f64,
+    /// Rang de chargement du créneau en cours (`ShowState::slot_seq`, 0 sans show) : un autre DJ désarme « Passer au
+    /// suivant ».
+    pub slot_seq: u32,
 }
 
 /// Quels boutons sont actifs pour ces valeurs. Quatre drapeaux indépendants, un par bouton : une machine à états
@@ -141,7 +148,7 @@ pub(crate) fn draw(ui: &mut egui::Ui, data: &StatusData<'_>, state: &mut ShellSt
         ui.label(format!("DJ : {dj}"));
         ui.label(format!("reste {}", or_none(data.remaining_s, remaining_text)))
             .on_hover_text("D'après l'horaire prévu du créneau.");
-        next_dj(ui, on.next_dj, state, &mut actions);
+        next_dj(ui, data, on.next_dj, state, &mut actions);
         ui.separator();
         let manual = or_none(data.manual, |m| (if m { "Manuel" } else { "Auto" }).to_owned());
         if ui
@@ -174,21 +181,41 @@ pub(crate) fn draw(ui: &mut egui::Ui, data: &StatusData<'_>, state: &mut ShellSt
     actions
 }
 
-/// « Passer au suivant », en deux temps.
-fn next_dj(ui: &mut egui::Ui, enabled: bool, state: &mut ShellState, actions: &mut Vec<StatusAction>) {
-    if state.confirm_next_dj && enabled {
-        if ui.button("Confirmer : DJ suivant").clicked() && state.click_next_dj() {
+/// Le bouton de confirmation d'un geste armé : grisé tant qu'il n'accepte pas de clic (un double-clic sur le bouton
+/// d'origine ne le confirme donc pas). Rend `true` sur un clic accepté.
+fn confirm_button(ui: &mut egui::Ui, confirm: Confirm, now_s: f64, label: &str) -> bool {
+    let ready = confirm.ready(now_s);
+    if !ready {
+        // L'image où le bouton devient cliquable doit être dessinée même sans mouvement de souris.
+        ui.ctx()
+            .request_repaint_after(std::time::Duration::from_secs_f64(CONFIRM_DELAY_S));
+    }
+    ui.add_enabled(ready, egui::Button::new(label)).clicked()
+}
+
+/// « Passer au suivant », en deux temps, lié au créneau en cours.
+fn next_dj(
+    ui: &mut egui::Ui,
+    data: &StatusData<'_>,
+    enabled: bool,
+    state: &mut ShellState,
+    actions: &mut Vec<StatusAction>,
+) {
+    if state.confirm_next_dj.is_armed() && enabled {
+        if confirm_button(ui, state.confirm_next_dj, data.now_s, "Confirmer : DJ suivant")
+            && state.click_next_dj(data.now_s, data.slot_seq)
+        {
             actions.push(StatusAction::NextDj);
         }
         if ui.button("Annuler").clicked() {
-            state.confirm_next_dj = false;
+            state.confirm_next_dj.disarm();
         }
     } else if ui
         .add_enabled(enabled, egui::Button::new("Passer au suivant"))
         .on_hover_text("Lance la passation au DJ suivant (demande une confirmation).")
         .clicked()
     {
-        state.click_next_dj();
+        state.click_next_dj(data.now_s, data.slot_seq);
     }
 }
 
@@ -216,19 +243,19 @@ fn simulation(
     {
         actions.push(StatusAction::TogglePause);
     }
-    if state.confirm_reset && enabled {
-        if ui.button("Confirmer le reset").clicked() && state.click_reset() {
+    if state.confirm_reset.is_armed() && enabled {
+        if confirm_button(ui, state.confirm_reset, data.now_s, "Confirmer le reset") && state.click_reset(data.now_s) {
             actions.push(StatusAction::ConfirmReset);
         }
         if ui.button("Annuler").clicked() {
-            state.confirm_reset = false;
+            state.confirm_reset.disarm();
         }
     } else if ui
         .add_enabled(enabled, egui::Button::new("⟲ Reset"))
         .on_hover_text("Relance la simulation au premier cue et la musique au début de la piste.")
         .clicked()
     {
-        state.click_reset();
+        state.click_reset(data.now_s);
     }
     if paused {
         ui.colored_label(Color32::YELLOW, "EN PAUSE");

@@ -11,6 +11,7 @@
 //! accessible au clavier (un clic de trop ne doit pas lancer un événement devant le public). L'onglet choisi est gardé
 //! tel quel : on le retrouve en revenant en Préparation.
 
+mod confirm;
 mod help;
 pub(crate) mod shortcuts;
 pub(crate) mod status_bar;
@@ -31,6 +32,7 @@ use crate::live::{LiveOrders, ModePrompt};
 use crate::quit::QuitPrompt;
 use crate::tabs::debug::debug_panel::DebugState;
 use crate::tabs::stats::diagnostics::PanelState;
+pub(crate) use confirm::Confirm;
 use shortcuts::{KeyGuard, ShellKey};
 use status_bar::{StatusAction, StatusData};
 
@@ -87,22 +89,16 @@ impl Tab {
 }
 
 /// L'état de la coque (jamais sauvegardé, sauf l'onglet par `persist_tab`).
-#[derive(Resource, Debug, Default, Clone, PartialEq, Eq)]
+#[derive(Resource, Debug, Default, Clone, PartialEq)]
 pub(crate) struct ShellState {
     /// Onglet choisi par l'opérateur.
     pub tab: Tab,
     /// L'aide des raccourcis est ouverte.
     pub help_open: bool,
-    /// « Passer au suivant » attend sa confirmation.
-    pub confirm_next_dj: bool,
+    /// « Passer au suivant » attend sa confirmation (liée au créneau en cours).
+    pub confirm_next_dj: Confirm,
     /// Le reset de la simulation attend sa confirmation.
-    pub confirm_reset: bool,
-}
-
-/// Un geste en deux temps : le premier appel arme (`false`), le second confirme (`true`) et désarme.
-fn two_step(armed: &mut bool) -> bool {
-    *armed = !*armed;
-    !*armed
+    pub confirm_reset: Confirm,
 }
 
 impl ShellState {
@@ -115,37 +111,57 @@ impl ShellState {
         }
     }
 
-    /// Choisit un onglet. `false` si rien ne change (déjà affiché, ou absent de ce mode).
+    /// Choisit un onglet. `false` si rien ne change (déjà affiché, ou absent de ce mode). Changer d'onglet désarme les
+    /// confirmations : on ne confirme pas un geste qu'on n'a plus sous les yeux.
     pub(crate) fn select(&mut self, tab: Tab, mode: OperatorMode) -> bool {
         if !tab.visible_in(mode) || self.shown(mode) == tab {
             return false;
         }
         self.tab = tab;
+        self.confirm_next_dj.disarm();
+        self.confirm_reset.disarm();
         true
     }
 
+    /// Une image : expire les confirmations trop vieilles, et celle du DJ suivant si le créneau a changé
+    /// (`slot_seq` : `ShowState::slot_seq`, 0 sans show).
+    pub(crate) fn refresh(&mut self, now_s: f64, slot_seq: u32) {
+        self.confirm_next_dj.refresh(now_s, slot_seq);
+        self.confirm_reset.refresh(now_s, 0);
+    }
+
     /// Clic sur « Passer au suivant » ou sur sa confirmation : `true` quand le changement de DJ est confirmé.
-    pub(crate) fn click_next_dj(&mut self) -> bool {
-        two_step(&mut self.confirm_next_dj)
+    pub(crate) fn click_next_dj(&mut self, now_s: f64, slot_seq: u32) -> bool {
+        self.confirm_next_dj.click(now_s, slot_seq)
     }
 
     /// Clic sur « Reset » ou sur sa confirmation : `true` quand le reset est confirmé.
-    pub(crate) fn click_reset(&mut self) -> bool {
-        two_step(&mut self.confirm_reset)
+    pub(crate) fn click_reset(&mut self, now_s: f64) -> bool {
+        self.confirm_reset.click(now_s, 0)
     }
 }
 
-/// Branche la coque. Ajouté par `OperatorPlugin`.
+/// Branche la coque. Ajouté par `OperatorPlugin`, après `live::build` (l'onglet restauré dépend du mode d'ouverture).
 pub(crate) fn build(app: &mut App) {
-    app.init_resource::<ShellState>().add_systems(Startup, restore_tab);
+    app.init_resource::<ShellState>().add_systems(
+        Startup,
+        restore_tab.after(crate::live::open_in_live_when_a_show_is_loaded),
+    );
 }
 
-/// Rouvre l'onglet de la dernière session (et la fenêtre Debug monde avec l'onglet Debug, comme un clic l'aurait fait).
-fn restore_tab(settings: Option<Res<Settings>>, mut state: ResMut<ShellState>, debug: Option<ResMut<DebugState>>) {
+/// Rouvre l'onglet de la dernière session, et la fenêtre Debug monde avec l'onglet Debug comme un clic l'aurait fait :
+/// seulement en Préparation (en Live l'onglet n'existe pas, la fenêtre resterait ouverte pour rien).
+pub(crate) fn restore_tab(
+    settings: Option<Res<Settings>>,
+    mode: Option<Res<OperatorMode>>,
+    mut state: ResMut<ShellState>,
+    debug: Option<ResMut<DebugState>>,
+) {
     if let Some(settings) = settings {
         state.tab = Tab::restore(&settings.value.operator.last_tab);
     }
-    if state.tab == Tab::Debug
+    let mode = mode.map_or(OperatorMode::Preparation, |m| *m);
+    if state.shown(mode) == Tab::Debug
         && let Some(mut debug) = debug
     {
         debug.open = true;
@@ -179,6 +195,8 @@ pub(crate) fn shell_input(
     let guard = KeyGuard {
         typing: ctx.egui_wants_keyboard_input(),
         dialog_open: prompt.target.is_some() || quit.is_some_and(|q| q.pending.is_some()),
+        // Mémoire d'egui, donc l'état de l'image précédente : la passe en cours n'a encore rien dessiné.
+        popup_open: egui::Popup::is_any_open(ctx),
     };
     pressed.clear();
     ctx.input(|input| shortcuts::poll(input, *mode, guard, &mut pressed));
@@ -234,6 +252,8 @@ impl ShellParams<'_, '_> {
             clock: self.clock.as_deref().map(|c| (c.sim_ms(), c.frame())),
             has_show: show.is_some(),
             blackout_on: show.is_some_and(|(state, _)| state.blackout_on),
+            now_s: self.time.elapsed_secs_f64(),
+            slot_seq: show.map_or(0, |(state, _)| state.slot_seq),
         }
     }
 

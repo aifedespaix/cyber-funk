@@ -69,9 +69,27 @@ S'il s'arrête plus de 2 s, elle repasse sur le tempo audio sans à-coup.
 
 Pour voir ce qui arrive : `cargo run -p cf-control --example midi_monitor` (développeurs).
 
+## 3 bis. La fenêtre opérateur : onglets et barre de statut
+
+**Onglets.** En haut de la fenêtre : **Réglages** (`Ctrl+1`), **Statistiques** (`Ctrl+2`), **Debug** (`Ctrl+3`). En
+Live, le premier onglet s'appelle **Live** et montre le pupitre du § 5 ; l'onglet Debug n'existe pas en Live (ni bouton
+ni raccourci). Les chiffres seuls restent ceux des cues : c'est pourquoi les onglets demandent `Ctrl`. Le dernier onglet
+ouvert est rouvert au lancement suivant. `?` affiche l'aide des raccourcis.
+
+**Barre de statut**, sous les onglets, toujours visible (y compris en Live) : source audio, images par seconde, tempo,
+DJ en cours et temps restant d'après l'horaire prévu, monde **Auto / Manuel** (en Manuel, le monde ne lance plus rien de
+lui-même ; vos clics passent toujours), nombre d'événements en cours, horloge de simulation, **Pause / Reprendre** et
+**Reset**. Une valeur indisponible s'affiche « — ».
+
+- **Passer au suivant** et **Reset** demandent une confirmation : le bouton de confirmation reste grisé un court instant
+  (un double-clic ne confirme pas) et disparaît seul après 5 s, au changement d'onglet ou, pour le DJ, si le DJ a changé
+  entre-temps.
+- **■ Noir** (ou `Échap`) bascule le noir complet, dans tous les onglets. `Échap` ne fait pas le noir quand il sert à
+  autre chose : fermer un dialogue, un menu ou une liste déroulante, ou pendant la saisie d'un texte.
+
 ## 4. Préparer une soirée
 
-Vue de préparation de la fenêtre opérateur (le nom exact de l'onglet n'a pas été vérifié). La structure est : un **événement** contient des **créneaux** (un par
+Onglet **Réglages** de la fenêtre opérateur, en mode Préparation. La structure est : un **événement** contient des **créneaux** (un par
 DJ), chaque créneau contient une liste de **cues**, chaque cue joue un **look**.
 
 1. Réglages de l'événement : nom, thème de couleurs, flashs (limités ou coupés), look de repli (« look calme »).
@@ -96,8 +114,9 @@ Le fichier est `settings.ron`, dans le dossier de configuration de l'utilisateur
 abîmé ne bloque jamais le démarrage : les valeurs par défaut sont reprises. L'option `--audio-source` de la ligne de
 commande l'emporte sur la source retenue. En `--soak`, rien n'est lu ni écrit.
 
-**Debug monde.** `F4` (ou le bouton « Debug monde » de l'en-tête) ouvre une fenêtre, en Préparation seulement : elle
-n'existe pas en Live. Elle permet de choisir la voiture (dirty car ou CyberCar, instantané : les deux sont chargées à
+**Debug monde.** La fenêtre s'ouvre avec l'onglet **Debug** (`Ctrl+3`), en Préparation seulement : elle n'existe pas
+en Live. Dans cet onglet, `F4` ou le bouton « Debug monde » la ferme ou la rouvre ; elle est masquée dans les autres
+onglets. Elle permet de choisir la voiture (dirty car ou CyberCar, instantané : les deux sont chargées à
 l'ouverture) et de lancer à la main les événements du monde, rangés par famille (trafic et ciel, immeubles-vitrines),
 avec une recherche. Un événement lancé passe par le même chemin que le MIDI : le limiteur de flashs reste actif.
 Tout le contenu défile (pratique sur un petit écran) et se range en quatre sections repliables : Façades, Voiture,
@@ -174,7 +193,9 @@ Vue Live. Les gros boutons et leurs raccourcis (affichés sur chaque bouton) :
 | TAP / RESYNC | P / R | tempo à la main / recalage de la phase |
 | Phase − / + | , / . | décale la phase d'un cran |
 | Mode | Ctrl+M | change le mode du créneau |
-| Diagnostic | F3 | fenêtre de mesures (images, mémoire) |
+
+Toujours disponibles, au-dessus de la vue (barre de statut) : **■ Noir** / `Échap`, **Passer au suivant** (avec
+confirmation), Pause / Reprendre. Les mesures (images, mémoire) sont dans l'onglet **Statistiques** (`Ctrl+2`).
 
 À retenir : **BLACKOUT, LOOK CALME, FLASHS et RESPIRATION** sont les commandes de sécurité. Les flashs passent toujours
 par un limiteur (3 par seconde au plus, jamais de rouge plein écran) : même avec les flashs permis, le public ne reçoit
@@ -188,14 +209,14 @@ Passation de DJ : armez le suivant (J) si l'ordre prévu change, puis G au momen
 | Symptôme | Que faire |
 | --- | --- |
 | Image trop agressive, doute sur la lumière | FLASHS (X) ou RESPIRATION (B) ; si besoin LOOK CALME (L) |
-| Il faut tout couper tout de suite | BLACKOUT (K, maintenu) ; relâcher rallume en fondu |
+| Il faut tout couper tout de suite | BLACKOUT (K, maintenu ; relâcher rallume en fondu), ou Noir / `Échap` (bascule) |
 | Le show avance quand il ne faut pas | HOLD (H), puis GO à la main ; ou passer le créneau en Manuel (Ctrl+M) |
 | Le monde ralentit, rien ne bouge en rythme | le son est perdu : vérifier câble et carte son, « Actualiser les périphériques » ; reprise automatique |
 | Les visuels ne suivent plus le tempo | RESYNC (R) ; vérifier que le MIDI Clock est toujours envoyé ; TAP (P) en dernier recours |
 | Le contrôleur ne répond plus | le clavier marche toujours ; rebrancher le contrôleur, il est repris seul |
 | Un cue a le mauvais look | le fichier du look était illisible (voir le journal) : jouer GO, corriger après le set |
 | L'application plante ou est fermée | relancer et rouvrir le show, puis GO jusqu'au bon cue (la reprise automatique de l'état n'est pas encore branchée dans l'application) |
-| Image saccadée | F3 pour mesurer ; baisser la qualité n'est pas manuel : elle est adaptative |
+| Image saccadée | onglet Statistiques (`Ctrl+2`) pour mesurer ; baisser la qualité n'est pas manuel : elle est adaptative |
 
 Dans les versions livrées (pas en développement), le journal est écrit dans un fichier ; son dossier exact n'est pas documenté ici. Joignez-le à tout signalement.
 Les pannes injectables et leurs tests sont décrits dans `docs/PANNES.md`.

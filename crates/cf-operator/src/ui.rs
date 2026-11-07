@@ -51,6 +51,7 @@ pub(crate) fn main_panel(
     let mode = *live.mode;
     let data = shell.status_data(status.as_deref(), features.as_deref(), live.show_and_sheet());
     let mut state = shell.state.clone();
+    state.refresh(data.now_s, data.slot_seq);
     let (picked, actions) = shell::header(&mut root, &mut state, mode, &data);
     if let Some(tab) = picked
         && state.select(tab, mode)

@@ -34,7 +34,7 @@ pub(crate) const SHORTCUTS: &[(&str, &str)] = &[
     (KEY_HELP, "Afficher ou masquer cette aide"),
     (
         KEY_BLACKOUT,
-        "Noir : bascule le blackout (sauf dialogue ouvert ou saisie de texte)",
+        "Noir : bascule le blackout (sauf dialogue, menu ouvert ou saisie de texte)",
     ),
 ];
 
@@ -84,6 +84,16 @@ pub(crate) struct KeyGuard {
     pub typing: bool,
     /// Un dialogue (sortie, changement de mode) est ouvert : `Échap` lui appartient (il annule).
     pub dialog_open: bool,
+    /// Un menu ou une liste déroulante d'egui est ouvert : `Échap` le ferme. Une liste ouverte ne prend pas le
+    /// clavier (`typing` reste faux), il faut donc ce garde-fou pour que fermer un menu n'éteigne pas la salle.
+    pub popup_open: bool,
+}
+
+impl KeyGuard {
+    /// `Échap` vaut-il le Noir ? Jamais pendant une saisie, un dialogue ou un menu ouvert : il y veut dire « fermer ».
+    pub(crate) fn escape_is_blackout(self) -> bool {
+        !(self.typing || self.dialog_open || self.popup_open)
+    }
 }
 
 /// L'onglet demandé par `Ctrl+1/2/3` (Maj indifférente, jamais avec Alt : `AltGr` vaut `Ctrl+Alt` sous Windows). L'onglet
@@ -119,7 +129,7 @@ pub(crate) fn poll(input: &egui::InputState, mode: OperatorMode, guard: KeyGuard
                     .or_else(|| physical_key.and_then(|k| tab_for_shortcut(k, *modifiers, mode)));
                 if let Some(tab) = tab {
                     out.push(ShellKey::Tab(tab));
-                } else if *key == Key::Escape && !guard.dialog_open {
+                } else if *key == Key::Escape && guard.escape_is_blackout() {
                     out.push(ShellKey::Blackout);
                 }
             }

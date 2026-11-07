@@ -85,7 +85,7 @@ pub(crate) fn build(app: &mut App) {
 }
 
 /// Avec un show chargé on ouvre en Live (c'est ce qu'on lance en soirée) ; sans show il n'y a rien à piloter.
-fn open_in_live_when_a_show_is_loaded(show: Option<Res<CurrentShow>>, mut mode: ResMut<OperatorMode>) {
+pub(crate) fn open_in_live_when_a_show_is_loaded(show: Option<Res<CurrentShow>>, mut mode: ResMut<OperatorMode>) {
     if show.is_some() {
         *mode = OperatorMode::Live;
     }
