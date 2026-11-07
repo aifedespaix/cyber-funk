@@ -11,6 +11,7 @@ mod debuglog;
 pub mod diagnostics;
 pub mod district;
 mod events_catalog;
+mod graffiti_tuning;
 pub mod layers;
 pub mod origin;
 pub mod palette;
@@ -50,6 +51,7 @@ pub use diagnostics::{
 };
 pub use district::{DISTRICT_HISTORY, DistrictOrder, DistrictState};
 pub use events_catalog::{WorldEvent, WorldEventAppExt, WorldEventCatalog};
+pub use graffiti_tuning::{GraffitiTuning, GraffitiWords, MAX_GRAFFITI_DENSITY};
 pub use layers::{
     BackgroundLayer, COMPOSITOR_ORDER, CameraPose, Compositor, ForegroundLayer, Layer, LayerCamera, LayerOpacity,
     LayerTargets, LayerWarmup, LayersPlugin, OFF_BELOW, OVERLAY_COMPOSITOR_ORDER, OverlayCompositor, OverlayLayer,

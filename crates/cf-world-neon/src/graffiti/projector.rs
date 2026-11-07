@@ -20,6 +20,7 @@ use crate::NeonWorld;
 use crate::scenery::fog_range;
 use crate::scenery::graffiti_plan::{LETTER_LIFT, Projector, ProjectorList, row_projectors};
 use crate::scenery::layout::SPACING_M;
+use cf_render::{GraffitiTuning, GraffitiWords};
 
 /// Projecteurs affichés en même temps, tous types et tailles confondus.
 pub const MAX_PROJECTORS: usize = 12;
@@ -252,6 +253,8 @@ pub fn place_projectors(
     world: Res<NeonWorld>,
     atlas: Option<Res<GraffitiAtlas>>,
     quality: Res<GraffitiQuality>,
+    tuning: Res<GraffitiTuning>,
+    words: Option<Res<GraffitiWords>>,
     pool: Res<ProjectorPool>,
     mut state: ResMut<ProjectorState>,
     car: Query<&AbsolutePosition, (With<StreamFocus>, Without<ProjectorRoot>)>,
@@ -261,20 +264,33 @@ pub fn place_projectors(
     let Ok(car) = car.single() else { return };
     let state = &mut *state;
     let row = row_of(car.0.z);
-    let city_changed =
-        world.is_changed() || quality.is_changed() || atlas.as_ref().is_some_and(DetectChanges::is_changed);
+    let city_changed = world.is_changed()
+        || quality.is_changed()
+        || tuning.is_changed()
+        || atlas.as_ref().is_some_and(DetectChanges::is_changed);
     if state.row == Some(row) && !city_changed {
         return;
     }
     state.row = Some(row);
     state.candidates.clear();
-    if let (true, Some(atlas)) = (world.has_city(), atlas.as_deref()) {
+    // Mot imposé (F4) : son rang parmi les mots holographiques chargés ; un mot inconnu est ignoré.
+    let forced = tuning
+        .forced_word
+        .as_deref()
+        .zip(words.as_deref())
+        .and_then(|(word, words)| words.0.iter().position(|w| w == word))
+        .and_then(|rank| u16::try_from(rank).ok());
+    if let (true, true, Some(atlas)) = (world.has_city(), tuning.holo_enabled, atlas.as_deref()) {
         let first = row_of(car.0.z + BEHIND_M);
         let last = row_of(car.0.z - AHEAD_M);
         let mut list = ProjectorList::default();
         for index in first..=last {
             row_projectors(index, world.scenery(), &mut list);
-            for p in list.as_slice() {
+            for found in list.as_slice() {
+                let p = &Projector {
+                    word: forced.unwrap_or(found.word),
+                    ..*found
+                };
                 if state.candidates.len() == CANDIDATES_CAP || atlas.holo_cell(p.word).is_none() {
                     continue;
                 }

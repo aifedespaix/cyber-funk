@@ -38,6 +38,8 @@ pub struct SceneryConfig {
     pub(super) districts_active: bool,
     /// Mots et placements des graffitis ; vide par défaut (la ville historique, sans graffiti ni projecteur).
     graffiti: GraffitiLibrary,
+    /// Multiples de densité des graffitis muraux et des projecteurs automatiques (réglage F4) : 1 = comme livré, 0 = aucun.
+    graffiti_scale: (f32, f32),
 }
 
 impl Default for SceneryConfig {
@@ -49,6 +51,7 @@ impl Default for SceneryConfig {
             districts: DistrictPlan::default(),
             districts_active: false,
             graffiti: GraffitiLibrary::default(),
+            graffiti_scale: (1.0, 1.0),
         }
     }
 }
@@ -89,6 +92,28 @@ impl SceneryConfig {
         }
         self.graffiti = lib;
         true
+    }
+
+    /// Règle les densités de graffitis muraux et de projecteurs automatiques (multiples de la densité livrée, 0 : aucun).
+    /// Renvoie vrai si elles changent (à re-tirer comme [`Self::set_quality`]).
+    pub fn set_graffiti_scale(&mut self, wall: f32, holo: f32) -> bool {
+        std::mem::replace(&mut self.graffiti_scale, (wall, holo)) != (wall, holo)
+    }
+
+    /// Le quartier `look` avec les densités de graffitis réglées à la main. À densité 1, il est rendu tel quel.
+    pub(super) fn tuned(&self, look: &super::districts::DistrictLook) -> super::districts::DistrictLook {
+        let scale = |one_in: u32, density: f32| {
+            if one_in == 0 || density <= 0.0 {
+                0
+            } else {
+                ((one_in as f32 / density).round() as u32).max(1)
+            }
+        };
+        super::districts::DistrictLook {
+            wall_one_in: scale(look.wall_one_in, self.graffiti_scale.0),
+            holo_one_in: scale(look.holo_one_in, self.graffiti_scale.1),
+            ..*look
+        }
     }
 
     /// La bibliothèque de graffitis.

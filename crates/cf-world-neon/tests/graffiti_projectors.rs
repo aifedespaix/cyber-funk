@@ -211,3 +211,36 @@ fn changer_de_qualite_ne_detruit_aucune_entite() {
         "des entités ont été créées ou détruites"
     );
 }
+
+#[test]
+fn le_mot_impose_s_affiche_sur_tous_les_projecteurs_proches() {
+    let mut app = app(0.0, 60.0);
+    for _ in 0..300 {
+        app.update();
+    }
+    let words = app.world().resource::<cf_render::GraffitiWords>().0.clone();
+    assert!(words.len() > 1, "la liste livrée a plusieurs mots holographiques");
+    let forced = words.len() - 1;
+    app.world_mut().resource_mut::<cf_render::GraffitiTuning>().forced_word = Some(words[forced].clone());
+    for _ in 0..5 {
+        app.update();
+    }
+    let shown = active(&app);
+    assert_ne!(shown.len(), 0, "des projecteurs sont affichés");
+    assert!(shown.iter().all(|(_, p)| usize::from(p.word) == forced), "{shown:?}");
+}
+
+#[test]
+fn projecteurs_coupes_aucun_n_est_affiche_et_la_ville_se_retire() {
+    let mut app = app(0.0, 60.0);
+    for _ in 0..300 {
+        app.update();
+    }
+    assert_ne!(active(&app).len(), 0);
+    app.world_mut().resource_mut::<cf_render::GraffitiTuning>().holo_enabled = false;
+    for _ in 0..5 {
+        app.update();
+    }
+    assert_eq!(active(&app).len(), 0);
+    assert_eq!(visible_roots(&mut app), 0);
+}

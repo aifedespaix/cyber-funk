@@ -174,6 +174,7 @@ fn poll_bake(
     );
     let wall_size = UVec3::new(wall.w, wall.h, wall.count);
     let holo_size = UVec3::new(holo.w, holo.h, holo.count);
+    commands.insert_resource(cf_render::GraffitiWords(library.holo_words().to_vec()));
     commands.insert_resource(GraffitiAtlas {
         wall: images.add(to_image(wall)),
         holo: images.add(to_image(holo)),

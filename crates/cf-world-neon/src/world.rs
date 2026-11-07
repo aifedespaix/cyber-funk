@@ -96,6 +96,11 @@ impl NeonWorld {
         self.scenery.set_graffiti(library)
     }
 
+    /// Règle les densités de graffitis et de projecteurs (réglage F4). Renvoie vrai si elles changent.
+    pub fn set_graffiti_scale(&mut self, wall: f32, holo: f32) -> bool {
+        self.scenery.set_graffiti_scale(wall, holo)
+    }
+
     /// Remplace les zones dégagées de la ville. Renvoie vrai si elles changent (à re-tirer comme [`Self::set_quality`]).
     pub fn set_clearings(&mut self, clearings: &[Clearing]) -> bool {
         self.scenery.set_clearings(clearings)

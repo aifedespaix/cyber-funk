@@ -471,6 +471,8 @@ fn the_tab_draws_headless_and_a_frame_without_click_does_nothing() {
                 cars: None,
                 director: None,
                 tuning: None,
+                graffiti: None,
+                words: None,
                 orders: &mut orders,
             };
             draw(ui, &mut view);

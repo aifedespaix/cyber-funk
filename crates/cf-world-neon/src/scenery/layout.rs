@@ -288,16 +288,17 @@ impl Row {
         let body_tier = if layer.far { Tier::Far } else { Tier::Body };
         // Graffiti mural et projecteur de toit : tirages à sels propres sur la graine d'emplacement, sans rien consommer
         // des tirages historiques ; sans bibliothèque, rien n'est tiré.
+        let graffiti_look = config.tuned(&look);
         let graffiti = if layer.far {
             0
         } else {
-            graffiti_plan::wall_motif(config.graffiti(), &look, seed)
+            graffiti_plan::wall_motif(config.graffiti(), &graffiti_look, seed)
         };
         if !layer.far
             && let Some(slot) = self.autos.get_mut(self.auto_count)
             && let Some(p) = graffiti_plan::auto_projector(
                 config.graffiti(),
-                &look,
+                &graffiti_look,
                 seed,
                 graffiti_plan::Roof {
                     // Bord du toit côté route.

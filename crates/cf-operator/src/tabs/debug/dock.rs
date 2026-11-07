@@ -28,19 +28,22 @@ pub(crate) const OTHERS_KEY: &str = "Autres";
 pub(crate) enum Section {
     /// Curseurs des façades.
     Facades,
+    /// Graffitis muraux et projecteurs holographiques.
+    Graffiti,
     /// Choix de la voiture.
     Car,
 }
 
 impl Section {
     /// Toutes les sections, dans l'ordre d'affichage.
-    pub(crate) const ALL: [Section; 2] = [Self::Facades, Self::Car];
+    pub(crate) const ALL: [Section; 3] = [Self::Facades, Self::Graffiti, Self::Car];
 
     /// Identifiant stable, écrit dans les réglages : ne jamais le renommer (`DebugPanelPrefs::closed_sections`, déjà
     /// présent dans les fichiers de l'ancienne fenêtre).
     pub(crate) fn key(self) -> &'static str {
         match self {
             Self::Facades => "facades",
+            Self::Graffiti => "graffiti",
             Self::Car => "car",
         }
     }
@@ -49,6 +52,7 @@ impl Section {
     fn title(self) -> &'static str {
         match self {
             Self::Facades => "Façades",
+            Self::Graffiti => "Graffitis",
             Self::Car => "Voiture",
         }
     }
@@ -206,6 +210,16 @@ fn draw_world_settings(ui: &mut egui::Ui, view: &mut DebugView<'_>) {
                     }
                     None => {
                         ui.weak("Réglages des façades absents (monde absent).");
+                    }
+                },
+                Section::Graffiti => match view.graffiti {
+                    Some(tuning) => {
+                        if let Some(next) = super::graffiti::draw(ui, tuning, view.words) {
+                            view.state.gestures.push(Gesture::Graffiti(next));
+                        }
+                    }
+                    None => {
+                        ui.weak("Réglages des graffitis absents (monde absent).");
                     }
                 },
                 Section::Car => match view.cars {

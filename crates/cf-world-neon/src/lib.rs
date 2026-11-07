@@ -155,6 +155,8 @@ impl Plugin for NeonWorldPlugin {
         .init_resource::<RoutePlanner>()
         .init_resource::<graffiti::projector::ProjectorState>()
         .init_resource::<graffiti::GraffitiQuality>()
+        .init_resource::<cf_render::GraffitiTuning>()
+        .init_resource::<cf_render::GraffitiWords>()
         .add_message::<cf_render::QualityChanged>()
         .add_systems(
             Update,
@@ -174,6 +176,13 @@ impl Plugin for NeonWorldPlugin {
                 .in_set(cf_render::CfSet::Simulate)
                 .after(route::update_route_plan)
                 .run_if(resource_exists::<scenery::arches::ArchPool>),
+        )
+        .add_systems(
+            Update,
+            apply_graffiti_tuning
+                .in_set(cf_render::CfSet::Simulate)
+                .before(cf_render::WorldSet::Chunks)
+                .run_if(resource_changed::<cf_render::GraffitiTuning>),
         )
         .add_systems(
             Update,
@@ -214,6 +223,18 @@ fn apply_quality(
     // Graffitis et projecteurs : un cran de plus ne re-tire rien, il cache des emplacements et raccourcit la portée des murs.
     graffiti.set_if_neq(graffiti::GraffitiQuality::for_level(last.to));
     if world.set_quality(last.to) {
+        stream.replan_all();
+    }
+}
+
+/// `CfSet::Simulate`, avant les tronçons : les densités de graffitis réglées dans le panneau Debug (F4) re-tirent les
+/// tronçons vivants. Ne tourne que quand le réglage change (le monde n'est écrit qu'alors).
+fn apply_graffiti_tuning(
+    tuning: Res<cf_render::GraffitiTuning>,
+    mut world: ResMut<NeonWorld>,
+    mut stream: ResMut<cf_render::ChunkStream<NeonWorld>>,
+) {
+    if world.set_graffiti_scale(tuning.wall_factor(), tuning.holo_factor()) {
         stream.replan_all();
     }
 }

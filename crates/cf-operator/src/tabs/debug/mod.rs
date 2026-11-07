@@ -17,6 +17,9 @@ mod chip;
 mod columns;
 mod districts;
 mod dock;
+mod graffiti;
+#[cfg(test)]
+mod graffiti_tests;
 mod grid;
 mod lane;
 mod pad;
@@ -37,7 +40,7 @@ use cf_cinema::{CinemaDirector, ShotOrder};
 use cf_control::Action;
 use cf_render::{
     ActiveEvents, ActiveId, CarSelection, DistrictGradeState, DistrictOrder, DistrictState, EventCategory,
-    FacadeTuning, GradeLibrary, Settings, SimClock, WorldAutomation, WorldEventCatalog,
+    FacadeTuning, GradeLibrary, GraffitiTuning, GraffitiWords, Settings, SimClock, WorldAutomation, WorldEventCatalog,
 };
 use cf_show::persist::AppSettings;
 
@@ -51,6 +54,13 @@ pub(crate) use dock::camera_actions;
 use dock::{DOCK_WIDTH, OTHERS_KEY, choose_car};
 use grid::{GAP, in_rect, split_dock};
 use persist::{family_is_open, section_is_open, set_family_open, set_section_open};
+
+/// Les clés des sections sont distinctes (elles sont écrites dans les réglages).
+#[cfg(test)]
+fn section_key_is_unique() -> bool {
+    let keys: BTreeSet<_> = Section::ALL.iter().map(|s| s.key()).collect();
+    keys.len() == Section::ALL.len()
+}
 
 /// Les épingles quand les réglages manquent.
 static NO_PINS: BTreeSet<String> = BTreeSet::new();
@@ -69,7 +79,7 @@ pub(crate) struct DebugState {
 }
 
 /// Un geste de l'opérateur, appliqué après le dessin.
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, PartialEq)]
 pub(crate) enum Gesture {
     /// Mode manuel (`WorldAutomation::manual`).
     SetManual(bool),
@@ -85,6 +95,8 @@ pub(crate) enum Gesture {
     District(DistrictOrder),
     /// Nouveaux curseurs des façades.
     Tuning(FacadeTuning),
+    /// Nouveaux réglages des graffitis et des projecteurs.
+    Graffiti(GraffitiTuning),
     /// Voiture demandée.
     Car(&'static str),
     /// Dépliage d'une section de « Réglages monde ».
@@ -114,6 +126,9 @@ pub(crate) struct DebugView<'a> {
     /// Le réalisateur caméra (liste des plans).
     pub director: Option<&'a CinemaDirector>,
     pub tuning: Option<FacadeTuning>,
+    /// Réglages des graffitis et mots holographiques chargés (monde absent : section grisée).
+    pub graffiti: Option<&'a GraffitiTuning>,
+    pub words: Option<&'a GraffitiWords>,
     /// Ordres de l'image (`LiveOrders`).
     pub orders: &'a mut Vec<Action>,
 }
@@ -197,7 +212,7 @@ pub(crate) fn apply_gestures(
                     set_family_open(&mut settings.value, OTHERS_KEY, open);
                 }
             }
-            Gesture::District(_) | Gesture::Tuning(_) | Gesture::Car(_) | Gesture::Shot(_) => return true,
+            Gesture::District(_) | Gesture::Tuning(_) | Gesture::Graffiti(_) | Gesture::Car(_) | Gesture::Shot(_) => return true,
         }
         false
     });
@@ -208,6 +223,8 @@ pub(crate) fn apply_world_gestures(
     gestures: &mut Vec<Gesture>,
     districts: &mut MessageWriter<DistrictOrder>,
     tuning: &mut Option<ResMut<FacadeTuning>>,
+    graffiti: &mut Option<ResMut<GraffitiTuning>>,
+    words: Option<&GraffitiWords>,
     cars: &mut Option<ResMut<CarSelection>>,
     settings: &mut Option<ResMut<Settings>>,
 ) {
@@ -219,6 +236,14 @@ pub(crate) fn apply_world_gestures(
             Gesture::Tuning(next) => {
                 if let Some(tuning) = tuning.as_mut() {
                     tuning.set_if_neq(next);
+                }
+            }
+            Gesture::Graffiti(next) => {
+                if let Some(graffiti) = graffiti.as_mut() {
+                    // La ressource n'est écrite que si le geste la change.
+                    if let Some(next) = graffiti::committed(graffiti, next, words) {
+                        **graffiti = next;
+                    }
                 }
             }
             Gesture::Car(key) => {
@@ -253,6 +278,8 @@ pub(crate) struct DebugParams<'w> {
     grades: Option<Res<'w, DistrictGradeState>>,
     districts: MessageWriter<'w, DistrictOrder>,
     tuning: Option<ResMut<'w, FacadeTuning>>,
+    graffiti: Option<ResMut<'w, GraffitiTuning>>,
+    words: Option<Res<'w, GraffitiWords>>,
     cars: Option<ResMut<'w, CarSelection>>,
     director: Option<Res<'w, CinemaDirector>>,
     shots: MessageWriter<'w, ShotOrder>,
@@ -282,6 +309,8 @@ pub(crate) fn show(
         grades,
         districts,
         tuning,
+        graffiti,
+        words,
         cars,
         director,
         shots,
@@ -300,6 +329,8 @@ pub(crate) fn show(
             cars: cars.as_deref(),
             director: director.as_deref(),
             tuning: tuning.as_deref().copied(),
+            graffiti: graffiti.as_deref(),
+            words: words.as_deref(),
             orders,
         };
         draw(ui, &mut view);
@@ -316,5 +347,5 @@ pub(crate) fn show(
         true
     });
     apply_gestures(gestures, shared.automation, shared.active, settings);
-    apply_world_gestures(gestures, districts, tuning, cars, settings);
+    apply_world_gestures(gestures, districts, tuning, graffiti, words.as_deref(), cars, settings);
 }
