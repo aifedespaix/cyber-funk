@@ -12,7 +12,9 @@ use serde::{Deserialize, Deserializer, Serialize};
 use super::{PersistError, io::write_atomic};
 
 /// Version du format. Un champ ajouté plus tard reste lisible grâce à `#[serde(default)]`.
-pub const SETTINGS_VERSION: u32 = 1;
+///
+/// Version 2 : ajout du bloc [`OperatorPrefs`]. Pas de migration : un fichier de version 1 se lit avec les défauts.
+pub const SETTINGS_VERSION: u32 = 2;
 
 /// La voiture que l'opérateur a choisie.
 ///
@@ -62,6 +64,45 @@ pub struct DebugPanelPrefs {
     pub open_families: BTreeSet<String>,
 }
 
+/// Préférences de la fenêtre opérateur (onglets, événements épinglés, écran de sortie, profil actif).
+///
+/// Chaque champ est lu de façon tolérante : une valeur de mauvais type ne fait perdre que ce champ-là.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct OperatorPrefs {
+    /// Dernier onglet ouvert (`"settings"`, `"stats"` ou `"debug"`).
+    #[serde(deserialize_with = "lenient")]
+    pub last_tab: String,
+    /// Événements épinglés, par identifiant (`WorldEvent::id`).
+    #[serde(deserialize_with = "lenient")]
+    pub pinned_events: BTreeSet<String>,
+    /// Écran de sortie du projecteur (nom de l'écran), `None` : écran par défaut.
+    #[serde(deserialize_with = "lenient")]
+    pub output_monitor: Option<String>,
+    /// Sortie projecteur en plein écran.
+    #[serde(deserialize_with = "lenient")]
+    pub fullscreen: bool,
+    /// Profil de contrôle actif (fichier d'événement de l'opérateur).
+    #[serde(deserialize_with = "lenient")]
+    pub active_profile: Option<String>,
+    /// Dernier fichier d'événement ouvert ou enregistré par l'opérateur.
+    #[serde(deserialize_with = "lenient")]
+    pub last_event_path: Option<String>,
+}
+
+impl Default for OperatorPrefs {
+    fn default() -> Self {
+        Self {
+            last_tab: "settings".into(),
+            pinned_events: BTreeSet::new(),
+            output_monitor: None,
+            fullscreen: true,
+            active_profile: None,
+            last_event_path: None,
+        }
+    }
+}
+
 /// Ce que le logiciel retient d'un lancement à l'autre.
 ///
 /// Les périphériques sont gardés par leur nom : un nom absent ce jour-là reste écrit (la prise reviendra), l'appelant
@@ -99,6 +140,9 @@ pub struct AppSettings {
     /// les anciennes entrées `debug-open:*` de `collapsed_panels` restent comprises (`cf-operator`).
     #[serde(deserialize_with = "lenient")]
     pub debug_panel: DebugPanelPrefs,
+    /// Préférences de la fenêtre opérateur. Absent des fichiers de version 1 : valeurs par défaut.
+    #[serde(deserialize_with = "lenient")]
+    pub operator: OperatorPrefs,
 }
 
 impl Default for AppSettings {
@@ -113,6 +157,7 @@ impl Default for AppSettings {
             car: CarChoice::default(),
             collapsed_panels: Vec::new(),
             debug_panel: DebugPanelPrefs::default(),
+            operator: OperatorPrefs::default(),
         }
     }
 }
@@ -175,5 +220,58 @@ impl AppSettings {
         }
         let text = ron::ser::to_string_pretty(self, ron::ser::PrettyConfig::default())?;
         write_atomic(path, text.as_bytes())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::fs;
+
+    use super::*;
+
+    #[test]
+    fn v1_file_still_loads_with_default_operator_prefs() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("settings.ron");
+        // Fichier écrit par la version 1 : aucun bloc `operator`.
+        fs::write(&path, "(version: 1, car: \"cyber\", mic_device: Some(\"Micro USB\"))").unwrap();
+        let loaded = AppSettings::load(&path);
+        assert_eq!(loaded.operator, OperatorPrefs::default());
+        assert_eq!(loaded.car, CarChoice::Cyber);
+        assert_eq!(loaded.mic_device.as_deref(), Some("Micro USB"));
+    }
+
+    #[test]
+    fn operator_prefs_roundtrip() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("settings.ron");
+        let settings = AppSettings {
+            operator: OperatorPrefs {
+                last_tab: "debug".into(),
+                pinned_events: BTreeSet::from(["alpha".to_string(), "beta".to_string()]),
+                output_monitor: Some("DP-1".into()),
+                fullscreen: false,
+                active_profile: Some("Soirée".into()),
+                last_event_path: Some("assets/shows/demo.ron".into()),
+            },
+            ..AppSettings::default()
+        };
+        settings.save(&path).unwrap();
+        assert_eq!(AppSettings::load(&path), settings);
+    }
+
+    #[test]
+    fn invalid_operator_field_falls_back_to_default_without_losing_others() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("settings.ron");
+        fs::write(
+            &path,
+            "(car: \"cyber\", operator: (pinned_events: 12, last_tab: \"stats\"))",
+        )
+        .unwrap();
+        let loaded = AppSettings::load(&path);
+        assert_eq!(loaded.car, CarChoice::Cyber);
+        assert!(loaded.operator.pinned_events.is_empty());
+        assert_eq!(loaded.operator.last_tab, "stats");
     }
 }
