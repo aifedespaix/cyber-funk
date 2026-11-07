@@ -66,8 +66,7 @@ lignes (règle 11).
   Indicateur « modifications non enregistrées », `Annuler`, `Enregistrer` (`Ctrl+S`). Changer de DJ avec une fiche
   modifiée demande confirmation.
 - **Profils de soirée** : plusieurs listes de DJ nommées, choisies dans un sélecteur, dupliquables.
-- **Import / export** de la liste des DJ en fichier RON (`.cfdjs.ron`), tolérant (un champ invalide prend sa valeur par
-  défaut, comme `AppSettings`).
+- **Import / export** de la liste des DJ : ouvrir ou enregistrer un fichier d'événement RON choisi (`EventDocument::open` / `save_as`).
 - **Écran de sortie** : liste des écrans (nom, résolution, fréquence), bouton « Afficher le numéro sur chaque écran »
   pendant 3 s, plein écran oui/non. Changement appliqué immédiatement.
 
@@ -113,10 +112,12 @@ Manuel n'affaiblit pas le limiteur de flashs (règle 7) : il ne fait que couper 
 
 - `AppSettings` (`cf-show/src/persist/settings.rs`) reçoit de nouveaux champs, chacun `#[serde(default)]` +
   `lenient`, donc sans incidence sur les fichiers existants. `SETTINGS_VERSION` passe à 2.
-  - `profiles: Vec<NamedProfile>` (nom, liste de DJ) et `active_profile`.
+  - `active_profile: Option<String>` et `last_event_path`. Un **profil de soirée** n'est pas une liste de DJ dans les
+    réglages : c'est un fichier d'événement RON dans `<config>/cyber-funk/profiles/<nom>.ron`. Les DJ sont déjà les
+    `DjSlot` d'un `Event`, éditables et enregistrables par `PrepSession` ; une seconde représentation serait redondante.
   - `output_monitor: Option<String>` : **le nom** de l'écran, pas son numéro (un écran débranché change les numéros) ;
     si absent ce jour-là, retomber sur l'écran principal sans effacer la valeur.
-  - `fullscreen: bool`, `pinned_events: BTreeSet<String>`, dernier onglet ouvert.
+  - `fullscreen: bool`, `pinned_events: BTreeSet<String>`, dernier onglet ouvert. Regroupés dans `OperatorPrefs`.
 - Écriture atomique existante (`write_atomic`), à chaque « Enregistrer » et à la fermeture, jamais depuis un thread
   audio.
 - Le contenu actuel de `DebugPanelPrefs` est conservé tel quel (compatibilité des fichiers déjà écrits).
