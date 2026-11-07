@@ -37,7 +37,12 @@ pub(crate) fn pick(
     now_s: f64,
     state: &mut ScreenCardState,
 ) -> Option<ScreenOrder> {
-    let name = list.0.get(slot).filter(|screen| !screen.projector)?.name.clone()?;
+    let name = list
+        .screens
+        .get(slot)
+        .filter(|screen| !screen.projector)?
+        .name
+        .clone()?;
     if live && !state.confirm.click(now_s, confirm_key(slot)) {
         return None;
     }
@@ -47,7 +52,7 @@ pub(crate) fn pick(
 
 /// L'écran dont la confirmation est armée, s'il y en a une (après expiration éventuelle à `now_s`).
 pub(crate) fn armed_slot(list: &ScreenList, now_s: f64, state: &mut ScreenCardState) -> Option<usize> {
-    let slot = (0..list.0.len()).find(|slot| {
+    let slot = (0..list.screens.len()).find(|slot| {
         let mut probe = state.confirm;
         probe.refresh(now_s, confirm_key(*slot));
         probe.is_armed()
@@ -58,14 +63,16 @@ pub(crate) fn armed_slot(list: &ScreenList, now_s: f64, state: &mut ScreenCardSt
     slot
 }
 
-/// Recopie un ordre dans les préférences ; `true` si elles ont changé.
-pub(crate) fn remember(prefs: &mut OperatorPrefs, order: &ScreenOrder) -> bool {
+/// Recopie un ordre dans les préférences ; `true` si elles ont changé. `fullscreen_controllable` : le projecteur
+/// accepte un changement de mode (`ScreenList::fullscreen` connu) ; sinon (`--windowed`) le plein écran retenu ne change
+/// pas, l'opérateur n'ayant rien vu changer.
+pub(crate) fn remember(prefs: &mut OperatorPrefs, order: &ScreenOrder, fullscreen_controllable: bool) -> bool {
     match order {
         ScreenOrder::MoveProjector(name) if prefs.output_monitor.as_deref() != Some(name.as_str()) => {
             prefs.output_monitor = Some(name.clone());
             true
         }
-        ScreenOrder::SetFullscreen(fullscreen) if prefs.fullscreen != *fullscreen => {
+        ScreenOrder::SetFullscreen(fullscreen) if fullscreen_controllable && prefs.fullscreen != *fullscreen => {
             prefs.fullscreen = *fullscreen;
             true
         }
@@ -74,14 +81,19 @@ pub(crate) fn remember(prefs: &mut OperatorPrefs, order: &ScreenOrder) -> bool {
 }
 
 /// Retient les choix d'écran de l'opérateur (seulement sur un vrai changement : `Settings` n'est touchée qu'alors).
-pub(crate) fn remember_screen_orders(mut orders: MessageReader<ScreenOrder>, settings: Option<ResMut<Settings>>) {
+pub(crate) fn remember_screen_orders(
+    mut orders: MessageReader<ScreenOrder>,
+    list: Option<Res<ScreenList>>,
+    settings: Option<ResMut<Settings>>,
+) {
     let Some(mut settings) = settings else {
         orders.clear();
         return;
     };
+    let controllable = list.is_some_and(|list| list.fullscreen.is_some());
     for order in orders.read() {
         let mut prefs = settings.value.operator.clone();
-        if remember(&mut prefs, order) {
+        if remember(&mut prefs, order, controllable) {
             settings.value.operator = prefs;
         }
     }
@@ -107,11 +119,14 @@ mod tests {
     }
 
     fn three() -> ScreenList {
-        ScreenList(vec![
-            screen(Some("DP-1"), true),
-            screen(Some("HDMI-1"), false),
-            screen(None, false),
-        ])
+        ScreenList {
+            screens: vec![
+                screen(Some("DP-1"), true),
+                screen(Some("HDMI-1"), false),
+                screen(None, false),
+            ],
+            fullscreen: Some(true),
+        }
     }
 
     #[test]
@@ -149,15 +164,22 @@ mod tests {
     fn selecting_a_screen_writes_prefs_only_on_change() {
         let mut prefs = OperatorPrefs::default();
         let order = ScreenOrder::MoveProjector("HDMI-1".into());
-        assert!(remember(&mut prefs, &order));
+        assert!(remember(&mut prefs, &order, true));
         assert_eq!(prefs.output_monitor.as_deref(), Some("HDMI-1"));
-        assert!(!remember(&mut prefs, &order), "même écran : rien à écrire");
+        assert!(!remember(&mut prefs, &order, true), "même écran : rien à écrire");
         assert!(
-            !remember(&mut prefs, &ScreenOrder::SetFullscreen(true)),
+            !remember(&mut prefs, &ScreenOrder::SetFullscreen(true), true),
             "déjà plein écran"
         );
-        assert!(remember(&mut prefs, &ScreenOrder::SetFullscreen(false)));
-        assert!(!remember(&mut prefs, &ScreenOrder::Identify));
+        assert!(remember(&mut prefs, &ScreenOrder::SetFullscreen(false), true));
+        assert!(!remember(&mut prefs, &ScreenOrder::Identify, true));
+    }
+
+    #[test]
+    fn fullscreen_is_not_remembered_when_the_projector_mode_is_locked() {
+        let mut prefs = OperatorPrefs::default();
+        assert!(!remember(&mut prefs, &ScreenOrder::SetFullscreen(false), false));
+        assert!(prefs.fullscreen, "--windowed : plein écran retenu intact");
     }
 
     #[test]

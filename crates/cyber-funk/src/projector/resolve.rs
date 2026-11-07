@@ -70,9 +70,30 @@ pub(super) fn startup_choice(cli: Option<&MonitorChoice>, saved: Option<&str>) -
     }
 }
 
-/// Choisit l'écran du projecteur parmi `monitors`.
+/// La place du premier écran qui porte exactement ce nom, sans tenir compte de la casse.
 ///
-/// Un nom s'apparie d'abord exactement (sans la casse), puis par fragment s'il est sans ambiguïté.
+/// Limite connue : deux écrans du même modèle peuvent porter le même nom ; seul le premier (dans l'ordre de
+/// l'énumération) est alors atteignable par son nom, le second seulement par son numéro (`--projector-monitor <n>`).
+pub(super) fn exact_slot(wanted: &str, monitors: &[MonitorInfo]) -> Option<usize> {
+    let wanted = wanted.to_lowercase();
+    monitors
+        .iter()
+        .position(|monitor| monitor.name.as_ref().is_some_and(|name| name.to_lowercase() == wanted))
+}
+
+/// Un nom retenu ou envoyé par l'interface : correspondance **exacte** (sans la casse) seulement. Pas de fragment :
+/// « HDMI-1 » retenu ne doit jamais ouvrir le show sur « HDMI-10 » (sous Windows, `\\.\DISPLAY1` et
+/// `\\.\DISPLAY10`).
+pub(super) fn resolve_exact(wanted: &str, monitors: &[MonitorInfo]) -> Result<Target, ResolveError> {
+    exact_slot(wanted, monitors)
+        .map(Target::Slot)
+        .ok_or(ResolveError::NoMatch)
+}
+
+/// Choisit l'écran du projecteur parmi `monitors` pour `--projector-monitor`.
+///
+/// Un nom s'apparie d'abord exactement (sans la casse, [`exact_slot`]), puis par fragment s'il est sans ambiguïté
+/// (commodité de la ligne de commande, où l'opérateur tape le nom lui-même).
 pub(super) fn resolve(choice: &MonitorChoice, monitors: &[MonitorInfo]) -> Result<Target, ResolveError> {
     match choice {
         MonitorChoice::Primary => Ok(Target::Primary),
@@ -82,18 +103,19 @@ pub(super) fn resolve(choice: &MonitorChoice, monitors: &[MonitorInfo]) -> Resul
             count: monitors.len(),
         }),
         MonitorChoice::Name(wanted) => {
-            let wanted = wanted.to_lowercase();
-            let names: Vec<Option<String>> = monitors
-                .iter()
-                .map(|monitor| monitor.name.as_ref().map(|name| name.to_lowercase()))
-                .collect();
-            if let Some(slot) = names.iter().position(|name| name.as_deref() == Some(wanted.as_str())) {
+            if let Some(slot) = exact_slot(wanted, monitors) {
                 return Ok(Target::Slot(slot));
             }
-            let mut partial = names
+            let wanted = wanted.to_lowercase();
+            let mut partial = monitors
                 .iter()
                 .enumerate()
-                .filter(|(_, name)| name.as_ref().is_some_and(|name| name.contains(&wanted)))
+                .filter(|(_, monitor)| {
+                    monitor
+                        .name
+                        .as_ref()
+                        .is_some_and(|name| name.to_lowercase().contains(&wanted))
+                })
                 .map(|(slot, _)| slot);
             match (partial.next(), partial.next()) {
                 (Some(slot), None) => Ok(Target::Slot(slot)),
@@ -104,15 +126,20 @@ pub(super) fn resolve(choice: &MonitorChoice, monitors: &[MonitorInfo]) -> Resul
     }
 }
 
-/// L'écran du démarrage : [`startup_choice`] puis [`resolve`] ; une demande introuvable retombe sur l'écran
-/// principal, avec la raison (journalisée une fois par l'appelant).
+/// L'écran du démarrage : [`startup_choice`], puis [`resolve`] pour la ligne de commande et [`resolve_exact`] pour
+/// le nom retenu ; une demande introuvable retombe sur l'écran principal, avec la raison (journalisée une fois par
+/// l'appelant).
 pub(super) fn startup_target(
     cli: Option<&MonitorChoice>,
     saved: Option<&str>,
     monitors: &[MonitorInfo],
 ) -> (Target, Option<(Origin, MonitorChoice, ResolveError)>) {
     let (choice, origin) = startup_choice(cli, saved);
-    match resolve(&choice, monitors) {
+    let resolved = match (&choice, origin) {
+        (MonitorChoice::Name(name), Origin::Saved) => resolve_exact(name, monitors),
+        _ => resolve(&choice, monitors),
+    };
+    match resolved {
         Ok(target) => (target, None),
         Err(error) => (Target::Primary, Some((origin, choice, error))),
     }
@@ -210,6 +237,32 @@ mod tests {
     }
 
     #[test]
+    fn saved_hdmi_1_does_not_match_hdmi_10() {
+        let only_ten = monitors(&[Some("DP-1"), Some("HDMI-10")]);
+        assert_eq!(
+            startup_target(None, Some("HDMI-1"), &only_ten),
+            (
+                Target::Primary,
+                Some((
+                    Origin::Saved,
+                    MonitorChoice::Name("HDMI-1".into()),
+                    ResolveError::NoMatch
+                ))
+            )
+        );
+        let windows = monitors(&[Some(r"\\.\DISPLAY10")]);
+        assert_eq!(resolve_exact(r"\\.\DISPLAY1", &windows), Err(ResolveError::NoMatch));
+        assert_eq!(resolve_exact(r"\\.\display10", &windows), Ok(Target::Slot(0)));
+    }
+
+    #[test]
+    fn the_cli_still_matches_a_fragment() {
+        let only_ten = monitors(&[Some("DP-1"), Some("HDMI-10")]);
+        let cli = MonitorChoice::Name("hdmi".into());
+        assert_eq!(startup_target(Some(&cli), None, &only_ten), (Target::Slot(1), None));
+    }
+
+    #[test]
     fn saved_name_match_is_case_insensitive() {
         let two = monitors(&[Some("DELL U2720Q"), Some("Projector XJ")]);
         assert_eq!(
@@ -219,7 +272,12 @@ mod tests {
         assert_eq!(
             startup_target(None, Some("projector xj"), &two),
             startup_target(Some(&MonitorChoice::Name("Projector XJ".into())), None, &two),
-            "même comparaison que --projector-monitor"
+            "même comparaison exacte que --projector-monitor"
+        );
+        assert_eq!(
+            startup_target(None, Some("projector"), &two).0,
+            Target::Primary,
+            "mais pas de fragment pour un nom retenu"
         );
     }
 }

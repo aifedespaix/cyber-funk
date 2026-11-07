@@ -250,14 +250,6 @@ pub(crate) struct DebugParams<'w> {
     cars: Option<ResMut<'w, CarSelection>>,
 }
 
-impl DebugParams<'_> {
-    /// Les préférences de l'opérateur, en lecture (la carte « Écran de sortie » de l'onglet Réglages, dessinée par le
-    /// même système, ne peut pas emprunter `Settings` une seconde fois).
-    pub(crate) fn operator_prefs(&self) -> Option<&cf_show::persist::OperatorPrefs> {
-        self.settings.as_deref().map(|settings| &settings.value.operator)
-    }
-}
-
 /// Les ressources partagées avec la coque.
 #[allow(missing_debug_implementations)] // Des accès aux ressources, rien à afficher.
 pub(crate) struct Shared<'a, 'w> {

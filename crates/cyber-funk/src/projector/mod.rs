@@ -33,6 +33,8 @@ pub struct ProjectorConfig {
     pub saved_monitor: Option<String>,
     /// Fenêtre ordinaire au lieu du plein écran (`--windowed`, ou plein écran décoché par l'opérateur).
     pub windowed: bool,
+    /// `--windowed` : le mode est imposé, l'interface ne peut pas le changer.
+    pub fullscreen_locked: bool,
 }
 
 impl ProjectorConfig {
@@ -43,6 +45,7 @@ impl ProjectorConfig {
             cli_monitor: cli.projector_monitor.clone(),
             saved_monitor: prefs.and_then(|prefs| prefs.output_monitor.clone()),
             windowed: cli.windowed || prefs.is_some_and(|prefs| !prefs.fullscreen),
+            fullscreen_locked: cli.windowed,
         }
     }
 }
@@ -96,12 +99,13 @@ impl Plugin for ProjectorPlugin {
         // L'opérateur enregistre les mêmes (idempotent) : sans lui, les ordres restent simplement sans écrivain.
         app.insert_resource(self.0.clone())
             .init_resource::<ScreenList>()
+            .init_resource::<screens::EarlyOrders>()
             .add_message::<ScreenOrder>()
             .add_systems(
                 Update,
                 (
                     screens::place_projector.run_if(not(resource_exists::<screens::ProjectorState>)),
-                    screens::apply_screen_orders.run_if(resource_exists::<screens::ProjectorState>),
+                    screens::apply_screen_orders,
                     screens::refresh_screen_list,
                 )
                     .chain(),
@@ -118,6 +122,7 @@ mod tests {
             cli_monitor: None,
             saved_monitor: None,
             windowed,
+            fullscreen_locked: windowed,
         }
     }
 
@@ -162,6 +167,10 @@ mod tests {
         let cli = crate::cli::Cli::parse_from(["cyber-funk", "--projector-monitor", "1", "--windowed"]);
         let config = ProjectorConfig::new(&cli, None);
         assert_eq!(config.cli_monitor, Some(MonitorChoice::Index(1)));
-        assert!(config.windowed);
+        assert!(config.windowed && config.fullscreen_locked);
+        assert!(
+            !ProjectorConfig::new(&plain, Some(&prefs)).fullscreen_locked,
+            "plein écran décoché : toujours pilotable"
+        );
     }
 }

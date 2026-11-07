@@ -167,12 +167,16 @@ un show. En quittant avec des modifications non enregistrées, le dialogue de so
 nom, résolution, fréquence, et « principal » / « projecteur ». L'écran qui porte le projecteur est en surbrillance.
 Cliquer sur un autre écran y déplace **tout de suite** le projecteur (la fenêtre est déplacée, pas recréée : rien ne
 se recharge) ; la fenêtre opérateur ne bouge pas. **Plein écran** passe le projecteur en plein écran ou en fenêtre
-ordinaire (avec bordure et curseur, pour répéter). Les deux choix sont retenus pour le prochain lancement : l'écran
+ordinaire (avec bordure et curseur, pour répéter) ; la case montre l'état réel du projecteur. Lancé avec
+`--windowed`, le mode est imposé : la case est grisée. Les deux choix sont retenus pour le prochain lancement : l'écran
 par son **nom** (pas son numéro, qui change quand on débranche un écran). Au démarrage, `--projector-monitor` passe
-avant l'écran retenu, qui passe avant l'écran principal ; `--windowed` passe avant le plein écran retenu. Si l'écran
-retenu n'est pas branché ce jour-là, le projecteur s'ouvre sur l'écran principal, le journal le dit une fois, et le
-réglage est **gardé** (il servira quand l'écran reviendra). Un écran sans nom ne peut pas être retenu : il se choisit
-par son numéro avec `--projector-monitor` (le numéro de l'option est donné au survol, il commence à 0). Avec un seul
+avant l'écran retenu, qui passe avant l'écran principal ; `--windowed` passe avant le plein écran retenu. Le nom
+retenu doit correspondre **exactement** (sans tenir compte des majuscules) : « HDMI-1 » retenu n'ouvre jamais le show
+sur « HDMI-10 » (seul `--projector-monitor` accepte un morceau de nom). Si l'écran retenu n'est pas branché ce
+jour-là, le projecteur s'ouvre sur l'écran principal, le journal le dit une fois, et le réglage est **gardé** (il
+servira quand l'écran reviendra). Un écran sans nom ne peut pas être retenu : il se choisit par son numéro avec
+`--projector-monitor` (le numéro de l'option est donné au survol, il commence à 0) ; de même pour le second de deux
+écrans du même modèle portant le même nom (seul le premier est atteignable par son nom). Avec un seul
 écran, la carte l'affiche, sélectionné, avec « Un seul écran détecté ». Le bouton « Afficher le numéro sur chaque
 écran (3 s) » est grisé (pas encore disponible : il faudrait une fenêtre par écran). Si la carte est utilisée en
 mode Live, changer d'écran demande deux clics (le second confirme), pour qu'un clic de travers ne déplace pas la

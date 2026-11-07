@@ -37,10 +37,16 @@ pub struct ScreenInfo {
     pub projector: bool,
 }
 
-/// Les écrans détectés, dans l'ordre de l'énumération du système (celui des numéros de `--projector-monitor`).
-/// Réécrite par le binaire seulement quand un écran apparaît, disparaît ou que le projecteur change d'écran.
+/// Les écrans détectés et l'état réel du projecteur. Réécrite par le binaire seulement quand un écran apparaît,
+/// disparaît, ou que le projecteur change d'écran ou de mode.
 #[derive(Resource, Debug, Clone, Default, PartialEq, Eq)]
-pub struct ScreenList(pub Vec<ScreenInfo>);
+pub struct ScreenList {
+    /// Les écrans, dans l'ordre de l'énumération du système (celui des numéros de `--projector-monitor`).
+    pub screens: Vec<ScreenInfo>,
+    /// Le projecteur est-il en plein écran en ce moment ? `None` : mode non pilotable depuis l'interface (lancé avec
+    /// `--windowed`, ou pas encore placé).
+    pub fullscreen: Option<bool>,
+}
 
 /// Décrit les écrans (`monitors` : chaque écran et sa marque « principal ») ; `projector` : la place de l'écran qui
 /// porte le projecteur dans `monitors`.

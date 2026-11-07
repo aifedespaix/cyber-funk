@@ -18,8 +18,6 @@ const ROW_HEIGHT: f32 = 28.0;
 pub(crate) struct ScreenCard<'a> {
     /// Écrans détectés (vide sans projecteur branché, ou avant la première image).
     pub list: &'a ScreenList,
-    /// Plein écran retenu.
-    pub fullscreen: bool,
     /// Mode Live : changer d'écran demande deux clics.
     pub live: bool,
     /// Secondes réelles de l'application (confirmation).
@@ -50,7 +48,7 @@ pub(crate) fn draw(
     orders: &mut Vec<ScreenOrder>,
 ) {
     ui.heading("Écran de sortie du rendu");
-    let screens = &card.list.0;
+    let screens = &card.list.screens;
     if screens.is_empty() {
         ui.weak("Aucun écran détecté pour l'instant.");
     }
@@ -87,10 +85,18 @@ pub(crate) fn draw(
         ui.weak("Un seul écran détecté");
     }
     ui.separator();
-    let mut fullscreen = card.fullscreen;
-    if ui.checkbox(&mut fullscreen, "Plein écran").changed() {
+    // L'état réel du projecteur, pas la préférence : sous `--windowed` (ou avant le placement) la case est grisée.
+    let mut fullscreen = card.list.fullscreen.unwrap_or(false);
+    let checkbox = ui.add_enabled(
+        card.list.fullscreen.is_some(),
+        egui::Checkbox::new(&mut fullscreen, "Plein écran"),
+    );
+    if checkbox.changed() {
         orders.push(ScreenOrder::SetFullscreen(fullscreen));
     }
+    checkbox.on_disabled_hover_text(
+        "Mode imposé par --windowed (ou projecteur pas encore placé) : relancer sans --windowed pour le changer.",
+    );
     ui.add_enabled(false, egui::Button::new("Afficher le numéro sur chaque écran (3 s)"))
         .on_disabled_hover_text("pas encore disponible");
     ui.weak(
@@ -103,9 +109,9 @@ pub(crate) fn draw(
 mod tests {
     use super::*;
 
-    fn screens(count: usize) -> ScreenList {
-        ScreenList(
-            (0..count)
+    fn screens(count: usize, fullscreen: Option<bool>) -> ScreenList {
+        ScreenList {
+            screens: (0..count)
                 .map(|i| ScreenInfo {
                     name: (i != 2).then(|| format!("Écran {i}")),
                     width: 1920,
@@ -115,11 +121,12 @@ mod tests {
                     projector: i == 0,
                 })
                 .collect(),
-        )
+            fullscreen,
+        }
     }
 
-    fn draw_at(width: f32, height: f32, count: usize, live: bool) -> Vec<ScreenOrder> {
-        let list = screens(count);
+    fn draw_at(width: f32, height: f32, count: usize, live: bool, fullscreen: Option<bool>) -> Vec<ScreenOrder> {
+        let list = screens(count, fullscreen);
         let ctx = egui::Context::default();
         let mut state = ScreenCardState::default();
         let mut orders = Vec::new();
@@ -131,7 +138,6 @@ mod tests {
             ctx.run_ui(raw, |ui| {
                 let card = ScreenCard {
                     list: &list,
-                    fullscreen: true,
                     live,
                     now_s: 1.0,
                 };
@@ -147,10 +153,13 @@ mod tests {
         for (width, height) in [(640.0, 400.0), (1280.0, 720.0)] {
             for count in [0, 1, 3] {
                 for live in [false, true] {
-                    assert!(
-                        draw_at(width, height, count, live).is_empty(),
-                        "aucun clic, aucun ordre"
-                    );
+                    // Plein écran : pilotable (oui/non) ou imposé par --windowed (case grisée).
+                    for fullscreen in [Some(true), Some(false), None] {
+                        assert!(
+                            draw_at(width, height, count, live, fullscreen).is_empty(),
+                            "aucun clic, aucun ordre"
+                        );
+                    }
                 }
             }
         }
@@ -158,9 +167,9 @@ mod tests {
 
     #[test]
     fn a_row_shows_number_name_resolution_and_rate() {
-        let list = screens(1);
+        let list = screens(1, Some(true));
         assert_eq!(
-            row_text(1, &list.0[0]),
+            row_text(1, &list.screens[0]),
             "1  Écran 0  1920 × 1080 · 60 Hz · principal · projecteur"
         );
     }

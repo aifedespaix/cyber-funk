@@ -137,8 +137,6 @@ pub(crate) fn main_panel(
             let empty = ScreenList::default();
             let card = ScreenCard {
                 list: screens.list.as_deref().unwrap_or(&empty),
-                // Les réglages sont tenus par l'onglet Debug (même système) : on les y lit.
-                fullscreen: debug.operator_prefs().is_none_or(|prefs| prefs.fullscreen),
                 live: mode == crate::OperatorMode::Live,
                 now_s: shell.time.elapsed_secs_f64(),
             };

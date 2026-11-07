@@ -429,7 +429,6 @@ fn draw_at(width: f32, height: f32) -> egui::Rect {
             let screens = cf_render::ScreenList::default();
             let card = ScreenCard {
                 list: &screens,
-                fullscreen: true,
                 live: false,
                 now_s: 0.0,
             };
