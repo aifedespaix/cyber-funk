@@ -74,19 +74,14 @@ impl Playlist {
     /// Durée totale (s) des pistes dont la durée est connue.
     #[must_use]
     pub fn total_s(&self) -> f64 {
-        self.tracks.iter().filter_map(|t| t.duration_s).sum()
+        total_s(&self.tracks)
     }
 
     /// Durée restante (s) à partir de `position_s` dans le titre courant : le reste de ce titre puis tous les titres
     /// qui le suivent dans la liste (l'ordre réel dépend du mode de lecture ; c'est une estimation).
     #[must_use]
     pub fn remaining_s(&self, position_s: f64) -> f64 {
-        let Some(current) = self.tracks.get(self.index) else {
-            return 0.0;
-        };
-        let rest_of_current = (current.duration_s.unwrap_or(0.0) - position_s).max(0.0);
-        let after: f64 = self.tracks[self.index + 1..].iter().filter_map(|t| t.duration_s).sum();
-        rest_of_current + after
+        remaining_s(&self.tracks, self.index(), position_s)
     }
 
     /// Reconstruit la liste et ré-indexe le titre courant et l'historique avec `map` (ancien → nouvel indice, `None`
@@ -97,6 +92,26 @@ impl Playlist {
         self.tracks = Arc::from(list);
         self.index = self.index.min(self.tracks.len().saturating_sub(1));
     }
+}
+
+/// Durée totale (s) des pistes dont la durée est connue.
+#[must_use]
+pub fn total_s(tracks: &[Track]) -> f64 {
+    tracks.iter().filter_map(|t| t.duration_s).sum()
+}
+
+/// Durée restante (s) de la piste `current` à partir de `position_s`, plus toutes celles qui la suivent dans la liste.
+/// `None` (liste vide) : zéro. Jamais négative.
+#[must_use]
+pub fn remaining_s(tracks: &[Track], current: Option<usize>, position_s: f64) -> f64 {
+    let Some(index) = current else {
+        return 0.0;
+    };
+    let Some(track) = tracks.get(index) else {
+        return 0.0;
+    };
+    let rest_of_current = (track.duration_s.unwrap_or(0.0) - position_s).max(0.0);
+    rest_of_current + total_s(&tracks[index + 1..])
 }
 
 #[cfg(test)]

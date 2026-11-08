@@ -6,8 +6,6 @@ use cf_render::{GraffitiTuning, GraffitiWords, MAX_GRAFFITI_DENSITY};
 
 use super::graffiti::{committed, draw, sanitize};
 use super::{Section, section_key_is_unique};
-use crate::OperatorMode;
-use crate::shell::Tab;
 
 fn words() -> GraffitiWords {
     GraffitiWords(vec!["NEON".into(), "GRID".into()])
@@ -81,12 +79,9 @@ fn la_densite_est_bornee() {
 }
 
 #[test]
-fn la_section_est_listee_en_preparation_seulement() {
+fn la_section_est_listee() {
     assert!(Section::ALL.contains(&Section::Graffiti));
     assert!(section_key_is_unique());
-    // L'onglet Debug, qui porte la section, n'est affiché qu'en Préparation.
-    assert!(Tab::Debug.visible_in(OperatorMode::Preparation));
-    assert!(!Tab::Debug.visible_in(OperatorMode::Live));
 }
 
 #[test]

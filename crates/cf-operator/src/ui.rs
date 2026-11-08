@@ -1,42 +1,77 @@
-//! Interface egui de la fenêtre opérateur.
+//! Interface egui de la fenêtre opérateur : en-tête (onglets, badge de mise à jour), puis l'onglet affiché.
 
+use bevy::ecs::system::SystemParam;
 use bevy::prelude::*;
 use bevy_egui::{EguiContext, PrimaryEguiContext, egui};
 
-use cf_render::audio::{AudioCommand, AudioFeatures, AudioStatus, VisualLatency};
-use cf_render::{ControlsStatus, LearnCommand, ScreenList, ScreenOrder};
+use cf_render::audio::{AudioCommand, AudioFeatures, AudioStatus};
+use cf_render::{ControlsStatus, CurrentShow, MidiEnabled, ScreenList, ScreenOrder, ShowSheet, ThemeLibrary};
 
-use crate::live::{self, LiveParams};
+use crate::OperatorMode;
+use crate::cockpit::center::LiveStats;
+use crate::cockpit::dj_column::{self, DjCard, DjColumnEvent};
+use crate::cockpit::files::FilePicker;
+use crate::cockpit::logos::LogoCache;
+use crate::cockpit::playlist_view::{self, PlaylistUi};
+use crate::cockpit::view::{self as live_view, LiveInput, LiveOut};
+use crate::format;
 use crate::loading::{self, LoadingView};
-use crate::prepare::PrepSession;
+use crate::orders::LiveOrders;
+use crate::prepare::{PrepConfig, PrepSession};
 use crate::quit::{QuitDecision, QuitPrompt, QuitSource};
-use crate::shell::{self, ShellParams, Tab};
+use crate::run_state::ShowRunState;
+use crate::shell::{self, DebugView, ShellParams, Tab};
 use crate::tabs::debug::{self, DebugParams, Shared};
 use crate::tabs::settings::screens_view::ScreenCard;
-use crate::tabs::settings::update_panel::{self, InstallUpdate, UpdateStatus};
-use crate::tabs::settings::{self as settings_tab, PrepParams, QuitChoice, audio_panel, controls_panel, learn_panel};
+use crate::tabs::settings::{self as settings_tab, PrepParams, QuitChoice};
 use crate::tabs::stats::{self, StatsParams};
 
-/// Largeur initiale du panneau audio (points egui) : assez pour les vumètres et la ligne des compteurs.
-const AUDIO_PANEL_WIDTH: f32 = 560.0;
+/// L'état propre à l'onglet Live, jamais sauvegardé.
+#[derive(Resource, Debug, Default)]
+pub(crate) struct CockpitState {
+    /// Sélection de la playlist.
+    pub playlist: PlaylistUi,
+    /// « + Nouveau DJ » a été demandé : l'onglet DJs ajoute un DJ à son prochain affichage.
+    pub new_dj: bool,
+    /// Les listes de périphériques ont été demandées une première fois.
+    pub devices_requested: bool,
+}
 
-/// Panneau de l'opérateur : l'en-tête de la coque (onglets + barre de statut), puis l'onglet affiché.
-///
-/// Sans `CfAudioPlugin`, les ressources audio manquent : le panneau le dit au lieu de s'afficher à vide.
+/// Tout ce que l'onglet Live lit et écrit en plus du reste.
+#[derive(SystemParam)]
+pub(crate) struct CockpitParams<'w> {
+    run: ResMut<'w, ShowRunState>,
+    state: ResMut<'w, CockpitState>,
+    logos: ResMut<'w, LogoCache>,
+    picker: Res<'w, FilePicker>,
+    orders: ResMut<'w, LiveOrders>,
+    midi: Option<ResMut<'w, MidiEnabled>>,
+    themes: Option<Res<'w, ThemeLibrary>>,
+    config: Res<'w, PrepConfig>,
+    show: Option<Res<'w, CurrentShow>>,
+    sheet: Option<Res<'w, ShowSheet>>,
+}
+
+/// La carte « Écran de sortie » : la liste écrite par le projecteur (binaire), et ses ordres.
+#[derive(SystemParam)]
+pub(crate) struct ScreenParams<'w> {
+    list: Option<Res<'w, ScreenList>>,
+    orders: MessageWriter<'w, ScreenOrder>,
+}
+
+/// Panneau de l'opérateur : l'en-tête (onglets + badge), puis l'onglet affiché.
 #[allow(clippy::too_many_arguments)] // Paramètres de système Bevy : chacun est une ressource distincte.
 pub(crate) fn main_panel(
     mut context: Single<&mut EguiContext, With<PrimaryEguiContext>>,
     status: Option<Res<AudioStatus>>,
     features: Option<Res<AudioFeatures>>,
-    latency: Option<ResMut<VisualLatency>>,
     mut commands: MessageWriter<AudioCommand>,
     controls: Option<Res<ControlsStatus>>,
     loading: LoadingView,
-    mut live: LiveParams,
+    mut cockpit: CockpitParams,
     mut prep: PrepParams,
-    mut learn: MessageWriter<LearnCommand>,
-    update: Res<UpdateStatus>,
-    mut install: MessageWriter<InstallUpdate>,
+    update: Res<shell::UpdateStatus>,
+    mut install: MessageWriter<shell::InstallUpdate>,
     mut debug: DebugParams,
     mut shell: ShellParams,
     mut stats: StatsParams,
@@ -51,131 +86,193 @@ pub(crate) fn main_panel(
             .layer_id(egui::LayerId::background())
             .max_rect(ctx.viewport_rect()),
     );
-    let mode = *live.mode;
-    let data = shell.status_data(status.as_deref(), features.as_deref(), live.show_and_sheet());
-    let mut state = shell.state.clone();
-    state.refresh(data.now_s, data.slot_seq);
-    let (picked, actions) = shell::header(&mut root, &mut state, mode, &data);
-    if let Some(tab) = picked {
-        state.select(tab, mode);
+    let now_s = shell.time.elapsed_secs_f64();
+    let show_running = cockpit.run.is_active();
+
+    // Les listes de périphériques se lisent une fois, au premier affichage (jamais à chaque image).
+    if !cockpit.state.devices_requested {
+        cockpit.state.devices_requested = true;
+        commands.write(AudioCommand::RefreshDevices);
+        commands.write(AudioCommand::RefreshOutputs);
     }
-    shell.state.set_if_neq(state);
-    if !actions.is_empty() {
-        shell.apply(&actions, &mut live.orders.0);
+    // Des pistes choisies dans le sélecteur de fichiers arrivent à n'importe quel moment, quel que soit l'onglet.
+    if let (Some(added), Some(status)) = (cockpit.picker.poll(), status.as_deref()) {
+        commands.write(AudioCommand::SetPlaylist(playlist_view::with_added(
+            &status.tracks,
+            added,
+        )));
     }
-    match shell.state.shown(mode) {
-        Tab::Settings => {}
-        Tab::Stats => {
-            stats::show(&mut root, &mut shell, &mut stats, features.as_deref());
-            return;
-        }
-        Tab::Debug => {
-            let shared = Shared {
-                automation: &mut shell.automation,
-                active: &mut shell.active,
-                clock: shell.clock.as_deref(),
-            };
-            debug::show(&mut root, &mut debug, shared, mode, &mut live.orders.0);
-            return;
-        }
+
+    let mut screen_orders = Vec::new();
+    let header = {
+        let screen_list = screens.list.as_deref().cloned().unwrap_or_default();
+        let card = ScreenCard {
+            list: &screen_list,
+            live: show_running,
+            now_s,
+        };
+        let tab = prep.tab.as_deref_mut();
+        shell::header(&mut root, &shell.state, &update, show_running, |ui| {
+            if let Some(tab) = tab {
+                ui.menu_button("⚙ Écran de rendu", |ui| {
+                    ui.set_min_width(300.0);
+                    settings_tab::screens_view::draw(ui, card, &mut tab.screens, &mut screen_orders);
+                });
+            }
+        })
+    };
+    screens.orders.write_batch(screen_orders);
+    if let Some(tab) = header.picked {
+        shell.state.select(tab);
     }
-    // Onglet 1 en Live : la vue Live, intacte (édition verrouillée, rien d'autre que le pupitre sous l'en-tête).
-    if !loading.is_loading() && live.is_live() {
-        // Aucune confirmation de l'onglet Réglages ne survit au passage en Live.
-        prep.drop_pending();
-        live.draw(&mut root, features.as_deref(), controls.as_deref());
+    if header.install {
+        install.write(shell::InstallUpdate);
+    }
+
+    if loading.is_loading() {
+        egui::CentralPanel::default().show(&mut root, |ui| loading::draw(ui, &loading));
         return;
     }
-    let features_copy = features.as_deref().copied();
-    egui::Panel::right("audio_panel")
-        .default_size(AUDIO_PANEL_WIDTH)
-        .show(&mut root, |ui| {
-            egui::ScrollArea::vertical().show(ui, |ui| match (status, features, latency) {
-                (Some(status), Some(features), Some(mut latency)) => {
-                    let mut orders = Vec::new();
-                    audio_panel::draw(ui, &status, &features, &mut latency, &mut orders);
-                    commands.write_batch(orders);
-                }
-                _ => {
-                    ui.weak("Audio non branché (CfAudioPlugin absent).");
-                }
-            });
+    if loading.late_pipelines() > 0 {
+        egui::Panel::top("late_pipelines_banner").show(&mut root, |ui| {
+            loading::draw_late_warning(ui, loading.late_pipelines());
         });
-    // Avec une session de préparation, les contrôles passent dans un volet du bas repliable : le centre est à l'éditeur.
-    if prep.session.is_some() && !loading.is_loading() {
-        egui::Panel::bottom("controls_panel")
-            .resizable(true)
-            .show(&mut root, |ui| {
-                egui::CollapsingHeader::new("Contrôles et MIDI")
-                    .default_open(false)
-                    .show(ui, |ui| {
-                        egui::ScrollArea::vertical().max_height(260.0).show(ui, |ui| {
-                            draw_controls(ui, live.show(), controls.as_deref(), features_copy);
-                            if let Some(status) = controls.as_deref() {
-                                ui.separator();
-                                let mut orders = Vec::new();
-                                learn_panel::draw(ui, status, &mut orders);
-                                learn.write_batch(orders);
-                            }
-                        });
-                    });
-            });
     }
-    egui::CentralPanel::default().show(&mut root, |ui| {
-        // Pendant le chargement, la progression remplace le pupitre : rien à piloter tant que le show n'est pas prêt.
-        if loading.is_loading() {
-            loading::draw(ui, &loading);
-            return;
-        }
-        loading::draw_late_warning(ui, loading.late_pipelines());
-        // Hors vue Live seulement (elle a déjà rendu la main plus haut) : jamais de mise à jour proposée en show.
-        if update_panel::draw(ui, &update) {
-            install.write(InstallUpdate);
-        }
-        if let (Some(session), Some(tab)) = (prep.session.as_deref_mut(), prep.tab.as_deref_mut()) {
-            let library_ids = controls.as_deref().map_or(&[][..], |c| c.library_ids.as_slice());
-            let empty = ScreenList::default();
-            let card = ScreenCard {
-                list: screens.list.as_deref().unwrap_or(&empty),
-                live: mode == crate::OperatorMode::Live,
-                now_s: shell.time.elapsed_secs_f64(),
-            };
-            let mut orders = Vec::new();
-            settings_tab::draw(ui, session, tab, library_ids, card, &mut orders, |ui| {
-                live::mode_button(ui, &mut live);
+
+    match shell.state.tab {
+        Tab::Live => live_tab(
+            &mut root,
+            &mut cockpit,
+            status.as_deref(),
+            features.as_deref(),
+            &shell,
+            &mut commands,
+            now_s,
+        ),
+        Tab::Djs => {
+            let add_dj = std::mem::take(&mut cockpit.state.new_dj);
+            egui::CentralPanel::default().show(&mut root, |ui| {
+                match (prep.session.as_deref_mut(), prep.tab.as_deref_mut()) {
+                    (Some(session), Some(tab)) => {
+                        let library_ids = controls.as_deref().map_or(&[][..], |c| c.library_ids.as_slice());
+                        settings_tab::draw(ui, session, tab, library_ids, add_dj);
+                    }
+                    _ => {
+                        ui.weak("Aucune soirée chargée.");
+                    }
+                }
             });
-            screens.orders.write_batch(orders);
-            return;
         }
-        ui.horizontal(|ui| {
-            ui.heading("Réglages");
-            live::mode_button(ui, &mut live);
-        });
-        egui::ScrollArea::vertical().show(ui, |ui| {
-            draw_controls(ui, live.show(), controls.as_deref(), features_copy);
-        });
-    });
+        Tab::Debug => {
+            egui::Panel::top("debug_views").show(&mut root, |ui| {
+                ui.horizontal(|ui| {
+                    for (view, label) in [(DebugView::World, "Monde"), (DebugView::Stats, "Statistiques")] {
+                        if ui
+                            .add(egui::Button::selectable(shell.state.debug_view == view, label))
+                            .clicked()
+                        {
+                            shell.state.debug_view = view;
+                        }
+                    }
+                });
+            });
+            match shell.state.debug_view {
+                DebugView::World => {
+                    let shared = Shared {
+                        automation: &mut shell.automation,
+                        active: &mut shell.active,
+                        clock: shell.clock.as_deref(),
+                    };
+                    debug::show(
+                        &mut root,
+                        &mut debug,
+                        shared,
+                        OperatorMode::Preparation,
+                        &mut cockpit.orders.0,
+                    );
+                }
+                DebugView::Stats => stats::show(&mut root, &mut shell, &mut stats, features.as_deref()),
+            }
+        }
+    }
 }
 
-/// La carte « Écran de sortie » : la liste écrite par le projecteur (binaire), et ses ordres.
-#[derive(bevy::ecs::system::SystemParam)]
-pub(crate) struct ScreenParams<'w> {
-    list: Option<Res<'w, ScreenList>>,
-    orders: MessageWriter<'w, ScreenOrder>,
-}
-
-/// Le panneau des contrôles, ou la raison de son absence.
-fn draw_controls(
-    ui: &mut egui::Ui,
-    show: Option<&cf_show::director::ShowState>,
-    controls: Option<&ControlsStatus>,
-    features: Option<AudioFeatures>,
+/// L'onglet Live : construit ce que la vue lit, la dessine, puis exécute ce que l'opérateur a demandé.
+fn live_tab(
+    root: &mut egui::Ui,
+    cockpit: &mut CockpitParams,
+    status: Option<&AudioStatus>,
+    features: Option<&AudioFeatures>,
+    shell: &ShellParams,
+    commands: &mut MessageWriter<AudioCommand>,
+    now_s: f64,
 ) {
-    match (controls, features) {
-        (Some(controls), Some(features)) => controls_panel::draw(ui, show, controls, &features),
-        _ => {
-            ui.weak("Contrôles non branchés (ControlsPlugin absent).");
-        }
+    let ctx = root.ctx().clone();
+    let cards: Vec<DjCard> = match cockpit.sheet.as_deref().cloned() {
+        Some(sheet) => sheet
+            .slots
+            .iter()
+            .enumerate()
+            .map(|(index, slot)| DjCard {
+                name: format::dj_name(&slot.dj, index),
+                color: cockpit
+                    .themes
+                    .as_deref()
+                    .map_or(egui::Color32::from_gray(120), |themes| {
+                        dj_column::theme_color(themes, slot.theme.as_ref())
+                    }),
+                logo: slot
+                    .logo
+                    .as_deref()
+                    .and_then(|logo| cockpit.logos.texture(&ctx, &cockpit.config.assets_dir, logo)),
+            })
+            .collect(),
+        None => Vec::new(),
+    };
+    let active_dj = cockpit.show.as_deref().map(|show| show.slot);
+    let dj_name = active_dj
+        .and_then(|slot| cards.get(slot))
+        .map(|card| card.name.as_str());
+    let stats = LiveStats {
+        bpm: features.and_then(|f| f.bpm),
+        section: features.map(|f| f.section).unwrap_or_default(),
+        fps: shell.diagnostics.as_deref().map(|d| d.fps),
+        level: features.map_or(0.0, |f| f.loud),
+        live: features.is_some_and(|f| f.live),
+    };
+    let midi = cockpit.midi.as_deref().is_none_or(|midi| midi.0);
+    let input = LiveInput {
+        cards: &cards,
+        active_dj,
+        dj_name,
+        run: &cockpit.run,
+        elapsed_s: cockpit.run.elapsed_s(now_s),
+        stats,
+        audio: status,
+        midi,
+    };
+    let LiveOut {
+        dj,
+        press,
+        audio,
+        midi: midi_change,
+        add_files,
+    } = live_view::draw(root, &input, &mut cockpit.state.playlist);
+
+    match dj {
+        DjColumnEvent::Pick(slot) => cockpit.orders.go_to_dj(slot),
+        DjColumnEvent::New => cockpit.state.new_dj = true,
+        DjColumnEvent::None => {}
+    }
+    if press {
+        cockpit.run.press(now_s);
+    }
+    commands.write_batch(audio);
+    if let (Some(enabled), Some(midi)) = (midi_change, cockpit.midi.as_mut()) {
+        midi.0 = enabled;
+    }
+    if add_files {
+        cockpit.picker.open();
     }
 }
 

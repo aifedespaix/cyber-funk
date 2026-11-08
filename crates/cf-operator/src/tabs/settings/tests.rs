@@ -160,7 +160,7 @@ fn reorder_persists_after_save_and_reopen() {
     // Charlie passe en tête, comme un glisser-déposer de la dernière ligne vers la première.
     let mut draft = session.event().clone();
     let mut selection = session.selection;
-    apply_ops(&mut draft, &mut selection, &[Op::MoveSlot(2, 0)], &mut Touch::default());
+    apply_ops(&mut draft, &mut selection, &[Op::Move(2, 0)], &mut Touch::default());
     session.commit(draft, None);
     assert_eq!(names(&session), ["Charlie", "Alpha", "Bravo"]);
 
@@ -191,7 +191,7 @@ fn delete_last_dj_is_refused_or_leaves_valid_event() {
     assert_eq!(session.event().slots.len(), 1);
     let mut draft = session.event().clone();
     let mut selection = session.selection;
-    apply_ops(&mut draft, &mut selection, &[Op::RemoveSlot(0)], &mut Touch::default());
+    apply_ops(&mut draft, &mut selection, &[Op::Remove(0)], &mut Touch::default());
     assert_eq!(draft.slots.len(), 1, "le dernier DJ reste");
     session.commit(draft, None);
     assert!(session.issues().is_empty(), "{:?}", session.issues());
@@ -199,7 +199,7 @@ fn delete_last_dj_is_refused_or_leaves_valid_event() {
     with_three_djs(&mut session);
     let mut draft = session.event().clone();
     let mut selection = session.selection;
-    apply_ops(&mut draft, &mut selection, &[Op::RemoveSlot(1)], &mut Touch::default());
+    apply_ops(&mut draft, &mut selection, &[Op::Remove(1)], &mut Touch::default());
     session.commit(draft, None);
     assert_eq!(names(&session), ["Alpha", "Charlie"]);
     assert!(session.issues().is_empty(), "{:?}", session.issues());
@@ -426,17 +426,7 @@ fn draw_at(width: f32, height: f32) -> egui::Rect {
             ..egui::RawInput::default()
         };
         ctx.run_ui(raw, |ui| {
-            let screens = cf_render::ScreenList::default();
-            let card = ScreenCard {
-                list: &screens,
-                live: false,
-                now_s: 0.0,
-            };
-            let mut orders = Vec::new();
-            list = draw(ui, &mut session, &mut tab, &[], card, &mut orders, |ui| {
-                ui.label("mode");
-            });
-            assert!(orders.is_empty(), "aucun clic, aucun ordre");
+            list = draw(ui, &mut session, &mut tab, &[], false);
         })
         .drop_without_applying_deltas();
     }

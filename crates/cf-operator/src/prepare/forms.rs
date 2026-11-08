@@ -2,11 +2,9 @@
 
 use bevy_egui::egui;
 use cf_show::drop::TitleLanguage;
-use cf_show::model::event::Schedule;
-use cf_show::model::event::{BPM_LIMITS, MAX_DJ_NAME, MAX_EVENT_NAME, MAX_LATENCY_OFFSET_MS};
+use cf_show::model::event::{MAX_DJ_NAME, MAX_EVENT_NAME, MAX_LATENCY_OFFSET_MS};
 use cf_show::model::{
-    AssetPath, ClockTime, ControlProfileId, DjSlot, Event, FlashPolicy, LookId, MonitorSelect, PresetTheme, SlotMode,
-    TempoPreference, TempoSource, Theme,
+    AssetPath, ControlProfileId, DjSlot, Event, FlashPolicy, LookId, MonitorSelect, PresetTheme, Theme,
 };
 
 use super::widgets::{Touch, choice, number, row, text_field, toggle};
@@ -82,8 +80,9 @@ pub(crate) fn event_form(
     });
 }
 
-/// Créneau d'un DJ : identité, horaires, thème, mode, profil audio, profils de contrôle.
-pub(crate) fn slot_form(ui: &mut egui::Ui, slot: &mut DjSlot, library_ids: &[String], touch: &mut Touch) {
+/// Fiche d'un DJ : identifiant, nom, logo et thème. Le reste de son créneau (conduite, mode, profil audio) est
+/// automatique : l'opérateur n'a rien à y régler, et le fichier de la soirée le garde tel quel.
+pub(crate) fn slot_form(ui: &mut egui::Ui, slot: &mut DjSlot, touch: &mut Touch) {
     row(ui, "Identifiant", |ui| {
         ui.label(slot.id.as_str());
     });
@@ -103,52 +102,6 @@ pub(crate) fn slot_form(ui: &mut egui::Ui, slot: &mut DjSlot, library_ids: &[Str
         if let Some(theme) = &mut slot.dj.theme {
             theme_choice(ui, touch, "dj_theme", theme);
         }
-    });
-    row(ui, "Horaires prévus", |ui| {
-        schedule_field(ui, touch, &mut slot.dj.schedule);
-    });
-    row(ui, "Mode", |ui| {
-        choice(
-            ui,
-            touch,
-            "slot_mode",
-            &mut slot.mode,
-            &[
-                (SlotMode::Auto, "Auto (règles d'avancée)"),
-                (SlotMode::Semi, "Semi (GO, sinon règles)"),
-                (SlotMode::Manual, "Manuel (GO seulement)"),
-            ],
-        );
-    });
-    ui.separator();
-    ui.strong("Profil audio");
-    row(ui, "Tempo attendu", |ui| {
-        number(ui, touch, &mut slot.audio.bpm_min, BPM_LIMITS.0..=BPM_LIMITS.1, " BPM");
-        ui.label("à");
-        number(ui, touch, &mut slot.audio.bpm_max, BPM_LIMITS.0..=BPM_LIMITS.1, " BPM");
-    });
-    row(ui, "Sensibilité", |ui| {
-        let response = ui.add(egui::Slider::new(&mut slot.audio.sensitivity, 0.0..=1.0));
-        touch.continuous(&response);
-    });
-    row(ui, "Source de tempo", |ui| {
-        choice(
-            ui,
-            touch,
-            "tempo_source",
-            &mut slot.audio.tempo_source,
-            &[
-                (TempoPreference::Auto, "Automatique"),
-                (TempoPreference::Prefer(TempoSource::Clock), "MIDI Clock"),
-                (TempoPreference::Prefer(TempoSource::Link), "Ableton Link"),
-                (TempoPreference::Prefer(TempoSource::Audio), "Détection audio"),
-                (TempoPreference::Prefer(TempoSource::Tap), "Tap tempo"),
-            ],
-        );
-    });
-    ui.separator();
-    row(ui, "Profils de contrôle", |ui| {
-        profile_list(ui, touch, "slot_controls", library_ids, &mut slot.controls);
     });
 }
 
@@ -237,51 +190,6 @@ fn logo_field(ui: &mut egui::Ui, touch: &mut Touch, logo: &mut Option<AssetPath>
             *logo = Some(path);
         }
         touch.continuous(&response);
-    }
-}
-
-fn schedule_field(ui: &mut egui::Ui, touch: &mut Touch, schedule: &mut Option<Schedule>) {
-    let mut planned = schedule.is_some();
-    let response = ui.checkbox(&mut planned, "");
-    if response.changed() {
-        *schedule = planned
-            .then(|| {
-                Some(Schedule {
-                    start: ClockTime::from_hm(22, 0)?,
-                    end: ClockTime::from_hm(23, 0)?,
-                })
-            })
-            .flatten();
-        touch.discrete(&response);
-    }
-    let Some(s) = schedule else { return };
-    time_field(ui, touch, &mut s.start);
-    ui.label("→");
-    time_field(ui, touch, &mut s.end);
-}
-
-fn time_field(ui: &mut egui::Ui, touch: &mut Touch, time: &mut ClockTime) {
-    let minutes = time.minutes_since_midnight();
-    let (mut h, mut m) = (
-        u8::try_from(minutes / 60).unwrap_or(0),
-        u8::try_from(minutes % 60).unwrap_or(0),
-    );
-    let hours = ui.add(
-        egui::DragValue::new(&mut h)
-            .range(0..=23)
-            .custom_formatter(|v, _| format!("{v:02.0}")),
-    );
-    ui.label(":");
-    let mins = ui.add(
-        egui::DragValue::new(&mut m)
-            .range(0..=59)
-            .custom_formatter(|v, _| format!("{v:02.0}")),
-    );
-    if (hours.changed() || mins.changed())
-        && let Some(new) = ClockTime::from_hm(h, m)
-    {
-        *time = new;
-        touch.continuous(if hours.changed() { &hours } else { &mins });
     }
 }
 

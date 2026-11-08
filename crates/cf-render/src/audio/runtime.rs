@@ -160,6 +160,10 @@ impl AudioRuntime {
                 let index = isize::try_from(*index).unwrap_or(isize::MAX);
                 self.with_player(|p| p.select(index));
             }
+            AudioCommand::DemoMode(mode) => {
+                let mode = *mode;
+                self.with_player(|p| p.set_mode(mode));
+            }
             AudioCommand::DemoVolume(volume) => {
                 let volume = *volume;
                 self.with_player(|p| p.set_volume(volume));

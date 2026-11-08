@@ -8,7 +8,7 @@ use bevy::prelude::*;
 use cf_analysis::{AnalysisStatsSnapshot, Section};
 use cf_audio::capture::{CaptureState, DeviceSelector};
 use cf_audio::player::PlayerState;
-use cf_audio::playlist::Track;
+use cf_audio::playlist::{PlayMode, Track};
 
 use super::latency::MAX_LATENCY_MS;
 
@@ -164,6 +164,8 @@ pub enum AudioCommand {
     DemoSelect(usize),
     /// Volume du lecteur, 0..1 (n'affecte pas l'analyse).
     DemoVolume(f32),
+    /// Mode de lecture : au hasard, dans l'ordre, ou en boucle sur le titre.
+    DemoMode(PlayMode),
 }
 
 /// Instantané de l'état du pont pour le panneau opérateur, rafraîchi une dizaine de fois par seconde (il copie des

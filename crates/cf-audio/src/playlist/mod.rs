@@ -14,7 +14,8 @@ use std::sync::Arc;
 use rand_core::{Rng, SeedableRng};
 use rand_pcg::Pcg32;
 
-pub use scan::{LOCAL_DIR, ScanError, is_audio_file, scan_music_dir, track_from_path};
+pub use edit::{remaining_s, total_s};
+pub use scan::{AUDIO_EXTENSIONS, LOCAL_DIR, ScanError, is_audio_file, scan_music_dir, track_from_path};
 pub use track_name::parse_track_name;
 
 /// Taille de l'historique de « précédent » (Sillage : `HISTORY`).

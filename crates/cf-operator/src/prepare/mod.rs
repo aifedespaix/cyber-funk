@@ -10,7 +10,6 @@
 //! On édite une copie : le show qui joue n'est jamais modifié (règle 8). Un fichier enregistré se joue au prochain
 //! lancement (profil actif, ou `--show`). Le Live n'affiche rien de tout cela : l'édition y est verrouillée.
 
-pub(crate) mod cue_form;
 pub(crate) mod edit;
 pub(crate) mod forms;
 mod history;

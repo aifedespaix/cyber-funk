@@ -12,7 +12,7 @@ use bevy::math::DVec3;
 use bevy::prelude::*;
 use cf_render::{CameraPose, CfSet, TextInputFocus};
 
-use crate::live::OperatorMode;
+use crate::mode::OperatorMode;
 
 /// Touche qui prend ou rend la caméra.
 const TOGGLE_KEY: KeyCode = KeyCode::F2;

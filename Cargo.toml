@@ -72,6 +72,9 @@ embed-resource = "3.0"
 # Tests et mesures
 insta = { version = "1.49", features = ["ron"] }
 proptest = "1.12"
+# Vignettes des logos de DJ dans l'opérateur (PNG et JPEG seulement) et sélecteur de fichiers du système.
+image = { version = "0.25", default-features = false, features = ["png", "jpeg"] }
+rfd = { version = "0.16", default-features = false, features = ["xdg-portal", "tokio"] }
 serde_json = "1.0"
 criterion = "0.8"
 assert_no_alloc = "1.1"

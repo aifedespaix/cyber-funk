@@ -19,7 +19,7 @@ use bevy::render::render_resource::TextureFormat;
 use bevy::render::view::screenshot::{Screenshot, ScreenshotCaptured};
 use bevy_egui::{EguiContext, PrimaryEguiContext, egui};
 
-use crate::live::OperatorMode;
+use crate::mode::OperatorMode;
 
 /// Cadence maximale de l'aperçu, en images par seconde (la fiche impose 15 au plus).
 pub(crate) const PREVIEW_FPS: f32 = 10.0;
@@ -179,32 +179,6 @@ pub(crate) fn sync_egui(mut context: Single<&mut EguiContext, With<PrimaryEguiCo
     } else {
         let handle = ctx.load_texture("cf_preview", image, egui::TextureOptions::LINEAR);
         ctx.data_mut(|d| d.insert_temp(texture_key(), handle));
-    }
-}
-
-/// La carte « APERÇU » de la colonne de droite : l'image réduite et l'interrupteur.
-pub(crate) fn card(ui: &mut egui::Ui) {
-    let mut enabled: bool = ui.data(|d| d.get_temp(enabled_key())).unwrap_or(true);
-    ui.horizontal(|ui| {
-        ui.strong("APERÇU");
-        if ui.checkbox(&mut enabled, "actif").changed() {
-            ui.data_mut(|d| d.insert_temp(enabled_key(), enabled));
-        }
-    });
-    if !enabled {
-        ui.weak("Aperçu désactivé : aucun coût de capture.");
-        return;
-    }
-    let texture: Option<egui::TextureHandle> = ui.data(|d| d.get_temp(texture_key()));
-    match texture {
-        Some(texture) => {
-            let size = texture.size_vec2();
-            let width = ui.available_width();
-            ui.add(egui::Image::new(&texture).fit_to_exact_size(egui::vec2(width, width * size.y / size.x.max(1.0))));
-        }
-        None => {
-            ui.weak("En attente de la première image…");
-        }
     }
 }
 

@@ -426,8 +426,7 @@ mod tests {
         let mut edited = session.event().clone();
         edited.settings.name = "Soirée de test".to_owned();
         edit::add_slot(&mut edited);
-        edit::add_cue(&mut edited, 0);
-        edit::duplicate_cue(&mut edited, 0, 0);
+        edit::duplicate_slot(&mut edited, 0);
         session.commit(edited, None);
         assert!(session.is_dirty());
 

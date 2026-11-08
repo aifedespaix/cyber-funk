@@ -19,14 +19,10 @@ pub(crate) const SAVE: egui::KeyboardShortcut = egui::KeyboardShortcut::new(egui
 /// Une modification structurelle demandée pendant l'image, appliquée une fois les formulaires dessinés.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum Op {
-    AddSlot,
-    DuplicateSlot(usize),
-    RemoveSlot(usize),
-    MoveSlot(usize, usize),
-    AddCue,
-    DuplicateCue(usize),
-    RemoveCue(usize),
-    MoveCue(usize, usize),
+    Add,
+    Duplicate(usize),
+    Remove(usize),
+    Move(usize, usize),
 }
 
 /// Annuler / rétablir au clavier, et fermeture du regroupement d'éditions. Rend `true` si `Ctrl+S` a été pressé
@@ -109,26 +105,16 @@ pub(crate) fn path_flagged_cues_only(flagged: &[String], slot: usize) -> bool {
 
 /// Applique une modification structurelle au brouillon et renvoie la sélection qui suit.
 pub(crate) fn apply(event: &mut Event, selection: Selection, op: Op) -> Selection {
-    let slot = selection.slot;
-    let keep = |cue| Selection {
-        slot,
-        cue,
-        event: false,
-    };
     let dj = |slot| Selection {
         slot,
         cue: None,
         event: false,
     };
     match op {
-        Op::AddSlot => edit::add_slot(event).map_or(selection, dj),
-        Op::DuplicateSlot(i) => edit::duplicate_slot(event, i).map_or(selection, dj),
-        Op::RemoveSlot(i) => edit::remove_slot(event, i).map_or(selection, dj),
-        Op::MoveSlot(from, to) => edit::move_slot(event, from, to).map_or(selection, dj),
-        Op::AddCue => edit::add_cue(event, slot).map_or(selection, |i| keep(Some(i))),
-        Op::DuplicateCue(i) => edit::duplicate_cue(event, slot, i).map_or(selection, |n| keep(Some(n))),
-        Op::RemoveCue(i) => edit::remove_cue(event, slot, i).map_or(selection, |n| keep(Some(n))),
-        Op::MoveCue(from, to) => edit::move_cue(event, slot, from, to).map_or(selection, |n| keep(Some(n))),
+        Op::Add => edit::add_slot(event).map_or(selection, dj),
+        Op::Duplicate(i) => edit::duplicate_slot(event, i).map_or(selection, dj),
+        Op::Remove(i) => edit::remove_slot(event, i).map_or(selection, dj),
+        Op::Move(from, to) => edit::move_slot(event, from, to).map_or(selection, dj),
     }
 }
 

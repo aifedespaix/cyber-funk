@@ -9,7 +9,7 @@ use super::track_name::parse_track_name;
 
 /// Extensions lues (comparées en minuscules). Reprend la liste de Sillage, moins `opus`, `weba` et `webm`, que
 /// `symphonia` ne décode pas.
-const AUDIO_EXTENSIONS: [&str; 7] = ["mp3", "ogg", "oga", "m4a", "aac", "wav", "flac"];
+pub const AUDIO_EXTENSIONS: [&str; 7] = ["mp3", "ogg", "oga", "m4a", "aac", "wav", "flac"];
 
 /// Sous-dossier des pistes personnelles, relatif au dossier de musique.
 pub const LOCAL_DIR: &str = "local";

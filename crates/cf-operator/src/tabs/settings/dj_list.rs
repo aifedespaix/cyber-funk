@@ -105,24 +105,24 @@ pub(crate) fn draw(
                 requests.push(Request::SelectDj(i));
             }
             if let Some((from, to)) = action.moved.filter(|(from, to)| from != to) {
-                ops.push(Op::MoveSlot(from, to));
+                ops.push(Op::Move(from, to));
             }
         });
     ui.weak("Glisser, ou Alt+↑/↓ sur la ligne, pour réordonner.");
     ui.horizontal_wrapped(|ui| {
         if ui.button("+ Ajouter un DJ").clicked() {
-            ops.push(Op::AddSlot);
+            ops.push(Op::Add);
         }
         let on_dj = !selection.event;
         if ui.add_enabled(on_dj, egui::Button::new("Dupliquer")).clicked() {
-            ops.push(Op::DuplicateSlot(selection.slot));
+            ops.push(Op::Duplicate(selection.slot));
         }
         if ui
             .add_enabled(on_dj && event.slots.len() > 1, egui::Button::new("Supprimer"))
             .on_disabled_hover_text("Une soirée garde au moins un DJ.")
             .clicked()
         {
-            ops.push(Op::RemoveSlot(selection.slot));
+            ops.push(Op::Remove(selection.slot));
         }
     });
 }
@@ -141,6 +141,6 @@ fn keyboard_moves(ctx: &egui::Context, event: &Event, focus: &mut ListFocus, ops
     } else {
         return;
     };
-    ops.push(Op::MoveSlot(row, target));
+    ops.push(Op::Move(row, target));
     focus.request = Some(target);
 }

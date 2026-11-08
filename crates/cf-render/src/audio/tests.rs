@@ -274,3 +274,21 @@ fn remplacer_la_playlist_garde_le_titre_entendu() {
     assert_eq!(after.track, Some(expected), "le même titre, sous son nouvel indice");
     assert!(after.playing);
 }
+
+#[test]
+fn le_mode_de_lecture_se_change_a_chaud() {
+    let mut app = app(synthetic_config(AudioSource::Demo));
+    run_until(&mut app, Duration::from_secs(25), |a| {
+        a.world().resource::<AudioStatus>().demo.is_some()
+    });
+    send(&mut app, AudioCommand::DemoMode(PlayMode::Loop));
+    run_until(&mut app, Duration::from_secs(5), |a| {
+        a.world()
+            .resource::<AudioStatus>()
+            .demo
+            .as_ref()
+            .is_some_and(|d| d.mode == PlayMode::Loop)
+    });
+    let demo = app.world().resource::<AudioStatus>().demo.clone().expect("lecteur");
+    assert_eq!(demo.mode, PlayMode::Loop);
+}

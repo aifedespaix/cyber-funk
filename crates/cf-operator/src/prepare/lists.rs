@@ -7,6 +7,8 @@ use bevy_egui::egui;
 pub(crate) struct ListAction {
     /// Rang cliqué.
     pub select: Option<usize>,
+    /// Rang double-cliqué.
+    pub activate: Option<usize>,
     /// Glissé-déposé : (rang d'origine, rang d'arrivée).
     pub moved: Option<(usize, usize)>,
     /// Rang de la ligne qui a le focus clavier à la fin de l'image.
@@ -45,6 +47,9 @@ pub(crate) fn reorderable(ui: &mut egui::Ui, salt: &str, rows: &[ListRow], focus
             }
             if inner.inner.clicked() {
                 action.select = Some(i);
+            }
+            if inner.inner.double_clicked() {
+                action.activate = Some(i);
             }
             if inner.inner.has_focus() {
                 action.focused = Some(i);

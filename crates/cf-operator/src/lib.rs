@@ -4,9 +4,12 @@
 //! seconde fenêtre, avec sa propre caméra 2D qui porte le contexte egui : egui ne dessine donc jamais dans le
 //! projecteur.
 
+mod cockpit;
+mod format;
 mod freecam;
-mod live;
 mod loading;
+mod mode;
+mod orders;
 mod prepare;
 mod preview;
 mod quit;
@@ -17,13 +20,13 @@ mod tabs;
 mod ui;
 mod window;
 
-pub use live::OperatorMode;
+pub use mode::OperatorMode;
 pub use prepare::PrepConfig;
 pub use quit::{QuitConfirmation, QuitDecision, QuitGuardPlugin, QuitPrompt, QuitSource};
 pub use run_state::{ShowRun, ShowRunState};
 pub use services::logbuf::{OperatorLog, mark_moment};
+pub use shell::{InstallUpdate, UpdateStatus};
 pub use tabs::settings::restore::startup_event_path;
-pub use tabs::settings::update_panel::{InstallUpdate, UpdateStatus};
 pub use window::OperatorWindow;
 
 use bevy::prelude::*;
@@ -64,7 +67,14 @@ impl Plugin for OperatorPlugin {
         // les mêmes (idempotent). Sans lui la liste reste vide et les ordres sans lecteur.
         app.init_resource::<cf_render::ScreenList>()
             .add_message::<cf_render::ScreenOrder>();
-        live::build(app);
+        // Les ordres de l'interface arrivent au spectacle par ces messages (idempotent avec le plugin des contrôles).
+        app.add_message::<cf_render::ControlAction>()
+            .init_resource::<OperatorMode>()
+            .init_resource::<ShowRunState>()
+            .init_resource::<orders::LiveOrders>()
+            .init_resource::<ui::CockpitState>()
+            .init_resource::<cockpit::logos::LogoCache>()
+            .init_resource::<cockpit::files::FilePicker>();
         shell::build(app);
         tabs::stats::build(app);
         preview::build(app);
@@ -73,15 +83,14 @@ impl Plugin for OperatorPlugin {
             EguiPrimaryContextPass,
             (
                 preview::sync_egui,
-                live::live_input,
+                mode::sync_mode,
                 shell::shell_input,
                 ui::main_panel,
                 shell::persist_tab,
                 services::screens::remember_screen_orders,
                 tabs::settings::restore::remember_evening,
-                live::mode_dialog,
                 ui::quit_dialog,
-                live::flush_orders,
+                orders::flush_orders,
             )
                 .chain(),
         );

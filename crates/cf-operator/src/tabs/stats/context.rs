@@ -12,7 +12,7 @@ use cf_render::{
 use cf_show::director::ShowState;
 
 use crate::OperatorMode;
-use crate::shell::status_bar::remaining_s;
+use crate::format::remaining_s;
 
 /// Valeur écrite quand l'information n'est pas disponible.
 const UNKNOWN: &str = "inconnu";
@@ -68,7 +68,7 @@ fn yes_no(value: Option<bool>) -> &'static str {
 
 fn clock_text(seconds: f64) -> String {
     let sign = if seconds < 0.0 { "-" } else { "" };
-    format!("{sign}{}", crate::live::clock(seconds.abs()))
+    format!("{sign}{}", crate::format::clock(seconds.abs()))
 }
 
 /// Les paires clé / valeur de l'en-tête. Clés stables en minuscules ASCII, valeurs sur une seule ligne.
@@ -178,7 +178,7 @@ impl Sources<'_> {
             events,
             district,
             camera: None,
-            dj: slot.map(|(state, s)| crate::live::dj_name(&s.dj, state.slot)),
+            dj: slot.map(|(state, s)| crate::format::dj_name(&s.dj, state.slot)),
             remaining_s: slot.and_then(|(state, s)| remaining_s(s.schedule, state.elapsed)),
             manual: self.automation.map(|a| a.manual),
             paused: self.sim.map(SimControl::paused),
