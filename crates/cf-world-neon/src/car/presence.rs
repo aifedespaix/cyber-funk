@@ -4,7 +4,10 @@
 //! point, puis plus rien. À l'allumage c'est le même film à l'envers. Tout est géométrique : aucun flash, donc rien à
 //! faire passer par le limiteur photosensible (règle 7).
 //!
-//! La voiture n'est jamais créée ni détruite : elle porte le foyer du streaming (`StreamFocus`).
+//! La voiture n'est jamais créée ni détruite : elle porte le foyer du streaming (`StreamFocus`). Elle n'est pas non plus
+//! masquée (`Visibility::Hidden`) : une voiture jamais dessinée ne compilerait ses pipelines qu'au premier `Démarrer`
+//! (règle 8 de `CLAUDE.md`, aucune compilation de shader pendant un show). Éteinte, elle reste donc dans la scène,
+//! écrasée à une échelle invisible.
 
 use bevy::prelude::*;
 
@@ -13,8 +16,9 @@ use super::systems::CarControls;
 
 /// Hauteur de la ligne, en part de la hauteur normale, au milieu de l'extinction.
 const LINE: f32 = 0.04;
-/// En dessous, la voiture est invisible (pas de point lumineux d'un pixel qui scintille).
-const GONE: f32 = 0.002;
+/// Échelle plancher : assez petite pour disparaître (moins d'un millième de pixel), assez grande pour que la voiture
+/// reste dessinée et ses pipelines chauds.
+pub const MIN_SCALE: f32 = 1e-4;
 
 fn smooth(t: f32) -> f32 {
     let t = t.clamp(0.0, 1.0);
@@ -31,30 +35,12 @@ pub fn tv_scale(p: f32) -> Vec3 {
     Vec3::new(width, height, width)
 }
 
-/// La voiture est-elle visible à cette présence ?
-#[must_use]
-pub fn is_visible(p: f32) -> bool {
-    p > GONE
-}
-
 /// `CfSet::Simulate`, après `drive_car` : applique la présence à la racine de la voiture.
-pub(super) fn apply_presence(
-    controls: Res<CarControls>,
-    mut cars: Query<(&mut Transform, &mut Visibility), With<Car>>,
-) {
-    let p = controls.presence;
-    let wanted = if is_visible(p) {
-        Visibility::Inherited
-    } else {
-        Visibility::Hidden
-    };
-    let scale = tv_scale(p);
-    for (mut transform, mut visibility) in &mut cars {
+pub(super) fn apply_presence(controls: Res<CarControls>, mut cars: Query<&mut Transform, With<Car>>) {
+    let scale = tv_scale(controls.presence).max(Vec3::splat(MIN_SCALE));
+    for mut transform in &mut cars {
         if transform.scale != scale {
             transform.scale = scale;
-        }
-        if *visibility != wanted {
-            *visibility = wanted;
         }
     }
 }
@@ -66,12 +52,10 @@ mod tests {
     #[test]
     fn presence_one_is_identity() {
         assert_eq!(tv_scale(1.0), Vec3::ONE);
-        assert!(is_visible(1.0));
     }
 
     #[test]
-    fn presence_zero_hides_car() {
-        assert!(!is_visible(0.0));
+    fn presence_zero_collapses_the_car_to_a_point() {
         assert_eq!(tv_scale(0.0).x, 0.0);
     }
 
@@ -98,7 +82,7 @@ mod tests {
     }
 
     #[test]
-    fn the_system_hides_and_shows_the_car() {
+    fn the_car_stays_drawn_when_off_so_its_pipelines_stay_warm() {
         let mut app = App::new();
         app.insert_resource(CarControls {
             presence: 0.0,
@@ -110,10 +94,15 @@ mod tests {
             .spawn((Car, Transform::default(), Visibility::default()))
             .id();
         app.update();
-        assert_eq!(*app.world().get::<Visibility>(car).unwrap(), Visibility::Hidden);
+        let off = app.world().get::<Transform>(car).unwrap().scale;
+        // Une ligne d'un dix-millième de large : invisible, mais toujours dessinée.
+        assert!(
+            off.x <= MIN_SCALE + f32::EPSILON && off.z <= MIN_SCALE + f32::EPSILON && off.min_element() > 0.0,
+            "{off:?}"
+        );
+        assert_eq!(*app.world().get::<Visibility>(car).unwrap(), Visibility::Inherited);
         app.world_mut().resource_mut::<CarControls>().presence = 1.0;
         app.update();
-        assert_eq!(*app.world().get::<Visibility>(car).unwrap(), Visibility::Inherited);
         assert_eq!(app.world().get::<Transform>(car).unwrap().scale, Vec3::ONE);
     }
 }
