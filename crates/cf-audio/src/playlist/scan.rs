@@ -79,7 +79,7 @@ fn list_dir(dir: &Path, local: bool) -> Result<Vec<Track>, ScanError> {
 #[must_use]
 pub fn track_from_path(path: PathBuf, local: bool) -> Track {
     let (duration_s, error) = match crate::player::probe_duration_s(&path) {
-        Ok(duration) => (Some(duration), None),
+        Ok(duration) => (duration, None),
         Err(err) => (None, Some(err.to_string())),
     };
     let stem = path

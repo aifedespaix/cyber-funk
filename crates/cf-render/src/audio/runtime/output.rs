@@ -41,7 +41,7 @@ impl AudioRuntime {
         };
         let state = old.state();
         let tracks = old.tracks().to_vec();
-        let Some(backend) = self.open_output(&device) else {
+        let Some((backend, device)) = self.open_output(&device) else {
             return;
         };
         let playlist = Playlist::new(tracks, state.track, self.playlist_seed);
@@ -83,9 +83,10 @@ impl AudioRuntime {
         if tracks.is_empty() {
             return;
         }
-        let Some(backend) = self.open_output(&self.output_device.clone()) else {
+        let Some((backend, device)) = self.open_output(&self.output_device.clone()) else {
             return;
         };
+        self.output_device = device;
         let playlist = Playlist::new(tracks, Some(0), self.playlist_seed);
         match Player::new(playlist, PlayerConfig::default(), backend) {
             Ok(mut player) => {
@@ -102,12 +103,16 @@ impl AudioRuntime {
         }
     }
 
-    fn open_output(&mut self, device: &DeviceSelector) -> Option<Box<dyn OutputBackend>> {
+    /// Ouvre la sortie demandée et rend aussi celle qui est réellement utilisée (la sortie par défaut après un repli).
+    fn open_output(&mut self, device: &DeviceSelector) -> Option<(Box<dyn OutputBackend>, DeviceSelector)> {
         match (self.output, device) {
             (OutputChoice::Disabled, _) => None,
-            (OutputChoice::Null { speed }, _) => Some(Box::new(NullOutput::new(NULL_OUTPUT_RATE).with_speed(speed))),
+            (OutputChoice::Null { speed }, _) => Some((
+                Box::new(NullOutput::new(NULL_OUTPUT_RATE).with_speed(speed)),
+                device.clone(),
+            )),
             (OutputChoice::Default, DeviceSelector::Name(name)) => match CpalOutput::by_name(name) {
-                Ok(output) => Some(Box::new(output)),
+                Ok(output) => Some((Box::new(output), device.clone())),
                 Err(error) => {
                     tracing::warn!(%error, device = %name, "audio : sortie introuvable, repli sur la sortie par défaut");
                     self.notes
@@ -119,9 +124,9 @@ impl AudioRuntime {
         }
     }
 
-    fn default_output(&mut self) -> Option<Box<dyn OutputBackend>> {
+    fn default_output(&mut self) -> Option<(Box<dyn OutputBackend>, DeviceSelector)> {
         match CpalOutput::default_device() {
-            Ok(output) => Some(Box::new(output)),
+            Ok(output) => Some((Box::new(output), DeviceSelector::Default)),
             Err(error) => {
                 self.notes.push(format!("pas de sortie audio : {error}"));
                 None

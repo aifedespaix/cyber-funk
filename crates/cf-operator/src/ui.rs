@@ -145,7 +145,7 @@ pub(crate) fn main_panel(
             &mut cockpit,
             status.as_deref(),
             features.as_deref(),
-            &shell,
+            &mut shell,
             &mut commands,
             now_s,
         ),
@@ -187,7 +187,7 @@ pub(crate) fn main_panel(
                         &mut root,
                         &mut debug,
                         shared,
-                        OperatorMode::Preparation,
+                        OperatorMode::of(&cockpit.run),
                         &mut cockpit.orders.0,
                     );
                 }
@@ -203,7 +203,7 @@ fn live_tab(
     cockpit: &mut CockpitParams,
     status: Option<&AudioStatus>,
     features: Option<&AudioFeatures>,
-    shell: &ShellParams,
+    shell: &mut ShellParams,
     commands: &mut MessageWriter<AudioCommand>,
     now_s: f64,
 ) {
@@ -261,7 +261,10 @@ fn live_tab(
 
     match dj {
         DjColumnEvent::Pick(slot) => cockpit.orders.go_to_dj(slot),
-        DjColumnEvent::New => cockpit.state.new_dj = true,
+        DjColumnEvent::New => {
+            cockpit.state.new_dj = true;
+            shell.state.select(Tab::Djs);
+        }
         DjColumnEvent::None => {}
     }
     if press {

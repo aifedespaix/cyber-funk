@@ -12,18 +12,16 @@ use super::source::TrackSource;
 const PROBE_RATE_HZ: u32 = 48_000;
 
 /// Durée (s) d'une piste, lue dans son en-tête sans la décoder. À appeler hors du thread audio (ouvre le fichier).
+/// `None` si l'en-tête ne la donne pas (MP3 sans Xing, par exemple) : la piste se joue quand même.
 ///
 /// # Errors
-/// Fichier introuvable ou illisible, format non géré, ou durée absente de l'en-tête.
-pub fn probe_duration_s(path: &Path) -> Result<f64> {
+/// Fichier introuvable ou illisible, ou format non géré.
+pub fn probe_duration_s(path: &Path) -> Result<Option<f64>> {
     let source = TrackSource::open(path, PROBE_RATE_HZ)?;
-    match source.duration_frames() {
-        0 => Err(super::error::PlayerError::Decode {
-            path: path.to_owned(),
-            source: symphonia::core::errors::Error::Unsupported("durée absente de l'en-tête"),
-        }),
-        frames => Ok(frames as f64 / f64::from(PROBE_RATE_HZ)),
-    }
+    Ok(match source.duration_frames() {
+        0 => None,
+        frames => Some(frames as f64 / f64::from(PROBE_RATE_HZ)),
+    })
 }
 
 /// Décode `path` et donne au visiteur le mono (moyenne gauche/droite) à la fréquence `rate_hz`, par blocs successifs.
@@ -80,7 +78,7 @@ mod tests {
         let dir = tempfile_dir("probe-ok");
         let path = dir.join("silence.wav");
         std::fs::write(&path, silent_wav(3)).unwrap();
-        let duration = probe_duration_s(&path).unwrap();
+        let duration = probe_duration_s(&path).unwrap().expect("durée connue");
         assert!((duration - 3.0).abs() < 0.01, "durée lue : {duration}");
         std::fs::remove_dir_all(dir).unwrap();
     }
