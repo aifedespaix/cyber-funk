@@ -14,7 +14,7 @@ le réalisateur tournent dès le lancement. On veut que l'état soit **réel** :
 - **Waiting** : la caméra reste sur la route, mouvement d'attente lent et agréable. Route sombre, aucun immeuble, aucune
   voiture, aucune circulation, aucun événement. Rien ne joue.
 - **Starting** : la musique démarre, la voiture se matérialise sur une route vide et roule, les immeubles apparaissent
-  progressivement (façon Matrix), le ciel et les fenêtres s'allument, puis l'intro du DJ (enseigne + carte de titre).
+  progressivement (façon Matrix), le ciel et les fenêtres s'allument, puis l'intro du DJ (uniquement des panneaux néon dans le monde).
   À la fin : `Running`.
 - **Stopping** : les fenêtres s'éteignent par vagues, les immeubles se désynchronisent (glitch) et rétrécissent en
   s'enfonçant dans le sol, la voiture freine, s'arrête, s'éteint (effet « vieille télé qui s'éteint ») et disparaît, la
@@ -120,7 +120,7 @@ seconde construction. La logique d'attente musicale de `cf-show` (`MusicWait`, 4
 
 | Phase | Durée | Déroulé |
 |---|---|---|
-| Starting | **18 s** | 0–2,5 s voiture se matérialise, phares clignotent puis s'allument, route tracée près de la caméra ; musique en fondu (4 s). 2,5–11 s immeubles en cascade, voiture accélère 3 → 16 m/s. 7–14 s fenêtres (par vagues sur le front existant), ciel. 13–18 s intro DJ : enseigne lettre par lettre, carte de titre (le show s'arme à 13 s). Fin : `Running`. |
+| Starting | **18 s** | 0–2,5 s voiture se matérialise, phares clignotent puis s'allument, route tracée près de la caméra ; musique en fondu (4 s). 2,5–11 s immeubles en cascade, voiture accélère 3 → 16 m/s. 7–14 s fenêtres (par vagues sur le front existant), ciel. 13–18 s intro DJ : enseigne néon du DJ lettre par lettre, panneaux de route et d'immeubles (le show s'arme à 13 s). Fin : `Running`. |
 | Stopping | **9 s** | 0–2 s fenêtres s'éteignent d'avant en arrière. 0–5 s voiture freine jusqu'à l'arrêt. 1–6,5 s immeubles désynchronisés rétrécissent. 5–6,5 s extinction « télé » de la voiture, phares coupés. 6–9 s caméra revient au plan d'attente, route et ciel retombent à leur état d'attente. Musique en fondu sur 8 s. Fin : `Waiting`. |
 | Waiting | ∞ | route à 25 %, ciel à 30 %, tout le reste à 0. |
 
@@ -150,3 +150,14 @@ tour = géométrique (pas de flash). `reduce_motion` supprime le glitch et allon
 
 Emplacement exact des bits libres dans `FacadeParams`, forme précise des courbes de `ease`, choix `Hold`/`HoldWith`,
 détail du gating de la circulation et des événements en `Waiting` (à lire dans `traffic/director.rs`, `stunts/`).
+
+## 8. Décision ultérieure : aucun texte à l'écran pour annoncer le DJ
+
+**Le nom du DJ ne s'affiche que dans la simulation**, sur des panneaux néon comme ceux des immeubles et de la route
+(`djsign/`, `signs/`). Aucune carte de titre plein écran, aucun texte en surimpression. Conséquences :
+
+- La séquence de démarrage ne déclenche pas `cf-render/titles` (`TitleKind::Dj`) ; en `Starting`, les cartes de titre
+  sont supprimées. À vérifier au plan : si les cartes `Level` / `Drop` restent utiles hors intro, on les laisse ; seule
+  l'annonce du DJ passe par le monde.
+- L'annonce passe par l'enseigne `djsign` (lettres allumées une à une) et, si le plan le permet, par les panneaux de
+  route / d'immeubles existants (`signs/ads.rs`, `signs/road`) qui affichent le nom du DJ.
