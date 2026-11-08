@@ -34,6 +34,8 @@ pub(super) struct Hold {
     pub spec: Option<usize>,
     /// La coupe vers ce plan reste à faire (une transition peut être en cours).
     pub cut_pending: bool,
+    /// Transition d'entrée sur le plan imposé ; `None` : coupe franche.
+    pub kind: Option<TransitionKind>,
 }
 
 impl CinemaDirector {
@@ -59,12 +61,18 @@ impl CinemaDirector {
 
     /// Impose ce plan : coupe dessus à la prochaine image libre et le garde. `false` si l'identifiant est inconnu.
     pub fn hold_shot(&mut self, id: &str) -> bool {
+        self.hold_shot_with(id, TransitionKind::Cut)
+    }
+
+    /// Comme [`Self::hold_shot`], avec la transition d'entrée voulue (le retour à la scène d'attente est un fondu).
+    pub fn hold_shot_with(&mut self, id: &str, kind: TransitionKind) -> bool {
         let Some(index) = self.editor.find(id) else {
             return false;
         };
         self.hold = Hold {
             spec: Some(index),
             cut_pending: self.current.spec != Some(index) || self.transition.active,
+            kind: Some(kind),
         };
         true
     }
@@ -84,7 +92,7 @@ impl CinemaDirector {
             return HoldCall::Cut(Decision {
                 mode: PickMode::Normal,
                 spec: Some(index),
-                kind: Some(TransitionKind::Cut),
+                kind: Some(self.hold.kind.unwrap_or(TransitionKind::Cut)),
                 counted: false,
             });
         }

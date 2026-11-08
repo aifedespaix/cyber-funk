@@ -13,6 +13,7 @@ mod chase;
 mod dolly_zoom;
 mod push_in;
 mod ride_along;
+mod waiting;
 // --- Lot B (J6-04) : vol, cascades, vitesse ---
 mod ascension_cam;
 mod barrel;
@@ -50,6 +51,7 @@ pub use chase::Chase;
 pub use dolly_zoom::DollyZoom;
 pub use push_in::PushIn;
 pub use ride_along::RideAlong;
+pub use waiting::Waiting;
 
 // --- Lot B (J6-04) ---
 pub use ascension_cam::AscensionCam;
@@ -119,5 +121,7 @@ pub fn catalog() -> Vec<Box<dyn ShotSpec>> {
         Box::new(MeteorImpactWatch),
         Box::new(DjSign),
         // --- fin du lot C ---
+        // Plan imposé par le monde en attente de `Démarrer` : jamais tiré par le montage.
+        Box::new(Waiting),
     ]
 }

@@ -27,6 +27,8 @@ pub const DEFAULT_SEED: u32 = 0x5111_a6e0;
 pub enum ShotOrder {
     /// Couper sur ce plan (identifiant du catalogue) et le garder.
     Hold(&'static str),
+    /// Comme [`ShotOrder::Hold`], avec la transition d'entrée voulue.
+    HoldWith(&'static str, crate::types::TransitionKind),
     /// Rendre la main au montage automatique.
     Release,
 }
@@ -108,6 +110,9 @@ fn direct<W: Obstacles + Resource>(
         match *order {
             ShotOrder::Hold(id) => {
                 director.hold_shot(id);
+            }
+            ShotOrder::HoldWith(id, kind) => {
+                director.hold_shot_with(id, kind);
             }
             ShotOrder::Release => director.release_shot(),
         }

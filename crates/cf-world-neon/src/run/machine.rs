@@ -64,7 +64,8 @@ impl RunSequencer {
         }
         let dt_s = if dt_s.is_finite() { dt_s.max(0.0) } else { 0.0 };
         match self.phase {
-            Phase::Waiting => out(Phase::Waiting, 1.0, RunStages::WAITING, None, None),
+            // La voiture, invisible, reste au point de départ : le plan d'attente la filme dès son apparition.
+            Phase::Waiting => out(Phase::Waiting, 1.0, RunStages::WAITING, Some(0.0), None),
             Phase::Running => out(Phase::Running, 1.0, RunStages::RUNNING, None, None),
             Phase::Starting => {
                 self.t_s = (self.t_s + dt_s).min(START_S);

@@ -11,6 +11,7 @@
 //! `Running`, puis ne touche plus à rien (d'autres — événements, outils — règlent alors ces valeurs).
 
 use bevy::prelude::*;
+use cf_cinema::{ShotOrder, TransitionKind};
 use cf_render::{AudioFeatures, CfSet, Phase, RunOrder, RunPhase, SimControl};
 
 use super::machine::{RunOutput, RunSequencer};
@@ -33,6 +34,7 @@ impl Plugin for RunPlugin {
         let sequencer = RunSequencer::new();
         let first = RunSequencer::new().update(None, 0.0, false);
         app.add_plugins(cf_render::RunPlugin)
+            .add_message::<ShotOrder>()
             .insert_resource(RunDriven)
             .insert_resource(Sequencer(sequencer))
             .insert_resource(RunPhase {
@@ -60,6 +62,8 @@ fn drive_run(
     mut orders: MessageReader<RunOrder>,
     features: Option<Res<AudioFeatures>>,
     sim: Option<ResMut<SimControl>>,
+    mut shots: MessageWriter<ShotOrder>,
+    mut camera_held: Local<Option<bool>>,
     mut sequencer: ResMut<Sequencer>,
     mut phase: ResMut<RunPhase>,
     mut status: ResMut<RunStatus>,
@@ -86,6 +90,7 @@ fn drive_run(
             1.0
         },
     };
+    direct_camera(out.stages.camera_waiting, &mut camera_held, &mut shots);
     set(&mut *phase, published);
     set(&mut status.0, out);
 
@@ -147,3 +152,27 @@ fn gate_spontaneous(targets: &mut Targets, phase: Phase, silenced: &mut Option<b
         _ => {}
     }
 }
+
+/// Le plan d'attente tient la caméra tant que `camera_waiting` ; dès que la voiture est là, le montage reprend. Au
+/// retour (arrêt), le plan d'attente revient en fondu et non en coupe.
+fn direct_camera(waiting: bool, held: &mut Option<bool>, shots: &mut MessageWriter<ShotOrder>) {
+    match (waiting, *held) {
+        // Premier ordre de la vie du programme : la caméra est déjà au repos, on la coupe sur le plan d'attente.
+        (true, None) => {
+            shots.write(ShotOrder::Hold(WAITING_SHOT));
+            *held = Some(true);
+        }
+        (true, Some(false)) => {
+            shots.write(ShotOrder::HoldWith(WAITING_SHOT, TransitionKind::Blend));
+            *held = Some(true);
+        }
+        (false, Some(true)) => {
+            shots.write(ShotOrder::Release);
+            *held = Some(false);
+        }
+        _ => {}
+    }
+}
+
+/// Identifiant du plan d'attente dans le catalogue du réalisateur.
+const WAITING_SHOT: &str = "waiting";
