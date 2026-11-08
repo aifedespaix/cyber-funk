@@ -38,7 +38,7 @@ use crate::source::SourceKind;
 
 pub use analysis::DeviceErrorReporter;
 pub use error::{PlayerError, Result};
-pub use offline::decode_mono;
+pub use offline::{decode_mono, probe_duration_s};
 pub use output::{ActiveOutput, CpalOutput, ManualDriver, ManualOutput, NullOutput, OutputBackend};
 pub use render::Renderer;
 
@@ -277,9 +277,18 @@ impl Player {
         }
     }
 
+    /// Remplace la liste de pistes (réordonnée, complétée ou réduite). Si la piste entendue y est encore, elle
+    /// continue à la même position sous son nouvel indice, après un saut de quelques millisecondes ; sinon la piste
+    /// qui prend sa place démarre.
+    pub fn set_tracks(&mut self, tracks: Vec<Track>) {
+        let tracks: Arc<[Track]> = tracks.into();
+        self.tracks = Arc::clone(&tracks);
+        self.send(Command::ReplaceTracks(tracks));
+    }
+
     fn send(&self, command: Command) {
-        if self.commands.try_send(command).is_err() {
-            tracing::warn!(?command, "commande du lecteur perdue (décodeur arrêté ou débordé)");
+        if let Err(err) = self.commands.try_send(command) {
+            tracing::warn!(command = ?err.into_inner(), "commande du lecteur perdue (décodeur arrêté ou débordé)");
         }
     }
 }

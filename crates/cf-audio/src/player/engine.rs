@@ -18,7 +18,7 @@ use rtrb::Producer;
 use super::error::PlayerError;
 use super::shared::{Command, Marker, NO_TRACK, Shared};
 use super::source::TrackSource;
-use crate::playlist::{Playlist, Step};
+use crate::playlist::{Playlist, Step, Track};
 
 /// Attente maximale quand le ring est plein : le rendu libère ~240 trames par 5 ms à 48 kHz, inutile de revenir
 /// plus souvent ; une commande réveille le thread aussitôt.
@@ -97,8 +97,13 @@ impl Worker {
             let Some(source) = &mut self.source else {
                 // Rien à décoder : on dort jusqu'à la prochaine commande.
                 match self.engine.commands.recv() {
-                    Ok(command) if self.handle(command) => continue,
-                    _ => return,
+                    Ok(command) => {
+                        if self.handle(command) {
+                            continue;
+                        }
+                        return;
+                    }
+                    Err(_) => return,
                 }
             };
             let before = self.pending.len();
@@ -137,6 +142,7 @@ impl Worker {
                 self.apply(step, true);
             }
             Command::Seek(seconds) => self.seek(seconds),
+            Command::ReplaceTracks(tracks) => self.replace_tracks(&tracks),
         }
         true
     }
@@ -237,6 +243,36 @@ impl Worker {
                 self.queue_marker(index, start, duration, true);
             }
             Err(err) => tracing::warn!(seconds, error = %err, "seek impossible, ignoré"),
+        }
+    }
+
+    /// Remplace la liste. La piste entendue, retrouvée par son chemin, est rouverte sous son nouvel indice à la
+    /// position où l'auditeur en est ; si elle a disparu, la piste qui prend sa place démarre.
+    fn replace_tracks(&mut self, tracks: &[Track]) {
+        self.resync_to_playing();
+        let position = self.position_s();
+        let heard = self.engine.playlist.current().map(|t| t.path.clone());
+        self.engine.playlist.replace_tracks(tracks.to_vec());
+        self.failures = 0;
+        let Some(index) = self.engine.playlist.index() else {
+            self.discard_pending();
+            self.source = None;
+            self.set_idle(true);
+            return;
+        };
+        let same_track = heard.is_some_and(|path| self.engine.playlist.current().is_some_and(|t| t.path == path));
+        self.open(index, true);
+        if !same_track {
+            return;
+        }
+        // `open` a posé un repère au début de la piste : on le remplace par un repère à la position entendue. Pas de
+        // `seek()` ici, il se resynchroniserait sur l'ancien indice encore publié par le rendu.
+        if let Some(source) = self.source.as_mut()
+            && let Ok(start) = source.seek(position)
+        {
+            let duration = source.duration_frames();
+            self.discard_pending();
+            self.queue_marker(index, start, duration, true);
         }
     }
 

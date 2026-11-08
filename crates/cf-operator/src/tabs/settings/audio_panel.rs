@@ -319,6 +319,8 @@ mod tests {
             artist: "Artiste".into(),
             path: title.into(),
             local: false,
+            duration_s: None,
+            error: None,
         }
     }
 

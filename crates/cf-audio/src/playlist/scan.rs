@@ -74,9 +74,14 @@ fn list_dir(dir: &Path, local: bool) -> Result<Vec<Track>, ScanError> {
     Ok(paths.into_iter().map(|path| track_from_path(path, local)).collect())
 }
 
-/// Piste décrite par son chemin : artiste et titre tirés du nom de fichier.
+/// Piste décrite par son chemin : artiste et titre tirés du nom de fichier, durée lue dans l'en-tête (ouvre le
+/// fichier : à appeler hors du thread audio). Un fichier illisible donne une piste avec `error`.
 #[must_use]
 pub fn track_from_path(path: PathBuf, local: bool) -> Track {
+    let (duration_s, error) = match crate::player::probe_duration_s(&path) {
+        Ok(duration) => (Some(duration), None),
+        Err(err) => (None, Some(err.to_string())),
+    };
     let stem = path
         .file_stem()
         .map(|s| s.to_string_lossy().into_owned())
@@ -87,6 +92,8 @@ pub fn track_from_path(path: PathBuf, local: bool) -> Track {
         artist,
         path,
         local,
+        duration_s,
+        error,
     }
 }
 

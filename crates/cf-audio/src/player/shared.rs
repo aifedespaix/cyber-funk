@@ -9,7 +9,9 @@
 
 use std::sync::atomic::{AtomicBool, AtomicU8, AtomicU32, AtomicU64, Ordering};
 
-use crate::playlist::PlayMode;
+use std::sync::Arc;
+
+use crate::playlist::{PlayMode, Track};
 
 /// Valeur de [`Shared::track`] quand aucune piste ne joue encore.
 pub(crate) const NO_TRACK: u32 = u32::MAX;
@@ -36,7 +38,7 @@ pub(crate) struct Marker {
 }
 
 /// Commande du contrôle vers le décodeur (canal borné, jamais lue par le callback).
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, PartialEq)]
 pub(crate) enum Command {
     Next,
     Prev,
@@ -44,6 +46,8 @@ pub(crate) enum Command {
     /// Position cible en secondes depuis le début de la piste jouée.
     Seek(f64),
     SetMode(PlayMode),
+    /// Nouvelle liste de pistes (réordonnée, complétée ou réduite par l'opérateur) : la piste entendue continue.
+    ReplaceTracks(Arc<[Track]>),
     Shutdown,
 }
 

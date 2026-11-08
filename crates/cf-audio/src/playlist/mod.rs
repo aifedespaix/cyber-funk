@@ -3,6 +3,7 @@
 //! Logique pure, sans audio ni horloge : le lecteur ([`crate::player`]) lui demande quel titre charger, elle répond.
 //! Le hasard passe par un RNG à graine injectée (tests déterministes).
 
+mod edit;
 mod scan;
 mod track_name;
 
@@ -24,7 +25,7 @@ const HISTORY: usize = 24;
 pub const PREV_RESTART_AFTER_S: f64 = 3.0;
 
 /// Une piste de démo.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct Track {
     /// Titre nettoyé, tiré du nom de fichier.
     pub title: String,
@@ -34,6 +35,10 @@ pub struct Track {
     pub path: PathBuf,
     /// Piste personnelle (`assets/music/local/`) : jamais versionnée ni redistribuée.
     pub local: bool,
+    /// Durée (s), connue après lecture de l'en-tête du fichier ; `None` tant qu'elle n'a pas été lue.
+    pub duration_s: Option<f64>,
+    /// Pourquoi le fichier est illisible, s'il l'est : la piste est alors grisée et sautée à la lecture.
+    pub error: Option<String>,
 }
 
 /// Que faire à la fin d'un titre : enchaîner au hasard, dans l'ordre, ou le rejouer (Sillage : `PLAY_MODES`).
@@ -220,6 +225,8 @@ mod tests {
                 artist: String::new(),
                 path: PathBuf::from(format!("{i}.mp3")),
                 local: false,
+                duration_s: Some(60.0),
+                error: None,
             })
             .collect()
     }

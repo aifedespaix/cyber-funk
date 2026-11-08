@@ -296,3 +296,34 @@ fn unreadable_tracks_are_skipped_and_empty_playlist_stays_silent() {
     assert_eq!(player.state().underruns, 0);
     std::fs::remove_dir_all(&dir).unwrap();
 }
+
+#[test]
+fn reordering_the_list_keeps_playing_the_same_track_at_the_same_position() {
+    let dir = temp_dir("reorder");
+    let paths: Vec<_> = (0..3).map(|i| dir.join(format!("t{i}.wav"))).collect();
+    for (i, path) in paths.iter().enumerate() {
+        write_wav(path, RATE, 6 * RATE as usize, move |_| 0.1 * (i + 1) as f32);
+    }
+    let (mut player, mut driver) = manual_player(&paths, PlayMode::Sequence, false);
+    assert!(driver.wait_buffered(10_000, Duration::from_secs(5)));
+    player.play();
+    pull_left(&mut driver, RATE as usize, 500);
+    assert_eq!(player.state().track, Some(0));
+
+    // t0 passe en dernière position : la lecture doit continuer sur t0, qui a maintenant l'indice 2.
+    let mut reordered = player.tracks().to_vec();
+    let first = reordered.remove(0);
+    reordered.push(first);
+    player.set_tracks(reordered);
+    pull_until(&mut driver, || player.state().track == Some(2)).expect("t0 reprend avec son nouvel indice");
+    let state = player.state();
+    assert!(
+        state.position_frames >= u64::from(RATE) / 2,
+        "la position est conservée : {}",
+        state.position_frames
+    );
+    let after = pull_left(&mut driver, 1_000, 500);
+    assert!(approx(after[999], 0.1), "t0 joue toujours : {}", after[999]);
+    assert_eq!(player.tracks()[2].path, paths[0]);
+    std::fs::remove_dir_all(&dir).unwrap();
+}
