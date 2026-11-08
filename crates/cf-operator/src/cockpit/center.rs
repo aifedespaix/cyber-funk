@@ -13,6 +13,15 @@ const STOP_RED: egui::Color32 = egui::Color32::from_rgb(190, 45, 55);
 /// Gris du bouton pendant une séquence.
 const BUSY_GREY: egui::Color32 = egui::Color32::from_gray(70);
 
+/// Ce que l'opérateur a pressé dans la colonne centrale.
+#[derive(Debug, Default, Clone, Copy)]
+pub(crate) struct CenterOut {
+    /// Démarrer / Arrêter.
+    pub press: bool,
+    /// Noir (bascule).
+    pub noir: bool,
+}
+
 /// Libellé et couleur du grand bouton selon l'état du show.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct ButtonSpec {
@@ -102,8 +111,9 @@ pub(crate) fn center(
     stats: &LiveStats,
     dj: Option<&str>,
     elapsed_s: Option<f64>,
-) -> bool {
-    let mut pressed = false;
+    blackout: bool,
+) -> CenterOut {
+    let mut out = CenterOut::default();
     let spec = button_spec(run.run);
     egui::Frame::group(ui.style()).show(ui, |ui| {
         ui.set_width(ui.available_width());
@@ -122,13 +132,18 @@ pub(crate) fn center(
             .fill(spec.fill)
             .corner_radius(10.0)
             .min_size(egui::vec2(260.0, 68.0));
-            pressed = ui.add_enabled(spec.enabled, button).clicked();
+            out.press = ui.add_enabled(spec.enabled, button).clicked();
             ui.add_space(8.0);
+            out.noir = ui
+                .add(egui::Button::selectable(blackout, "■ Noir  [Échap]").min_size(egui::vec2(260.0, 36.0)))
+                .on_hover_text("Coupe l'image (écran noir) ; un second appui la rend.")
+                .clicked();
+            ui.add_space(4.0);
         });
     });
     ui.add_space(10.0);
     tiles(ui, stats);
-    pressed
+    out
 }
 
 fn tiles(ui: &mut egui::Ui, stats: &LiveStats) {

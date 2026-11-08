@@ -23,6 +23,8 @@ use cf_render::{
     ActiveEvents, DebugLog, DiagnosticsSnapshot, MeasurementSession, Settings, SimClock, SimControl, WorldAutomation,
 };
 
+use cf_control::{Action, Switch};
+
 use crate::quit::QuitPrompt;
 use crate::services::logbuf::{self, OperatorLog};
 use crate::tabs::stats::LogViewState;
@@ -137,11 +139,16 @@ pub(crate) fn shell_input(
     mut pressed: Local<Vec<ShellKey>>,
     marks: MarkParams,
     mut log_view: ResMut<LogViewState>,
+    mut orders: ResMut<crate::orders::LiveOrders>,
 ) {
     let ctx = context.get_mut();
     // Pendant le dialogue de sortie, le clavier lui appartient.
     let dialog_open = quit.is_some_and(|q| q.pending.is_some());
     let typing = ctx.egui_wants_keyboard_input() || dialog_open;
+    // Échap : noir, comme sur la scène (jamais pendant une saisie ni un dialogue).
+    if !typing && ctx.input(|input| input.key_pressed(egui::Key::Escape)) {
+        orders.0.push(Action::Blackout(Switch::Toggle));
+    }
     pressed.clear();
     ctx.input(|input| shortcuts::poll(input, typing, &mut pressed));
     for key in pressed.drain(..) {

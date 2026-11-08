@@ -4,6 +4,7 @@ use bevy::ecs::system::SystemParam;
 use bevy::prelude::*;
 use bevy_egui::{EguiContext, PrimaryEguiContext, egui};
 
+use cf_control::{Action, Switch};
 use cf_render::audio::{AudioCommand, AudioFeatures, AudioStatus};
 use cf_render::{ControlsStatus, CurrentShow, MidiEnabled, ScreenList, ScreenOrder, ShowSheet, ThemeLibrary};
 
@@ -250,10 +251,12 @@ fn live_tab(
         stats,
         audio: status,
         midi,
+        blackout: cockpit.show.as_deref().is_some_and(|show| show.0.blackout_on),
     };
     let LiveOut {
         dj,
         press,
+        noir,
         audio,
         midi: midi_change,
         add_files,
@@ -269,6 +272,9 @@ fn live_tab(
     }
     if press {
         cockpit.run.press(now_s);
+    }
+    if noir {
+        cockpit.orders.0.push(Action::Blackout(Switch::Toggle));
     }
     commands.write_batch(audio);
     if let (Some(enabled), Some(midi)) = (midi_change, cockpit.midi.as_mut()) {
