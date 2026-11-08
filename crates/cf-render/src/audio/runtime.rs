@@ -54,6 +54,9 @@ pub struct AudioRuntime {
     last_track: Option<usize>,
     /// Choisir la source Démo lance la lecture. Faux seulement pour le tout premier choix quand `autoplay` est coupé.
     play_on_demo: bool,
+    /// Volume réglé par l'opérateur (0..1) et gain de la séquence de démarrage / d'arrêt : le lecteur reçoit leur produit.
+    base_volume: f32,
+    gain: f32,
     devices: Vec<String>,
     /// Sorties audio connues à la dernière lecture de la liste, sortie choisie, et ce qu'il faut pour rouvrir le
     /// lecteur dessus.
@@ -98,6 +101,7 @@ impl AudioRuntime {
         let mut notes = Vec::new();
         let (player, tracks) = start_player(config, &control, &mut notes);
 
+        let base_volume = player.as_ref().map_or(1.0, |p| p.state().volume);
         let mut runtime = Self {
             capture: None,
             player,
@@ -112,6 +116,8 @@ impl AudioRuntime {
             capture_device: None,
             last_track: None,
             play_on_demo: config.autoplay,
+            base_volume,
+            gain: 1.0,
             devices: Vec::new(),
             outputs: Vec::new(),
             output_device: DeviceSelector::Default,
@@ -165,10 +171,22 @@ impl AudioRuntime {
                 self.with_player(|p| p.set_mode(mode));
             }
             AudioCommand::DemoVolume(volume) => {
-                let volume = *volume;
-                self.with_player(|p| p.set_volume(volume));
+                self.base_volume = *volume;
+                let effective = self.base_volume * self.gain;
+                self.with_player(|p| p.set_volume(effective));
             }
         }
+    }
+
+    /// Gain de la séquence de démarrage et d'arrêt (0..1) : multiplie le volume de l'opérateur sans l'écraser.
+    pub(super) fn set_gain(&mut self, gain: f32) {
+        let gain = gain.clamp(0.0, 1.0);
+        if (gain - self.gain).abs() < f32::EPSILON {
+            return;
+        }
+        self.gain = gain;
+        let effective = self.base_volume * gain;
+        self.with_player(|p| p.set_volume(effective));
     }
 
     fn with_player(&self, f: impl FnOnce(&Player)) {

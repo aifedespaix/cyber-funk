@@ -5,7 +5,7 @@ use std::time::Duration;
 use bevy::prelude::*;
 use bevy::time::TimeUpdateStrategy;
 use cf_cinema::{ShotOrder, TransitionKind};
-use cf_render::{Phase, RunOrder, RunPhase};
+use cf_render::{AudioCommand, AudioSequenceGain, Phase, RunOrder, RunPhase};
 
 use super::{RunPlugin, RunStatus};
 use crate::intro::IntroPlugin;
@@ -102,4 +102,35 @@ fn camera_orders_follow_the_sequence() {
 fn the_car_is_held_still_while_waiting() {
     let app = app();
     assert_eq!(app.world().resource::<RunStatus>().0.speed_cap_mps, Some(0.0));
+}
+
+#[derive(Resource, Default)]
+struct Commands(Vec<AudioCommand>);
+
+fn collect_audio(mut orders: MessageReader<AudioCommand>, mut seen: ResMut<Commands>) {
+    seen.0.extend(orders.read().cloned());
+}
+
+#[test]
+fn music_follows_the_sequence_and_pauses_at_the_end_of_stopping() {
+    let mut app = app();
+    app.init_resource::<Commands>()
+        .add_systems(Update, collect_audio.after(cf_render::CfSet::Simulate));
+    let gain = |app: &App| app.world().resource::<AudioSequenceGain>().0;
+    assert_eq!(gain(&app), 0.0, "silence en attente");
+    app.world_mut().write_message(RunOrder::Start);
+    run_seconds(&mut app, 2.0);
+    assert!(gain(&app) > 0.0 && gain(&app) < 1.0, "la musique monte");
+    run_seconds(&mut app, 20.0);
+    assert_eq!(gain(&app), 1.0);
+    assert!(
+        app.world().resource::<Commands>().0.is_empty(),
+        "le lecteur est lancé par le reset, pas par une commande"
+    );
+    app.world_mut().write_message(RunOrder::Stop);
+    run_seconds(&mut app, 4.0);
+    assert!(gain(&app) < 1.0 && gain(&app) > 0.0, "la musique descend");
+    run_seconds(&mut app, 6.0);
+    assert_eq!(gain(&app), 0.0);
+    assert_eq!(app.world().resource::<Commands>().0, vec![AudioCommand::DemoPause]);
 }

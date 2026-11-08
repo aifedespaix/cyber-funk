@@ -12,7 +12,7 @@
 
 use bevy::prelude::*;
 use cf_cinema::{ShotOrder, TransitionKind};
-use cf_render::{AudioFeatures, CfSet, Phase, RunOrder, RunPhase, SimControl};
+use cf_render::{AudioCommand, AudioFeatures, AudioSequenceGain, CfSet, Phase, RunOrder, RunPhase, SimControl};
 
 use super::machine::{RunOutput, RunSequencer};
 use crate::intro::{self, Owned, Targets, set};
@@ -35,6 +35,8 @@ impl Plugin for RunPlugin {
         let first = RunSequencer::new().update(None, 0.0, false);
         app.add_plugins(cf_render::RunPlugin)
             .add_message::<ShotOrder>()
+            .add_message::<AudioCommand>()
+            .init_resource::<AudioSequenceGain>()
             .insert_resource(RunDriven)
             .insert_resource(Sequencer(sequencer))
             .insert_resource(RunPhase {
@@ -63,6 +65,8 @@ fn drive_run(
     features: Option<Res<AudioFeatures>>,
     sim: Option<ResMut<SimControl>>,
     mut shots: MessageWriter<ShotOrder>,
+    mut audio: MessageWriter<AudioCommand>,
+    mut gain: ResMut<AudioSequenceGain>,
     mut camera_held: Local<Option<bool>>,
     mut sequencer: ResMut<Sequencer>,
     mut phase: ResMut<RunPhase>,
@@ -90,6 +94,11 @@ fn drive_run(
             1.0
         },
     };
+    // La musique suit la séquence ; à la fin de l'arrêt elle est mise en pause (le prochain `Démarrer` la relance du début).
+    set(&mut gain.0, out.stages.music);
+    if before == Phase::Stopping && sequencer.0.phase() == Phase::Waiting {
+        audio.write(AudioCommand::DemoPause);
+    }
     direct_camera(out.stages.camera_waiting, &mut camera_held, &mut shots);
     set(&mut *phase, published);
     set(&mut status.0, out);

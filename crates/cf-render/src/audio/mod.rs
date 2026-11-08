@@ -24,7 +24,9 @@ pub use cf_audio::playlist::{PlayMode, Track};
 pub use config::{AudioConfig, InputBackendChoice, OutputChoice};
 pub use latency::{LatencyLine, MAX_LATENCY_MS};
 pub use runtime::AudioRuntime;
-pub use types::{AudioCommand, AudioFeatures, AudioSource, AudioStatus, Kick, SectionChanged, VisualLatency};
+pub use types::{
+    AudioCommand, AudioFeatures, AudioSequenceGain, AudioSource, AudioStatus, Kick, SectionChanged, VisualLatency,
+};
 
 use bevy::prelude::*;
 use cf_analysis::AudioEventKind;
@@ -85,13 +87,20 @@ impl Plugin for CfAudioPlugin {
 }
 
 /// Ordres de l'opérateur. Plusieurs changements de source dans la même image ne donnent qu'une bascule des threads.
-fn apply_commands(runtime: Option<NonSendMut<AudioRuntime>>, mut commands: MessageReader<AudioCommand>) {
+fn apply_commands(
+    runtime: Option<NonSendMut<AudioRuntime>>,
+    mut commands: MessageReader<AudioCommand>,
+    gain: Option<Res<AudioSequenceGain>>,
+) {
     let Some(mut runtime) = runtime else {
         commands.clear();
         return;
     };
     for command in commands.read() {
         runtime.apply(command);
+    }
+    if let Some(gain) = gain {
+        runtime.set_gain(gain.0);
     }
     // Aussi sans ordre : le changement de piste d'un lecteur qui enchaîne seul remet l'analyse à zéro.
     runtime.reconcile();

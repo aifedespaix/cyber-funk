@@ -33,8 +33,8 @@ pub use active_events::{
     ActiveEvent, ActiveEvents, ActiveEventsPlugin, ActiveId, EventCategory, EventOrigin, expire_active_events,
 };
 pub use audio::{
-    AudioCommand, AudioConfig, AudioFeatures, AudioSource, AudioStatus, CfAudioPlugin, InputBackendChoice, Kick,
-    OutputChoice, SectionChanged, VisualLatency,
+    AudioCommand, AudioConfig, AudioFeatures, AudioSequenceGain, AudioSource, AudioStatus, CfAudioPlugin,
+    InputBackendChoice, Kick, OutputChoice, SectionChanged, VisualLatency,
 };
 pub use automation::WorldAutomation;
 pub use car_selection::{CarOption, CarSelection};

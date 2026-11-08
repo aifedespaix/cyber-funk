@@ -220,3 +220,14 @@ mod tests {
         assert!((features.bass - 0.5).abs() < f32::EPSILON);
     }
 }
+
+/// Gain de la séquence de démarrage et d'arrêt du show (0 à 1) : la musique monte et descend avec elle. Il multiplie le
+/// volume réglé par l'opérateur, il ne l'écrase pas. 1 par défaut : sans séquenceur, rien ne change.
+#[derive(Resource, Debug, Clone, Copy, PartialEq)]
+pub struct AudioSequenceGain(pub f32);
+
+impl Default for AudioSequenceGain {
+    fn default() -> Self {
+        Self(1.0)
+    }
+}
