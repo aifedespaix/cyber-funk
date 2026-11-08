@@ -31,6 +31,21 @@ impl ShowRun {
     }
 }
 
+/// Ce que l'interface doit faire d'un geste sur la liste des DJs.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum DjPick {
+    /// Envoyer cet ordre au monde (passation jouée en 3D).
+    Order(RunOrder),
+    /// Désigner ce DJ comme celui par lequel repartira `Démarrer`.
+    StartAt(usize),
+    /// Sans monde : demander directement au chef du spectacle de passer à ce DJ.
+    Direct(usize),
+    /// Sans monde : demander directement au chef du spectacle le DJ suivant.
+    DirectNext,
+    /// Rien : une séquence est en cours.
+    Ignore,
+}
+
 /// `EguiPrimaryContextPass` : recopie la phase du monde dans l'état de l'opérateur, quand un monde la pilote.
 pub(crate) fn sync_with_world(
     phase: Option<Res<RunPhase>>,
@@ -81,6 +96,38 @@ impl ShowRunState {
             }
         }
         order
+    }
+
+    /// Un monde pilote la séquence 3D.
+    #[must_use]
+    pub fn is_sequenced(&self) -> bool {
+        self.sequenced
+    }
+
+    /// Ce que fait un clic sur le DJ de ce rang, selon l'état du show.
+    #[must_use]
+    pub fn pick(&self, slot: usize) -> DjPick {
+        match (self.sequenced, self.run) {
+            // Sans monde pour jouer la séquence, la passation du chef du spectacle suffit.
+            (false, _) => DjPick::Direct(slot),
+            (true, ShowRun::Running) => DjPick::Order(RunOrder::Handover { slot: Some(slot) }),
+            // À l'arrêt, le clic désigne le DJ par lequel repartira `Démarrer`.
+            (true, ShowRun::Waiting) => DjPick::StartAt(slot),
+            (true, ShowRun::Starting | ShowRun::Stopping | ShowRun::Handover) => DjPick::Ignore,
+        }
+    }
+
+    /// L'ordre du bouton « DJ suivant » : rien s'il n'y a pas de DJ suivant ou si le show n'est pas en cours.
+    #[must_use]
+    pub fn next_dj(&self, has_next: bool) -> Option<DjPick> {
+        if !has_next {
+            return None;
+        }
+        match (self.sequenced, self.run) {
+            (true, ShowRun::Running) => Some(DjPick::Order(RunOrder::Handover { slot: None })),
+            (false, ShowRun::Running) => Some(DjPick::DirectNext),
+            _ => None,
+        }
     }
 
     /// Suit la phase publiée par le monde (`sequenced` : un monde pilote la séquence).
@@ -241,5 +288,67 @@ mod world_tests {
         app.insert_resource(RunSequenced);
         app.update();
         assert_eq!(app.world().resource::<ShowRunState>().run, ShowRun::Starting);
+    }
+
+    fn sequenced(run: ShowRun) -> ShowRunState {
+        ShowRunState {
+            run,
+            started_at_s: None,
+            sequenced: true,
+        }
+    }
+
+    #[test]
+    fn a_pick_while_running_orders_a_handover_to_that_dj() {
+        assert_eq!(
+            sequenced(ShowRun::Running).pick(2),
+            DjPick::Order(RunOrder::Handover { slot: Some(2) })
+        );
+    }
+
+    #[test]
+    fn a_pick_while_waiting_designates_the_starting_dj() {
+        assert_eq!(sequenced(ShowRun::Waiting).pick(1), DjPick::StartAt(1));
+    }
+
+    #[test]
+    fn a_pick_during_a_sequence_is_ignored() {
+        for run in [ShowRun::Starting, ShowRun::Stopping, ShowRun::Handover] {
+            assert_eq!(sequenced(run).pick(1), DjPick::Ignore, "{run:?}");
+        }
+    }
+
+    #[test]
+    fn without_a_world_a_pick_keeps_the_direct_director_handover() {
+        assert_eq!(ShowRunState::default().pick(3), DjPick::Direct(3));
+    }
+
+    #[test]
+    fn next_dj_orders_a_handover_without_target_only_while_running() {
+        assert_eq!(
+            sequenced(ShowRun::Running).next_dj(true),
+            Some(DjPick::Order(RunOrder::Handover { slot: None }))
+        );
+        for run in [
+            ShowRun::Waiting,
+            ShowRun::Starting,
+            ShowRun::Stopping,
+            ShowRun::Handover,
+        ] {
+            assert_eq!(sequenced(run).next_dj(true), None, "{run:?}");
+        }
+    }
+
+    #[test]
+    fn next_dj_is_greyed_at_the_last_dj() {
+        assert_eq!(sequenced(ShowRun::Running).next_dj(false), None);
+    }
+
+    #[test]
+    fn the_state_tracks_the_handover_phase() {
+        let mut state = sequenced(ShowRun::Running);
+        state.follow(Phase::Handover, 1.0);
+        assert_eq!(state.run, ShowRun::Handover);
+        assert_eq!(state.press(2.0), None, "pas de second clic pendant la passation");
     }
 }

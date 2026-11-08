@@ -20,7 +20,7 @@ use crate::loading::{self, LoadingView};
 use crate::orders::LiveOrders;
 use crate::prepare::{PrepConfig, PrepSession};
 use crate::quit::{QuitDecision, QuitPrompt, QuitSource};
-use crate::run_state::ShowRunState;
+use crate::run_state::{DjPick, ShowRun, ShowRunState};
 use crate::shell::{self, DebugView, ShellParams, Tab};
 use crate::tabs::debug::{self, DebugParams, Shared};
 use crate::tabs::settings::screens_view::ScreenCard;
@@ -52,6 +52,7 @@ pub(crate) struct CockpitParams<'w> {
     config: Res<'w, PrepConfig>,
     show: Option<Res<'w, CurrentShow>>,
     sheet: Option<Res<'w, ShowSheet>>,
+    start_slot: Option<ResMut<'w, cf_render::StartSlot>>,
 }
 
 /// La carte « Écran de sortie » : la liste écrite par le projecteur (binaire), et ses ordres.
@@ -231,7 +232,13 @@ fn live_tab(
             .collect(),
         None => Vec::new(),
     };
-    let active_dj = cockpit.show.as_deref().map(|show| show.slot);
+    // À l'arrêt, le DJ « actuel » est celui que l'opérateur a désigné pour le prochain départ.
+    let designated = cockpit.start_slot.as_deref().and_then(|start| start.0);
+    let active_dj = match (cockpit.run.run, designated) {
+        (ShowRun::Waiting, Some(slot)) if cockpit.run.is_sequenced() => Some(slot),
+        _ => cockpit.show.as_deref().map(|show| show.slot),
+    };
+    let has_next = active_dj.is_some_and(|slot| slot + 1 < cards.len());
     let dj_name = active_dj
         .and_then(|slot| cards.get(slot))
         .map(|card| card.name.as_str());
@@ -253,18 +260,31 @@ fn live_tab(
         audio: status,
         midi,
         blackout: cockpit.show.as_deref().is_some_and(|show| show.0.blackout_on),
+        has_next,
     };
     let LiveOut {
         dj,
         press,
         noir,
+        next,
         audio,
         midi: midi_change,
         add_files,
     } = live_view::draw(root, &input, &mut cockpit.state.playlist);
 
     match dj {
-        DjColumnEvent::Pick(slot) => cockpit.orders.go_to_dj(slot),
+        DjColumnEvent::Pick(slot) => match cockpit.run.pick(slot) {
+            DjPick::Order(order) => {
+                cockpit.run_orders.write(order);
+            }
+            DjPick::StartAt(slot) => {
+                if let Some(start) = cockpit.start_slot.as_mut() {
+                    start.0 = Some(slot);
+                }
+            }
+            DjPick::Direct(slot) => cockpit.orders.go_to_dj(slot),
+            DjPick::DirectNext | DjPick::Ignore => {}
+        },
         DjColumnEvent::New => {
             cockpit.state.new_dj = true;
             shell.state.select(Tab::Djs);
@@ -273,6 +293,19 @@ fn live_tab(
     }
     if press && let Some(order) = cockpit.run.press(now_s) {
         cockpit.run_orders.write(order);
+    }
+    if next && let Some(pick) = cockpit.run.next_dj(has_next) {
+        match pick {
+            DjPick::Order(order) => {
+                cockpit.run_orders.write(order);
+            }
+            DjPick::DirectNext => {
+                if let Some(slot) = active_dj {
+                    cockpit.orders.go_to_dj(slot + 1);
+                }
+            }
+            DjPick::StartAt(_) | DjPick::Direct(_) | DjPick::Ignore => {}
+        }
     }
     if noir {
         cockpit.orders.0.push(Action::Blackout(Switch::Toggle));

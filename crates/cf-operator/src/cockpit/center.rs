@@ -20,6 +20,8 @@ pub(crate) struct CenterOut {
     pub press: bool,
     /// Noir (bascule).
     pub noir: bool,
+    /// DJ suivant.
+    pub next: bool,
 }
 
 /// Libellé et couleur du grand bouton selon l'état du show.
@@ -119,6 +121,7 @@ pub(crate) fn center(
     dj: Option<&str>,
     elapsed_s: Option<f64>,
     blackout: bool,
+    has_next: bool,
 ) -> CenterOut {
     let mut out = CenterOut::default();
     let spec = button_spec(run.run);
@@ -140,6 +143,15 @@ pub(crate) fn center(
             .corner_radius(10.0)
             .min_size(egui::vec2(260.0, 68.0));
             out.press = ui.add_enabled(spec.enabled, button).clicked();
+            ui.add_space(8.0);
+            // Grisé hors du show en cours, pendant une séquence, et au dernier DJ.
+            out.next = ui
+                .add_enabled(
+                    run.next_dj(has_next).is_some(),
+                    egui::Button::new("DJ suivant  ▶").min_size(egui::vec2(260.0, 36.0)),
+                )
+                .on_hover_text("Lance la passation vers le DJ suivant de l'ordre prévu.")
+                .clicked();
             ui.add_space(8.0);
             out.noir = ui
                 .add(egui::Button::selectable(blackout, "■ Noir  [Échap]").min_size(egui::vec2(260.0, 36.0)))

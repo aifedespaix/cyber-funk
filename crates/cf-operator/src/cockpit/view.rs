@@ -31,16 +31,21 @@ pub(crate) struct LiveInput<'a> {
     pub midi: bool,
     /// Le noir est allumé.
     pub blackout: bool,
+    /// Il reste un DJ après l'actuel dans l'ordre prévu.
+    pub has_next: bool,
 }
 
 /// Ce que l'opérateur a fait pendant l'image.
 #[derive(Debug)]
+#[allow(clippy::struct_excessive_bools)] // Un drapeau par geste de l'opérateur dans l'image.
 pub(crate) struct LiveOut {
     pub dj: DjColumnEvent,
     /// Le bouton Démarrer / Arrêter a été pressé.
     pub press: bool,
     /// Le bouton Noir a été pressé.
     pub noir: bool,
+    /// Le bouton « DJ suivant » a été pressé.
+    pub next: bool,
     pub audio: Vec<AudioCommand>,
     pub midi: Option<bool>,
     pub add_files: bool,
@@ -52,6 +57,7 @@ impl Default for LiveOut {
             dj: DjColumnEvent::None,
             press: false,
             noir: false,
+            next: false,
             audio: Vec::new(),
             midi: None,
             add_files: false,
@@ -90,7 +96,9 @@ pub(crate) fn draw(root: &mut egui::Ui, input: &LiveInput<'_>, playlist: &mut Pl
             input.dj_name,
             input.elapsed_s,
             input.blackout,
+            input.has_next,
         );
+        out.next = centre.next;
         out.press = centre.press;
         out.noir = centre.noir;
     });
