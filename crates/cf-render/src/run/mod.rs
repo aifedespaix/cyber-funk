@@ -16,7 +16,17 @@ pub enum RunOrder {
     Start,
     /// Lancer la séquence d'arrêt (depuis le show en cours seulement).
     Stop,
+    /// Lancer le changement de DJ (depuis le show en cours seulement). `None` : le DJ qui suit l'actuel dans la
+    /// liste ; `Some(i)` : le DJ de rang `i`.
+    Handover {
+        /// Rang du DJ visé dans la liste du show.
+        slot: Option<usize>,
+    },
 }
+
+/// Le DJ visé par la passation en cours. Écrit par le monde seulement ; `None` hors passation.
+#[derive(Resource, Debug, Default, Clone, Copy, PartialEq, Eq)]
+pub struct RunHandover(pub Option<usize>);
 
 /// Marque qu'un séquenceur pilote [`RunPhase`] : l'opérateur en suit alors la phase au lieu de basculer seul.
 #[derive(Resource, Debug, Default, Clone, Copy)]
@@ -34,6 +44,8 @@ pub enum Phase {
     Running,
     /// Séquence d'arrêt.
     Stopping,
+    /// Changement de DJ : le quartier se replie, la nouvelle voiture double l'ancienne, le portique annonce le nouveau DJ.
+    Handover,
 }
 
 /// La phase courante et l'avancement (0 à 1) de la séquence en cours. Écrite par le monde seulement.
@@ -59,7 +71,7 @@ impl RunPhase {
     #[must_use]
     pub fn show_armed(&self) -> bool {
         match self.phase {
-            Phase::Running | Phase::Stopping => true,
+            Phase::Running | Phase::Stopping | Phase::Handover => true,
             Phase::Starting => self.progress >= ARM_AT,
             Phase::Waiting => false,
         }
@@ -82,7 +94,9 @@ impl Plugin for RunPlugin {
     }
 
     fn build(&self, app: &mut App) {
-        app.add_message::<RunOrder>().init_resource::<RunPhase>();
+        app.add_message::<RunOrder>()
+            .init_resource::<RunPhase>()
+            .init_resource::<RunHandover>();
     }
 }
 
@@ -116,6 +130,25 @@ mod tests {
         assert!(!at(Phase::Starting, ARM_AT - 0.01).show_armed());
         assert!(at(Phase::Starting, ARM_AT).show_armed());
         assert!(at(Phase::Stopping, 0.2).show_armed());
+    }
+
+    #[test]
+    fn show_armed_during_a_handover_whatever_the_progress() {
+        assert!(at(Phase::Handover, 0.0).show_armed());
+        assert!(at(Phase::Handover, 1.0).show_armed());
+    }
+
+    #[test]
+    fn handover_order_is_copy_and_comparable() {
+        let a = RunOrder::Handover { slot: Some(2) };
+        let b = a;
+        assert_eq!(a, b);
+        assert_ne!(a, RunOrder::Handover { slot: None });
+    }
+
+    #[test]
+    fn handover_target_defaults_to_none() {
+        assert_eq!(RunHandover::default(), RunHandover(None));
     }
 
     #[test]

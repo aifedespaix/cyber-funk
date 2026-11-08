@@ -19,6 +19,8 @@ pub enum ShowRun {
     Running,
     /// Séquence d'arrêt (quartier qui se désynchronise, voiture qui s'éteint).
     Stopping,
+    /// Changement de DJ (quartier qui se replie, nouvelle voiture, portique).
+    Handover,
 }
 
 impl ShowRun {
@@ -63,7 +65,7 @@ impl ShowRunState {
         let order = match self.run {
             ShowRun::Waiting => Some(RunOrder::Start),
             ShowRun::Running => Some(RunOrder::Stop),
-            ShowRun::Starting | ShowRun::Stopping => None,
+            ShowRun::Starting | ShowRun::Stopping | ShowRun::Handover => None,
         };
         if !self.sequenced {
             match self.run {
@@ -75,7 +77,7 @@ impl ShowRunState {
                     self.run = ShowRun::Waiting;
                     self.started_at_s = None;
                 }
-                ShowRun::Starting | ShowRun::Stopping => {}
+                ShowRun::Starting | ShowRun::Stopping | ShowRun::Handover => {}
             }
         }
         order
@@ -89,6 +91,7 @@ impl ShowRunState {
             Phase::Starting => ShowRun::Starting,
             Phase::Running => ShowRun::Running,
             Phase::Stopping => ShowRun::Stopping,
+            Phase::Handover => ShowRun::Handover,
         };
         if run == self.run {
             return;
@@ -97,7 +100,7 @@ impl ShowRunState {
         match run {
             ShowRun::Waiting => self.started_at_s = None,
             ShowRun::Starting => self.started_at_s = Some(now_s),
-            ShowRun::Running | ShowRun::Stopping => {
+            ShowRun::Running | ShowRun::Stopping | ShowRun::Handover => {
                 self.started_at_s.get_or_insert(now_s);
             }
         }

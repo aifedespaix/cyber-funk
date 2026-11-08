@@ -53,6 +53,11 @@ pub(crate) fn button_spec(run: ShowRun) -> ButtonSpec {
             fill: BUSY_GREY,
             enabled: false,
         },
+        ShowRun::Handover => ButtonSpec {
+            label: "Changement de DJ…",
+            fill: BUSY_GREY,
+            enabled: false,
+        },
     }
 }
 
@@ -64,6 +69,7 @@ pub(crate) fn run_title(run: ShowRun, dj: Option<&str>) -> String {
         (ShowRun::Running, Some(dj)) => format!("En cours · {dj}"),
         (ShowRun::Running, None) => "En cours".to_owned(),
         (ShowRun::Stopping, _) => "Arrêt…".to_owned(),
+        (ShowRun::Handover, _) => "Changement de DJ…".to_owned(),
     }
 }
 
@@ -74,6 +80,7 @@ pub(crate) fn run_subtitle(run: ShowRun, elapsed_s: Option<f64>) -> String {
         (ShowRun::Running, Some(elapsed)) => format!("Durée du show {}", format::clock(elapsed)),
         (ShowRun::Starting, _) => "La voiture arrive, le quartier se synchronise".to_owned(),
         (ShowRun::Stopping, _) => "Le quartier se désynchronise, la voiture s'éteint".to_owned(),
+        (ShowRun::Handover, _) => "Le quartier se replie, la nouvelle voiture double l'ancienne".to_owned(),
         (ShowRun::Running, None) => String::new(),
     }
 }

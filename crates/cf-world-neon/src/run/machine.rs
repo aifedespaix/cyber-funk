@@ -79,7 +79,8 @@ impl RunSequencer {
         match self.phase {
             // La voiture, invisible, reste au point de départ : le plan d'attente la filme dès son apparition.
             Phase::Waiting => out(Phase::Waiting, 1.0, RunStages::WAITING, Some(0.0), None),
-            Phase::Running => out(Phase::Running, 1.0, RunStages::RUNNING, None, None),
+            // Rempli par la tâche 3 : la passation n'est pas encore atteignable.
+            Phase::Running | Phase::Handover => out(Phase::Running, 1.0, RunStages::RUNNING, None, None),
             Phase::Starting => {
                 self.t_s = (self.t_s + dt_s).min(START_S);
                 let stages = starting_stages(self.t_s);
