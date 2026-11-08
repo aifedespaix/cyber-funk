@@ -281,3 +281,40 @@ fn importer_un_profil_invalide_est_refuse() {
     assert!(status.learn_notice.as_deref().is_some_and(|n| n.contains("refusé")));
     assert_eq!(status.user_profile.bindings, []);
 }
+
+#[test]
+fn un_controleur_midi_coupe_ne_declenche_rien_puis_reprend() {
+    use cf_control::ActionTemplate;
+
+    let dir = tempfile::tempdir().expect("dossier temporaire");
+    let fake = FakeMidi::new();
+    fake.plug("Pads");
+    let mut app = controls_app(ControlsConfig {
+        midi: MidiChoice::Fake(fake.clone()),
+        user_profile_path: Some(dir.path().join("user.ron")),
+        ..ControlsConfig::default()
+    });
+    until_true(&mut app, "ouverture du port", |_| !fake.open_ports().is_empty());
+    app.world_mut().write_message(LearnCommand::Start(ActionTemplate::Go));
+    app.update();
+    assert!(fake.send("Pads", &[0x90, 40, 100]));
+    until_true(&mut app, "binding appris", |a| {
+        a.world().resource::<ControlsStatus>().learning.is_none()
+    });
+
+    app.world_mut().insert_resource(MidiEnabled(false));
+    assert!(fake.send("Pads", &[0x80, 40, 0]));
+    assert!(fake.send("Pads", &[0x90, 40, 100]));
+    for _ in 0..30 {
+        app.update();
+        std::thread::sleep(Duration::from_millis(10));
+    }
+    assert!(!seen(&app).contains(&Action::Go), "coupé : le pad ne joue rien");
+
+    app.world_mut().insert_resource(MidiEnabled(true));
+    assert!(fake.send("Pads", &[0x80, 40, 0]));
+    assert!(fake.send("Pads", &[0x90, 40, 100]));
+    until_true(&mut app, "GO une fois le MIDI rétabli", |a| {
+        seen(a).contains(&Action::Go)
+    });
+}

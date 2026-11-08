@@ -26,7 +26,7 @@ pub use bridge::{ControlBridge, submit_action};
 pub use keyboard::{key_code, key_event, logical_char, modifiers};
 pub use library::{ControllerLibrary, LibraryError};
 pub(crate) use profiles::apply_slot_profiles;
-pub use status::{ControlsStatus, LastInput};
+pub use status::{ControlsStatus, LastInput, MidiEnabled};
 pub use user::{LearnCommand, USER_PROFILE_NAME};
 
 use crate::CfSet;
@@ -88,7 +88,8 @@ impl Plugin for ControlsPlugin {
             .add_message::<AudioCommand>()
             .add_message::<LearnCommand>()
             .init_resource::<TextInputFocus>()
-            .init_resource::<ControlsStatus>();
+            .init_resource::<ControlsStatus>()
+            .init_resource::<MidiEnabled>();
         // Même origine pour le MIDI et le reste : tous les `time_s` (MIDI, tap, arbitre) sont sur une seule horloge.
         let epoch = Instant::now();
         let midi_config = MidiConfig {

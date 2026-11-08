@@ -163,7 +163,17 @@ pub(super) fn read_midi(
     mut bridge: ResMut<ControlBridge>,
     mut status: ResMut<ControlsStatus>,
     mut out: MessageWriter<ControlAction>,
+    enabled: Res<super::MidiEnabled>,
 ) {
+    if !enabled.0 {
+        // Contrôleur coupé par l'opérateur : on vide le flux pour qu'il ne s'accumule pas, sans rien en faire.
+        for _ in 0..MAX_MIDI_PER_FRAME {
+            if bridge.midi.as_ref().and_then(MidiInput::try_recv).is_none() {
+                break;
+            }
+        }
+        return;
+    }
     let now = bridge.now_s();
     let mut emitter = Emitter {
         bridge: &mut bridge,

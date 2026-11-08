@@ -39,7 +39,7 @@ pub use automation::WorldAutomation;
 pub use car_selection::{CarOption, CarSelection};
 pub use controls::{
     ControlAction, ControlBridge, ControllerLibrary, ControlsConfig, ControlsPlugin, ControlsStatus, LastInput,
-    LearnCommand, LibraryError, MidiChoice, TextInputFocus, submit_action,
+    LearnCommand, LibraryError, MidiChoice, MidiEnabled, TextInputFocus, submit_action,
 };
 pub use culling::{
     Cadence, CullingPlugin, CullingSet, CullingSettings, CullingView, FOG_FULL_M, LodBands, LodClock, SimulationLod,

@@ -6,6 +6,17 @@
 use bevy::prelude::*;
 use cf_control::{Action, KeyEvent, MidiEvent, PortsSnapshot, Transport};
 
+/// Le contrôleur MIDI est-il écouté ? Faux : les messages MIDI (pads, potards, horloge) sont lus puis jetés,
+/// sans rien déclencher. Le clavier n'est pas concerné. Écrit par la fenêtre opérateur.
+#[derive(Resource, Debug, Clone, Copy, PartialEq, Eq)]
+pub struct MidiEnabled(pub bool);
+
+impl Default for MidiEnabled {
+    fn default() -> Self {
+        Self(true)
+    }
+}
+
 /// Le dernier geste reçu, avant correspondance.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum LastInput {

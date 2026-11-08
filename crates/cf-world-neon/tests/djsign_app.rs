@@ -40,6 +40,8 @@ fn sheet(djs: &[&str]) -> ShowSheet {
             .iter()
             .map(|dj| SheetSlot {
                 dj: (*dj).to_owned(),
+                theme: None,
+                logo: None,
                 schedule: None,
                 cues: Vec::new(),
             })

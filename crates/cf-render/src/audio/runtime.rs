@@ -150,6 +150,7 @@ impl AudioRuntime {
             AudioCommand::RefreshDevices => self.refresh_devices(),
             AudioCommand::SelectOutput(device) => self.select_output(device.clone()),
             AudioCommand::RefreshOutputs => self.refresh_outputs(),
+            AudioCommand::SetPlaylist(tracks) => self.set_playlist(tracks.clone()),
             AudioCommand::DemoPlay => self.with_player(Player::play),
             AudioCommand::DemoPause => self.with_player(Player::pause),
             AudioCommand::DemoToggle => self.with_player(Player::toggle),

@@ -6,7 +6,9 @@
 
 use cf_audio::capture::DeviceSelector;
 use cf_audio::player::{CpalOutput, NullOutput, OutputBackend, Player, PlayerConfig};
-use cf_audio::playlist::Playlist;
+use std::sync::Arc;
+
+use cf_audio::playlist::{Playlist, Track};
 
 use super::{AudioRuntime, NULL_OUTPUT_RATE};
 use crate::audio::config::OutputChoice;
@@ -68,6 +70,36 @@ impl AudioRuntime {
         // L'ancien lecteur est lâché ici : sa sortie s'arrête une fois le nouveau branché.
         self.player = Some(player);
         self.output_device = device;
+    }
+
+    /// Remplace la playlist. Sans lecteur (aucune piste au démarrage), le premier ajout en crée un sur la sortie
+    /// choisie.
+    pub(in crate::audio) fn set_playlist(&mut self, tracks: Vec<Track>) {
+        self.tracks = Arc::from(tracks.clone());
+        if let Some(player) = self.player.as_mut() {
+            player.set_tracks(tracks);
+            return;
+        }
+        if tracks.is_empty() {
+            return;
+        }
+        let Some(backend) = self.open_output(&self.output_device.clone()) else {
+            return;
+        };
+        let playlist = Playlist::new(tracks, Some(0), self.playlist_seed);
+        match Player::new(playlist, PlayerConfig::default(), backend) {
+            Ok(mut player) => {
+                if let Some(feed) = player.take_analysis_feed() {
+                    self.control.attach(feed);
+                }
+                self.player = Some(player);
+                // La source Démo redevient possible : on la relance si c'est elle que l'opérateur a choisie.
+                self.applied = None;
+            }
+            Err(error) => self
+                .notes
+                .push(format!("lecteur de démo impossible à démarrer : {error}")),
+        }
     }
 
     fn open_output(&mut self, device: &DeviceSelector) -> Option<Box<dyn OutputBackend>> {

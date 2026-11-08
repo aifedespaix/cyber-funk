@@ -344,6 +344,8 @@ mod tests {
                 .iter()
                 .map(|n| SheetSlot {
                     dj: (*n).to_owned(),
+                    theme: None,
+                    logo: None,
                     schedule: None,
                     cues: Vec::new(),
                 })

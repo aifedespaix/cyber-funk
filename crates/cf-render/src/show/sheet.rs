@@ -6,7 +6,7 @@
 
 use bevy::prelude::*;
 use cf_show::load::LoadedShow;
-use cf_show::model::{CueAdvance, CueEntry};
+use cf_show::model::{CueAdvance, CueEntry, Theme};
 
 /// Un cue tel que la liste de l'opérateur l'affiche.
 #[derive(Debug, Clone, PartialEq)]
@@ -26,6 +26,10 @@ pub struct SheetCue {
 pub struct SheetSlot {
     /// Nom du DJ (vide : sans nom).
     pub dj: String,
+    /// Thème imposé par le DJ ; `None` : celui de l'événement.
+    pub theme: Option<Theme>,
+    /// Logo du DJ (chemin sous `assets/`), s'il en a un.
+    pub logo: Option<String>,
     /// Horaires prévus en minutes depuis minuit (début, fin), s'il y en a.
     pub schedule: Option<(u16, u16)>,
     /// La conduite.
@@ -56,6 +60,8 @@ impl ShowSheet {
                 .iter()
                 .map(|slot| SheetSlot {
                     dj: slot.dj.name.clone(),
+                    theme: slot.dj.theme.clone(),
+                    logo: slot.dj.logo.as_ref().map(|logo| logo.as_str().to_owned()),
                     schedule: slot
                         .dj
                         .schedule

@@ -24,11 +24,15 @@ fn app() -> App {
             slots: vec![
                 SheetSlot {
                     dj: "Aife".to_owned(),
+                    theme: None,
+                    logo: None,
                     schedule: None,
                     cues: Vec::new(),
                 },
                 SheetSlot {
                     dj: "Nova".to_owned(),
+                    theme: None,
+                    logo: None,
                     schedule: None,
                     cues: Vec::new(),
                 },

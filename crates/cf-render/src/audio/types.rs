@@ -148,6 +148,8 @@ pub enum AudioCommand {
     SelectOutput(DeviceSelector),
     /// Relire la liste des sorties audio.
     RefreshOutputs,
+    /// Remplacer la playlist de démo (réordonnée, complétée ou réduite) : le titre entendu continue s'il y est encore.
+    SetPlaylist(Vec<Track>),
     /// Lecture du lecteur de démo.
     DemoPlay,
     /// Pause du lecteur de démo.

@@ -239,3 +239,38 @@ fn changer_de_sortie_garde_le_titre_la_position_et_la_lecture() {
     assert!(after.playing, "toujours en lecture : {after:?}");
     assert!(after.position_s >= before.position_s - 0.5, "{before:?} puis {after:?}");
 }
+
+#[test]
+fn remplacer_la_playlist_garde_le_titre_entendu() {
+    let mut app = app(synthetic_config(AudioSource::Demo));
+    run_until(&mut app, Duration::from_secs(25), |a| {
+        a.world()
+            .resource::<AudioStatus>()
+            .demo
+            .as_ref()
+            .is_some_and(|d| d.playing && d.position_s > 1.0)
+    });
+    let status = app.world().resource::<AudioStatus>();
+    let before = status.demo.clone().expect("lecteur de démo");
+    let playing_path = status.tracks[before.track.expect("titre")].path.clone();
+    let mut reversed = status.tracks.to_vec();
+    reversed.reverse();
+    let expected = reversed
+        .iter()
+        .position(|t| t.path == playing_path)
+        .expect("titre conservé");
+
+    send(&mut app, AudioCommand::SetPlaylist(reversed.clone()));
+    run_until(&mut app, Duration::from_secs(10), |a| {
+        a.world().resource::<AudioStatus>().tracks.first().map(|t| &t.path) == reversed.first().map(|t| &t.path)
+    });
+    run_until(&mut app, Duration::from_secs(2), |_| false);
+    let status = app.world().resource::<AudioStatus>();
+    assert_eq!(
+        status.tracks.first().map(|t| &t.path),
+        reversed.first().map(|t| &t.path)
+    );
+    let after = status.demo.clone().expect("lecteur");
+    assert_eq!(after.track, Some(expected), "le même titre, sous son nouvel indice");
+    assert!(after.playing);
+}
