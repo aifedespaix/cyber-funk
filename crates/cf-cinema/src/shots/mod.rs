@@ -11,6 +11,7 @@ mod car_motion;
 mod car_orbit;
 mod chase;
 mod dolly_zoom;
+mod handover;
 mod push_in;
 mod ride_along;
 mod waiting;
@@ -49,6 +50,7 @@ pub use car_motion::{Crane, Dutch, SkyTilt, Vertigo};
 pub use car_orbit::{GodView, Orbit, Spiral, TopDown};
 pub use chase::Chase;
 pub use dolly_zoom::DollyZoom;
+pub use handover::Handover;
 pub use push_in::PushIn;
 pub use ride_along::RideAlong;
 pub use waiting::Waiting;
@@ -123,5 +125,7 @@ pub fn catalog() -> Vec<Box<dyn ShotSpec>> {
         // --- fin du lot C ---
         // Plan imposé par le monde en attente de `Démarrer` : jamais tiré par le montage.
         Box::new(Waiting),
+        // Plan imposé par le monde pendant le changement de DJ : jamais tiré par le montage.
+        Box::new(Handover),
     ]
 }

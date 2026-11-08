@@ -16,6 +16,7 @@ use super::*;
 use crate::audio::AudioFeatures;
 use crate::controls::tests::{controls_app_with, press, release, seen};
 use crate::controls::{ControllerLibrary, ControlsConfig, ControlsStatus, MidiChoice, TextInputFocus};
+use crate::sim::SimControl;
 
 fn assets() -> PathBuf {
     Path::new(env!("CARGO_MANIFEST_DIR")).join("../../assets")
@@ -109,6 +110,30 @@ fn until(app: &mut App, max_s: f64, what: &str, done: impl Fn(&App) -> bool) {
         std::thread::sleep(Duration::from_millis(2));
     }
     assert!(done(app), "{what} : rien après {max_s} s");
+}
+
+#[test]
+fn un_reset_repart_avec_le_dj_designe_puis_avec_celui_qui_jouait() {
+    let mut app = app(&[], MidiChoice::Off);
+    assert_eq!(state(&app).slot, 0);
+    // L'opérateur désigne le DJ 1 à l'arrêt : `Démarrer` repart avec lui, et la désignation est consommée.
+    app.world_mut().resource_mut::<StartSlot>().0 = Some(1);
+    app.world_mut().resource_mut::<SimControl>().request_reset();
+    app.update();
+    app.update();
+    assert_eq!(state(&app).slot, 1);
+    assert_eq!(app.world().resource::<StartSlot>().0, None);
+    // Sans désignation, un arrêt puis un démarrage gardent le DJ en cours, pas le premier.
+    app.world_mut().resource_mut::<SimControl>().request_reset();
+    app.update();
+    app.update();
+    assert_eq!(state(&app).slot, 1);
+    // Remettre le premier DJ comme actuel remet le premier.
+    app.world_mut().resource_mut::<StartSlot>().0 = Some(0);
+    app.world_mut().resource_mut::<SimControl>().request_reset();
+    app.update();
+    app.update();
+    assert_eq!(state(&app).slot, 0);
 }
 
 #[test]

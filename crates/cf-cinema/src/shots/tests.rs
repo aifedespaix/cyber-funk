@@ -43,6 +43,8 @@ const SCENARIO_SHOTS: &[&str] = &[
     "dj-sign",
     // Imposé par le monde en attente de `Démarrer` ; ses tests vivent dans `waiting.rs`.
     "waiting",
+    // Imposé par le monde pendant un changement de DJ ; ses tests vivent dans `handover.rs`.
+    "handover",
 ];
 
 /// Trente secondes simulées, à la cadence de la soirée de test.

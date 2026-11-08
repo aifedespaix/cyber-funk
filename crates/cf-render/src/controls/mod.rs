@@ -20,7 +20,7 @@ mod user;
 use std::time::Instant;
 
 use bevy::prelude::*;
-use cf_control::{Action, FakeMidi, MidiConfig, MidiInput, Switch, TimedAction};
+use cf_control::{Action, DjIndex, FakeMidi, MidiConfig, MidiInput, Switch, TimedAction};
 
 pub use bridge::{ControlBridge, submit_action};
 pub use keyboard::{key_code, key_event, logical_char, modifiers};
@@ -36,6 +36,35 @@ use crate::audio::{AudioCommand, AudioPump};
 /// spectacle en `CfSet::Show`.
 #[derive(Message, Debug, Clone, PartialEq, Deref)]
 pub struct ControlAction(pub TimedAction);
+
+impl ControlAction {
+    /// Les deux actions qui mènent au DJ de ce rang par la passation prévue : arme le créneau, puis demande le suivant.
+    /// `None` si le rang ne tient pas dans un indice de DJ.
+    #[must_use]
+    pub fn go_to_dj(time_s: f64, slot: usize) -> Option<[Self; 2]> {
+        let index = DjIndex(u16::try_from(slot).ok()?);
+        let at = |action| Self(TimedAction { time_s, action });
+        Some([at(Action::ArmDj(index)), at(Action::NextDj)])
+    }
+}
+
+#[cfg(test)]
+mod go_to_dj_tests {
+    use super::*;
+
+    #[test]
+    fn go_to_dj_arms_the_slot_then_asks_for_the_next_one() {
+        let [arm, next] = ControlAction::go_to_dj(1.5, 2).expect("rang valable");
+        assert_eq!(arm.0.action, Action::ArmDj(DjIndex(2)));
+        assert_eq!(next.0.action, Action::NextDj);
+        assert!((arm.0.time_s - 1.5).abs() < f64::EPSILON && (next.0.time_s - 1.5).abs() < f64::EPSILON);
+    }
+
+    #[test]
+    fn go_to_dj_refuses_a_slot_that_does_not_fit_a_dj_index() {
+        assert!(ControlAction::go_to_dj(0.0, usize::MAX).is_none());
+    }
+}
 
 /// Vrai quand un champ texte d'egui a le focus : le clavier ne déclenche alors aucune action. Écrit par la fenêtre
 /// opérateur (`cf-operator`), lu par le pont clavier.

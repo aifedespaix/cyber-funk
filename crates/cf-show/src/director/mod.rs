@@ -139,16 +139,31 @@ impl<R: Rng + SeedableRng + Send + Sync + 'static> ShowDirector<R> {
     /// [`DirectorError`] si l'événement n'a pas de créneau, un créneau pas de cue, ou si un look manque (impossible
     /// avec un [`LoadedShow`] validé).
     pub fn new(show: &LoadedShow, titles: DropTitles, seed: u64) -> Result<Self, DirectorError> {
+        Self::new_at(show, titles, seed, 0)
+    }
+
+    /// Comme [`Self::new`], mais entre dans le premier cue du créneau `start_slot` : `Démarrer` repart avec le DJ que
+    /// l'opérateur a désigné comme actuel. Un rang hors de la liste retombe sur le premier créneau.
+    ///
+    /// # Errors
+    ///
+    /// Les mêmes erreurs que [`Self::new`].
+    pub fn new_at(show: &LoadedShow, titles: DropTitles, seed: u64, start_slot: usize) -> Result<Self, DirectorError> {
         let prepared = Prepared::new(show)?;
-        let slot = prepared.slots.first().ok_or(DirectorError::NoSlot)?;
-        let first = slot.cues.first().ok_or(DirectorError::EmptySlot { slot: 0 })?;
+        let start = if start_slot < prepared.slots.len() {
+            start_slot
+        } else {
+            0
+        };
+        let slot = prepared.slots.get(start).ok_or(DirectorError::NoSlot)?;
+        let first = slot.cues.first().ok_or(DirectorError::EmptySlot { slot: start })?;
         let conductor = DropConductor::new(R::seed_from_u64(seed), titles.clone());
         let mut freshness = Freshness::default();
         conductor.register_known(&mut freshness);
         let mut variation_rng = R::seed_from_u64(seed ^ VARIATION_STREAM);
         let random: UnitRandom = Box::new(move || unit(&mut variation_rng));
         let state = ShowState {
-            slot: 0,
+            slot: start,
             slot_seq: 0,
             mode: slot.mode,
             armed_slot: None,
@@ -207,8 +222,11 @@ impl<R: Rng + SeedableRng + Send + Sync + 'static> ShowDirector<R> {
             layer_fades: [Fade::new(1.0, OPERATOR_FADE); 4],
             heat_snap: true,
         };
-        director.events.push(ShowEvent::SlotLoaded { slot: 0, previous: 0 });
-        director.call_now(0, 0, CueCause::Open);
+        director.events.push(ShowEvent::SlotLoaded {
+            slot: start,
+            previous: start,
+        });
+        director.call_now(start, 0, CueCause::Open);
         Ok(director)
     }
 }

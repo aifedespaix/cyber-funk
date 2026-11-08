@@ -36,6 +36,11 @@ const DAY_S: u64 = 86_400;
 
 /// L'état du spectacle de l'image, écrit par le seul `run_show`. Absent tant qu'aucun show n'est chargé.
 ///
+/// Le DJ par lequel repartira le prochain `Démarrer`, désigné par l'opérateur à l'arrêt. `None` : le DJ en cours (celui
+/// que le chef du spectacle avait au moment de l'arrêt). Consommé par le reset.
+#[derive(Resource, Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub struct StartSlot(pub Option<usize>);
+
 /// Newtype : `ShowState` est défini dans `cf-show`, qui ne dépend pas de Bevy et ne peut pas en dériver `Resource`
 /// (même principe que `AudioFeatures`).
 #[derive(Resource, Debug, Clone, Deref)]
@@ -180,7 +185,8 @@ impl Plugin for ShowPlugin {
                         },
                     });
                 app.add_plugins(crate::run::RunPlugin);
-                app.add_systems(Update, reset_show.in_set(CfSet::Input).after(crate::sim::apply_control));
+                app.init_resource::<StartSlot>()
+                    .add_systems(Update, reset_show.in_set(CfSet::Input).after(crate::sim::apply_control));
                 app.add_systems(
                     Update,
                     // L'horloge du show ne court pas pendant le chargement (J4-07).
@@ -254,6 +260,7 @@ fn reset_show(
     mut resets: MessageReader<SimReset>,
     runtime: Option<ResMut<ShowRuntime>>,
     current: Option<ResMut<CurrentShow>>,
+    start: Option<ResMut<StartSlot>>,
 ) {
     if resets.read().count() == 0 {
         return;
@@ -262,7 +269,9 @@ fn reset_show(
         return;
     };
     let source = runtime.source.clone();
-    match ShowDirector::<Pcg32>::new(&source.show, source.titles, source.seed) {
+    // Le DJ désigné par l'opérateur, sinon celui qui jouait : un arrêt puis un démarrage ne ramènent pas au premier.
+    let slot = start.and_then(|mut s| s.0.take()).unwrap_or(current.0.slot);
+    match ShowDirector::<Pcg32>::new_at(&source.show, source.titles, source.seed, slot) {
         Ok(director) => {
             current.0.clone_from(director.state());
             runtime.director = director;

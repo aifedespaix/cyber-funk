@@ -10,9 +10,13 @@
 //! Comme la pré-intro, le séquenceur n'écrit que quand il a la main : il rend tout à 1 une fois, en entrant dans
 //! `Running`, puis ne touche plus à rien (d'autres — événements, outils — règlent alors ces valeurs).
 
+use bevy::ecs::system::SystemParam;
 use bevy::prelude::*;
 use cf_cinema::{ShotOrder, TransitionKind};
-use cf_render::{AudioCommand, AudioFeatures, AudioSequenceGain, CfSet, Phase, RunOrder, RunPhase, SimControl};
+use cf_render::{
+    AudioCommand, AudioFeatures, AudioSequenceGain, CfSet, ControlAction, CurrentShow, Phase, RunHandover, RunOrder,
+    RunPhase, ShowSheet, SimControl,
+};
 
 use super::machine::{RunOutput, RunSequencer};
 use crate::car::rig::CarState;
@@ -37,6 +41,7 @@ impl Plugin for RunPlugin {
         app.add_plugins(cf_render::RunPlugin)
             .add_message::<ShotOrder>()
             .add_message::<AudioCommand>()
+            .add_message::<ControlAction>()
             .init_resource::<AudioSequenceGain>()
             .insert_resource(RunDriven)
             .insert_resource(cf_render::RunSequenced)
@@ -59,6 +64,17 @@ impl Plugin for RunPlugin {
 #[derive(Resource, Debug)]
 struct Sequencer(RunSequencer);
 
+/// Ce que `drive_run` lit et écrit du spectacle : la liste des DJs, le DJ actuel, le DJ visé par une passation, et la
+/// voie par laquelle la passation est demandée au chef du spectacle.
+#[derive(SystemParam)]
+struct ShowLinks<'w> {
+    show: Option<Res<'w, CurrentShow>>,
+    sheet: Option<Res<'w, ShowSheet>>,
+    settings: Option<Res<'w, crate::djsign::DjSignSettings>>,
+    control: MessageWriter<'w, ControlAction>,
+    handover: Option<ResMut<'w, RunHandover>>,
+}
+
 /// `CfSet::Simulate` : lit l'ordre de l'opérateur, avance la séquence et l'applique au monde.
 #[allow(clippy::too_many_arguments)] // Paramètres de système Bevy : chacun est une ressource distincte.
 fn drive_run(
@@ -69,7 +85,8 @@ fn drive_run(
     mut shots: MessageWriter<ShotOrder>,
     mut audio: MessageWriter<AudioCommand>,
     mut gain: ResMut<AudioSequenceGain>,
-    mut camera_held: Local<Option<bool>>,
+    mut camera_held: Local<CameraHold>,
+    mut links: ShowLinks,
     mut sequencer: ResMut<Sequencer>,
     cars: Query<&CarState>,
     mut phase: ResMut<RunPhase>,
@@ -85,7 +102,29 @@ fn drive_run(
     if let Some(car) = cars.iter().next() {
         sequencer.0.set_speed(car.speed_mps);
     }
+    // Où en est la liste des DJs : une passation n'a de sens qu'avec un autre DJ à qui passer.
+    if let (Some(show), Some(sheet)) = (links.show.as_deref(), links.sheet.as_deref()) {
+        sequencer.0.set_slot_info(show.0.slot, sheet.slots.len());
+    }
+    sequencer
+        .0
+        .set_reduce_motion(links.settings.as_deref().is_some_and(|s| s.calm));
     let out = sequencer.0.update(order, time.delta_secs(), kick);
+    // La passation est demandée au chef du spectacle à l'entrée dans la phase : son fondu de palette est fini quand le
+    // quartier est caché et que le portique arrive (`HANDOVER_FIRE_S`).
+    if before != Phase::Handover
+        && out.phase == Phase::Handover
+        && let Some(actions) = out
+            .handover_slot
+            .and_then(|slot| ControlAction::go_to_dj(time.elapsed_secs_f64(), slot))
+    {
+        for action in actions {
+            links.control.write(action);
+        }
+    }
+    if let Some(handover) = links.handover.as_deref_mut() {
+        set(&mut handover.0, out.handover_slot);
+    }
     // Chaque `Démarrer` repart d'un show neuf : le chef du spectacle, l'horloge et la piste de démo sont remis à zéro.
     if before == Phase::Waiting
         && out.phase == Phase::Starting
@@ -107,7 +146,14 @@ fn drive_run(
     if before == Phase::Stopping && sequencer.0.phase() == Phase::Waiting {
         audio.write(AudioCommand::DemoPause);
     }
-    direct_camera(out.stages.camera_waiting, &mut camera_held, &mut shots);
+    let wanted = if out.stages.camera_handover {
+        Some(HANDOVER_SHOT)
+    } else if out.stages.camera_waiting {
+        Some(WAITING_SHOT)
+    } else {
+        None
+    };
+    direct_camera(wanted, &mut camera_held, &mut shots);
     set(&mut *phase, published);
     set(&mut status.0, out);
 
@@ -156,7 +202,7 @@ fn gate_spontaneous(targets: &mut Targets, phase: Phase, silenced: &mut Option<b
     let Some(t) = targets.traffic.as_deref_mut() else {
         return;
     };
-    let quiet = matches!(phase, Phase::Waiting | Phase::Starting);
+    let quiet = matches!(phase, Phase::Waiting | Phase::Starting | Phase::Handover);
     match (quiet, *silenced) {
         (true, None) => {
             *silenced = Some(t.spontaneous());
@@ -170,26 +216,44 @@ fn gate_spontaneous(targets: &mut Targets, phase: Phase, silenced: &mut Option<b
     }
 }
 
-/// Le plan d'attente tient la caméra tant que `camera_waiting` ; dès que la voiture est là, le montage reprend. Au
-/// retour (arrêt), le plan d'attente revient en fondu et non en coupe.
-fn direct_camera(waiting: bool, held: &mut Option<bool>, shots: &mut MessageWriter<ShotOrder>) {
-    match (waiting, *held) {
-        // Premier ordre de la vie du programme : la caméra est déjà au repos, on la coupe sur le plan d'attente.
-        (true, None) => {
-            shots.write(ShotOrder::Hold(WAITING_SHOT));
-            *held = Some(true);
+/// Le plan voulu tient la caméra : l'attente avant la voiture, la passation entre l'échange et le dépassement. Sans plan
+/// voulu, le montage reprend. Au retour à l'attente (arrêt), le plan revient en fondu et non en coupe.
+fn direct_camera(wanted: Option<&'static str>, held: &mut CameraHold, shots: &mut MessageWriter<ShotOrder>) {
+    match (wanted, *held) {
+        // Le retour à l'attente, après un autre plan, se fait en fondu.
+        (Some(id), CameraHold::Free) if id == WAITING_SHOT => {
+            shots.write(ShotOrder::HoldWith(id, TransitionKind::Blend));
+            *held = CameraHold::On(id);
         }
-        (true, Some(false)) => {
-            shots.write(ShotOrder::HoldWith(WAITING_SHOT, TransitionKind::Blend));
-            *held = Some(true);
+        (Some(id), CameraHold::Unset | CameraHold::Free) => {
+            shots.write(ShotOrder::Hold(id));
+            *held = CameraHold::On(id);
         }
-        (false, Some(true)) => {
+        (Some(id), CameraHold::On(current)) if current != id => {
+            shots.write(ShotOrder::Hold(id));
+            *held = CameraHold::On(id);
+        }
+        (None, CameraHold::On(_)) => {
             shots.write(ShotOrder::Release);
-            *held = Some(false);
+            *held = CameraHold::Free;
         }
         _ => {}
     }
 }
 
+/// Ce que le monde impose à la caméra.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+enum CameraHold {
+    /// Aucun ordre donné depuis le lancement.
+    #[default]
+    Unset,
+    /// Le montage est libre.
+    Free,
+    /// Ce plan est tenu.
+    On(&'static str),
+}
+
 /// Identifiant du plan d'attente dans le catalogue du réalisateur.
 const WAITING_SHOT: &str = "waiting";
+/// Identifiant du plan de passation de DJ.
+const HANDOVER_SHOT: &str = "handover";
