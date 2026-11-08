@@ -212,7 +212,9 @@ pub(crate) fn apply_gestures(
                     set_family_open(&mut settings.value, OTHERS_KEY, open);
                 }
             }
-            Gesture::District(_) | Gesture::Tuning(_) | Gesture::Graffiti(_) | Gesture::Car(_) | Gesture::Shot(_) => return true,
+            Gesture::District(_) | Gesture::Tuning(_) | Gesture::Graffiti(_) | Gesture::Car(_) | Gesture::Shot(_) => {
+                return true;
+            }
         }
         false
     });
