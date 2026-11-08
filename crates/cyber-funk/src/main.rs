@@ -209,7 +209,7 @@ fn build_app(
             // En `--soak`, ni réglages ni profils : une mesure ne touche pas aux soirées de l'opérateur.
             profiles_dir: if cli.soak.is_some() { None } else { profiles_dir() },
         })
-        .add_plugins((OperatorPlugin, update::UpdatePlugin));
+        .add_plugins((OperatorPlugin, update::UpdatePlugin, cf_world_neon::run::RunPlugin));
     }
     app
 }
@@ -225,6 +225,8 @@ fn audio_config(cli: &Cli, settings: Option<&AppSettings>) -> AudioConfig {
         } else {
             OutputChoice::Default
         },
+        // La musique démarre avec `Démarrer` (séquence de démarrage) ; en `--soak` rien ne la pilote, elle joue d'emblée.
+        autoplay: cli.soak.is_some(),
         ..AudioConfig::default()
     };
     // Les réglages sauvegardés donnent la source et les périphériques ; la ligne de commande garde le dernier mot.

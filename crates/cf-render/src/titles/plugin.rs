@@ -12,13 +12,10 @@ use crate::audio::AudioFeatures;
 use crate::layers::OverlayLayer;
 use crate::palette::{SceneColor, ScenePalette};
 use crate::schedule::CfSet;
-use crate::show::{CurrentShow, ShowEventMessage, ShowSheet};
+use crate::show::{CurrentShow, ShowEventMessage};
 
 /// Noms des niveaux 0 à 5 (`show.levels` de Sillage, en français).
 const LEVEL_NAMES: [&str; 6] = ["Avant-scène", "Contact", "La ville", "Envol", "Démesure", "Cosmos"];
-
-/// Ligne au-dessus du nom du DJ (`titleDj`).
-const SUB_DJ: &str = "Aux platines";
 
 /// Largeur supposée quand aucune fenêtre n'existe (tests).
 const DEFAULT_WIDTH_PX: f32 = 1920.0;
@@ -156,21 +153,10 @@ fn radial_veil() -> Image {
     )
 }
 
-/// Le nom du DJ du créneau `slot`, ou « DJ n » s'il n'en a pas.
-fn dj_name(sheet: Option<&ShowSheet>, slot: usize) -> String {
-    let name = sheet.and_then(|s| s.slots.get(slot)).map_or("", |s| s.dj.trim());
-    if name.is_empty() {
-        format!("DJ {}", slot + 1)
-    } else {
-        name.to_owned()
-    }
-}
-
 /// `CfSet::Present` : transforme les faits du spectacle en cartons.
 fn listen(
     mut messages: MessageReader<ShowEventMessage>,
     show: Option<Res<CurrentShow>>,
-    sheet: Option<Res<ShowSheet>>,
     features: Option<Res<AudioFeatures>>,
     mut active: ResMut<ActiveTitle>,
     mut last_level: Local<Option<u8>>,
@@ -179,14 +165,9 @@ fn listen(
     for message in messages.read() {
         match &message.0 {
             ShowEvent::Title(text) => active.show(TitleKind::Drop, text.to_string(), None, bpm),
-            ShowEvent::Handover { to: slot, .. } | ShowEvent::ShowDj { slot } => {
-                active.show(
-                    TitleKind::Dj,
-                    dj_name(sheet.as_deref(), *slot),
-                    Some(SUB_DJ.to_owned()),
-                    bpm,
-                );
-            }
+            // Le nom du DJ ne s'affiche jamais en texte à l'écran : il vit dans la simulation (enseigne néon, panneaux
+            // du monde). Voir `docs/superpowers/specs/2026-11-08-sequence-demarrage-arret-design.md`, §8.
+            ShowEvent::Handover { .. } | ShowEvent::ShowDj { .. } => {}
             _ => {}
         }
     }
@@ -334,32 +315,22 @@ fn animate(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::show::SheetSlot;
-
-    fn sheet(names: &[&str]) -> ShowSheet {
-        ShowSheet {
-            event_name: String::new(),
-            dj_sign: true,
-            slots: names
-                .iter()
-                .map(|n| SheetSlot {
-                    dj: (*n).to_owned(),
-                    theme: None,
-                    logo: None,
-                    schedule: None,
-                    cues: Vec::new(),
-                })
-                .collect(),
-        }
-    }
-
     #[test]
-    fn the_dj_name_comes_from_the_sheet_with_a_numbered_fallback() {
-        let s = sheet(&["  Aife ", ""]);
-        assert_eq!(dj_name(Some(&s), 0), "Aife");
-        assert_eq!(dj_name(Some(&s), 1), "DJ 2");
-        assert_eq!(dj_name(Some(&s), 9), "DJ 10");
-        assert_eq!(dj_name(None, 0), "DJ 1");
+    fn the_dj_is_never_announced_with_an_on_screen_title() {
+        // Le nom du DJ vit dans la simulation (enseigne, panneaux), pas en texte plein écran.
+        let mut app = App::new();
+        app.add_message::<ShowEventMessage>()
+            .init_resource::<ActiveTitle>()
+            .add_systems(Update, listen);
+        app.world_mut()
+            .write_message(ShowEventMessage(ShowEvent::ShowDj { slot: 0 }));
+        app.world_mut().write_message(ShowEventMessage(ShowEvent::Handover {
+            from: 0,
+            to: 1,
+            fade_s: 1.0,
+        }));
+        app.update();
+        assert!(app.world().resource::<ActiveTitle>().card().is_none());
     }
 
     #[test]
