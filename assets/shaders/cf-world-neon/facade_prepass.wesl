@@ -8,6 +8,27 @@ import bevy_pbr::render::mesh_functions::get_world_from_local;
 import bevy_pbr::render::view_transformations::position_world_to_clip;
 import bevy_pbr::prepass::io::{Vertex, VertexOutput, decompress_vertex};
 
+// Début du bloc d'uniformes de `facade.wesl` (mêmes champs, même ordre) jusqu'à `weather`, `motion` compris : on y lit la
+// chute des tours (`weather.w`), le temps (`frame.x`) et le drapeau de qualité basse (`motion.w`).
+struct FacadePrefix {
+    ink: vec4<f32>,
+    ice: vec4<f32>,
+    amber: vec4<f32>,
+    haze: vec4<f32>,
+    mist: vec4<f32>,
+    scan: vec4<f32>,
+    cycle: array<vec4<f32>, 16>,
+    frame: vec4<f32>,
+    audio: vec4<f32>,
+    weather: vec4<f32>,
+    power: vec4<f32>,
+    texture: vec4<f32>,
+    tempers: array<vec4<f32>, 16>,
+    motion: vec4<f32>,
+}
+
+@group(constants::MATERIAL_BIND_GROUP) @binding(0) var<uniform> facade: FacadePrefix;
+
 @vertex
 fn vertex(vertex_in: Vertex) -> VertexOutput {
     var out: VertexOutput;
@@ -16,6 +37,7 @@ fn vertex(vertex_in: Vertex) -> VertexOutput {
     var wp = m * vec4<f32>(vertex.position, 1.0);
     let vista = 1.0 + 1.6 * smoothstep(35.0, 140.0, view.world_position.y);
     wp.y *= 1.0 - smoothstep(300.0 * vista, 440.0 * vista, distance(wp.xz, view.world_position.xz));
+    wp = collapse_apply(wp, m[3].xz, facade.weather.w, facade.frame.x, facade.motion.w < 0.5);
     out.world_position = wp;
     out.position = position_world_to_clip(wp.xyz);
 @if(VERTEX_UVS_A)

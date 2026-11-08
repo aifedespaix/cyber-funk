@@ -154,7 +154,7 @@ pub fn build_params(
             wet.clamp(0.0, 1.0),
             rain.clamp(0.0, 1.0),
             look.win_pulse.clamp(0.0, 1.0),
-            0.0,
+            look.collapse.clamp(0.0, 1.0),
         ),
         power: Vec4::new(
             look.power.x,

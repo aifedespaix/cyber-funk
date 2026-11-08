@@ -45,7 +45,7 @@ struct Facade {
     frame: vec4<f32>,
     // x : aigus (`uHigh`), y : temps musical continu (`uBeat`), z : pré-intro (`uBuild`), w : éclair d'orage (`uFlash`).
     audio: vec4<f32>,
-    // x : humidité (`uWet`), y : pluie (`uRain`), z : pouls des fenêtres (`uWinPulse`).
+    // x : humidité (`uWet`), y : pluie (`uRain`), z : pouls des fenêtres (`uWinPulse`), w : chute des tours (0..1, arrêt du show).
     weather: vec4<f32>,
     // Front d'une panne de courant (`uPower`) : x position en z du front, y demi-largeur de son fondu, z part des fenêtres
     // éteintes au-delà du front, w sens (−1 : éteint du côté des z négatifs).
@@ -157,6 +157,8 @@ struct FacadeVarying {
     @location(7) @interpolate(flat) temper: u32,
     // Motif de graffiti mural (bits 27..31 du tag), 0 : aucun.
     @location(8) @interpolate(flat) graffiti: u32,
+    // Décalage propre à la tour (0..1) : les tours apparaissent en cascade, pas en mur.
+    @location(9) @interpolate(flat) cascade: f32,
 }
 
 @vertex
@@ -170,6 +172,8 @@ fn vertex(v: FacadeVertex) -> FacadeVarying {
     out.normal_w = normalize((m * vec4<f32>(v.normal, 0.0)).xyz);
     var wp = m * vec4<f32>(v.position, 1.0);
     wp.y *= grow_at(wp.xyz);
+    // Arrêt du show : la tour rétrécit vers sa base enfouie (`facade_collapse.wesl`), glitch coupé en qualité basse.
+    wp = collapse_apply(wp, m[3].xz, facade.weather.w, facade.frame.x, facade.motion.w < 0.5);
     // Une tour sur quatre respire d'un pour cent avec le kick : assez pour sentir le poids du beat, trop peu pour faire dessin
     // animé. Le passage de profondeur ignore ce gonflement (il n'écarte que la pointe, jamais un voisin).
     let breath_seed = f32(tag & 0x3FFu);
@@ -181,6 +185,7 @@ fn vertex(v: FacadeVertex) -> FacadeVarying {
     out.tint = facade.cycle[(tag >> 10u) & 0xFu].rgb;
     out.temper = (tag >> 24u) & 7u;
     out.graffiti = tag >> 27u;
+    out.cascade = tower_offset(m[3].xz);
     out.clip = position_world_to_clip(wp.xyz);
     return out;
 }
@@ -226,7 +231,8 @@ fn fragment(in: FacadeVarying) -> @location(0) vec4<f32> {
     var build_top = 1.0e5;
     if build < 0.999 {
         let nearness = clamp(distance(in.world.xz, cam.xz) / 380.0, 0.0, 1.0);
-        build_top = mix(-70.0, 340.0, clamp(build * 1.45 - 0.45 * nearness, 0.0, 1.0));
+        // Le décalage de la tour étale l'apparition (le terme en build le compense : à build = 1 tout est en place).
+        build_top = mix(-70.0, 340.0, clamp(build * 1.75 - 0.45 * nearness - 0.3 * in.cascade, 0.0, 1.0));
         if in.world.y > build_top {
             discard;
         }

@@ -108,6 +108,7 @@ fn apply(out: &RunOutput, targets: &mut Targets, owned: &mut Owned) {
     }
     if let Some(f) = targets.facade.as_deref_mut() {
         set(&mut f.build, s.build);
+        set(&mut f.collapse, s.collapse);
     }
     if let Some(k) = targets.sky.as_deref_mut() {
         set(&mut k.reveal, s.sky);

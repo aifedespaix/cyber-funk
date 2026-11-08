@@ -10,6 +10,7 @@
 //! - **Coût** : le matériau est réécrit à chaque image (temps, pouls) ; Bevy le re-prépare (un petit buffer d'uniformes),
 //!   c'est tout.
 
+mod collapse;
 mod material;
 mod systems;
 mod temperament;
@@ -31,6 +32,7 @@ use bevy::prelude::*;
 use bevy::shader::Shader;
 use cf_render::{CfSet, ScenePalette, ThemeLibrary, WarmupAppExt};
 
+pub use collapse::{collapse_scale, collapse_t, scaled_y, tower_offset};
 pub use material::{FacadeMaterial, FacadeParams, TINT_COUNT};
 pub use systems::{
     FrameInputs, LOW_QUALITY_FADE_S, LOW_QUALITY_LEVEL, LowQualityMix, MotionDrive, MotionFlash, build_params,
@@ -65,6 +67,9 @@ pub struct FacadeLook {
     /// Part des fenêtres qui ont leur vie propre, 0 à 1 (réglage de l'opérateur, `facade.motion.z`) : multiplie le taux
     /// d'étincelles de chaque tempérament. 1 : plein effet.
     pub window_life: f32,
+    /// Chute des tours, 0 à 1 (arrêt du show) : chacune rétrécit vers sa base enfouie, à son rythme (`collapse.rs`).
+    /// 0 : aucun effet.
+    pub collapse: f32,
 }
 
 impl Default for FacadeLook {
@@ -77,6 +82,7 @@ impl Default for FacadeLook {
             clock_s: None,
             car_follow: 1.0,
             window_life: 1.0,
+            collapse: 0.0,
         }
     }
 }

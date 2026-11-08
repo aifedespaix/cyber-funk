@@ -17,7 +17,8 @@ use crate::landmarks::field::FieldParams;
 pub(crate) const FACADE_SHADER: Handle<Shader> = uuid_handle!("2b8c5e1d-7a43-4f9b-86d0-c3e17a5b9d24");
 /// Source du shader : `facade.wesl`, suivi de `facade_shapes.wesl` (formes de lumière), `facade_motion.wesl` (mouvements),
 /// `facade_trail.wesl` (traîne de la voiture), `facade_life.wesl` (vie des fenêtres), `field.wesl` (champ de la ville,
-/// partagé avec la route : immeubles-vitrines, zone de glitch, panne de courant) et `facade_paint.wesl` (graffitis muraux).
+/// partagé avec la route : immeubles-vitrines, zone de glitch, panne de courant), `facade_collapse.wesl` (chute des tours) et
+/// `facade_paint.wesl` (graffitis muraux, toujours en dernier : un test lit tout ce qui suit `paint_wall`).
 pub(crate) const FACADE_SOURCE: &str = concat!(
     include_str!("../../../../assets/shaders/cf-world-neon/facade.wesl"),
     "\n",
@@ -30,8 +31,9 @@ pub(crate) const FACADE_SOURCE: &str = concat!(
     include_str!("../../../../assets/shaders/cf-world-neon/facade_life.wesl"),
     "\n",
     include_str!("../../../../assets/shaders/cf-world-neon/field.wesl"),
-    "
-",
+    "\n",
+    include_str!("../../../../assets/shaders/cf-world-neon/facade_collapse.wesl"),
+    "\n",
     include_str!("../../../../assets/shaders/cf-world-neon/facade_paint.wesl")
 );
 /// Chemin logique du shader (messages d'erreur de Bevy, imports).
@@ -39,7 +41,12 @@ pub(crate) const FACADE_SHADER_PATH: &str = "cf-world-neon/facade.wesl";
 /// Le passage de profondeur, embarqué lui aussi.
 pub(crate) const PREPASS_SHADER: Handle<Shader> = uuid_handle!("9d4e7a30-5c18-4b62-a1f9-6e0b8d3c2a57");
 /// Source du passage de profondeur (`assets/shaders/cf-world-neon/facade_prepass.wesl`).
-pub(crate) const PREPASS_SOURCE: &str = include_str!("../../../../assets/shaders/cf-world-neon/facade_prepass.wesl");
+pub(crate) const PREPASS_SOURCE: &str = concat!(
+    include_str!("../../../../assets/shaders/cf-world-neon/facade_prepass.wesl"),
+    "
+",
+    include_str!("../../../../assets/shaders/cf-world-neon/facade_collapse.wesl")
+);
 /// Chemin logique du passage de profondeur.
 pub(crate) const PREPASS_SHADER_PATH: &str = "cf-world-neon/facade_prepass.wesl";
 
