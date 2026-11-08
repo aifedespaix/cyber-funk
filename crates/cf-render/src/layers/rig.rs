@@ -271,8 +271,12 @@ fn resize_targets(
     }
     // Bevy recrée la texture GPU au redimensionnement, mais un matériau n'est re-préparé que si lui-même est marqué
     // modifié : sans cela, le compositeur garde la vue de l'ancienne texture et l'image se fige à l'écran.
+    // `get_mut` seul ne marque rien (le garde `AssetMut` n'émet `Modified` qu'au déréférencement mutable) : on
+    // déréférence explicitement, sinon le matériau reste figé sur l'ancienne vue de texture.
     for handle in &targets.materials {
-        let _ = materials.get_mut(handle);
+        if let Some(mut material) = materials.get_mut(handle) {
+            let _ = &mut *material;
+        }
     }
     targets.size = output;
     targets.render_size = render;
