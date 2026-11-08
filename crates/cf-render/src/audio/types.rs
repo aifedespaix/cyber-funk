@@ -144,6 +144,10 @@ pub enum AudioCommand {
     },
     /// Relire la liste des périphériques d'entrée.
     RefreshDevices,
+    /// Jouer la démo sur une autre sortie audio : le titre, la position et l'état de lecture sont conservés.
+    SelectOutput(DeviceSelector),
+    /// Relire la liste des sorties audio.
+    RefreshOutputs,
     /// Lecture du lecteur de démo.
     DemoPlay,
     /// Pause du lecteur de démo.
@@ -183,6 +187,10 @@ pub struct AudioStatus {
     pub mic_device: DeviceSelector,
     /// Périphérique de la ligne.
     pub line_device: DeviceSelector,
+    /// Sorties audio connues à la dernière lecture de la liste.
+    pub outputs: Vec<String>,
+    /// Sortie audio du lecteur de démo.
+    pub output_device: DeviceSelector,
     /// Problèmes de démarrage et avertissements, à lire par l'opérateur (pas de carte son, aucune piste…).
     pub notes: Vec<String>,
 }

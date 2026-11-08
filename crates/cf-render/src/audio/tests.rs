@@ -202,3 +202,40 @@ fn le_decalage_visuel_retarde_la_publication() {
     });
     assert!(app.world().resource::<AudioFeatures>().step > 0);
 }
+
+#[test]
+fn changer_de_sortie_garde_le_titre_la_position_et_la_lecture() {
+    let mut app = app(synthetic_config(AudioSource::Demo));
+    run_until(&mut app, Duration::from_secs(25), |a| {
+        a.world()
+            .resource::<AudioStatus>()
+            .demo
+            .as_ref()
+            .is_some_and(|d| d.playing && d.position_s > 1.0)
+    });
+    let before = app
+        .world()
+        .resource::<AudioStatus>()
+        .demo
+        .clone()
+        .expect("lecteur de démo");
+    assert!(before.position_s > 1.0, "la démo ne démarre pas : {before:?}");
+
+    let casque = DeviceSelector::Name("Casque".into());
+    send(&mut app, AudioCommand::SelectOutput(casque.clone()));
+    run_until(&mut app, Duration::from_secs(10), |a| {
+        a.world().resource::<AudioStatus>().output_device == casque
+    });
+    assert_eq!(app.world().resource::<AudioStatus>().output_device, casque);
+    // Laisse le lecteur rouvert avancer et publier son état.
+    run_until(&mut app, Duration::from_secs(2), |_| false);
+    let after = app
+        .world()
+        .resource::<AudioStatus>()
+        .demo
+        .clone()
+        .expect("lecteur rouvert");
+    assert_eq!(after.track, before.track, "même titre");
+    assert!(after.playing, "toujours en lecture : {after:?}");
+    assert!(after.position_s >= before.position_s - 0.5, "{before:?} puis {after:?}");
+}

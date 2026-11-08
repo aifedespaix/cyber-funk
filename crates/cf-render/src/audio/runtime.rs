@@ -26,6 +26,8 @@ use super::bridge::AudioBridge;
 use super::config::{AudioConfig, InputBackendChoice, OutputChoice};
 use super::types::{AudioCommand, AudioSource, AudioStatus};
 
+mod output;
+
 /// Période de rafraîchissement de l'instantané du panneau opérateur (s).
 pub(super) const STATUS_PERIOD_S: f64 = 0.1;
 
@@ -53,6 +55,12 @@ pub struct AudioRuntime {
     /// Choisir la source Démo lance la lecture. Faux seulement pour le tout premier choix quand `autoplay` est coupé.
     play_on_demo: bool,
     devices: Vec<String>,
+    /// Sorties audio connues à la dernière lecture de la liste, sortie choisie, et ce qu'il faut pour rouvrir le
+    /// lecteur dessus.
+    outputs: Vec<String>,
+    output_device: DeviceSelector,
+    output: OutputChoice,
+    playlist_seed: u64,
     notes: Vec<String>,
     pub(super) last_status_s: f64,
     // Dernier champ : arrêté après tous les autres.
@@ -105,6 +113,10 @@ impl AudioRuntime {
             last_track: None,
             play_on_demo: config.autoplay,
             devices: Vec::new(),
+            outputs: Vec::new(),
+            output_device: DeviceSelector::Default,
+            output: config.output,
+            playlist_seed: config.playlist_seed,
             notes,
             last_status_s: f64::NEG_INFINITY,
             analysis,
@@ -136,6 +148,8 @@ impl AudioRuntime {
                 AudioSource::Demo => {}
             },
             AudioCommand::RefreshDevices => self.refresh_devices(),
+            AudioCommand::SelectOutput(device) => self.select_output(device.clone()),
+            AudioCommand::RefreshOutputs => self.refresh_outputs(),
             AudioCommand::DemoPlay => self.with_player(Player::play),
             AudioCommand::DemoPause => self.with_player(Player::pause),
             AudioCommand::DemoToggle => self.with_player(Player::toggle),
@@ -272,6 +286,8 @@ impl AudioRuntime {
         status.tracks = Arc::clone(&self.tracks);
         status.analysis = self.analysis.stats();
         status.devices.clone_from(&self.devices);
+        status.outputs.clone_from(&self.outputs);
+        status.output_device.clone_from(&self.output_device);
         status.mic_device.clone_from(&self.mic_device);
         status.line_device.clone_from(&self.line_device);
         status.notes.clone_from(&self.notes);
