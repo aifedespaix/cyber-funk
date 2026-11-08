@@ -124,7 +124,6 @@ fn drive_run(
 /// Pose les étapes sur les cibles ; une cible absente est ignorée (exemples, tests).
 fn apply(out: &RunOutput, targets: &mut Targets, owned: &mut Owned) {
     let s = out.stages;
-    let driving = out.phase != Phase::Running;
     if let Some(r) = targets.road.as_deref_mut() {
         set(&mut r.draw, s.road);
     }
@@ -136,7 +135,8 @@ fn apply(out: &RunOutput, targets: &mut Targets, owned: &mut Owned) {
         set(&mut k.reveal, s.sky);
     }
     if let Some(d) = targets.sign.as_deref_mut() {
-        set(&mut d.0, driving.then_some(s.sign));
+        // Le nom du DJ est annoncé par le portique (`gantry/`), plus par l'enseigne sur immeuble de la pré-intro.
+        set(&mut d.0, None);
     }
     if let Some(c) = targets.controls.as_deref_mut() {
         set(&mut c.light_scale, s.lights);

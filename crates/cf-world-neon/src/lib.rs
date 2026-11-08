@@ -47,6 +47,7 @@ pub mod djsign;
 pub mod dropfx;
 pub mod facade;
 pub mod feeds;
+pub mod gantry;
 pub mod graffiti;
 pub mod intro;
 pub mod landmarks;
@@ -146,6 +147,7 @@ impl Plugin for NeonWorldPlugin {
             SignsPlugin::default(),
             graffiti::HoloPlugin,
             DjSignPlugin::default(),
+            gantry::GantryPlugin,
             LandmarksPlugin::default(),
             WeatherPlugin,
             BeamsPlugin,

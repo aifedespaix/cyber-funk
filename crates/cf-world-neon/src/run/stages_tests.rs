@@ -46,7 +46,7 @@ fn at_the_start_the_car_is_absent_and_the_district_too() {
 fn the_car_is_there_before_the_gantry_and_the_district_comes_after_it() {
     let before = starting_stages(GANTRY_START_S, false);
     assert!(before.car_presence >= 0.999 && before.build == 0.0);
-    let mid = starting_stages((GANTRY_START_S + GANTRY_END_S) / 2.0, false);
+    let mid = starting_stages(GANTRY_START_S.midpoint(GANTRY_END_S), false);
     assert!(mid.gantry > 0.4 && mid.build == 0.0);
     let after = starting_stages(GANTRY_END_S + 1.0, false);
     assert!(after.build > 0.0, "le quartier commence après le portique");
@@ -73,7 +73,7 @@ fn the_name_glitch_decays_and_reduced_motion_removes_it() {
     assert!(glitchy > 0.0);
     assert!(starting_stages(GANTRY_END_S, false).name_glitch < glitchy);
     for k in 0..=(START_S as u32) {
-        assert!(starting_stages(k as f32, true).name_glitch == 0.0);
+        assert_eq!(starting_stages(k as f32, true).name_glitch, 0.0);
     }
 }
 
@@ -102,7 +102,7 @@ fn the_district_folds_then_rebuilds_only_after_the_gantry() {
         hidden.build == 0.0 && hidden.collapse == 0.0,
         "caché : rendu à l'état d'attente"
     );
-    let (under_gantry, ..) = handover_stages((GANTRY_START_S + GANTRY_END_S) / 2.0 + 1.0, false);
+    let (under_gantry, ..) = handover_stages(GANTRY_START_S.midpoint(GANTRY_END_S) + 1.0, false);
     assert!(under_gantry.build == 0.0 && under_gantry.gantry > 0.0);
     let (end, ..) = handover_stages(HANDOVER_S, false);
     assert!(end.build >= 0.999 && end.collapse == 0.0 && end.gantry >= 0.999);

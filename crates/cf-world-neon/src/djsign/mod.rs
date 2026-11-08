@@ -28,9 +28,9 @@ pub mod rig;
 pub mod sign;
 
 pub use director::{DjSignDirector, ShowView, SignContext, SitePlan};
-pub use layout::{SIGN_LAYOUT, SignLayout, layout_sign};
+pub use layout::{MAX_SIGN_CHARS, SIGN_LAYOUT, SignLayout, layout_sign};
 pub use material::{LetterMaterial, LetterParams};
 pub(crate) use plugin::step_sign;
 pub use plugin::{DjSignIntro, DjSignPlugin, DjSignPulse, DjSignRes, DjSignSettings};
 pub use rig::{DjSignGlyphs, DjSignRig};
-pub use sign::{DjSign, LetterPose, SignInput};
+pub use sign::{DjSign, LetterPose, Measure, PAD_BOTTOM, PAD_TOP, PAD_X, SignInput};
