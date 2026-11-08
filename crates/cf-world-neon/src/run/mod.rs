@@ -4,7 +4,10 @@
 //! Elle réutilise les cibles de la pré-intro (route, façades, ciel, enseigne, phares, vitesse) ; voir `intro/`.
 
 mod apply;
+pub mod handover;
 mod machine;
+#[cfg(test)]
+mod stages_tests;
 #[cfg(test)]
 mod tests;
 pub mod timeline;

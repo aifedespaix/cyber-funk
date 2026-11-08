@@ -51,7 +51,7 @@ fn start_order_moves_phase_to_running() {
     app.world_mut().write_message(RunOrder::Start);
     run_seconds(&mut app, 2.0);
     assert_eq!(phase(&app), Phase::Starting);
-    run_seconds(&mut app, 17.0);
+    run_seconds(&mut app, 28.0);
     assert_eq!(phase(&app), Phase::Running);
 }
 
@@ -59,7 +59,7 @@ fn start_order_moves_phase_to_running() {
 fn stop_order_returns_to_waiting() {
     let mut app = app();
     app.world_mut().write_message(RunOrder::Start);
-    run_seconds(&mut app, 20.0);
+    run_seconds(&mut app, 31.0);
     app.world_mut().write_message(RunOrder::Stop);
     run_seconds(&mut app, 2.0);
     assert_eq!(phase(&app), Phase::Stopping);
@@ -71,7 +71,7 @@ fn stop_order_returns_to_waiting() {
 fn intro_is_inert_when_sequencer_installed() {
     let mut app = app();
     app.world_mut().write_message(RunOrder::Start);
-    run_seconds(&mut app, 20.0);
+    run_seconds(&mut app, 31.0);
     let status = app.world().resource::<RunStatus>().0;
     assert_eq!(status.phase, Phase::Running);
     assert!(!app.world().resource::<crate::intro::IntroStatus>().0.running);
@@ -83,7 +83,7 @@ fn camera_orders_follow_the_sequence() {
     run_seconds(&mut app, 1.0);
     assert_eq!(app.world().resource::<Seen>().0, vec![ShotOrder::Hold("waiting")]);
     app.world_mut().write_message(RunOrder::Start);
-    run_seconds(&mut app, 20.0);
+    run_seconds(&mut app, 31.0);
     assert_eq!(
         app.world().resource::<Seen>().0,
         vec![ShotOrder::Hold("waiting"), ShotOrder::Release],
@@ -121,7 +121,7 @@ fn music_follows_the_sequence_and_pauses_at_the_end_of_stopping() {
     app.world_mut().write_message(RunOrder::Start);
     run_seconds(&mut app, 2.0);
     assert!(gain(&app) > 0.0 && gain(&app) < 1.0, "la musique monte");
-    run_seconds(&mut app, 20.0);
+    run_seconds(&mut app, 30.0);
     assert_eq!(gain(&app), 1.0);
     assert!(
         app.world().resource::<Commands>().0.is_empty(),

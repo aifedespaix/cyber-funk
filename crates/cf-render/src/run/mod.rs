@@ -5,9 +5,9 @@
 
 use bevy::prelude::*;
 
-/// Part de la séquence de démarrage à partir de laquelle le show s'arme (13 s sur 18 s) : avant, la route et les
-/// immeubles se construisent sans qu'aucun cue ne parte.
-pub const ARM_AT: f32 = 13.0 / 18.0;
+/// Part de la séquence de démarrage à partir de laquelle le show s'arme (12 s sur 29 s, au début du portique) : avant,
+/// la voiture se forme et roule sans qu'aucun cue ne parte.
+pub const ARM_AT: f32 = 12.0 / 29.0;
 
 /// Ordre de l'opérateur au monde.
 #[derive(Message, Debug, Clone, Copy, PartialEq, Eq)]

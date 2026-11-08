@@ -83,7 +83,7 @@ impl RunSequencer {
             Phase::Running | Phase::Handover => out(Phase::Running, 1.0, RunStages::RUNNING, None, None),
             Phase::Starting => {
                 self.t_s = (self.t_s + dt_s).min(START_S);
-                let stages = starting_stages(self.t_s);
+                let stages = starting_stages(self.t_s, false);
                 let tracker = IntroStages {
                     windows: stages.windows,
                     ..IntroStages::DONE

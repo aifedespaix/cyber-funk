@@ -3,8 +3,12 @@
 
 use crate::intro::{ramp, speed_cap};
 
-/// Durée de la séquence de démarrage (s).
-pub const START_S: f32 = 18.0;
+/// Durée de la séquence de démarrage (s) : 12 s de voiture, 5 s de portique, 12 s de quartier.
+pub const START_S: f32 = 29.0;
+/// Début du passage sous le portique (s après `Démarrer`).
+pub const GANTRY_START_S: f32 = 12.0;
+/// Fin du passage sous le portique (s après `Démarrer`) : le quartier commence ensuite.
+pub const GANTRY_END_S: f32 = 17.0;
 /// Durée de la séquence d'arrêt (s).
 pub const STOP_S: f32 = 9.0;
 
@@ -46,8 +50,14 @@ pub struct RunStages {
     pub car_presence: f32,
     /// Volume de la musique de la séquence, 0 à 1.
     pub music: f32,
+    /// Le portique : 0 absent, ~0,5 au-dessus de la voiture, 1 replié sous la route.
+    pub gantry: f32,
+    /// Part de glitch du nom sur le portique, 0 stable à 1 plein glitch (passe par le limiteur).
+    pub name_glitch: f32,
     /// La caméra reste sur le plan d'attente.
     pub camera_waiting: bool,
+    /// La caméra tient le plan de passation (les deux voitures).
+    pub camera_handover: bool,
 }
 
 impl RunStages {
@@ -63,7 +73,10 @@ impl RunStages {
         collapse: 0.0,
         car_presence: 0.0,
         music: 0.0,
+        gantry: 0.0,
+        name_glitch: 0.0,
         camera_waiting: true,
+        camera_handover: false,
     };
 
     /// Le show joue : tout est en place, la séquence n'a plus d'effet.
@@ -78,29 +91,46 @@ impl RunStages {
         collapse: 0.0,
         car_presence: 1.0,
         music: 1.0,
+        gantry: 0.0,
+        name_glitch: 0.0,
         camera_waiting: false,
+        camera_handover: false,
     };
 }
 
-fn mix(a: f32, b: f32, t: f32) -> f32 {
+pub(super) fn mix(a: f32, b: f32, t: f32) -> f32 {
     a + (b - a) * t
 }
 
-/// Les étapes `t_s` secondes après `Démarrer`.
+/// Les étapes `t_s` secondes après `Démarrer` : la voiture se forme et roule, passe sous le portique qui annonce le
+/// DJ, puis le quartier se construit. `reduce_motion` supprime le glitch du nom.
 #[must_use]
-pub fn starting_stages(t_s: f32) -> RunStages {
+pub fn starting_stages(t_s: f32, reduce_motion: bool) -> RunStages {
+    let glitch = if reduce_motion {
+        0.0
+    } else {
+        1.0 - ramp(t_s, GANTRY_START_S + 0.5, GANTRY_START_S + 3.5)
+    };
     RunStages {
         road: mix(WAIT_ROAD, 1.0, ramp(t_s, 0.5, 5.0)),
-        lights: ramp(t_s, 1.0, 3.0),
-        build: ramp(t_s, 2.5, 11.0),
-        windows: ramp(t_s, 7.0, 14.0),
-        sky: mix(WAIT_SKY, 1.0, ramp(t_s, 7.0, 14.0)),
-        sign: ramp(t_s, 13.0, 17.5),
-        drive: ramp(t_s, 1.5, 9.0),
+        lights: ramp(t_s, 1.0, 3.5),
+        build: ramp(t_s, GANTRY_END_S, START_S),
+        windows: ramp(t_s, GANTRY_END_S + 3.0, START_S - 1.0),
+        sky: mix(WAIT_SKY, 1.0, ramp(t_s, GANTRY_END_S, START_S - 2.0)),
+        sign: ramp(t_s, GANTRY_START_S + 0.5, GANTRY_START_S + 4.0),
+        drive: ramp(t_s, 1.5, 10.0),
         collapse: 0.0,
-        car_presence: ramp(t_s, 0.0, 2.5),
+        car_presence: ramp(t_s, 0.0, 4.0),
         music: ramp(t_s, 0.0, MUSIC_FADE_IN_S),
-        camera_waiting: t_s < 2.5,
+        // Absent avant le début du passage, replié à la fin ; la voiture passe dessous au milieu (~0,5).
+        gantry: if t_s < GANTRY_START_S - 1.0 {
+            0.0
+        } else {
+            ramp(t_s, GANTRY_START_S - 1.0, GANTRY_END_S + 1.0)
+        },
+        name_glitch: if t_s < GANTRY_START_S { 0.0 } else { glitch },
+        camera_waiting: t_s < 4.0,
+        camera_handover: false,
     }
 }
 
@@ -120,7 +150,10 @@ pub fn stopping_stages(t_s: f32) -> RunStages {
         collapse: if hidden { 0.0 } else { ramp(t_s, 1.0, 6.5) },
         car_presence: 1.0 - ramp(t_s, 5.0, 6.5),
         music: 1.0 - ramp(t_s, 0.0, MUSIC_FADE_OUT_S),
+        gantry: 0.0,
+        name_glitch: 0.0,
         camera_waiting: t_s >= 6.0,
+        camera_handover: false,
     }
 }
 
