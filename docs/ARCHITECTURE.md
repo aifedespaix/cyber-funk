@@ -357,6 +357,23 @@ l'intensité ») au lieu de repartir de zéro.
 
 ---
 
+### 2.8 Démarrage et arrêt du show 3D
+
+`Démarrer` / `Arrêter` (fenêtre opérateur) pilotent une vraie séquence du monde, pas seulement un libellé.
+
+- **Contrat** (`cf-render::run`) : `RunOrder::{Start, Stop}` (message de l'opérateur) et `RunPhase` (`Waiting | Starting |
+  Running | Stopping` + avancement), écrite par le monde seul. Sans séquenceur la phase reste `Running` : exemples, outils
+  et tests ne changent pas. `RunSequenced` indique à l'opérateur qu'un monde pilote la séquence.
+- **Séquenceur** (`cf-world-neon::run`) : machine pure `RunSequencer` + frise `timeline.rs` (toutes les durées : 18 s au
+  démarrage, 9 s à l'arrêt). `drive_run` applique les étapes aux cibles de la pré-intro (route, façades, ciel, enseigne,
+  phares, vitesse), à `FacadeLook.collapse` (chute désynchronisée des tours, `facade_collapse.wesl`), à
+  `CarControls.presence` (effet télé), au plan d'attente (`cf-cinema` `waiting`, imposé par `ShotOrder`) et au gain
+  audio (`AudioSequenceGain`). La pré-intro de niveau 0 s'efface devant lui.
+- **Show armé** : `run_show` ne tourne qu'à partir du point d'armement du démarrage (`ARM_AT`) et pendant l'arrêt.
+- **Annonce du DJ** : jamais en texte plein écran, seulement dans la simulation (enseigne néon, panneaux du monde).
+- Règles : la voiture n'est jamais créée ni masquée (pipelines chauds, règle 8) ; les tours rétrécissent autour de leur
+  base enfouie (`-BASE_DEPTH_M`) ; aucun flash propre à la séquence (règle 7).
+
 ## 3. Plan d'action
 
 Chaque jalon se termine par une démo exécutable, `cargo fmt`, `cargo clippy -D warnings` et `cargo test` au vert.
