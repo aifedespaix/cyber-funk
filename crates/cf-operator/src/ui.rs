@@ -271,10 +271,8 @@ fn live_tab(
         }
         DjColumnEvent::None => {}
     }
-    if press {
-        if let Some(order) = cockpit.run.press(now_s) {
-            cockpit.run_orders.write(order);
-        }
+    if press && let Some(order) = cockpit.run.press(now_s) {
+        cockpit.run_orders.write(order);
     }
     if noir {
         cockpit.orders.0.push(Action::Blackout(Switch::Toggle));

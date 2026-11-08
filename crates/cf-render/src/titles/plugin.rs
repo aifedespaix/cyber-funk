@@ -163,12 +163,11 @@ fn listen(
 ) {
     let bpm = features.and_then(|f| f.0.bpm);
     for message in messages.read() {
-        match &message.0 {
-            ShowEvent::Title(text) => active.show(TitleKind::Drop, text.to_string(), None, bpm),
-            // Le nom du DJ ne s'affiche jamais en texte à l'écran : il vit dans la simulation (enseigne néon, panneaux
-            // du monde). Voir `docs/superpowers/specs/2026-11-08-sequence-demarrage-arret-design.md`, §8.
-            ShowEvent::Handover { .. } | ShowEvent::ShowDj { .. } => {}
-            _ => {}
+        // Seuls les titres de drop s'écrivent à l'écran. `Handover` et `ShowDj` n'affichent rien : le nom du DJ ne s'écrit
+        // jamais en texte plein écran, il vit dans la simulation (enseigne néon, panneaux du monde). Voir
+        // `docs/superpowers/specs/2026-11-08-sequence-demarrage-arret-design.md`, §8.
+        if let ShowEvent::Title(text) = &message.0 {
+            active.show(TitleKind::Drop, text.to_string(), None, bpm);
         }
     }
     // Le niveau n'est pas un message : on regarde l'état. Le premier niveau vu n'annonce rien (ouverture, reprise).

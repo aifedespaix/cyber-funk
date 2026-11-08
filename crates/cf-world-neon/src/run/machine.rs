@@ -206,6 +206,7 @@ mod tests {
     }
 
     #[test]
+    #[allow(clippy::float_cmp)] // Constantes exactes de la table du spec.
     fn waiting_stages_match_spec_table() {
         let w = RunStages::WAITING;
         assert!((w.road - 0.25).abs() < f32::EPSILON && (w.sky - 0.3).abs() < f32::EPSILON);
@@ -214,6 +215,7 @@ mod tests {
     }
 
     #[test]
+    #[allow(clippy::float_cmp)] // Constantes exactes.
     fn running_stages_are_all_in_place() {
         let r = RunStages::RUNNING;
         assert!(r.road == 1.0 && r.build == 1.0 && r.sign == 1.0 && r.car_presence == 1.0 && r.collapse == 0.0);

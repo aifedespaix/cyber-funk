@@ -78,7 +78,8 @@ fn un_titre_de_drop_pose_un_carton_puis_s_efface() {
 }
 
 #[test]
-fn la_passation_annonce_le_dj_qui_arrive() {
+fn la_passation_n_ecrit_aucun_texte_a_l_ecran() {
+    // Le nom du DJ vit dans la simulation (enseigne néon, panneaux du monde), jamais en carton plein écran.
     let mut app = app();
     drive(&mut app, 2);
     app.world_mut().write_message(ShowEventMessage(ShowEvent::Handover {
@@ -87,10 +88,9 @@ fn la_passation_annonce_le_dj_qui_arrive() {
         fade_s: 4.0,
     }));
     drive(&mut app, 2);
-    assert_eq!(
-        card(&app),
-        Some((TitleKind::Dj, "Nova".to_owned(), Some("Aux platines".to_owned())))
-    );
+    assert_eq!(card(&app), None);
+    let texts = app.world_mut().query::<&Text2d>().iter(app.world()).count();
+    assert_eq!(texts, 0, "aucun texte à l'écran");
 }
 
 #[test]

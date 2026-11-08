@@ -81,10 +81,11 @@ fn drive_run(
     let kick = features.is_some_and(|f| f.0.kick);
     let out = sequencer.0.update(order, time.delta_secs(), kick);
     // Chaque `Démarrer` repart d'un show neuf : le chef du spectacle, l'horloge et la piste de démo sont remis à zéro.
-    if before == Phase::Waiting && out.phase == Phase::Starting {
-        if let Some(mut sim) = sim {
-            sim.request_reset();
-        }
+    if before == Phase::Waiting
+        && out.phase == Phase::Starting
+        && let Some(mut sim) = sim
+    {
+        sim.request_reset();
     }
     // La phase publiée est celle que voit l'opérateur : à la dernière image d'une séquence, déjà la suivante.
     let published = RunPhase {
