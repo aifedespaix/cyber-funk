@@ -73,6 +73,7 @@ pub(super) fn drive_pilot(
         brake: frame.brake as f32,
         lit: controls.lit,
         light_scale: controls.light_scale,
+        presence: controls.presence,
         hover: frame.animation.hover_amount,
         bounce_m: frame.animation.bounce,
         wet: controls.wet,

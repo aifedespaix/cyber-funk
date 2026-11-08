@@ -118,6 +118,7 @@ fn apply(out: &RunOutput, targets: &mut Targets, owned: &mut Owned) {
     }
     if let Some(c) = targets.controls.as_deref_mut() {
         set(&mut c.light_scale, s.lights);
+        set(&mut c.presence, s.car_presence);
     }
     if let Some(p) = targets.pilot.as_deref_mut() {
         set(&mut p.speed_cap_mps, out.speed_cap_mps.map(f64::from));

@@ -44,6 +44,9 @@ pub struct CarControls {
     pub lit: Option<LinearRgba>,
     /// Part des phares allumée, 0 à 1 (`setLightLevel` de Sillage) : la pré-intro les allume avant le départ. 1 : normal.
     pub light_scale: f32,
+    /// Présence de la voiture, 0 (éteinte et repliée, invisible) à 1 (pleine) : effet « vieille télé » au démarrage et à
+    /// l'arrêt du show (voir `presence.rs`). 1 : normal.
+    pub presence: f32,
     /// Progression du déploiement du mode volant, 0 (au sol) à 1 (en vol) : bascule les roues et allume leurs répulseurs
     /// (voir `hover.rs`). Écrite par le pilote (`hover_amount`).
     pub hover: f32,
@@ -60,6 +63,7 @@ impl Default for CarControls {
             brake: 0.0,
             lit: None,
             light_scale: 1.0,
+            presence: 1.0,
             hover: 0.0,
             bounce_m: 0.0,
             wet: 0.0,

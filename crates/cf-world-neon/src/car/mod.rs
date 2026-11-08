@@ -32,6 +32,7 @@ pub mod model;
 pub mod motion;
 pub mod paint;
 pub mod plate;
+pub mod presence;
 pub mod rig;
 pub mod safety;
 pub mod screens;
@@ -162,6 +163,7 @@ impl Plugin for CarPlugin {
                     switch::switch_car,
                     crate::rider::driver::attach_driver,
                     systems::drive_car,
+                    presence::apply_presence,
                     hover::animate_hover,
                     crate::rider::driver::animate_driver,
                     systems::advance_look,
