@@ -141,7 +141,7 @@ impl PreIntro {
     }
 
     /// Le front avance, par à-coups sur les kicks : derrière lui tout est allumé, devant tout est éteint.
-    fn front(&mut self, stages: &IntroStages, input: &IntroInput) -> Option<WindowFront> {
+    pub(crate) fn front(&mut self, stages: &IntroStages, input: &IntroInput) -> Option<WindowFront> {
         if stages.windows >= 1.0 {
             self.reach_m = 0.0;
             self.surge_target_m = 0.0;
