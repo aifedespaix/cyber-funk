@@ -18,6 +18,7 @@ use cf_show::director::ShowDirector;
 use cf_show::drop::DropTitles;
 use cf_show::load::{LoadedShow, LookLibrary};
 use cf_world_neon::djsign::{DjSignGlyphs, DjSignIntro, DjSignPlugin, DjSignRes, DjSignRig};
+use cf_world_neon::graffiti::HoloPlugin;
 use cf_world_neon::{FacadePlugin, NeonWorld, RoadLook};
 use rand_pcg::Pcg32;
 
@@ -61,6 +62,7 @@ fn app_with(with_show: bool) -> App {
         PalettePlugin,
         WorldPlugin::new(NeonWorld::default()),
         FacadePlugin,
+        HoloPlugin,
         DjSignPlugin::always(),
     ))
     .init_asset::<Image>()

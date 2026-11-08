@@ -48,13 +48,16 @@ impl Plugin for HoloPlugin {
         } else {
             app.init_asset::<HoloMaterial>();
         }
-        app.add_systems(
-            Update,
-            drive_holo
-                .in_set(CfSet::Present)
-                .run_if(resource_exists::<ProjectorPool>)
-                .run_if(resource_exists::<ScenePalette>),
-        );
+        // `drive_holo` lit ces deux ressources : le plugin ne doit pas dépendre de `NeonWorldPlugin` pour les trouver.
+        app.init_resource::<super::projector::ProjectorState>()
+            .init_resource::<super::GraffitiQuality>()
+            .add_systems(
+                Update,
+                drive_holo
+                    .in_set(CfSet::Present)
+                    .run_if(resource_exists::<ProjectorPool>)
+                    .run_if(resource_exists::<ScenePalette>),
+            );
     }
 }
 
