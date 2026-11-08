@@ -158,20 +158,18 @@ fn draw_chips(ui: &mut egui::Ui, column: EventCategory, view: &mut DebugView<'_>
     let active = view.active.unwrap_or(&empty);
     let DebugState { plan, gestures, .. } = &mut *view.state;
     let mut any = false;
-    ui.horizontal_wrapped(|ui| {
-        ui.spacing_mut().item_spacing = egui::vec2(4.0, 4.0);
-        for event in plan.column(catalog, column) {
-            any = true;
-            let run = chip_run(event.id, active, view.now_s);
-            match draw_chip(ui, event, pinned.contains(event.id), run, column_color(column)) {
-                Some(ChipClick::Fire) => {
-                    fire(view.orders, event);
-                }
-                Some(ChipClick::TogglePin) => gestures.push(Gesture::TogglePin(event.id)),
-                None => {}
+    ui.spacing_mut().item_spacing = egui::vec2(4.0, 4.0);
+    for event in plan.column(catalog, column) {
+        any = true;
+        let run = chip_run(event.id, active, view.now_s);
+        match draw_chip(ui, event, pinned.contains(event.id), run, column_color(column)) {
+            Some(ChipClick::Fire) => {
+                fire(view.orders, event);
             }
+            Some(ChipClick::TogglePin) => gestures.push(Gesture::TogglePin(event.id)),
+            None => {}
         }
-    });
+    }
     if !any {
         ui.weak("Aucun événement (voir la recherche).");
     }

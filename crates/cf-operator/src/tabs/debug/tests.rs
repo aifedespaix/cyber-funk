@@ -469,6 +469,7 @@ fn the_tab_draws_headless_and_a_frame_without_click_does_nothing() {
                 district: None,
                 library: None,
                 cars: None,
+                director: None,
                 tuning: None,
                 orders: &mut orders,
             };

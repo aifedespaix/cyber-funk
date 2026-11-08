@@ -1,4 +1,4 @@
-//! Les puces de lancement : un clic lance l'événement, un clic droit l'épingle en tête de sa colonne.
+//! Les lignes de lancement (« puces ») : un clic lance l'événement, un clic droit l'épingle en tête de sa colonne.
 //!
 //! Un clic écrit `Action::Trigger(id)`, le chemin du MIDI : le limiteur de flashs reste aux commandes. Pendant que
 //! l'événement tourne, la puce se remplit selon son avancement (la plus avancée de ses instances) et affiche `×N` quand
@@ -10,13 +10,11 @@ use cf_control::{Action, TriggerId};
 use cf_render::{ActiveEvents, WorldEvent};
 
 use super::columns::runs_as;
+use super::rows::{Row, draw_row};
 
 /// Au plus autant d'ordres par image (puces, plans, pad) : une rafale de clics ne remplit jamais la file du chef du
 /// spectacle.
 pub(crate) const MAX_ORDERS_PER_FRAME: usize = 8;
-
-/// Hauteur minimale d'une puce (px) : cible cliquable d'au moins 24 px.
-const CHIP_HEIGHT: f32 = 24.0;
 
 /// Ajoute un ordre. `false` quand la file de l'image est pleine : le clic est perdu sans bruit.
 pub(crate) fn push_order(orders: &mut Vec<Action>, action: Action) -> bool {
@@ -74,7 +72,7 @@ pub(crate) enum ChipClick {
     TogglePin,
 }
 
-/// Dessine une puce. Le fond (et son remplissage) est peint sous le bouton, laissé transparent.
+/// Dessine l'événement comme une ligne de la liste : nom (avec `★` et `×N`), note dessous, remplissage d'avancement.
 pub(crate) fn draw_chip(
     ui: &mut egui::Ui,
     event: &WorldEvent,
@@ -82,34 +80,16 @@ pub(crate) fn draw_chip(
     run: ChipRun,
     color: egui::Color32,
 ) -> Option<ChipClick> {
-    // Deux places réservées sous le bouton (fond, puis remplissage) : rien à allouer par image.
-    let background = ui.painter().add(egui::Shape::Noop);
-    let fill = ui.painter().add(egui::Shape::Noop);
-    let text = egui::RichText::new(chip_text(event.label, pinned, run)).size(12.0);
-    let stroke = if run.count > 0 {
-        egui::Stroke::new(1.0, color)
-    } else {
-        ui.visuals().widgets.inactive.bg_stroke
-    };
-    let response = ui.add(
-        egui::Button::new(text)
-            .fill(egui::Color32::TRANSPARENT)
-            .stroke(stroke)
-            .min_size(egui::vec2(0.0, CHIP_HEIGHT)),
+    let title = chip_text(event.label, pinned, run);
+    let response = draw_row(
+        ui,
+        &Row {
+            detail: event.note,
+            progress: run.progress,
+            running: run.count > 0,
+            ..Row::new(&title, color)
+        },
     );
-    let rect = response.rect;
-    let radius = ui.visuals().widgets.inactive.corner_radius;
-    let base = ui.visuals().widgets.inactive.weak_bg_fill;
-    ui.painter()
-        .set(background, egui::Shape::rect_filled(rect, radius, base));
-    if let Some(progress) = run.progress {
-        let mut filled = rect;
-        filled.set_width(rect.width() * progress.clamp(0.0, 1.0));
-        ui.painter().set(
-            fill,
-            egui::Shape::rect_filled(filled, radius, color.gamma_multiply(0.35)),
-        );
-    }
     let response = response.on_hover_ui(|ui| {
         if !event.note.is_empty() {
             ui.label(event.note);

@@ -10,7 +10,10 @@ use bevy_egui::egui;
 use cf_render::{DISTRICT_HISTORY, DistrictOrder, DistrictState, GradeLibrary};
 use cf_show::district::{DistrictId, DistrictKind, TransitionKind};
 
+use super::columns::column_color;
+use super::rows::{Row, draw_row};
 use crate::OperatorMode;
+use cf_render::EventCategory;
 
 /// Les sept transitions, dans l'ordre de la liste déroulante.
 pub(crate) const TRANSITIONS: [TransitionKind; 7] = [
@@ -25,6 +28,9 @@ pub(crate) const TRANSITIONS: [TransitionKind; 7] = [
 
 /// Bornes (s) du curseur de durée, les mêmes que celles que le monde applique à `SetFadeSeconds`.
 const FADE_RANGE_S: std::ops::RangeInclusive<f32> = 1.0..=10.0;
+
+/// Teinte de la colonne des quartiers.
+const DISTRICT_COLOR: egui::Color32 = column_color(EventCategory::District);
 
 /// Mention affichée quand la transition choisie n'existe pas encore.
 const FALLBACK_NOTE: &str = "(repli : dégradé)";
@@ -138,47 +144,6 @@ pub(super) fn draw_district_column(
     };
     draw_status(ui, state);
 
-    ui.small("DESTINATION");
-    ui.horizontal_wrapped(|ui| {
-        for kind in DistrictKind::ALL {
-            ui.selectable_value(&mut pick.kind, kind, kind.label());
-        }
-    });
-    let count = variant_count(library, pick.kind);
-    pick.clamp_variant(count);
-    ui.horizontal(|ui| {
-        ui.label("Variante");
-        let mut shown = u16::from(pick.variant) + 1;
-        ui.add(
-            egui::DragValue::new(&mut shown)
-                .range(1..=u16::from(count))
-                .suffix(format!(" / {count}")),
-        );
-        pick.variant = u8::try_from(shown.saturating_sub(1)).unwrap_or(0);
-        pick.clamp_variant(count);
-    });
-
-    ui.small("TRANSITION");
-    ui.horizontal_wrapped(|ui| {
-        for transition in TRANSITIONS {
-            let mut text = egui::RichText::new(transition.label());
-            if !transition.implemented() {
-                text = text.strikethrough();
-            }
-            let response = ui.selectable_value(&mut pick.transition, transition, text);
-            if let Some(tip) = transition_tooltip(transition) {
-                response.on_hover_text(tip);
-            }
-        }
-    });
-    if let Some(note) = fallback_note(pick.transition) {
-        ui.weak(note);
-    }
-
-    let mut fade = state.fade_s;
-    ui.add(egui::Slider::new(&mut fade, FADE_RANGE_S).text("Durée").suffix(" s"));
-    gestures.fade_s = fresh_fade(state.fade_s, fade);
-
     ui.horizontal_wrapped(|ui| {
         gestures.force = ui
             .button("→ Changer de quartier")
@@ -195,6 +160,57 @@ pub(super) fn draw_district_column(
             gestures.frozen = Some(!state.frozen);
         }
     });
+    let mut fade = state.fade_s;
+    ui.add(egui::Slider::new(&mut fade, FADE_RANGE_S).text("Durée").suffix(" s"));
+    gestures.fade_s = fresh_fade(state.fade_s, fade);
+
+    ui.spacing_mut().item_spacing = egui::vec2(4.0, 4.0);
+    ui.small("DESTINATION");
+    for kind in DistrictKind::ALL {
+        for variant in 0..variant_count(library, kind) {
+            let id = DistrictId { kind, variant };
+            let label = district_label(id);
+            let badge = if id == state.current {
+                "courant"
+            } else if state.target == Some(id) {
+                "en route"
+            } else {
+                ""
+            };
+            let selected = pick.kind == kind && pick.variant == variant;
+            let row = Row {
+                badge,
+                selected,
+                running: !badge.is_empty(),
+                ..Row::new(&label, DISTRICT_COLOR)
+            };
+            if draw_row(ui, &row).clicked() {
+                pick.kind = kind;
+                pick.variant = variant;
+            }
+        }
+    }
+    // Un type qui a moins de variantes que le précédent choix : la sélection retombe dans la liste.
+    let count = variant_count(library, pick.kind);
+    pick.clamp_variant(count);
+
+    ui.small("TRANSITION");
+    for transition in TRANSITIONS {
+        let row = Row {
+            detail: fallback_note(transition).unwrap_or(""),
+            selected: pick.transition == transition,
+            strike: !transition.implemented(),
+            ..Row::new(transition.label(), DISTRICT_COLOR)
+        };
+        let response = draw_row(ui, &row);
+        let clicked = response.clicked();
+        if let Some(tip) = transition_tooltip(transition) {
+            response.on_hover_text(tip);
+        }
+        if clicked {
+            pick.transition = transition;
+        }
+    }
     gestures
 }
 

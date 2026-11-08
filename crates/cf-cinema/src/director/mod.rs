@@ -9,6 +9,7 @@ mod cuts;
 #[cfg(test)]
 mod cuts_tests;
 mod guard;
+mod hold;
 mod kind;
 mod launch;
 #[cfg(test)]
@@ -34,6 +35,7 @@ use crate::world::CinemaFrame;
 
 pub use crate::choreo::MAX_CUTS_PER_SECOND;
 pub use guard::{CAMERA_RADIUS, MAX_AHEAD, MAX_BEHIND, MAX_HEIGHT, WIDE_AHEAD, WIDE_BEHIND, WIDE_HEIGHT};
+pub use hold::ShotInfo;
 pub use stats::DirectorStats;
 
 /// Un plan et sa pose : la pose reste attachée à son plan quand les rôles (sortant / entrant) s'échangent.
@@ -79,6 +81,8 @@ pub struct CinemaDirector {
     poisoned: bool,
     /// Un plan demande un astre au monde (`launchMeteor`).
     meteor_launches: u32,
+    /// Plan imposé par l'opérateur.
+    hold: hold::Hold,
 }
 
 impl std::fmt::Debug for CinemaDirector {
@@ -118,6 +122,7 @@ impl CinemaDirector {
             limiter: CutLimiter::default(),
             poisoned: false,
             meteor_launches: 0,
+            hold: hold::Hold::default(),
         }
     }
 
@@ -165,6 +170,7 @@ impl CinemaDirector {
 
     /// Comme [`Self::start`], avec le chef du spectacle (portes, fraîcheur commune, ordres).
     pub fn start_with(&mut self, from: &CameraPose, frame: &CinemaFrame<'_>, show: &mut dyn ShowSide) {
+        self.hold = hold::Hold::default();
         self.cues.reset();
         self.sync.reset();
         self.cutter.reset(show);
@@ -274,7 +280,12 @@ impl CinemaDirector {
         self.current.steady(&mut self.limiter, &mut self.stats, frame);
         self.out = self.current.pose;
         // À l'arrêt de la musique, on garde le plan : seule la fin naturelle d'un plan le remplace.
-        let decision = if !alive {
+        let held = self.hold_decision(alive);
+        let decision = if let hold::HoldCall::Cut(decision) = held {
+            Some(decision)
+        } else if held == hold::HoldCall::Keep {
+            None
+        } else if !alive {
             tracing::debug!(
                 target: "cinema",
                 shot = self.shot_id(),

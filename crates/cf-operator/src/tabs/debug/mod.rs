@@ -21,6 +21,7 @@ mod grid;
 mod lane;
 mod pad;
 mod persist;
+mod rows;
 #[cfg(test)]
 mod tests;
 #[cfg(test)]
@@ -32,6 +33,7 @@ use std::collections::BTreeSet;
 use bevy::ecs::system::SystemParam;
 use bevy::prelude::*;
 use bevy_egui::egui;
+use cf_cinema::{CinemaDirector, ShotOrder};
 use cf_control::Action;
 use cf_render::{
     ActiveEvents, ActiveId, CarSelection, DistrictGradeState, DistrictOrder, DistrictState, EventCategory,
@@ -89,6 +91,8 @@ pub(crate) enum Gesture {
     SectionOpen(Section, bool),
     /// Dépliage de « Autres ».
     OthersOpen(bool),
+    /// Ordre au réalisateur (plan caméra imposé, ou retour à l'auto).
+    Shot(ShotOrder),
 }
 
 /// Ce que le dessin lit. Tout est facultatif sauf l'état et la file d'ordres : un plugin absent (monde, réglages) se dit
@@ -107,6 +111,8 @@ pub(crate) struct DebugView<'a> {
     pub district: Option<&'a DistrictState>,
     pub library: Option<&'a GradeLibrary>,
     pub cars: Option<&'a CarSelection>,
+    /// Le réalisateur caméra (liste des plans).
+    pub director: Option<&'a CinemaDirector>,
     pub tuning: Option<FacadeTuning>,
     /// Ordres de l'image (`LiveOrders`).
     pub orders: &'a mut Vec<Action>,
@@ -191,7 +197,7 @@ pub(crate) fn apply_gestures(
                     set_family_open(&mut settings.value, OTHERS_KEY, open);
                 }
             }
-            Gesture::District(_) | Gesture::Tuning(_) | Gesture::Car(_) => return true,
+            Gesture::District(_) | Gesture::Tuning(_) | Gesture::Car(_) | Gesture::Shot(_) => return true,
         }
         false
     });
@@ -248,6 +254,8 @@ pub(crate) struct DebugParams<'w> {
     districts: MessageWriter<'w, DistrictOrder>,
     tuning: Option<ResMut<'w, FacadeTuning>>,
     cars: Option<ResMut<'w, CarSelection>>,
+    director: Option<Res<'w, CinemaDirector>>,
+    shots: MessageWriter<'w, ShotOrder>,
 }
 
 /// Les ressources partagées avec la coque.
@@ -275,6 +283,8 @@ pub(crate) fn show(
         districts,
         tuning,
         cars,
+        director,
+        shots,
     } = params;
     egui::CentralPanel::default().show(root, |ui| {
         let mut view = DebugView {
@@ -288,6 +298,7 @@ pub(crate) fn show(
             district: district.as_deref(),
             library: grades.as_deref().map(DistrictGradeState::library),
             cars: cars.as_deref(),
+            director: director.as_deref(),
             tuning: tuning.as_deref().copied(),
             orders,
         };
@@ -297,6 +308,13 @@ pub(crate) fn show(
         return;
     }
     let gestures = &mut state.gestures;
+    gestures.retain(|gesture| {
+        if let Gesture::Shot(order) = gesture {
+            shots.write(*order);
+            return false;
+        }
+        true
+    });
     apply_gestures(gestures, shared.automation, shared.active, settings);
     apply_world_gestures(gestures, districts, tuning, cars, settings);
 }

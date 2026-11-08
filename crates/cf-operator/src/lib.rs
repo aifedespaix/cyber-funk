@@ -56,7 +56,8 @@ impl Plugin for OperatorPlugin {
         // L'onglet Debug écrit des ordres de quartier ; le monde enregistre le même message (idempotent), et sans monde
         // ils restent simplement sans lecteur.
         app.init_resource::<tabs::debug::DebugState>()
-            .add_message::<cf_render::DistrictOrder>();
+            .add_message::<cf_render::DistrictOrder>()
+            .add_message::<cf_cinema::ShotOrder>();
         // La carte « Écran de sortie » lit la liste des écrans et écrit des ordres ; le projecteur (binaire) enregistre
         // les mêmes (idempotent). Sans lui la liste reste vide et les ordres sans lecteur.
         app.init_resource::<cf_render::ScreenList>()

@@ -1,9 +1,8 @@
 //! Le dock à droite de la grille : plans caméra, pad voiture, « Autres » (familles sans colonne) et « Réglages monde »
 //! (façades et choix de la voiture, repris de l'ancienne fenêtre « Debug monde »).
 //!
-//! Plans caméra : le réalisateur (`cf-cinema`) n'offre aujourd'hui que deux entrées, « Plan suivant »
-//! (`Action::SkipShot`, touche `N`) et « Enseigne DJ » (`Action::ShowDj`, touche `T`). Choisir un plan précis ou sa
-//! transition d'entrée n'a pas de point d'entrée : l'interface le dit au lieu d'en inventer un.
+//! Plans caméra : « Plan suivant » (`Action::SkipShot`, touche `N`), « Enseigne DJ » (`Action::ShowDj`, touche `T`) et
+//! la liste du catalogue du réalisateur (message `ShotOrder`, qui coupe sur le plan choisi et le garde).
 
 use bevy_egui::egui;
 use cf_control::Action;
@@ -13,7 +12,9 @@ use cf_show::persist::{AppSettings, CarChoice};
 use super::chip::{ChipClick, chip_run, draw_chip, fire, push_order};
 use super::pad::draw_pad;
 use super::persist::{family_is_open, section_is_open};
+use super::rows::{Row, draw_row};
 use super::{DebugState, DebugView, Gesture};
+use cf_cinema::ShotOrder;
 use cf_render::ActiveEvents;
 
 /// Largeur du dock (px), celle de la maquette.
@@ -76,7 +77,7 @@ pub(crate) fn draw_dock(ui: &mut egui::Ui, view: &mut DebugView<'_>) {
         .show(ui, |ui| {
             egui::Frame::group(ui.style()).show(ui, |ui| {
                 ui.set_width(ui.available_width());
-                draw_cameras(ui, view.orders);
+                draw_cameras(ui, view);
             });
             egui::Frame::group(ui.style()).show(ui, |ui| {
                 ui.set_width(ui.available_width());
@@ -88,24 +89,66 @@ pub(crate) fn draw_dock(ui: &mut egui::Ui, view: &mut DebugView<'_>) {
         });
 }
 
-fn draw_cameras(ui: &mut egui::Ui, orders: &mut Vec<Action>) {
+/// Hauteur de la liste des plans (px) : elle défile seule, le dock garde la place pour le reste.
+const SHOT_LIST_HEIGHT: f32 = 260.0;
+/// Teinte des plans caméra.
+const SHOT_COLOR: egui::Color32 = egui::Color32::from_rgb(0x27, 0xe6, 0xff);
+
+/// Plans caméra : « Auto » puis tous les plans du catalogue. Choisir un plan y coupe et le garde ; « Auto » rend la
+/// main au réalisateur. Aucun mode n'est touché : le mode manuel reste ce qu'il était.
+fn draw_cameras(ui: &mut egui::Ui, view: &mut DebugView<'_>) {
     ui.strong("Plans caméra");
     let [skip, dj] = camera_actions();
-    if ui
-        .button("Plan suivant")
-        .on_hover_text("Le réalisateur coupe vers un autre plan (comme la touche N).")
-        .clicked()
-    {
-        push_order(orders, skip);
-    }
-    if ui
-        .button("Enseigne DJ")
-        .on_hover_text("Le réalisateur montre l'enseigne du DJ (comme la touche T).")
-        .clicked()
-    {
-        push_order(orders, dj);
-    }
-    ui.weak("Choisir un plan / sa transition : pas encore pilotable");
+    ui.horizontal_wrapped(|ui| {
+        if ui
+            .button("Plan suivant")
+            .on_hover_text("Le réalisateur coupe vers un autre plan (comme la touche N).")
+            .clicked()
+        {
+            push_order(view.orders, skip);
+        }
+        if ui
+            .button("Enseigne DJ")
+            .on_hover_text("Le réalisateur montre l'enseigne du DJ (comme la touche T).")
+            .clicked()
+        {
+            push_order(view.orders, dj);
+        }
+    });
+    let Some(director) = view.director else {
+        ui.weak("Réalisateur absent (monde absent).");
+        return;
+    };
+    let held = director.held_shot();
+    let on_air = director.shot_id();
+    ui.spacing_mut().item_spacing = egui::vec2(4.0, 4.0);
+    egui::ScrollArea::vertical()
+        .id_salt("debug-shots")
+        .max_height(SHOT_LIST_HEIGHT)
+        .auto_shrink([false, true])
+        .show(ui, |ui| {
+            let auto = Row {
+                detail: "Le réalisateur enchaîne les plans",
+                selected: held.is_none(),
+                ..Row::new("Auto", SHOT_COLOR)
+            };
+            if draw_row(ui, &auto).clicked() && held.is_some() {
+                view.state.gestures.push(Gesture::Shot(ShotOrder::Release));
+            }
+            for info in director.shot_infos() {
+                let detail = format!("{:.0} à {:.0} s", info.min_s, info.max_s);
+                let row = Row {
+                    detail: &detail,
+                    badge: if on_air == Some(info.id) { "à l'antenne" } else { "" },
+                    selected: held == Some(info.id),
+                    running: on_air == Some(info.id),
+                    ..Row::new(info.id, SHOT_COLOR)
+                };
+                if draw_row(ui, &row).clicked() {
+                    view.state.gestures.push(Gesture::Shot(ShotOrder::Hold(info.id)));
+                }
+            }
+        });
 }
 
 /// Les événements d'une famille sans colonne (normalement aucun : le test du catalogue l'interdit).
@@ -126,19 +169,18 @@ fn draw_others(ui: &mut egui::Ui, view: &mut DebugView<'_>) {
         .id_salt("debug-others")
         .default_open(remembered)
         .show(ui, |ui| {
-            ui.horizontal_wrapped(|ui| {
-                for event in plan.others(catalog) {
-                    let run = chip_run(event.id, active, view.now_s);
-                    let color = ui.visuals().selection.bg_fill;
-                    match draw_chip(ui, event, pinned.contains(event.id), run, color) {
-                        Some(ChipClick::Fire) => {
-                            fire(view.orders, event);
-                        }
-                        Some(ChipClick::TogglePin) => gestures.push(Gesture::TogglePin(event.id)),
-                        None => {}
+            ui.spacing_mut().item_spacing = egui::vec2(4.0, 4.0);
+            for event in plan.others(catalog) {
+                let run = chip_run(event.id, active, view.now_s);
+                let color = ui.visuals().selection.bg_fill;
+                match draw_chip(ui, event, pinned.contains(event.id), run, color) {
+                    Some(ChipClick::Fire) => {
+                        fire(view.orders, event);
                     }
+                    Some(ChipClick::TogglePin) => gestures.push(Gesture::TogglePin(event.id)),
+                    None => {}
                 }
-            });
+            }
         });
     let open = response.openness > 0.5;
     if view.settings.is_some() && open != remembered {

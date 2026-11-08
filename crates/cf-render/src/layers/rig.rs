@@ -244,6 +244,7 @@ fn resize_targets(
     window: Query<&Window, With<PrimaryWindow>>,
     scale: Option<Res<RenderScale>>,
     mut images: ResMut<Assets<Image>>,
+    mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
     // Fenêtre absente ou réduite : on garde la taille des textures telle quelle plutôt que d'en créer de vides.
     let output = window
@@ -267,6 +268,11 @@ fn resize_targets(
                 depth_or_array_layers: 1,
             });
         }
+    }
+    // Bevy recrée la texture GPU au redimensionnement, mais un matériau n'est re-préparé que si lui-même est marqué
+    // modifié : sans cela, le compositeur garde la vue de l'ancienne texture et l'image se fige à l'écran.
+    for handle in &targets.materials {
+        let _ = materials.get_mut(handle);
     }
     targets.size = output;
     targets.render_size = render;

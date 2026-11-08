@@ -47,9 +47,9 @@ pub mod world;
 
 pub use choreo::{Call, Choreography, NoShow, ShowSide};
 pub use director::{
-    CAMERA_RADIUS, CinemaDirector, DirectorStats, MAX_AHEAD, MAX_BEHIND, MAX_CUTS_PER_SECOND, MAX_HEIGHT,
+    CAMERA_RADIUS, CinemaDirector, DirectorStats, MAX_AHEAD, MAX_BEHIND, MAX_CUTS_PER_SECOND, MAX_HEIGHT, ShotInfo,
 };
-pub use plugin::{CinemaPlugin, CinemaSet, CinemaWorldPlugin, DEFAULT_SEED};
+pub use plugin::{CinemaPlugin, CinemaSet, CinemaWorldPlugin, DEFAULT_SEED, ShotOrder};
 pub use shot::{Shot, ShotSpec};
 pub use types::{
     BeatView, Cabin, CarAnimation, Cue, CueKind, FlightPhase, MeteorBlast, RingPlanet, Section, ShotTier, ShowView,

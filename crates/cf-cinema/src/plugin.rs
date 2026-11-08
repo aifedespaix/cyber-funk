@@ -21,6 +21,16 @@ use crate::world::{CinemaFrame, CinemaWorld, LaunchMeteor, Obstacles};
 /// Graine par défaut du réalisateur (rejouable) ; l'application peut en tirer une autre par soirée.
 pub const DEFAULT_SEED: u32 = 0x5111_a6e0;
 
+/// Ordre de l'opérateur au réalisateur (onglet Debug). Ne touche à aucun mode : le montage automatique reprend
+/// seulement avec [`ShotOrder::Release`].
+#[derive(Message, Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ShotOrder {
+    /// Couper sur ce plan (identifiant du catalogue) et le garder.
+    Hold(&'static str),
+    /// Rendre la main au montage automatique.
+    Release,
+}
+
 /// Étape du réalisateur dans `CfSet::Direct` : les systèmes qui lisent la pose de l'image se placent après.
 #[derive(SystemSet, Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct CinemaSet;
@@ -50,6 +60,7 @@ impl Plugin for CinemaPlugin {
             .init_resource::<CinemaWorld>()
             .init_resource::<CameraPose>()
             .add_message::<LaunchMeteor>()
+            .add_message::<ShotOrder>()
             .configure_sets(Update, CinemaSet.in_set(CfSet::Direct));
     }
 }
@@ -70,6 +81,7 @@ impl<W: Obstacles + Resource> Plugin for CinemaWorldPlugin<W> {
         app.init_resource::<CinemaWorld>()
             .init_resource::<CameraPose>()
             .add_message::<LaunchMeteor>()
+            .add_message::<ShotOrder>()
             // `CinemaSet` est déjà dans `CfSet::Direct` (voir `CinemaPlugin`) : le redire ferait une arête redondante, que
             // Bevy signale en avertissement à chaque lancement.
             .add_systems(Update, direct::<W>.in_set(CinemaSet));
@@ -77,6 +89,7 @@ impl<W: Obstacles + Resource> Plugin for CinemaWorldPlugin<W> {
 }
 
 /// `CfSet::Direct` : la pose de l'image. Démarre depuis la pose actuelle de la caméra au premier appel.
+#[allow(clippy::too_many_arguments)] // Paramètres de système Bevy : chacun est une ressource distincte.
 fn direct<W: Obstacles + Resource>(
     world: Res<CinemaWorld>,
     obstacles: Option<Res<W>>,
@@ -86,10 +99,19 @@ fn direct<W: Obstacles + Resource>(
     mut pose: ResMut<CameraPose>,
     mut no_show: Local<NoShow>,
     mut launches: MessageWriter<LaunchMeteor>,
+    mut orders: MessageReader<ShotOrder>,
 ) {
     let (Some(obstacles), Some(mut director)) = (obstacles, director) else {
         return;
     };
+    for order in orders.read() {
+        match *order {
+            ShotOrder::Hold(id) => {
+                director.hold_shot(id);
+            }
+            ShotOrder::Release => director.release_shot(),
+        }
+    }
     let list = subjects.as_deref().map_or(&[][..], Subjects::as_slice);
     let frame = CinemaFrame::new(&world, &*obstacles, list);
     // Le vrai chef du spectacle quand un show est chargé (portes de rang, ordres, drop préparé, `strobe` selon les
