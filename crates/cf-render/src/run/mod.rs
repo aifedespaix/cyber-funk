@@ -18,6 +18,10 @@ pub enum RunOrder {
     Stop,
 }
 
+/// Marque qu'un séquenceur pilote [`RunPhase`] : l'opérateur en suit alors la phase au lieu de basculer seul.
+#[derive(Resource, Debug, Default, Clone, Copy)]
+pub struct RunSequenced;
+
 /// Où en est le show, du point de vue du monde.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum Phase {

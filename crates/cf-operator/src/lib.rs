@@ -69,6 +69,7 @@ impl Plugin for OperatorPlugin {
             .add_message::<cf_render::ScreenOrder>();
         // Les ordres de l'interface arrivent au spectacle par ces messages (idempotent avec le plugin des contrôles).
         app.add_message::<cf_render::ControlAction>()
+            .add_message::<cf_render::RunOrder>()
             .init_resource::<OperatorMode>()
             .init_resource::<ShowRunState>()
             .init_resource::<orders::LiveOrders>()
@@ -83,6 +84,7 @@ impl Plugin for OperatorPlugin {
             EguiPrimaryContextPass,
             (
                 preview::sync_egui,
+                run_state::sync_with_world,
                 mode::sync_mode,
                 shell::shell_input,
                 ui::main_panel,

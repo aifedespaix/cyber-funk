@@ -46,6 +46,7 @@ pub(crate) struct CockpitParams<'w> {
     logos: ResMut<'w, LogoCache>,
     picker: Res<'w, FilePicker>,
     orders: ResMut<'w, LiveOrders>,
+    run_orders: MessageWriter<'w, cf_render::RunOrder>,
     midi: Option<ResMut<'w, MidiEnabled>>,
     themes: Option<Res<'w, ThemeLibrary>>,
     config: Res<'w, PrepConfig>,
@@ -271,7 +272,9 @@ fn live_tab(
         DjColumnEvent::None => {}
     }
     if press {
-        cockpit.run.press(now_s);
+        if let Some(order) = cockpit.run.press(now_s) {
+            cockpit.run_orders.write(order);
+        }
     }
     if noir {
         cockpit.orders.0.push(Action::Blackout(Switch::Toggle));

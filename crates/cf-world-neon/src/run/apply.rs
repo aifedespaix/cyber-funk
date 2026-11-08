@@ -38,6 +38,7 @@ impl Plugin for RunPlugin {
             .add_message::<AudioCommand>()
             .init_resource::<AudioSequenceGain>()
             .insert_resource(RunDriven)
+            .insert_resource(cf_render::RunSequenced)
             .insert_resource(Sequencer(sequencer))
             .insert_resource(RunPhase {
                 phase: Phase::Waiting,

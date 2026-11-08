@@ -68,7 +68,7 @@ pub use quality::{
     BLOOM_FADE_S, MAX_LEVEL, PIXEL_SCALE, Quality, QualityChanged, QualityIdle, QualityLevers, QualityMode,
     QualityPlugin, levers_for,
 };
-pub use run::{ARM_AT, Phase, RunOrder, RunPhase, RunPlugin};
+pub use run::{ARM_AT, Phase, RunOrder, RunPhase, RunPlugin, RunSequenced};
 pub use schedule::{CfSet, CorePlugin};
 pub use screens::{ScreenInfo, ScreenList, ScreenOrder, describe_screens};
 pub use settings::{Settings, SettingsPlugin};
