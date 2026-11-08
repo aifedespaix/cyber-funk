@@ -2,8 +2,10 @@
 
 use cf_render::{Phase, RunOrder};
 
+use super::handover::{ArrivalStages, DoubleStages, HANDOVER_S, handover_stages};
 use super::timeline::{
-    CRUISE_MPS, RunStages, START_S, STOP_S, starting_cap, starting_stages, stopping_cap, stopping_stages,
+    CATCHUP_BOOST_MPS, CRUISE_MPS, RunStages, START_S, STOP_S, starting_cap, starting_stages, stopping_cap,
+    stopping_stages,
 };
 use crate::intro::{FRONT_WIDTH_M, IntroInput, IntroStages, PreIntro, WindowFront};
 
@@ -23,6 +25,12 @@ pub struct RunOutput {
     pub speed_cap_mps: Option<f32>,
     /// Front des fenêtres allumées.
     pub front: Option<WindowFront>,
+    /// L'ancienne voiture pendant un changement de DJ (double visuel).
+    pub double: DoubleStages,
+    /// La nouvelle voiture (la réelle) pendant un changement de DJ.
+    pub arrival: ArrivalStages,
+    /// Rang du DJ visé pendant un changement de DJ.
+    pub handover_slot: Option<usize>,
 }
 
 /// La machine à états du démarrage et de l'arrêt.
@@ -35,6 +43,13 @@ pub struct RunSequencer {
     speed_mps: f32,
     /// Vitesse à laquelle l'arrêt a commencé.
     brake_from_mps: f32,
+    /// Rang du DJ actuel et nombre de DJs de la liste, lus dans le show par le monde.
+    current_slot: usize,
+    slot_count: usize,
+    /// DJ visé par la passation en cours.
+    target: Option<usize>,
+    /// L'opérateur demande moins de mouvement : plus de glitch ni de clignotement.
+    reduce_motion: bool,
 }
 
 impl Default for RunSequencer {
@@ -53,12 +68,34 @@ impl RunSequencer {
             front: PreIntro::new(),
             speed_mps: CRUISE_MPS,
             brake_from_mps: CRUISE_MPS,
+            current_slot: 0,
+            slot_count: 0,
+            target: None,
+            reduce_motion: false,
         }
     }
 
     /// Dit au séquenceur à quelle vitesse roule la voiture : un arrêt freine depuis cette vitesse.
     pub fn set_speed(&mut self, speed_mps: f32) {
         self.speed_mps = if speed_mps.is_finite() { speed_mps.max(0.0) } else { 0.0 };
+    }
+
+    /// Dit au séquenceur où en est la liste des DJs : le DJ actuel et leur nombre.
+    pub fn set_slot_info(&mut self, current: usize, count: usize) {
+        self.current_slot = current;
+        self.slot_count = count;
+    }
+
+    /// Réglage « moins de mouvement » : supprime le glitch du nom et de la voiture qui s'éteint.
+    pub fn set_reduce_motion(&mut self, reduce: bool) {
+        self.reduce_motion = reduce;
+    }
+
+    /// Le DJ visé par un ordre de passation, s'il est valable : au moins deux DJs, une cible dans la liste, autre que
+    /// le DJ actuel ; sans cible précise, le DJ qui suit l'actuel (rien après le dernier).
+    fn handover_target(&self, slot: Option<usize>) -> Option<usize> {
+        let target = slot.or_else(|| self.current_slot.checked_add(1))?;
+        (self.slot_count > 1 && target < self.slot_count && target != self.current_slot).then_some(target)
     }
 
     /// Phase courante (après la dernière image).
@@ -73,17 +110,23 @@ impl RunSequencer {
         match (self.phase, order) {
             (Phase::Waiting, Some(RunOrder::Start)) => self.enter(Phase::Starting),
             (Phase::Running, Some(RunOrder::Stop)) => self.enter(Phase::Stopping),
+            (Phase::Running, Some(RunOrder::Handover { slot })) => {
+                if let Some(target) = self.handover_target(slot) {
+                    self.enter(Phase::Handover);
+                    self.target = Some(target);
+                }
+            }
             _ => {}
         }
         let dt_s = if dt_s.is_finite() { dt_s.max(0.0) } else { 0.0 };
         match self.phase {
             // La voiture, invisible, reste au point de départ : le plan d'attente la filme dès son apparition.
             Phase::Waiting => out(Phase::Waiting, 1.0, RunStages::WAITING, Some(0.0), None),
-            // Rempli par la tâche 3 : la passation n'est pas encore atteignable.
-            Phase::Running | Phase::Handover => out(Phase::Running, 1.0, RunStages::RUNNING, None, None),
+            Phase::Running => out(Phase::Running, 1.0, RunStages::RUNNING, None, None),
+            Phase::Handover => self.update_handover(dt_s, kick),
             Phase::Starting => {
                 self.t_s = (self.t_s + dt_s).min(START_S);
-                let stages = starting_stages(self.t_s, false);
+                let stages = starting_stages(self.t_s, self.reduce_motion);
                 let tracker = IntroStages {
                     windows: stages.windows,
                     ..IntroStages::DONE
@@ -126,11 +169,56 @@ impl RunSequencer {
         }
     }
 
+    fn update_handover(&mut self, dt_s: f32, kick: bool) -> RunOutput {
+        self.t_s = (self.t_s + dt_s).min(HANDOVER_S);
+        let (stages, double, arrival) = handover_stages(self.t_s, self.reduce_motion);
+        // Les fenêtres s'éteignent par un front pendant le repli, puis se rallument comme au démarrage.
+        let front = if stages.build >= 1.0 || stages.collapse > 0.0 {
+            (stages.windows < 1.0).then_some(WindowFront {
+                ahead_m: SHUTDOWN_REACH_M * stages.windows,
+                edge_m: FRONT_WIDTH_M,
+            })
+        } else {
+            let tracker = IntroStages {
+                windows: stages.windows,
+                ..IntroStages::DONE
+            };
+            self.front.front(
+                &tracker,
+                &IntroInput {
+                    level: None,
+                    dt_s,
+                    kick,
+                    energy: 0.0,
+                },
+            )
+        };
+        let progress = self.t_s / HANDOVER_S;
+        let cap = CRUISE_MPS + CATCHUP_BOOST_MPS * arrival.boost;
+        let target = self.target;
+        if self.t_s >= HANDOVER_S {
+            self.phase = Phase::Running;
+            self.t_s = 0.0;
+            self.target = None;
+        }
+        RunOutput {
+            phase: Phase::Handover,
+            progress,
+            stages,
+            speed_cap_mps: Some(cap),
+            front,
+            double,
+            arrival,
+            handover_slot: target,
+        }
+    }
+
     fn enter(&mut self, phase: Phase) {
         self.phase = phase;
         self.t_s = 0.0;
         self.front = PreIntro::new();
         self.brake_from_mps = self.speed_mps;
+        self.target = None;
     }
 }
 
@@ -147,12 +235,16 @@ fn out(
         stages,
         speed_cap_mps,
         front,
+        double: DoubleStages::NONE,
+        arrival: ArrivalStages::NONE,
+        handover_slot: None,
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::run::handover::{DoubleStages, HANDOVER_S};
     use crate::run::timeline::brake_rate;
 
     const DT: f32 = 1.0 / 60.0;
@@ -341,5 +433,129 @@ mod tests {
             (first.speed_cap_mps.unwrap_or(0.0) - 40.0).abs() < 0.01,
             "pas de coup de frein au départ"
         );
+    }
+
+    // --- Changement de DJ ---
+
+    fn running(slot: usize, count: usize) -> RunSequencer {
+        let mut seq = RunSequencer::new();
+        seq.update(Some(RunOrder::Start), 100.0, false);
+        seq.update(None, 100.0, false);
+        seq.set_slot_info(slot, count);
+        seq
+    }
+
+    #[test]
+    fn handover_from_running_enters_handover_and_targets_the_next_dj() {
+        let mut seq = running(0, 3);
+        let o = seq.update(Some(RunOrder::Handover { slot: None }), DT, false);
+        assert_eq!((o.phase, o.handover_slot), (Phase::Handover, Some(1)));
+        let mut seq = running(0, 3);
+        let o = seq.update(Some(RunOrder::Handover { slot: Some(2) }), DT, false);
+        assert_eq!(o.handover_slot, Some(2));
+    }
+
+    #[test]
+    fn handover_is_ignored_unless_running() {
+        let mut seq = RunSequencer::new();
+        seq.set_slot_info(0, 3);
+        assert_eq!(
+            seq.update(Some(RunOrder::Handover { slot: None }), DT, false).phase,
+            Phase::Waiting
+        );
+        seq.update(Some(RunOrder::Start), DT, false);
+        assert_eq!(
+            seq.update(Some(RunOrder::Handover { slot: None }), DT, false).phase,
+            Phase::Starting
+        );
+        let mut seq = running(0, 3);
+        seq.update(Some(RunOrder::Stop), DT, false);
+        assert_eq!(
+            seq.update(Some(RunOrder::Handover { slot: None }), DT, false).phase,
+            Phase::Stopping
+        );
+    }
+
+    #[test]
+    fn handover_is_ignored_with_one_dj_at_the_last_dj_or_toward_the_current_dj() {
+        for (current, count, order) in [
+            (0, 1, RunOrder::Handover { slot: None }),
+            (2, 3, RunOrder::Handover { slot: None }),
+            (1, 3, RunOrder::Handover { slot: Some(1) }),
+            (0, 3, RunOrder::Handover { slot: Some(3) }),
+        ] {
+            let mut seq = running(current, count);
+            assert_eq!(
+                seq.update(Some(order), DT, false).phase,
+                Phase::Running,
+                "{current}/{count} {order:?}"
+            );
+        }
+    }
+
+    #[test]
+    fn orders_are_ignored_during_a_handover() {
+        let mut seq = running(0, 3);
+        seq.update(Some(RunOrder::Handover { slot: None }), DT, false);
+        assert_eq!(seq.update(Some(RunOrder::Stop), DT, false).phase, Phase::Handover);
+        let o = seq.update(Some(RunOrder::Handover { slot: Some(2) }), DT, false);
+        assert_eq!(o.handover_slot, Some(1), "la cible ne change pas en cours de route");
+    }
+
+    #[test]
+    fn handover_ends_in_running_after_its_duration() {
+        let mut seq = running(0, 3);
+        seq.update(Some(RunOrder::Handover { slot: None }), DT, false);
+        run_for(&mut seq, HANDOVER_S - 0.5);
+        assert_eq!(seq.phase(), Phase::Handover);
+        run_for(&mut seq, 1.0);
+        assert_eq!(seq.phase(), Phase::Running);
+        let o = seq.update(None, DT, false);
+        assert!(o.stages == RunStages::RUNNING && o.double == DoubleStages::NONE && o.handover_slot.is_none());
+    }
+
+    #[test]
+    fn the_new_car_is_allowed_to_catch_up_then_returns_to_cruise() {
+        let mut seq = running(0, 2);
+        seq.update(Some(RunOrder::Handover { slot: None }), 0.0, false);
+        let (mut peak, mut last) = (0.0_f32, 0.0_f32);
+        for _ in 0..(HANDOVER_S * 60.0) as u32 {
+            last = seq.update(None, DT, false).speed_cap_mps.unwrap_or(0.0);
+            peak = peak.max(last);
+        }
+        assert!(peak > CRUISE_MPS + 5.0, "{peak}");
+        assert!(last <= CRUISE_MPS + 0.01, "{last}");
+    }
+
+    #[test]
+    fn handover_outputs_are_finite_and_in_range_over_many_cycles() {
+        let mut seq = running(0, 3);
+        for _ in 0..30 {
+            seq.update(Some(RunOrder::Handover { slot: None }), DT, true);
+            for _ in 0..(HANDOVER_S * 60.0) as u32 + 5 {
+                let o = seq.update(None, DT, true);
+                check(o);
+                assert!(o.arrival.gap_behind_m.is_finite() && o.double.presence.is_finite());
+            }
+            seq.set_slot_info(0, 3);
+        }
+    }
+
+    #[test]
+    fn start_handovers_and_stop_return_to_the_identical_waiting_state() {
+        let mut seq = RunSequencer::new();
+        let baseline = seq.update(None, DT, false);
+        for _ in 0..100 {
+            seq.update(Some(RunOrder::Start), 100.0, false);
+            seq.update(None, 100.0, false);
+            for _ in 0..3 {
+                seq.set_slot_info(0, 3);
+                seq.update(Some(RunOrder::Handover { slot: None }), DT, false);
+                seq.update(None, 100.0, false);
+            }
+            seq.update(Some(RunOrder::Stop), DT, false);
+            seq.update(None, 100.0, false);
+        }
+        assert_eq!(seq.update(None, DT, false), baseline);
     }
 }
