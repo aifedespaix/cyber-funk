@@ -69,28 +69,32 @@ S'il s'arrête plus de 2 s, elle repasse sur le tempo audio sans à-coup.
 
 Pour voir ce qui arrive : `cargo run -p cf-control --example midi_monitor` (développeurs).
 
-## 3 bis. La fenêtre opérateur : onglets et barre de statut
+## 3 bis. La fenêtre opérateur : trois onglets
 
-**Onglets.** En haut de la fenêtre : **Réglages** (`Ctrl+1`), **Statistiques** (`Ctrl+2`), **Debug** (`Ctrl+3`). En
-Live, le premier onglet s'appelle **Live** et montre le pupitre du § 5 ; l'onglet Debug n'existe pas en Live (ni bouton
-ni raccourci). Les chiffres seuls restent ceux des cues : c'est pourquoi les onglets demandent `Ctrl`. Le dernier onglet
-ouvert est rouvert au lancement suivant. `?` affiche l'aide des raccourcis.
+**Onglets.** En haut : **Live** (`Ctrl+1`), **DJs** (`Ctrl+2`), **Debug** (`Ctrl+3`). Le dernier onglet ouvert est rouvert
+au lancement suivant. À droite de la barre : le menu **⚙ Écran de rendu** et, quand une version plus récente existe, un
+bouton coloré de mise à jour (grisé tant que le show joue : on n'installe jamais en plein set). `M` pose un repère dans
+le journal de session, dans tous les onglets (sauf pendant la saisie d'un texte).
 
-**Barre de statut**, sous les onglets, toujours visible (y compris en Live) : source audio, images par seconde, tempo,
-DJ en cours et temps restant d'après l'horaire prévu, monde **Auto / Manuel** (en Manuel, le monde ne lance plus rien de
-lui-même ; vos clics passent toujours), nombre d'événements en cours, horloge de simulation, **Pause / Reprendre** et
-**Reset**. Une valeur indisponible s'affiche « — ».
+**Live** : trois colonnes.
 
-- **Passer au suivant** et **Reset** demandent une confirmation : le bouton de confirmation reste grisé un court instant
-  (un double-clic ne confirme pas) et disparaît seul après 5 s, au changement d'onglet ou, pour le DJ, si le DJ a changé
-  entre-temps.
-- **■ Noir** (ou `Échap`) bascule le noir complet, dans tous les onglets. `Échap` ne fait pas le noir quand il sert à
-  autre chose : fermer un dialogue, un menu ou une liste déroulante, ou pendant la saisie d'un texte.
-- `M` (**Marquer ce moment**) pose un repère `mark` dans le journal de session, dans tous les onglets et en Live (sauf
-  pendant la saisie d'un texte). Faites-le dès que quelque chose cloche : l'agent ou la personne qui relira le journal
-  saura où regarder.
+- **À gauche, les DJ** : un clic sur un DJ passe la scène à ce DJ (son thème et son nom prennent la place). La pastille
+  de couleur est la couleur du thème du DJ, suivie de son logo s'il en a un. **+ Nouveau DJ** ouvre l'onglet DJs.
+- **Au centre**, l'état du show, les statistiques de base (tempo, section, images par seconde, niveau, source) et le gros
+  bouton **Démarrer / Arrêter**. Pour l'instant il bascule l'état affiché ; la séquence 3D de départ et d'arrêt vient
+  ensuite.
+- **À droite, l'audio** : source (musique interne ou micro) avec le choix de la sortie ou de l'entrée juste à côté, l'interrupteur **MIDI**, puis la **playlist** : titre en cours,
+  précédent / suivant, liste défilante avec la durée de chaque titre, durée totale et restante estimée, réordonner,
+  ajouter des fichiers, retirer. Les titres illisibles sont signalés ⚠.
 
-**Onglet Statistiques** (disponible en Live : il ne lance rien).
+**DJs** : créer, dupliquer, supprimer, réordonner les DJ et régler nom, logo et thème. Les modifications sont
+enregistrées avec la soirée et prises en compte **au prochain lancement** (le show est construit une seule fois au
+démarrage).
+
+**Debug** : deux vues, **Monde** (quartiers, événements, réglages) et **Statistiques** (ci-dessous). Les ordres au monde
+sont refusés tant que le show joue.
+
+**Debug › Statistiques** (il ne lance rien).
 
 - En haut, quatre tuiles : images par seconde (et p99 du temps d'image), tempo détecté et confiance, événements joués
   depuis l'ouverture de la fenêtre, état du limiteur de flashs (**OK** ou **Coupés** par FLASHS ou RESPIRATION).
