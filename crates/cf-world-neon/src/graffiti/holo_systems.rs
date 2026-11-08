@@ -49,8 +49,8 @@ impl Plugin for HoloPlugin {
             app.init_asset::<HoloMaterial>();
         }
         // `drive_holo` lit ces deux ressources : le plugin ne doit pas dépendre de `NeonWorldPlugin` pour les trouver.
-        app.init_resource::<super::projector::ProjectorState>()
-            .init_resource::<super::GraffitiQuality>()
+        app.init_resource::<ProjectorState>()
+            .init_resource::<GraffitiQuality>()
             .add_systems(
                 Update,
                 drive_holo
