@@ -65,34 +65,35 @@ struct IntroRun(PreIntro);
 
 /// Les écritures sur lesquelles la pré-intro a la main : pour ne rendre que ce qu'elle a pris.
 #[derive(Default)]
-struct Owned {
-    front: bool,
+pub(crate) struct Owned {
+    pub(crate) front: bool,
     /// La pré-intro a écrit au moins une fois et n'a pas encore tout rendu : elle doit finir en remettant tout à 1.
-    engaged: bool,
+    pub(crate) engaged: bool,
 }
 
 /// Écrit `value` si elle diffère : ne marque pas la ressource modifiée pour rien.
-fn set<T: PartialEq>(slot: &mut T, value: T) {
+pub(crate) fn set<T: PartialEq>(slot: &mut T, value: T) {
     if *slot != value {
         *slot = value;
     }
 }
 
 #[derive(bevy::ecs::system::SystemParam)]
-struct Targets<'w> {
-    road: Option<ResMut<'w, RoadLook>>,
-    facade: Option<ResMut<'w, FacadeLook>>,
-    sky: Option<ResMut<'w, SkyLook>>,
-    sign: Option<ResMut<'w, DjSignIntro>>,
-    controls: Option<ResMut<'w, CarControls>>,
-    pilot: Option<ResMut<'w, PilotSettings>>,
-    traffic: Option<ResMut<'w, TrafficDirector>>,
+pub(crate) struct Targets<'w> {
+    pub(crate) road: Option<ResMut<'w, RoadLook>>,
+    pub(crate) facade: Option<ResMut<'w, FacadeLook>>,
+    pub(crate) sky: Option<ResMut<'w, SkyLook>>,
+    pub(crate) sign: Option<ResMut<'w, DjSignIntro>>,
+    pub(crate) controls: Option<ResMut<'w, CarControls>>,
+    pub(crate) pilot: Option<ResMut<'w, PilotSettings>>,
+    pub(crate) traffic: Option<ResMut<'w, TrafficDirector>>,
 }
 
 /// `CfSet::Simulate` : avance la pré-intro d'une image et applique ses étapes au monde.
 fn drive_intro(
     time: Res<Time>,
     show: Option<Res<CurrentShow>>,
+    driven: Option<Res<crate::run::RunDriven>>,
     features: Option<Res<AudioFeatures>>,
     mut run: ResMut<IntroRun>,
     mut status: ResMut<IntroStatus>,
@@ -101,7 +102,12 @@ fn drive_intro(
 ) {
     let (kick, energy) = features.map_or((false, 0.0), |f| (f.0.kick, f.0.intensity));
     let out = run.0.update(&IntroInput {
-        level: show.map(|s| s.0.level),
+        // Le séquenceur de démarrage porte la construction du monde : la pré-intro de niveau 0 ne la rejoue pas.
+        level: if driven.is_some() {
+            None
+        } else {
+            show.map(|s| s.0.level)
+        },
         dt_s: time.delta_secs(),
         kick,
         energy,
@@ -139,7 +145,7 @@ fn drive_intro(
 }
 
 /// Pose le front des fenêtres sur le front de panne, sans écraser une vraie panne ; le rend quand la pré-intro a fini.
-fn apply_front(power: &mut PowerFront, front: Option<WindowFront>, owned: &mut Owned) {
+pub(crate) fn apply_front(power: &mut PowerFront, front: Option<WindowFront>, owned: &mut Owned) {
     match front {
         Some(f) => {
             // Une panne qui n'est pas la nôtre garde la main.
