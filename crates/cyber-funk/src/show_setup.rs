@@ -37,8 +37,10 @@ pub fn show_plugin(cli: &Cli) -> anyhow::Result<ShowPlugin> {
         tracing::error!(%error, "look illisible écarté");
     }
     let event_text = std::fs::read_to_string(path).with_context(|| format!("show {}", path.display()))?;
-    let event = cf_show::load::parse_event(&event_text, &path.display().to_string())
+    let mut event = cf_show::load::parse_event(&event_text, &path.display().to_string())
         .with_context(|| format!("show {}", path.display()))?;
+    // Chaque DJ a ses couleurs : celles du fichier, sinon une palette de présélection jamais répétée d'un DJ au suivant.
+    event.assign_dj_themes();
     let (show, substitutions) = LoadedShow::new_resilient(event, &looks, &path.display().to_string())
         .with_context(|| format!("show {}", path.display()))?;
     for s in &substitutions {

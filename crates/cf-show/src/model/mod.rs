@@ -25,6 +25,7 @@ pub mod event;
 pub mod ids;
 pub mod look;
 pub mod overrides;
+pub mod palettes;
 pub mod params;
 
 pub use cf_analysis::TempoSource;
@@ -39,6 +40,7 @@ pub use ids::{
 };
 pub use look::{CustomTheme, CutGrid, FxGates, LayerMix, Look, PaletteRef, PresetTheme, ShowGates, Theme};
 pub use overrides::{FxOverrides, GateOverrides, LookOverrides};
+pub use palettes::{DJ_PALETTES, DjPalette, assign_themes};
 pub use params::{Macro, MacroDrive, ParamPath, UnknownParam};
 
 /// Version courante du format des fichiers d'événement et de look (champ `version` en tête de chaque fichier).

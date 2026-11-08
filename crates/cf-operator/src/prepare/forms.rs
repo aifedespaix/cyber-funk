@@ -4,7 +4,7 @@ use bevy_egui::egui;
 use cf_show::drop::TitleLanguage;
 use cf_show::model::event::{MAX_DJ_NAME, MAX_EVENT_NAME, MAX_LATENCY_OFFSET_MS};
 use cf_show::model::{
-    AssetPath, ControlProfileId, DjSlot, Event, FlashPolicy, LookId, MonitorSelect, PresetTheme, Theme,
+    AssetPath, ControlProfileId, DJ_PALETTES, DjSlot, Event, FlashPolicy, LookId, MonitorSelect, PresetTheme, Theme,
 };
 
 use super::widgets::{Touch, choice, number, row, text_field, toggle};
@@ -117,21 +117,14 @@ pub(crate) fn look_choice(ui: &mut egui::Ui, touch: &mut Touch, salt: &str, valu
 }
 
 fn theme_choice(ui: &mut egui::Ui, touch: &mut Touch, salt: &str, theme: &mut Theme) {
-    match theme {
-        Theme::Preset(preset) => {
-            let mut chosen = *preset;
-            choice(ui, touch, salt, &mut chosen, &PRESETS);
-            *theme = Theme::Preset(chosen);
-        }
-        Theme::Custom(_) => {
-            ui.label("Personnalisé (cinq couleurs, à éditer dans le fichier)");
-            let response = ui.button("Prendre Velours");
-            if response.clicked() {
-                *theme = Theme::Preset(PresetTheme::Velvet);
-                touch.structural();
-            }
-        }
+    // Les six thèmes de Sillage, puis les dix palettes de présélection des DJs.
+    let mut options: Vec<(Theme, &str)> = PRESETS.iter().map(|(p, label)| (Theme::Preset(*p), *label)).collect();
+    options.extend(DJ_PALETTES.iter().filter_map(|p| Some((p.theme()?, p.label))));
+    // Cinq couleurs écrites à la main dans le fichier : elles restent affichées et choisies.
+    if !options.iter().any(|(t, _)| t == theme) {
+        options.insert(0, (theme.clone(), "Personnalisé (fichier)"));
     }
+    choice(ui, touch, salt, theme, &options);
 }
 
 fn monitor_choice(ui: &mut egui::Ui, touch: &mut Touch, monitor: &mut MonitorSelect) {
