@@ -88,7 +88,12 @@ impl AudioRuntime {
         };
         self.output_device = device;
         let playlist = Playlist::new(tracks, Some(0), self.playlist_seed);
-        match Player::new(playlist, PlayerConfig::default(), backend) {
+        // Un lecteur créé tard reçoit le volume de l'opérateur multiplié par le gain de la séquence (silence en attente).
+        let config = PlayerConfig {
+            volume: self.base_volume * self.gain,
+            ..PlayerConfig::default()
+        };
+        match Player::new(playlist, config, backend) {
             Ok(mut player) => {
                 if let Some(feed) = player.take_analysis_feed() {
                     self.control.attach(feed);

@@ -2,7 +2,9 @@
 
 use cf_render::{Phase, RunOrder};
 
-use super::timeline::{RunStages, START_S, STOP_S, starting_cap, starting_stages, stopping_cap, stopping_stages};
+use super::timeline::{
+    CRUISE_MPS, RunStages, START_S, STOP_S, starting_cap, starting_stages, stopping_cap, stopping_stages,
+};
 use crate::intro::{FRONT_WIDTH_M, IntroInput, IntroStages, PreIntro, WindowFront};
 
 /// Portée du front des fenêtres à l'arrêt, quand toutes sont allumées (m).
@@ -29,6 +31,10 @@ pub struct RunSequencer {
     phase: Phase,
     t_s: f32,
     front: PreIntro,
+    /// Vitesse réelle de la voiture (m/s), lue par le monde avant chaque image.
+    speed_mps: f32,
+    /// Vitesse à laquelle l'arrêt a commencé.
+    brake_from_mps: f32,
 }
 
 impl Default for RunSequencer {
@@ -45,7 +51,14 @@ impl RunSequencer {
             phase: Phase::Waiting,
             t_s: 0.0,
             front: PreIntro::new(),
+            speed_mps: CRUISE_MPS,
+            brake_from_mps: CRUISE_MPS,
         }
+    }
+
+    /// Dit au séquenceur à quelle vitesse roule la voiture : un arrêt freine depuis cette vitesse.
+    pub fn set_speed(&mut self, speed_mps: f32) {
+        self.speed_mps = if speed_mps.is_finite() { speed_mps.max(0.0) } else { 0.0 };
     }
 
     /// Phase courante (après la dernière image).
@@ -105,7 +118,7 @@ impl RunSequencer {
                     Phase::Stopping,
                     progress,
                     stages,
-                    Some(stopping_cap(progress * STOP_S)),
+                    Some(stopping_cap(progress * STOP_S, self.brake_from_mps)),
                     front,
                 )
             }
@@ -116,6 +129,7 @@ impl RunSequencer {
         self.phase = phase;
         self.t_s = 0.0;
         self.front = PreIntro::new();
+        self.brake_from_mps = self.speed_mps;
     }
 }
 
@@ -138,7 +152,7 @@ fn out(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::run::timeline::BRAKE_MPS2;
+    use crate::run::timeline::brake_rate;
 
     const DT: f32 = 1.0 / 60.0;
 
@@ -290,18 +304,41 @@ mod tests {
 
     #[test]
     fn braking_never_exceeds_the_comfort_deceleration() {
+        for from in [16.0_f32, 40.0] {
+            let mut seq = RunSequencer::new();
+            seq.update(Some(RunOrder::Start), 100.0, false);
+            seq.update(None, 100.0, false);
+            seq.set_speed(from);
+            seq.update(Some(RunOrder::Stop), 0.0, false);
+            let limit = brake_rate(from);
+            let (mut prev, mut stopped_at): (Option<f32>, Option<f32>) = (None, None);
+            for k in 0..(STOP_S * 60.0) as u32 {
+                let cap = seq.update(None, DT, false).speed_cap_mps.unwrap_or(0.0);
+                if let Some(p) = prev {
+                    assert!((p - cap) / DT <= limit + 0.01, "{from}: {p} -> {cap}");
+                }
+                if cap == 0.0 && stopped_at.is_none() {
+                    stopped_at = Some(k as f32 * DT);
+                }
+                prev = Some(cap);
+            }
+            assert!(
+                stopped_at.is_some_and(|t| t <= 4.6),
+                "{from} m/s doit être arrêtée en ~4,5 s : {stopped_at:?}"
+            );
+        }
+    }
+
+    #[test]
+    fn the_stop_starts_from_the_real_speed_not_from_cruise() {
         let mut seq = RunSequencer::new();
         seq.update(Some(RunOrder::Start), 100.0, false);
         seq.update(None, 100.0, false);
-        let mut prev: Option<f32> = None;
-        seq.update(Some(RunOrder::Stop), 0.0, false);
-        for _ in 0..(STOP_S * 60.0) as u32 {
-            let cap = seq.update(None, DT, false).speed_cap_mps.unwrap_or(0.0);
-            if let Some(p) = prev {
-                assert!((p - cap) / DT <= BRAKE_MPS2 + 0.01, "{p} -> {cap}");
-            }
-            prev = Some(cap);
-        }
-        assert_eq!(prev, Some(0.0));
+        seq.set_speed(40.0);
+        let first = seq.update(Some(RunOrder::Stop), 0.0, false);
+        assert!(
+            (first.speed_cap_mps.unwrap_or(0.0) - 40.0).abs() < 0.01,
+            "pas de coup de frein au départ"
+        );
     }
 }

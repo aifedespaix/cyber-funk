@@ -101,7 +101,9 @@ impl AudioRuntime {
         let mut notes = Vec::new();
         let (player, tracks) = start_player(config, &control, &mut notes);
 
-        let base_volume = player.as_ref().map_or(1.0, |p| p.state().volume);
+        let base_volume = player
+            .as_ref()
+            .map_or(PlayerConfig::default().volume, |p| p.state().volume);
         let mut runtime = Self {
             capture: None,
             player,

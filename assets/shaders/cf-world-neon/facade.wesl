@@ -173,7 +173,7 @@ fn vertex(v: FacadeVertex) -> FacadeVarying {
     var wp = m * vec4<f32>(v.position, 1.0);
     wp.y *= grow_at(wp.xyz);
     // Arrêt du show : la tour rétrécit vers sa base enfouie (`facade_collapse.wesl`), glitch coupé en qualité basse.
-    wp = collapse_apply(wp, m[3].xz, facade.weather.w, facade.frame.x, facade.motion.w < 0.5);
+    wp = collapse_apply(wp, m[3].xz, facade.weather.w, facade.frame.x, facade.motion.w < 0.5 && facade.motion.y > 0.0);
     // Une tour sur quatre respire d'un pour cent avec le kick : assez pour sentir le poids du beat, trop peu pour faire dessin
     // animé. Le passage de profondeur ignore ce gonflement (il n'écarte que la pointe, jamais un voisin).
     let breath_seed = f32(tag & 0x3FFu);

@@ -51,8 +51,10 @@ impl ShotSpec for Waiting {
         (0.0, 1.0)
     }
 
+    /// Court : tenu par le monde il reste à l'antenne quel que soit ce délai, mais une fois relâché le montage
+    /// automatique doit pouvoir couper vite (sinon la caméra resterait ~60 s sur le point de départ).
     fn min_seconds(&self) -> f32 {
-        PERIOD_S
+        1.0
     }
 
     fn max_seconds(&self) -> f32 {

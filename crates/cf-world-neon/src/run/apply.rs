@@ -15,6 +15,7 @@ use cf_cinema::{ShotOrder, TransitionKind};
 use cf_render::{AudioCommand, AudioFeatures, AudioSequenceGain, CfSet, Phase, RunOrder, RunPhase, SimControl};
 
 use super::machine::{RunOutput, RunSequencer};
+use crate::car::rig::CarState;
 use crate::intro::{self, Owned, Targets, set};
 
 /// Marque que le séquenceur est installé : la pré-intro de niveau 0 s'efface devant lui.
@@ -70,6 +71,7 @@ fn drive_run(
     mut gain: ResMut<AudioSequenceGain>,
     mut camera_held: Local<Option<bool>>,
     mut sequencer: ResMut<Sequencer>,
+    cars: Query<&CarState>,
     mut phase: ResMut<RunPhase>,
     mut status: ResMut<RunStatus>,
     mut targets: Targets,
@@ -79,6 +81,10 @@ fn drive_run(
     let order = orders.read().last().copied();
     let before = sequencer.0.phase();
     let kick = features.is_some_and(|f| f.0.kick);
+    // L'arrêt freine depuis la vitesse réelle de la voiture, pas depuis une vitesse supposée.
+    if let Some(car) = cars.iter().next() {
+        sequencer.0.set_speed(car.speed_mps);
+    }
     let out = sequencer.0.update(order, time.delta_secs(), kick);
     // Chaque `Démarrer` repart d'un show neuf : le chef du spectacle, l'horloge et la piste de démo sont remis à zéro.
     if before == Phase::Waiting

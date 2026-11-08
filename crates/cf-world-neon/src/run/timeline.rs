@@ -130,8 +130,15 @@ pub fn starting_cap(stages: &RunStages) -> f32 {
     speed_cap(stages.drive)
 }
 
-/// Plafond de vitesse (m/s) à l'arrêt : décélération constante jusqu'à l'arrêt complet.
+/// Décélération (m/s²) d'un arrêt qui part de `from_mps` : confortable, mais jamais plus longue que ~4,5 s.
 #[must_use]
-pub fn stopping_cap(t_s: f32) -> f32 {
-    (CRUISE_MPS - BRAKE_MPS2 * t_s).max(0.0)
+pub fn brake_rate(from_mps: f32) -> f32 {
+    BRAKE_MPS2.max(from_mps / 4.5)
+}
+
+/// Plafond de vitesse (m/s) à l'arrêt : décélération constante depuis la vitesse réelle `from_mps`, jusqu'à l'arrêt
+/// complet. Partir de la vitesse réelle évite un coup de frein brutal quand la voiture roule plus vite que la croisière.
+#[must_use]
+pub fn stopping_cap(t_s: f32, from_mps: f32) -> f32 {
+    (from_mps - brake_rate(from_mps) * t_s).max(0.0)
 }

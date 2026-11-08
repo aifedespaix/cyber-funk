@@ -24,7 +24,8 @@ fn collapse_t(collapse: f32, off: f32) -> f32 {
     return clamp(collapse * 1.6 - off * 0.6, 0.0, 1.0);
 }
 
-// Échelle verticale, 1 puis 0. Avec `glitch`, elle saute par paliers à 8 Hz.
+// Échelle verticale, 1 puis 0. Avec `glitch`, elle saute par paliers à 8 Hz. Le glitch n'existe que si le mouvement
+// rapide est permis (`motion.y` > 0, qualité normale) : coupé avec les flashs, comme tout mouvement rapide (règle 7).
 fn collapse_scale(t: f32, off: f32, time: f32, glitch: bool) -> f32 {
     var s = 1.0 - t * t * (3.0 - 2.0 * t);
     if glitch && t > 0.0 && t < 1.0 {
