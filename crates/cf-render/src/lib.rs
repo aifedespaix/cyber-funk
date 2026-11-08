@@ -17,6 +17,7 @@ pub mod origin;
 pub mod palette;
 pub mod postfx;
 pub mod quality;
+pub mod run;
 mod schedule;
 pub mod screens;
 pub mod settings;
@@ -67,6 +68,7 @@ pub use quality::{
     BLOOM_FADE_S, MAX_LEVEL, PIXEL_SCALE, Quality, QualityChanged, QualityIdle, QualityLevers, QualityMode,
     QualityPlugin, levers_for,
 };
+pub use run::{ARM_AT, Phase, RunOrder, RunPhase, RunPlugin};
 pub use schedule::{CfSet, CorePlugin};
 pub use screens::{ScreenInfo, ScreenList, ScreenOrder, describe_screens};
 pub use settings::{Settings, SettingsPlugin};

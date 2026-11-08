@@ -179,12 +179,16 @@ impl Plugin for ShowPlugin {
                             seed: self.seed,
                         },
                     });
+                app.add_plugins(crate::run::RunPlugin);
                 app.add_systems(Update, reset_show.in_set(CfSet::Input).after(crate::sim::apply_control));
                 app.add_systems(
                     Update,
                     // L'horloge du show ne court pas pendant le chargement (J4-07).
                     (
-                        (run_show, publish_show_fx).chain().run_if(crate::warmup::show_may_run),
+                        (run_show, publish_show_fx)
+                            .chain()
+                            .run_if(crate::warmup::show_may_run)
+                            .run_if(crate::run::show_armed),
                         crate::controls::apply_slot_profiles,
                     )
                         .chain()
