@@ -189,8 +189,12 @@ fn la_voiture_reste_dans_son_budget_d_entites() {
     );
     // Dont les quatre pads lumineux des roues du mode volant (cachés au sol) et le kit carrosserie (une entité par matériau).
     assert!((50..105).contains(&meshes), "{meshes} entités à maillage");
-    assert_eq!(spots, 2, "deux phares");
-    assert_eq!(points, 3, "sous la caisse, logo arrière et habitacle");
+    // La voiture et son double (passation de DJ) ont chacun deux phares.
+    assert_eq!(spots, 4, "deux phares par voiture, double compris");
+    assert_eq!(
+        points, 6,
+        "sous la caisse, logo arrière et habitacle, pour la voiture et son double"
+    );
 }
 
 #[test]
@@ -577,14 +581,19 @@ fn changer_de_voiture_detruit_toutes_les_entites_de_l_ancienne() {
         expected,
         "arborescence d'une construction neuve"
     );
-    assert_eq!(named(&mut app, "carrosserie"), 1, "une seule carrosserie");
+    // Une carrosserie pour la voiture, une pour son double : l'ancienne ne laisse rien derrière elle.
+    assert_eq!(
+        named(&mut app, "carrosserie"),
+        2,
+        "carrosseries de la voiture et de son double"
+    );
     // Un aller-retour ne laisse rien non plus.
     switch_to(&mut app, CarVariant::Dirty);
     let mut dirty = built(0.0, 0.0);
     let dirty_root = car(&mut dirty);
     let app_root = car(&mut app);
     assert_eq!(tree(&app, app_root).len(), tree(&dirty, dirty_root).len());
-    assert_eq!(named(&mut app, "carrosserie"), 1);
+    assert_eq!(named(&mut app, "carrosserie"), 2);
 }
 
 #[test]
@@ -643,7 +652,11 @@ fn un_modele_refuse_garde_la_voiture_saine() {
     assert_eq!(app.world().resource::<ActiveCar>().0, CarVariant::Dirty);
     assert!(!app.world().resource::<CarModels>().has(CarVariant::Cyber));
     let mut rigs = app.world_mut().query_filtered::<Entity, With<CarRig>>();
-    assert_eq!(rigs.iter(app.world()).count(), 1, "la voiture saine reste");
+    assert_eq!(
+        rigs.iter(app.world()).count(),
+        2,
+        "la voiture saine reste, avec son double"
+    );
 }
 
 #[test]

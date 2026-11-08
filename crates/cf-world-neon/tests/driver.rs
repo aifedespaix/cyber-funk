@@ -8,7 +8,7 @@ use std::time::Duration;
 use bevy::prelude::*;
 use bevy::time::TimeUpdateStrategy;
 use cf_render::{AudioFeatures, CorePlugin, CurrentShowFx, ShowFxInput};
-use cf_world_neon::car::{ActiveCar, CarChoiceRequest, CarPlugin, CarRig, CarVariant, ModelQuality};
+use cf_world_neon::car::{ActiveCar, Car, CarChoiceRequest, CarPlugin, CarRig, CarVariant, ModelQuality};
 use cf_world_neon::rider::driver::{
     Driver, DriverRig, GRIP_SETBACK_M, Gearshift, LEVER_PIVOT, WHEEL_AXIS, WHEEL_CENTRE, knob_position, lever_rotation,
 };
@@ -92,7 +92,7 @@ fn descends_from(app: &App, entity: Entity, ancestor: Entity) -> bool {
 
 fn chassis(app: &mut App) -> Entity {
     app.world_mut()
-        .query::<&CarRig>()
+        .query_filtered::<&CarRig, With<Car>>()
         .single(app.world())
         .expect("une voiture")
         .chassis
@@ -190,7 +190,11 @@ fn le_conducteur_est_dans_la_dirty_car_du_cote_du_volant() {
 fn le_conducteur_a_ses_deux_bras_et_la_voiture_son_volant() {
     let mut app = app();
     run_until(&mut app, "voiture et conducteur posés", |app| !drivers(app).is_empty());
-    let rig = app.world_mut().query::<&CarRig>().single(app.world()).expect("voiture");
+    let rig = app
+        .world_mut()
+        .query_filtered::<&CarRig, With<Car>>()
+        .single(app.world())
+        .expect("voiture");
     assert!(rig.steering.is_some(), "pivot du volant (steering_pivot)");
     let driver = app.world_mut().query::<&DriverRig>().single(app.world()).expect("bras");
     let (left, right) = (driver.0.left.expect("bras gauche"), driver.0.right.expect("bras droit"));
@@ -305,7 +309,7 @@ fn le_levier_de_la_voiture_suit_le_rapport_engage() {
     assert!(gearshift.shift.is_none(), "geste en cours : {gearshift:?}");
     let lever = app
         .world_mut()
-        .query::<&CarRig>()
+        .query_filtered::<&CarRig, With<Car>>()
         .single(app.world())
         .expect("voiture")
         .gear_lever

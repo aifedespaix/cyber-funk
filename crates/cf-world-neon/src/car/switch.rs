@@ -33,6 +33,11 @@ impl CarModels {
         self.models.insert(variant, model);
     }
 
+    /// Un exemplaire du modèle décodé (pour le double de la passation de DJ).
+    pub(super) fn copy_of(&self, variant: CarVariant) -> Option<super::model::CarModelAsset> {
+        self.models.get(&variant).cloned()
+    }
+
     /// Cette voiture est-elle décodée, donc prête à être posée ?
     #[must_use]
     pub fn has(&self, variant: CarVariant) -> bool {

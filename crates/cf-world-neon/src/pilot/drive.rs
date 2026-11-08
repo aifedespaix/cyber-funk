@@ -163,6 +163,17 @@ impl Pilot {
         &self.flight
     }
 
+    /// Pose la voiture à cet endroit, à cette vitesse (m/s réels), sans à-coup : la passation de DJ la place elle-même
+    /// pendant qu'une autre voiture la double. Le pilote reprend ensuite de là.
+    pub fn warp(&mut self, x: f64, z: f64, speed_mps: f64) {
+        self.car_x = x;
+        self.car_z = z;
+        self.speed = (speed_mps / SCROLL).max(0.0);
+        self.last.car_x = x;
+        self.last.car_z = z;
+        self.last.speed = self.speed;
+    }
+
     /// Changement de titre : on oublie l'allure du morceau précédent.
     pub fn reset_track(&mut self) {
         self.pace.reset();
@@ -332,5 +343,27 @@ impl Pilot {
             self.flight.kick(0.12);
         }
         CarAnimation::from(&frame)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn warp_places_the_car_and_keeps_its_speed_in_real_meters_per_second() {
+        let mut pilot = Pilot::new(1, 0.0);
+        pilot.warp(2.5, -300.0, 17.0);
+        let frame = pilot.frame();
+        assert!((frame.car_x - 2.5).abs() < 1e-9 && (frame.car_z + 300.0).abs() < 1e-9);
+        // `speed` est avant `SCROLL` : 17 m/s réels sont 17 / 0,85 unités.
+        assert!((frame.speed * SCROLL - 17.0).abs() < 1e-9);
+    }
+
+    #[test]
+    fn warp_never_gives_a_negative_speed() {
+        let mut pilot = Pilot::new(1, 0.0);
+        pilot.warp(0.0, 0.0, -5.0);
+        assert!(pilot.frame().speed >= 0.0);
     }
 }

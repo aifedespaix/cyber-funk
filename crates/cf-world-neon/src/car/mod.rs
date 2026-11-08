@@ -21,11 +21,13 @@
 
 pub mod cabin;
 mod doc;
+pub mod double;
 pub mod effects;
 pub mod frame;
 pub mod glass;
 pub mod glb;
 pub mod glow;
+pub mod handover_motion;
 pub mod hover;
 pub mod materials;
 pub mod model;
@@ -153,7 +155,8 @@ impl Plugin for CarPlugin {
             self.assets_dir.join("models/characters/driver-car.glb"),
         ))
         .add_systems(Startup, crate::rider::driver::load_driver);
-        app.add_systems(Startup, systems::load_model)
+        app.init_resource::<double::HandoverCars>()
+            .add_systems(Startup, systems::load_model)
             .add_systems(
                 Update,
                 (
@@ -163,6 +166,7 @@ impl Plugin for CarPlugin {
                     switch::switch_car,
                     crate::rider::driver::attach_driver,
                     systems::drive_car,
+                    double::drive_double_pose.run_if(resource_exists::<crate::run::RunStatus>),
                     presence::apply_presence,
                     hover::animate_hover,
                     crate::rider::driver::animate_driver,
@@ -174,6 +178,19 @@ impl Plugin for CarPlugin {
                     .chain()
                     .in_set(CfSet::Simulate)
                     .after(WorldSet::Gates),
+            )
+            .add_systems(
+                Update,
+                double::build_double.in_set(CfSet::Simulate).after(WorldSet::Gates),
+            )
+            .add_systems(
+                Update,
+                double::drive_handover
+                    .in_set(CfSet::Simulate)
+                    .after(crate::pilot::PilotSet)
+                    .before(WorldSet::Gates)
+                    .run_if(resource_exists::<crate::run::RunStatus>)
+                    .run_if(resource_exists::<crate::pilot::PilotBrain>),
             )
             .add_systems(
                 Update,

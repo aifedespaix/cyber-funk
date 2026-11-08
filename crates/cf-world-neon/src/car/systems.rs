@@ -369,7 +369,7 @@ pub(super) fn drive_car(
 }
 
 /// Vitesse, vitesse latérale et accélération, mesurées sur le déplacement de la position absolue.
-fn measure(state: &mut CarState, position: DVec3, dt: f32) {
+pub(super) fn measure(state: &mut CarState, position: DVec3, dt: f32) {
     if let Some(previous) = state.previous
         && dt > 0.0
     {
@@ -389,12 +389,12 @@ fn measure(state: &mut CarState, position: DVec3, dt: f32) {
     state.previous = Some(position);
 }
 
-fn apply_pose(
+pub(super) fn apply_pose<F: bevy::ecs::query::QueryFilter>(
     pose: &MotionPose,
     bounce_m: f32,
     rig: &CarRig,
     root: &mut Transform,
-    transforms: &mut Query<&mut Transform, Without<Car>>,
+    transforms: &mut Query<&mut Transform, F>,
 ) {
     root.rotation = Quat::from_rotation_y(pose.yaw_rad);
     if let Ok(mut chassis) = transforms.get_mut(rig.chassis) {
@@ -488,16 +488,18 @@ pub(super) fn advance_look(
     scene: Res<ScenePalette>,
     controls: Res<CarControls>,
     mut look: ResMut<RoadLook>,
-    mut cars: Query<&mut CarState>,
+    mut cars: Query<(&mut CarState, Option<&super::double::PaletteOverride>)>,
 ) {
     let dt = time.delta_secs();
     let now = time.elapsed_secs_f64();
-    let palette = car_palette(&scene);
+    let scene_palette = car_palette(&scene);
     let raw_pulse = features.map_or(0.0, |f| f.0.pulse);
     // Même politique que le post-process (`ShowFx::update`) : permis par le spectacle, hors respiration ; sans
     // spectacle, rien ne flashe.
     let policy = show.map(|s| (s.0.flashes, s.0.breathing));
-    for mut state in &mut cars {
+    for (mut state, own_palette) in &mut cars {
+        // Le double de l'ancienne voiture garde les couleurs de son DJ pendant que la scène change de thème.
+        let palette = own_palette.map_or(scene_palette, |o| o.0);
         let speed_ratio = (state.speed_mps / CRUISE_SPEED_MPS).max(0.0);
         let brake = state.brake.toward(controls.brake.clamp(0.0, 1.0), dt, 1.0);
         state.glow.set_target(controls.lit.unwrap_or(palette.violet));
@@ -533,7 +535,10 @@ pub(super) fn advance_look(
             blink,
             brake,
         });
-        // La route reflète la lueur de la voiture et ses feux stop.
+        // La route reflète la lueur de la voiture réelle et ses feux stop, pas celle de son double.
+        if own_palette.is_some() {
+            continue;
+        }
         if look.glow != glow {
             look.glow = glow;
         }
