@@ -7,7 +7,11 @@ use cf_render::{AudioFeatures, CurrentShowFx, ScenePalette};
 use super::material::{
     AuroraMaterial, DomeMaterial, PlanetMaterial, PlanetParams, RingMaterial, SkyParams, StarsMaterial, StreakMaterial,
 };
-use super::params::{AURORAS, SkyFrame, build_aurora, build_dome, build_planet, build_ring, build_stars, build_streak};
+use super::orbit::{ORBITERS, spin_direction};
+use super::orbiters::spawn_orbiters;
+use super::params::{
+    AURORAS, SkyFrame, build_aurora, build_dome, build_planet, build_planet_with, build_ring, build_stars, build_streak,
+};
 use super::shooting::{POOL, ShootingStars};
 use super::spec::{PLANETS, RADIUS_M, RING_PLANET_TEXTURE, RING_TILT_X_RAD};
 use super::stars::{star_field, star_mesh};
@@ -24,6 +28,9 @@ const KICKS_PER_SHOOTING_STAR: u32 = 24;
 pub struct SkyState {
     shooting: ShootingStars,
     spin_rad: [f32; PLANETS.len()],
+    pub(super) orbiter_spin_rad: [f32; ORBITERS.len()],
+    /// Temps écoulé depuis l'ouverture (s) : l'horloge des orbites, avancée par le seul `step_sky`.
+    pub(super) elapsed_s: f64,
     last_kick_count: Option<u32>,
 }
 
@@ -32,6 +39,8 @@ impl Default for SkyState {
         Self {
             shooting: ShootingStars::new(),
             spin_rad: [0.0; PLANETS.len()],
+            orbiter_spin_rad: [0.0; ORBITERS.len()],
+            elapsed_s: 0.0,
             last_kick_count: None,
         }
     }
@@ -56,6 +65,18 @@ impl SkyState {
     pub fn spin_rad(&self, index: usize) -> f32 {
         self.spin_rad.get(index).copied().unwrap_or(0.0)
     }
+
+    /// Angle de rotation de l'astre en orbite `index` ([`ORBITERS`]) sur son axe, en rad, dans [0, 2π).
+    #[must_use]
+    pub fn orbiter_spin_rad(&self, index: usize) -> f32 {
+        self.orbiter_spin_rad.get(index).copied().unwrap_or(0.0)
+    }
+
+    /// Temps depuis l'ouverture, en s : l'horloge des orbites.
+    #[must_use]
+    pub fn elapsed_s(&self) -> f64 {
+        self.elapsed_s
+    }
 }
 
 /// Les matériaux du ciel, rangés par type.
@@ -77,6 +98,8 @@ pub(super) struct SkyRig {
     auroras: [Handle<AuroraMaterial>; AURORAS.len()],
     /// Indice dans [`PLANETS`] et matériau de chaque astre chargé.
     planets: Vec<(usize, Handle<PlanetMaterial>)>,
+    /// Indice dans [`ORBITERS`] et matériau de chaque astre en orbite chargé.
+    orbiters: Vec<(usize, Handle<PlanetMaterial>)>,
     /// Indice dans [`PLANETS`] et matériau de chaque anneau.
     rings: Vec<(usize, Handle<RingMaterial>)>,
     streaks: [Handle<StreakMaterial>; POOL],
@@ -189,6 +212,8 @@ pub(super) fn spawn_sky(
     }
     commands.insert_resource(loaded);
 
+    let orbiters = spawn_orbiters(&mut commands, &mut images, &mut materials.planet, &sphere);
+
     let quad = meshes.add(Rectangle::new(1.0, 1.0).mesh().build());
     let streaks = std::array::from_fn::<_, POOL, _>(|i| {
         let handle = materials.streak.add(StreakMaterial::default());
@@ -207,6 +232,7 @@ pub(super) fn spawn_sky(
         stars,
         auroras,
         planets,
+        orbiters,
         rings,
         streaks,
     });
@@ -251,7 +277,7 @@ pub(super) fn step_sky(
     for (planet, mut transform) in &mut planets {
         let spec = &PLANETS[planet.0];
         let spin = &mut state.spin_rad[planet.0];
-        *spin = (*spin + spec.spin_step_rad(dt)) % std::f32::consts::TAU;
+        *spin = (*spin + spec.spin_step_rad(dt) * spin_direction(planet.0)).rem_euclid(std::f32::consts::TAU);
         transform.rotation = spec.rotation(*spin);
     }
     for (streak, mut transform, mut visibility) in &mut streaks {
@@ -299,6 +325,13 @@ pub(super) fn update_materials(
     }
     for (index, handle) in &rig.planets {
         write(&mut materials.planet, handle, build_planet(*index, &palette, &frame));
+    }
+    for (index, handle) in &rig.orbiters {
+        write(
+            &mut materials.planet,
+            handle,
+            build_planet_with(ORBITERS[*index].body.atmosphere, &palette, &frame),
+        );
     }
     for (index, handle) in &rig.rings {
         if let Some(params) = build_ring(*index, &palette, &frame) {

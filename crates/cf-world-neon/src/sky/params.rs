@@ -104,9 +104,16 @@ pub(super) fn build_aurora(spec: &AuroraSpec, calm: bool, palette: &ScenePalette
 /// Uniformes de la surface de l'astre `index` de [`PLANETS`].
 #[must_use]
 pub fn build_planet(index: usize, palette: &ScenePalette, frame: &SkyFrame) -> PlanetParams {
+    build_planet_with(PLANETS[index].atmosphere, palette, frame)
+}
+
+/// Uniformes de la surface d'un astre d'après la teinte de son atmosphère (les astres en orbite n'ont pas de rang dans
+/// [`PLANETS`]).
+#[must_use]
+pub fn build_planet_with(atmosphere: SceneColor, palette: &ScenePalette, frame: &SkyFrame) -> PlanetParams {
     PlanetParams {
         light: light_dir().extend(0.0),
-        atmo: rgb(palette, PLANETS[index].atmosphere),
+        atmo: rgb(palette, atmosphere),
         frame: Vec4::new(frame.pulse, frame.reveal, 0.0, 0.0),
     }
 }

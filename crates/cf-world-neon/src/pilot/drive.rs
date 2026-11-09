@@ -286,6 +286,7 @@ impl Pilot {
             dt,
             lateral_rate: self.lateral_rate(),
             beat,
+            kick: t.beat.kick,
             energy: t.beat.intensity,
             show,
         })
