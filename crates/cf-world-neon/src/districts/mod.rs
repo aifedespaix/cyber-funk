@@ -21,7 +21,7 @@ mod state;
 mod systems;
 
 use bevy::prelude::*;
-use cf_render::{CfSet, EventCategory, WorldEvent, WorldEventAppExt, WorldSet};
+use cf_render::{CfSet, DistrictAffinity, EventCategory, WorldEvent, WorldEventAppExt, WorldSet};
 use cf_show::district::DistrictKind;
 
 pub use cf_render::{DistrictOrder, DistrictState};
@@ -33,6 +33,12 @@ pub use systems::{DistrictSources, fade_grade_for_quality, start_districts, take
 
 /// Famille du catalogue d'événements.
 pub const FAMILY: &str = "Quartiers";
+/// L'affinité des événements avec les quartiers, embarquée à la compilation : aucune lecture de fichier pendant le show.
+const AFFINITY_RON: &str = include_str!(concat!(
+    env!("CARGO_MANIFEST_DIR"),
+    "/../../assets/districts/affinity.ron"
+));
+
 /// Préfixe des déclencheurs.
 const PREFIX: &str = "district:";
 
@@ -43,7 +49,12 @@ pub struct DistrictsPlugin;
 
 impl Plugin for DistrictsPlugin {
     fn build(&self, app: &mut App) {
+        let (affinity, problems) = DistrictAffinity::from_ron(AFFINITY_RON);
+        for problem in problems {
+            tracing::warn!("{problem}");
+        }
         app.add_message::<DistrictOrder>()
+            .insert_resource(affinity)
             .init_resource::<DistrictState>()
             .init_resource::<DistrictDriver>()
             .register_world_events(world_events())

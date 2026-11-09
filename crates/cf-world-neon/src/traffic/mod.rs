@@ -190,6 +190,7 @@ impl Plugin for TrafficPlugin {
                 systems::publish_traffic.in_set(TrafficSet::Publish).before(PilotSet),
                 (
                     systems::take_triggers,
+                    systems::sync_district_filter,
                     systems::drive_traffic,
                     systems::publish_traffic_events,
                     systems::apply_clearings,

@@ -141,6 +141,11 @@ impl TrafficDirector {
         self.clear_requested = true;
     }
 
+    /// Les événements que le quartier courant n'accueille pas (bit `1 << EventName::index`) : le tirage spontané les écarte.
+    pub fn set_blocked_events(&mut self, mask: u32) {
+        self.scheduler.set_blocked(mask);
+    }
+
     /// Suspend (ou reprend) le tirage des événements aléatoires : une cascade scénarisée a la ville pour elle.
     pub fn hold(&mut self, on: bool) {
         self.held = on;

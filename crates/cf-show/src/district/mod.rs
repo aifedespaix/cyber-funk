@@ -4,12 +4,14 @@
 //! [`Decision`] rendue. Le temps est celui de l'audio, en secondes, pour que les décisions soient reproductibles.
 
 mod governor;
+mod set;
 #[cfg(test)]
 mod tests;
 
 pub use governor::{
     AFTER_DROP_BEATS, AFTER_DROP_BPM_RANGE, AFTER_DROP_FALLBACK_S, Governor, MAX_DWELL_S, MIN_DWELL_S, TRANSITION_MAX_S,
 };
+pub use set::DistrictSet;
 
 use cf_analysis::Section;
 

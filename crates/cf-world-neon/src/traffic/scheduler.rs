@@ -64,6 +64,8 @@ pub struct Scheduler {
     seen_dj: u32,
     seen_level: u32,
     title_since: f64,
+    /// Événements que le quartier courant n'accueille pas (un bit par rang de `EventName`) : le tirage ne les choisit pas.
+    blocked: u32,
 }
 
 impl Default for Scheduler {
@@ -76,11 +78,22 @@ impl Default for Scheduler {
             seen_dj: 0,
             seen_level: 0,
             title_since: f64::NEG_INFINITY,
+            blocked: 0,
         }
     }
 }
 
 impl Scheduler {
+    /// Règle les événements écartés du tirage par le quartier courant (bit `1 << EventName::index`). L'ordre de l'opérateur
+    /// et le forçage ne passent pas par ce filtre : l'opérateur peut tester un événement hors de son quartier.
+    pub fn set_blocked(&mut self, mask: u32) {
+        self.blocked = mask;
+    }
+
+    fn is_blocked(&self, name: EventName) -> bool {
+        self.blocked & (1 << name.index()) != 0
+    }
+
     /// Secondes avant le prochain tirage (outil de développement et tests).
     #[must_use]
     pub fn countdown(&self) -> f32 {
@@ -187,7 +200,10 @@ impl Scheduler {
         rng: &mut Rand,
     ) -> Option<EventName> {
         // Un événement en attente que les portes n'autorisent plus (changement de niveau, respiration) est abandonné.
-        if self.pending.is_some_and(|name| !Self::allows(name, frame)) {
+        if self
+            .pending
+            .is_some_and(|name| !Self::allows(name, frame) || self.is_blocked(name))
+        {
             self.pending = None;
         }
         if let Some(name) = self.pending {
@@ -293,7 +309,9 @@ impl Scheduler {
         let mut weights = [0.0_f64; EVENT_COUNT];
         let mut total = 0.0;
         for name in EventName::ALL {
-            let allowed = registry.contains(name) && !Self::excluded(name, frame, running, recent, high);
+            let allowed = registry.contains(name)
+                && !self.is_blocked(name)
+                && !Self::excluded(name, frame, running, recent, high);
             if !allowed {
                 continue;
             }

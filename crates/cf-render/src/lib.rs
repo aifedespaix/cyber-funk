@@ -2,6 +2,7 @@
 //! post-process, streaming du monde, culling, qualité adaptative et palettes.
 
 mod active_events;
+mod affinity;
 pub mod audio;
 mod automation;
 mod car_selection;
@@ -34,6 +35,7 @@ pub mod world;
 pub use active_events::{
     ActiveEvent, ActiveEvents, ActiveEventsPlugin, ActiveId, EventCategory, EventOrigin, expire_active_events,
 };
+pub use affinity::DistrictAffinity;
 pub use audio::{
     AudioCommand, AudioConfig, AudioFeatures, AudioSequenceGain, AudioSource, AudioStatus, CfAudioPlugin,
     InputBackendChoice, Kick, OutputChoice, SectionChanged, VisualLatency,

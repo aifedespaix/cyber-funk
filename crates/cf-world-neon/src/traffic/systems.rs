@@ -155,6 +155,30 @@ pub(crate) fn take_triggers(
     }
 }
 
+/// `CfSet::Simulate`, avant le pas du trafic : écarte du tirage spontané les événements que le quartier courant n'accueille
+/// pas (table d'affinité). Le masque n'est recalculé que quand le type de quartier ou la table change.
+pub(crate) fn sync_district_filter(
+    state: Option<Res<cf_render::DistrictState>>,
+    affinity: Option<Res<cf_render::DistrictAffinity>>,
+    mut director: ResMut<TrafficDirector>,
+    mut last: Local<Option<cf_show::district::DistrictKind>>,
+) {
+    let (Some(state), Some(affinity)) = (state, affinity) else {
+        return;
+    };
+    // Pendant une transition, l'ancien quartier reste celui qui est affiché : on suit `current`.
+    let kind = state.current.kind;
+    if *last == Some(kind) && !affinity.is_changed() {
+        return;
+    }
+    *last = Some(kind);
+    let mask = EventName::ALL
+        .into_iter()
+        .filter(|name| !affinity.allows(name.as_str(), kind))
+        .fold(0_u32, |mask, name| mask | 1 << name.index());
+    director.set_blocked_events(mask);
+}
+
 /// Le nom à afficher en titre : celui du DJ en cours, à défaut celui de l'événement.
 fn dj_title(names: &SignShow) -> Option<&str> {
     let slot = names.active.then(|| names.current()).flatten()?;

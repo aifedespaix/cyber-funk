@@ -1,0 +1,17 @@
+// Où chaque événement a sa place. Absent = partout.
+//
+// Une entrée nomme un événement par son identifiant de catalogue (« landmark:arcade ») ou par sa famille, la partie
+// avant les deux-points (« landmark »). L'entrée exacte l'emporte sur la famille.
+// Quartiers : "neon" (centre néon), "suburb" (banlieue), "residential" (résidentiel). Une liste vide = nulle part.
+//
+// Effet : le tirage spontané du trafic ne choisit pas l'événement hors de ses quartiers, et l'onglet Debug l'affiche
+// grisé (on peut le forcer quand même pour juger du rendu avant de l'autoriser ici).
+//
+// Entrées de départ, à ajuster : de l'urbain dense, qui n'a pas sa place en banlieue ou en résidentiel.
+(
+    events: {
+        "landmark": ["neon"],
+        "tower": ["neon"],
+        "adship": ["neon"],
+    },
+)

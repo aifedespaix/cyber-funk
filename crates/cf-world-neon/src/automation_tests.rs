@@ -453,6 +453,52 @@ fn the_sandbox_speed_becomes_the_pilot_pace() {
     assert!((app.world().resource::<PilotSettings>().speed_scale - 0.3).abs() < 1e-6);
 }
 
+/// Une table qui réserve au centre néon tous les événements du trafic sauf la poursuite, et le quartier courant : la banlieue.
+fn only_chase_in_suburb(app: &mut App) {
+    let entries: Vec<String> = EventName::ALL
+        .into_iter()
+        .filter(|name| *name != EventName::Chase)
+        .map(|name| format!("\"{}\": [\"neon\"]", name.as_str()))
+        .collect();
+    let (table, problems) = cf_render::DistrictAffinity::from_ron(&format!("(events: {{{}}})", entries.join(",")));
+    assert!(problems.is_empty(), "{problems:?}");
+    app.insert_resource(table);
+    app.insert_resource(DistrictState {
+        current: cf_show::district::DistrictId {
+            kind: cf_show::district::DistrictKind::Suburb,
+            variant: 0,
+        },
+        ..DistrictState::default()
+    });
+}
+
+#[test]
+fn the_random_draw_keeps_to_the_events_the_district_welcomes() {
+    let mut app = traffic_app(false, false);
+    only_chase_in_suburb(&mut app);
+    let mut seen_chase = false;
+    for i in 0..frames(240.0) {
+        frame(&mut app, i);
+        for name in app.world().resource::<TrafficDirector>().active_names() {
+            assert_eq!(name, EventName::Chase, "image {i} : {name:?} ne va pas en banlieue");
+            seen_chase = true;
+        }
+    }
+    assert!(seen_chase, "la poursuite, seule permise, n'est jamais tirée");
+}
+
+#[test]
+fn the_operator_can_still_force_an_event_outside_its_district() {
+    let mut app = traffic_app(true, true);
+    only_chase_in_suburb(&mut app);
+    for i in 0..5 {
+        frame(&mut app, i);
+    }
+    trigger(&mut app, "storm");
+    until(&mut app, 5, 5.0, |app| !listed(app).is_empty()).expect("l'orage forcé ne part pas");
+    assert_eq!(listed(&app)[0].0, "storm");
+}
+
 // ---------------------------------------------------------------------------------------------------------------------
 // Immeubles-vitrines.
 
