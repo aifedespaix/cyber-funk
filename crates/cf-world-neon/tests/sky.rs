@@ -16,8 +16,8 @@ use cf_render::{
     ShowFxInput, aabb_encloses_mesh, mesh_aabb,
 };
 use cf_world_neon::sky::{
-    DomeMaterial, PLANETS, POOL, PlanetMaterial, PlanetTextures, RADIUS_M, RING_PLANET_TEXTURE, RingPlanet, SkyPart,
-    SkyPlanet, SkyState, SkyStreak, StarsMaterial, StreakMaterial,
+    DomeMaterial, ORBITERS, PLANETS, POOL, PlanetMaterial, PlanetTextures, RADIUS_M, RING_PLANET_TEXTURE, RingPlanet,
+    SkyOrbiter, SkyPart, SkyPlanet, SkyState, SkyStreak, StarsMaterial, StreakMaterial, spin_direction,
 };
 use cf_world_neon::{ChasePlugin, NeonWorldPlugin, RunnerConfig, ShootingStarRequest, SkyLook};
 
@@ -190,11 +190,13 @@ fn les_astres_tournent_sur_leur_axe() {
     assert_eq!(rows.len(), PLANETS.len());
     for (index, transform) in rows {
         let spec = &PLANETS[index];
-        let expected = spec.spin_step_rad(seconds);
+        // Certains astres tournent à l'envers : l'angle reste dans [0, 2π), on le compare modulo un tour.
+        let step = spec.spin_step_rad(seconds);
+        let expected = (step * spin_direction(index)).rem_euclid(std::f32::consts::TAU);
         let spin = state.spin_rad(index);
         // Une seconde environ de rotation (la première image n'a pas de delta).
         assert!(
-            (spin - expected).abs() < expected * 0.05,
+            (spin - expected).abs() < step * 0.05,
             "{} : {spin} contre {expected}",
             spec.texture
         );
@@ -204,6 +206,41 @@ fn les_astres_tournent_sur_leur_axe() {
             transform.translation.distance(spec.center()) < 1e-3,
             "l'astre ne se déplace pas"
         );
+    }
+}
+
+#[test]
+fn la_lune_et_la_geante_se_deplacent_sur_leur_orbite() {
+    let mut app = app(0.0, 0.0);
+    app.update();
+    let positions = |app: &mut App| -> Vec<(usize, Vec3)> {
+        let mut query = app.world_mut().query::<(&SkyOrbiter, &Transform)>();
+        let mut rows: Vec<_> = query.iter(app.world()).map(|(o, t)| (o.0, t.translation)).collect();
+        rows.sort_by_key(|(index, _)| *index);
+        rows
+    };
+    let before = positions(&mut app);
+    assert_eq!(before.len(), ORBITERS.len());
+    for _ in 0..600 {
+        app.update();
+    }
+    let after = positions(&mut app);
+    let elapsed = app.world().resource::<SkyState>().elapsed_s();
+    assert!(elapsed > 9.0, "l'horloge des orbites avance : {elapsed}");
+    for ((index, a), (_, b)) in before.iter().zip(&after) {
+        let orbiter = &ORBITERS[*index];
+        assert!(a.distance(*b) > 1.0, "{} ne bouge pas", orbiter.body.texture);
+        assert!(
+            b.distance(orbiter.orbit.position(elapsed)) < 1e-2,
+            "{} hors de sa trajectoire",
+            orbiter.body.texture
+        );
+        assert!(b.length() + orbiter.body.radius_m < RADIUS_M, "sort de la voûte");
+    }
+    // Les astres fixes, eux, ne bougent pas.
+    let mut fixed = app.world_mut().query::<(&SkyPlanet, &Transform)>();
+    for (planet, transform) in fixed.iter(app.world()) {
+        assert!(transform.translation.distance(PLANETS[planet.0].center()) < 1e-3);
     }
 }
 
@@ -309,7 +346,7 @@ fn les_materiaux_suivent_le_pouls_la_palette_et_le_fondu() {
     assert!((stars.params.frame.z - 0.25).abs() < 1e-6);
 
     let planets = app.world().resource::<Assets<PlanetMaterial>>();
-    assert_eq!(planets.iter().count(), PLANETS.len());
+    assert_eq!(planets.iter().count(), PLANETS.len() + ORBITERS.len());
     for (_, planet) in planets.iter() {
         assert!((planet.params.frame.x - 0.8).abs() < 1e-6 && (planet.params.frame.y - 0.25).abs() < 1e-6);
         assert!(planet.map.is_some(), "texture posée");

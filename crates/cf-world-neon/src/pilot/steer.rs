@@ -6,7 +6,8 @@
 //! a ni bonus ni malus à ramasser en cinéma, seules les voitures au sol comptent (voir la section « Écarts » de la PR).
 
 use super::input::ShowInput;
-use super::race_line::RaceLine;
+use super::race_line::{MAX_X, RaceLine};
+use super::sway::Sway;
 use crate::route::{LIMIT, PickupView};
 
 /// Pas de la recherche de la meilleure position latérale, en m.
@@ -46,6 +47,8 @@ pub struct SteerInput<'a> {
     pub lateral_rate: f64,
     /// Temps musical (horloge de danse).
     pub beat: f64,
+    /// Un kick vient d'avoir lieu (vrai une seule image) : il peut lancer une embardée.
+    pub kick: bool,
     /// Énergie du morceau, 0 → 1.
     pub energy: f64,
     /// Le spectacle de l'image, ou `None`.
@@ -57,6 +60,7 @@ pub struct SteerInput<'a> {
 pub struct Autopilot {
     target: f64,
     line: RaceLine,
+    sway: Sway,
 }
 
 impl Autopilot {
@@ -66,6 +70,7 @@ impl Autopilot {
         Self {
             target: 0.0,
             line: RaceLine::new(seed),
+            sway: Sway::new(seed + 0.5),
         }
     }
 
@@ -73,6 +78,7 @@ impl Autopilot {
     pub fn reset(&mut self, x: f64) {
         self.target = x;
         self.line.reset(x);
+        self.sway.reset();
     }
 
     /// Renvoie la direction voulue, entre -1 et 1.
@@ -80,12 +86,19 @@ impl Autopilot {
         // Spectacle : sans rien à ramasser on suit la ligne de course.
         let line = if let (Some(show), None) = (s.show, s.preferred) {
             let energy = s.energy * 0.7 + show.heat * 0.3;
-            Some(self.line.update(
+            // Un drop envoie la voiture de l'autre côté de la route.
+            if show.drop_now {
+                self.line.mirror();
+            }
+            let x = self.line.update(
                 s.dt,
                 s.beat,
                 if show.breathing { energy * 0.5 } else { energy },
                 s.lateral_rate,
-            ))
+            );
+            // Embardées et zigzags par-dessus la ligne : rares, doux, bornés (voir `sway`).
+            let sway = self.sway.update(s.dt, s.beat, s.kick, energy, show.breathing);
+            Some((x + sway).clamp(-MAX_X, MAX_X))
         } else {
             self.line.reset(s.car_x);
             None
@@ -147,6 +160,7 @@ mod tests {
             dt: 1.0 / 60.0,
             lateral_rate: 5.0,
             beat: 0.0,
+            kick: false,
             energy: 0.4,
             show: None,
         }

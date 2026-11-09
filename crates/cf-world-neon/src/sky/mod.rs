@@ -1,6 +1,7 @@
 //! Le ciel de Neon City (`sky.ts`, `sky-materials.ts`, `planets.ts`, `shooting-stars.ts` et le fondu de
 //! `show/pre-intro-sky.ts` de Sillage) : voûte à nébuleuses et Voie lactée, 6 370 étoiles sur trois profondeurs, deux
-//! rideaux d'aurore, sept astres texturés qui tournent dont une géante à anneau, étoiles filantes.
+//! rideaux d'aurore, sept astres texturés qui tournent (certains à l'envers) dont une géante à anneau, la Lune de l'océan et une géante
+//! glacée en orbite autour de notre monde, étoiles filantes.
 //!
 //! # Couche arrière-plan, à l'infini
 //!
@@ -34,6 +35,8 @@
 //! - les matériaux : écrits par le seul `update_materials` (`CfSet::Present`).
 
 mod material;
+mod orbit;
+mod orbiters;
 mod params;
 mod shooting;
 mod spec;
@@ -49,7 +52,8 @@ pub use material::{
     AuroraMaterial, AuroraParams, DomeMaterial, DomeParams, PlanetMaterial, PlanetParams, RingMaterial, RingParams,
     SkyParams, StarsMaterial, StarsParams, StreakMaterial, StreakParams,
 };
-pub use params::{SkyFrame, build_dome, build_planet, build_stars, build_streak};
+pub use orbit::{ORBITERS, Orbit, OrbiterSpec, SPIN_DIRECTION, spin_direction};
+pub use params::{SkyFrame, build_dome, build_planet, build_planet_with, build_stars, build_streak};
 pub use shooting::{MAX_PER_SECOND, MIN_GAP_S, POOL, ShootingStars, Streak};
 pub use spec::{PLANETS, PlanetSpec, RADIUS_M, RING_PLANET_TEXTURE, RingSpec, STAR_LAYERS, StarLayer, galaxy_axis};
 pub use stars::{Star, star_field, star_mesh};
@@ -64,6 +68,11 @@ pub struct SkyPart;
 #[derive(Component, Debug, Clone, Copy, PartialEq, Eq)]
 #[require(SkyPart)]
 pub struct SkyPlanet(pub usize);
+
+/// Un astre en orbite (la Lune de l'océan, la géante qui tourne autour de notre monde) : son indice dans [`ORBITERS`].
+#[derive(Component, Debug, Clone, Copy, PartialEq, Eq)]
+#[require(SkyPart)]
+pub struct SkyOrbiter(pub usize);
 
 /// Un trait du pool d'étoiles filantes : son indice dans [`ShootingStars::streaks`].
 #[derive(Component, Debug, Clone, Copy, PartialEq, Eq)]
@@ -183,6 +192,13 @@ impl Plugin for SkyPlugin {
             .add_systems(
                 Update,
                 systems::step_sky
+                    .in_set(CfSet::Simulate)
+                    .after(WorldSet::Chunks)
+                    .run_if(resource_exists::<systems::SkyRig>),
+            )
+            .add_systems(
+                Update,
+                orbiters::step_orbiters
                     .in_set(CfSet::Simulate)
                     .after(WorldSet::Chunks)
                     .run_if(resource_exists::<systems::SkyRig>),
