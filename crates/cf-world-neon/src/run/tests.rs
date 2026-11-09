@@ -208,7 +208,7 @@ fn a_handover_asks_the_director_for_the_next_dj_once_and_publishes_the_target() 
             cf_control::Action::NextDj
         ]
     );
-    run_seconds(&mut app, 26.0);
+    run_seconds(&mut app, 53.0);
     assert_eq!(phase(&app), Phase::Running);
     assert_eq!(app.world().resource::<RunHandover>().0, None);
     assert_eq!(app.world().resource::<Controls>().0.len(), 2, "une seule demande");
@@ -241,10 +241,10 @@ fn nothing_happens_when_there_is_no_other_dj_to_hand_over_to() {
 fn the_camera_holds_the_handover_shot_from_the_swap_to_the_overtake_then_lets_the_editing_back() {
     let mut app = running_app(3, 0);
     app.world_mut().write_message(RunOrder::Handover { slot: None });
-    run_seconds(&mut app, 12.0);
+    run_seconds(&mut app, 36.0);
     assert_eq!(
         app.world().resource::<Seen>().0,
         vec![ShotOrder::Hold("handover"), ShotOrder::Release],
-        "tenu de l'échange au dépassement, une seule fois"
+        "tenu devant la voiture seule jusqu'à sa disparition, une seule fois"
     );
 }

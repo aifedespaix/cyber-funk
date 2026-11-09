@@ -233,10 +233,7 @@ pub(super) fn update_haze(
 }
 
 /// `CfSet::Present`, après `update_mist` : au repos, la nappe de brume est cachée ; sinon elle est visible.
-pub(super) fn rest_mist(
-    idle: Option<Res<cf_render::SceneIdle>>,
-    mut mists: Query<&mut Visibility, With<Mist>>,
-) {
+pub(super) fn rest_mist(idle: Option<Res<cf_render::SceneIdle>>, mut mists: Query<&mut Visibility, With<Mist>>) {
     let wanted = if idle.is_some_and(|i| i.0) {
         Visibility::Hidden
     } else {

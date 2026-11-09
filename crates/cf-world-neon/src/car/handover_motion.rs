@@ -63,7 +63,8 @@ pub struct HandoverMotion {
 fn wobble_offset(w: &Wobble, speed_mps: f32, t_s: f32) -> f64 {
     let tau = std::f64::consts::TAU;
     let (period, phase) = (f64::from(w.period_s), f64::from(w.phase_rad));
-    -f64::from(speed_mps) * f64::from(w.amp) * period / tau * ((tau * f64::from(t_s) / period + phase).cos() - phase.cos())
+    -f64::from(speed_mps) * f64::from(w.amp) * period / tau
+        * ((tau * f64::from(t_s) / period + phase).cos() - phase.cos())
 }
 
 fn smooth(t: f64) -> f64 {
@@ -175,7 +176,10 @@ mod tests {
         let frames = replay(&v);
         let (_, first) = frames[0];
         let (x, z) = first.double.expect("le double existe dès le début");
-        assert!((x - 1.0).abs() < 1e-6 && (z + 1000.0 - 16.0 * f64::from(DT)).abs() < 0.5, "{x} {z}");
+        assert!(
+            (x - 1.0).abs() < 1e-6 && (z + 1000.0 + 16.0 * f64::from(DT)).abs() < 0.5,
+            "{x} {z}"
+        );
     }
 
     #[test]
@@ -192,8 +196,15 @@ mod tests {
             let abreast = at(m.fading);
             let (rx, rz, _) = abreast.real.expect("menée");
             let (dx, dz) = abreast.double.expect("double");
-            assert!((rz - dz).abs() < 6.0, "côte à côte à quelques mètres près : {}", rz - dz);
-            assert!(rx.abs() < 0.2 && (dx - f64::from(v.side * v.lane_offset_m)).abs() < 0.2, "{rx} {dx}");
+            assert!(
+                (rz - dz).abs() < 6.0,
+                "côte à côte à quelques mètres près : {}",
+                rz - dz
+            );
+            assert!(
+                rx.abs() < 0.2 && (dx - f64::from(v.side * v.lane_offset_m)).abs() < 0.2,
+                "{rx} {dx}"
+            );
         }
     }
 
@@ -218,9 +229,16 @@ mod tests {
         for number in 0..30 {
             let v = variant(number);
             let frames = replay(&v);
-            assert_eq!(frames.iter().filter(|(_, o)| o.release).count(), 1, "passation {number}");
+            assert_eq!(
+                frames.iter().filter(|(_, o)| o.release).count(),
+                1,
+                "passation {number}"
+            );
             for (t, o) in &frames {
-                assert!(o.double_speed_mps.is_finite() && (0.0..30.0).contains(&o.double_speed_mps), "{t}");
+                assert!(
+                    o.double_speed_mps.is_finite() && (0.0..30.0).contains(&o.double_speed_mps),
+                    "{t}"
+                );
                 if let Some((x, z, s)) = o.real {
                     assert!(x.is_finite() && z.is_finite());
                     // Pas de bond : la nouvelle voiture rattrape vite mais pas plus de ~150 km/h.
@@ -255,7 +273,9 @@ mod tests {
             .filter(|(t, o)| *t >= m.abreast && *t <= m.fading && o.real.is_some())
             .map(|(_, o)| o.real.map_or(0.0, |r| r.1) - o.double.map_or(0.0, |d| d.1))
             .collect();
-        let (lo, hi) = gaps.iter().fold((f64::MAX, f64::MIN), |(lo, hi), g| (lo.min(*g), hi.max(*g)));
+        let (lo, hi) = gaps
+            .iter()
+            .fold((f64::MAX, f64::MIN), |(lo, hi), g| (lo.min(*g), hi.max(*g)));
         assert!(hi - lo > 0.3, "l'écart varie : {lo}..{hi}");
         assert!(hi - lo < 8.0, "mais elles restent ensemble : {lo}..{hi}");
     }

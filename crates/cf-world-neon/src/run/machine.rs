@@ -3,7 +3,9 @@
 use cf_render::{Phase, RunOrder};
 
 use super::handover::{ArrivalStages, DoubleStages, HandoverFrame, handover_stages};
-use super::timeline::{CRUISE_MPS, RunStages, START_S, STOP_S, starting_cap, starting_stages, stopping_cap, stopping_stages};
+use super::timeline::{
+    CRUISE_MPS, RunStages, START_S, STOP_S, starting_cap, starting_stages, stopping_cap, stopping_stages,
+};
 use super::variant::HandoverVariant;
 use crate::intro::{IntroInput, IntroStages, PreIntro, WindowFront};
 
@@ -184,10 +186,7 @@ impl RunSequencer {
         self.t_s = (self.t_s + dt_s).min(duration);
         let (stages, double, arrival) = handover_stages(self.t_s, &variant, self.reduce_motion);
         let progress = self.t_s / duration;
-        let frame = HandoverFrame {
-            t_s: self.t_s,
-            variant,
-        };
+        let frame = HandoverFrame { t_s: self.t_s, variant };
         let target = self.target;
         if self.t_s >= duration {
             self.phase = Phase::Running;
@@ -502,25 +501,27 @@ mod tests {
     fn handover_ends_in_running_after_its_duration() {
         let mut seq = running(0, 3);
         seq.update(Some(RunOrder::Handover { slot: None }), DT, false);
-        run_for(&mut seq, HANDOVER_MAX_S - 0.5);
+        // Toute variante dure entre 40 s et le plafond.
+        run_for(&mut seq, 39.5);
         assert_eq!(seq.phase(), Phase::Handover);
-        run_for(&mut seq, 1.0);
+        run_for(&mut seq, HANDOVER_MAX_S - 39.0);
         assert_eq!(seq.phase(), Phase::Running);
         let o = seq.update(None, DT, false);
         assert!(o.stages == RunStages::RUNNING && o.double == DoubleStages::NONE && o.handover_slot.is_none());
     }
 
     #[test]
-    fn the_new_car_is_allowed_to_catch_up_then_returns_to_cruise() {
+    fn the_pilot_cap_stays_at_cruise_during_a_handover_and_the_cars_are_led_by_the_frieze() {
         let mut seq = running(0, 2);
         seq.update(Some(RunOrder::Handover { slot: None }), 0.0, false);
-        let (mut peak, mut last) = (0.0_f32, 0.0_f32);
         for _ in 0..(HANDOVER_MAX_S * 60.0) as u32 {
-            last = seq.update(None, DT, false).speed_cap_mps.unwrap_or(0.0);
-            peak = peak.max(last);
+            let o = seq.update(None, DT, false);
+            if o.phase == Phase::Handover {
+                assert!((o.speed_cap_mps.unwrap_or(0.0) - CRUISE_MPS).abs() < 1e-6);
+                assert!(o.handover.is_some());
+            }
         }
-        assert!(peak > CRUISE_MPS + 5.0, "{peak}");
-        assert!(last <= CRUISE_MPS + 0.01, "{last}");
+        assert_eq!(seq.phase(), Phase::Running);
     }
 
     #[test]

@@ -1,8 +1,8 @@
 //! La frise de l'intro (voiture, portique, quartier) et de la passation de DJ : valeurs de la spec.
 
 use super::handover::{ArrivalStages, DoubleStages, HANDOVER_MAX_S, handover_stages};
-use super::variant::HandoverVariant;
 use super::timeline::{GANTRY_END_S, GANTRY_START_S, RunStages, START_S, starting_stages, stopping_stages};
+use super::variant::HandoverVariant;
 
 const DT: f32 = 1.0 / 60.0;
 
@@ -104,11 +104,17 @@ fn the_district_stumbles_for_a_while_then_sinks_and_comes_back_only_after_the_ga
     assert!(start.build >= 0.999 && start.collapse == 0.0 && start.windows >= 0.999);
     // Le repli démarre lentement : bien avant la moitié du temps, moins du quart est tombé (les tours buguent d'abord).
     let (early, ..) = handover_stages(m.folded * 0.4, &v, false);
-    assert!(early.collapse > 0.0 && early.collapse < 0.35 && early.build >= 0.999, "{early:?}");
+    assert!(
+        early.collapse > 0.0 && early.collapse < 0.35 && early.build >= 0.999,
+        "{early:?}"
+    );
     let (late, ..) = handover_stages(m.folded - 0.5, &v, false);
     assert!(late.collapse > 0.85, "{late:?}");
     let (hidden, ..) = handover_stages(m.folded + 0.1, &v, false);
-    assert!(hidden.build == 0.0 && hidden.collapse == 0.0, "caché : rendu à l'état d'attente");
+    assert!(
+        hidden.build == 0.0 && hidden.collapse == 0.0,
+        "caché : rendu à l'état d'attente"
+    );
     let (under_gantry, ..) = handover_stages(m.gantry + 2.5, &v, false);
     assert!(under_gantry.build == 0.0 && under_gantry.gantry > 0.0);
     let (end, ..) = handover_stages(m.end, &v, false);
@@ -121,7 +127,10 @@ fn the_old_car_is_on_screen_at_once_and_the_new_one_is_absent_far_behind() {
     let (s, d, a) = handover_stages(0.1, &v, false);
     assert!(d.presence >= 0.999, "le double a pris la place de l'ancienne");
     assert!(s.car_presence == 0.0, "la voiture réelle est partie");
-    assert!(a.gap_behind_m > 100.0 && a.scripted, "elle arrivera de loin derrière : {a:?}");
+    assert!(
+        a.gap_behind_m > 100.0 && a.scripted,
+        "elle arrivera de loin derrière : {a:?}"
+    );
 }
 
 #[test]
@@ -131,7 +140,10 @@ fn the_new_car_synchronises_while_it_catches_up_and_the_old_one_desynchronises_o
     let (s, _, a) = handover_stages(m.arrival + 1.0, &v, false);
     assert!(s.car_presence > 0.0 && s.car_presence < 1.0 && a.gap_behind_m > 0.0);
     let (s, d, a) = handover_stages(m.abreast + 0.2, &v, false);
-    assert!(s.car_presence >= 0.999 && d.presence >= 0.999 && a.gap_behind_m < 5.0, "{a:?}");
+    assert!(
+        s.car_presence >= 0.999 && d.presence >= 0.999 && a.gap_behind_m < 5.0,
+        "{a:?}"
+    );
     assert!(d.lateral >= 0.999, "l'ancienne s'est rangée sur le côté");
     let (_, d, _) = handover_stages(m.fading + 1.0, &v, false);
     assert!(d.presence < 1.0 && d.presence > 0.0 && d.fade > 0.0);
@@ -168,7 +180,10 @@ fn handover_stages_stay_finite_in_range_and_the_glitch_is_removed_by_reduced_mot
             let t = k as f32 * DT;
             let (s, d, a) = handover_stages(t, &v, false);
             assert!(all_unit(&s), "{t}: {s:?}");
-            assert!([d.presence, d.slow, d.lateral, d.fade].into_iter().all(unit), "{t}: {d:?}");
+            assert!(
+                [d.presence, d.slow, d.lateral, d.fade].into_iter().all(unit),
+                "{t}: {d:?}"
+            );
             assert!(a.gap_behind_m.is_finite() && a.gap_behind_m >= 0.0, "{t}: {a:?}");
             max_glitch = max_glitch.max(s.name_glitch);
             let (s, ..) = handover_stages(t, &v, true);
@@ -185,7 +200,10 @@ fn the_stages_never_go_backwards_where_they_should_not() {
     for k in 1..=(v.duration_s() / DT) as u32 {
         let cur = handover_stages(k as f32 * DT, &v, false);
         assert!(cur.1.slow >= prev.1.slow - 1e-6 && cur.1.lateral >= prev.1.lateral - 1e-6);
-        assert!(cur.2.gap_behind_m <= prev.2.gap_behind_m + 1e-4, "la nouvelle ne s'éloigne jamais");
+        assert!(
+            cur.2.gap_behind_m <= prev.2.gap_behind_m + 1e-4,
+            "la nouvelle ne s'éloigne jamais"
+        );
         prev = cur;
     }
 }

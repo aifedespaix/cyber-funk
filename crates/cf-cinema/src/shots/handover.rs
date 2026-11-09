@@ -89,7 +89,12 @@ pub fn pose(lead: DVec3, speed_mps: f32, f: &Framing, t_s: f32) -> (DVec3, DVec3
     let sweep = f64::from(f.sweep_m) * (f64::from((t_s / SWEEP_S).clamp(0.0, 1.0)) - 0.5);
     // Un peu devant, de plus en plus près, comme si la voiture se rapprochait de l'objectif.
     let ahead = f64::from(f.ahead_m) - CREEP * f64::from(speed_mps) * f64::from(t_s);
-    let eye = lead + DVec3::new(f64::from(f.lateral_m) + sweep, f64::from(f.height_m) + bob, -ahead.max(6.0));
+    let eye = lead
+        + DVec3::new(
+            f64::from(f.lateral_m) + sweep,
+            f64::from(f.height_m) + bob,
+            -ahead.max(6.0),
+        );
     let target = lead + DVec3::new(0.0, AIM_HEIGHT_M, f64::from(f.look_back_m));
     (eye, target)
 }
@@ -134,7 +139,10 @@ mod tests {
             for k in 0..300 {
                 let (eye, target) = pose(LEAD, 9.0, &framing(style), k as f32 * 0.1);
                 assert!(eye.z < LEAD.z, "devant la voiture (vers −z) : {eye:?}");
-                assert!(target.z > eye.z, "le regard revient vers la voiture et la route derrière");
+                assert!(
+                    target.z > eye.z,
+                    "le regard revient vers la voiture et la route derrière"
+                );
                 assert!(eye.y > 0.2, "jamais sous la chaussée : {eye:?}");
             }
         }

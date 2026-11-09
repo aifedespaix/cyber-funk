@@ -34,7 +34,6 @@ pub mod model;
 pub mod motion;
 pub mod paint;
 pub mod plate;
-pub mod sync;
 pub mod rig;
 pub mod safety;
 pub mod screens;
@@ -43,6 +42,7 @@ pub mod smoke;
 pub mod spawn;
 mod spawn_lights;
 pub mod switch;
+pub mod sync;
 pub mod systems;
 pub mod trail;
 

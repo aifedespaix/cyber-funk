@@ -38,6 +38,7 @@ fn app() -> App {
             assets_dir: "../../assets".into(),
         },
     ))
+    .init_resource::<cf_render::HandoverFeed>()
     .init_asset::<Image>()
     .init_asset::<Mesh>()
     .init_asset::<StandardMaterial>()

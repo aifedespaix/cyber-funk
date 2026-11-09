@@ -14,10 +14,10 @@ use cf_render::{AbsolutePosition, HandoverFeed, HandoverView, Phase, ScenePalett
 
 use super::glow::CarPalette;
 use super::handover_motion::HandoverMotion;
-use super::sync::{apply_look, sync_look, sync_scale};
 use super::rig::{Car, CarRig, CarState};
 use super::spawn::{CarAssets, spawn_car};
 use super::switch::{ActiveCar, CarModels};
+use super::sync::{apply_look, sync_look, sync_scale};
 use super::systems::{apply_pose, car_palette, measure};
 use crate::pilot::PilotBrain;
 use crate::run::RunStatus;

@@ -187,8 +187,8 @@ fn la_voiture_reste_dans_son_budget_d_entites() {
     eprintln!(
         "voiture : {meshes} entités à maillage (dont traînée et fumée), {spots} projecteurs, {points} lumières ponctuelles"
     );
-    // Dont les quatre pads lumineux des roues du mode volant (cachés au sol) et le kit carrosserie (une entité par matériau).
-    assert!((50..105).contains(&meshes), "{meshes} entités à maillage");
+    // Dont une pièce « squelette » par maillage (calque de synchronisation, cachée une fois la voiture synchronisée), les quatre pads lumineux des roues du mode volant (cachés au sol) et le kit carrosserie (une entité par matériau).
+    assert!((50..200).contains(&meshes), "{meshes} entités à maillage");
     // La voiture et son double (passation de DJ) ont chacun deux phares.
     assert_eq!(spots, 4, "deux phares par voiture, double compris");
     assert_eq!(

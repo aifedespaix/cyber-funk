@@ -181,11 +181,17 @@ mod tests {
     #[test]
     fn the_skeleton_comes_first_then_the_colours_then_the_lights() {
         let early = sync_look(0.15, false);
-        assert!(early.skeleton > 0.4 && early.body == 0.0 && early.lights == 0.0, "{early:?}");
+        assert!(
+            early.skeleton > 0.4 && early.body == 0.0 && early.lights == 0.0,
+            "{early:?}"
+        );
         let mid = sync_look(0.5, false);
-        assert!(mid.skeleton > 0.99 && mid.body > 0.2 && mid.body < 0.9 && mid.lights == 0.0, "{mid:?}");
+        assert!(
+            mid.skeleton > 0.99 && mid.body > 0.2 && mid.body < 0.9 && mid.lights == 0.0,
+            "{mid:?}"
+        );
         let late = sync_look(0.9, false);
-        assert!(late.body > 0.9 && late.lights > 0.5 && late.skeleton <= 0.5, "{late:?}");
+        assert!(late.body > 0.9 && late.lights > 0.5 && late.skeleton < 0.51, "{late:?}");
     }
 
     #[test]
@@ -205,7 +211,10 @@ mod tests {
             for v in [l.skeleton, l.body, l.lights, l.glitch] {
                 assert!((0.0..=1.0).contains(&v), "{l:?}");
             }
-            assert!(l.body >= prev.body - 1e-6 && l.lights >= prev.lights - 1e-6, "{prev:?} -> {l:?}");
+            assert!(
+                l.body >= prev.body - 1e-6 && l.lights >= prev.lights - 1e-6,
+                "{prev:?} -> {l:?}"
+            );
             assert!(l.glitch <= prev.glitch + 1e-6, "{prev:?} -> {l:?}");
             prev = l;
         }

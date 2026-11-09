@@ -287,7 +287,10 @@ mod tests {
     #[test]
     fn it_wakes_with_the_first_tower_at_the_start_and_sleeps_with_the_last_one_at_the_stop() {
         assert!(scene_is_idle(Phase::Starting, starting_stages(0.0, false).build));
-        assert!(scene_is_idle(Phase::Starting, starting_stages(15.0, false).build), "route nue sous le portique");
+        assert!(
+            scene_is_idle(Phase::Starting, starting_stages(15.0, false).build),
+            "route nue sous le portique"
+        );
         assert!(!scene_is_idle(Phase::Starting, starting_stages(22.0, false).build));
         assert!(!scene_is_idle(Phase::Stopping, stopping_stages(3.0).build));
         assert!(scene_is_idle(Phase::Stopping, stopping_stages(7.0).build));
