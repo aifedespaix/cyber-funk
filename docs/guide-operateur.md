@@ -350,6 +350,8 @@ RESPIRATION.
 
 Passation de DJ : armez le suivant (J) si l'ordre prévu change, puis G au moment où il prend les platines.
 
+**Passation jouée en 3D.** Dans la vue Live, le bouton **DJ suivant ▶** lance la séquence complète (27 s) : le quartier se replie, l'ancienne voiture se range à droite et s'éteint, la nouvelle arrive aux couleurs du nouveau DJ, le portique affiche son nom et le quartier se reconstruit. Cliquer sur un DJ de la liste fait la même chose vers lui. Pendant une séquence (démarrage, arrêt ou passation) ces commandes sont grisées ou ignorées. Le bouton est grisé au dernier DJ. À l'arrêt, un clic sur un DJ le désigne comme celui par lequel repartira **Démarrer** ; en désigner le premier repart du premier.
+
 ## 6. En cas de pépin
 
 | Symptôme | Que faire |

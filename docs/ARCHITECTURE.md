@@ -364,7 +364,7 @@ l'intensité ») au lieu de repartir de zéro.
 - **Contrat** (`cf-render::run`) : `RunOrder::{Start, Stop}` (message de l'opérateur) et `RunPhase` (`Waiting | Starting |
   Running | Stopping` + avancement), écrite par le monde seul. Sans séquenceur la phase reste `Running` : exemples, outils
   et tests ne changent pas. `RunSequenced` indique à l'opérateur qu'un monde pilote la séquence.
-- **Séquenceur** (`cf-world-neon::run`) : machine pure `RunSequencer` + frise `timeline.rs` (toutes les durées : 18 s au
+- **Séquenceur** (`cf-world-neon::run`) : machine pure `RunSequencer` + frise `timeline.rs` (toutes les durées : 29 s au
   démarrage, 9 s à l'arrêt). `drive_run` applique les étapes aux cibles de la pré-intro (route, façades, ciel, enseigne,
   phares, vitesse), à `FacadeLook.collapse` (chute désynchronisée des tours, `facade_collapse.wesl`), à
   `CarControls.presence` (effet télé), au plan d'attente (`cf-cinema` `waiting`, imposé par `ShotOrder`) et au gain
@@ -374,6 +374,18 @@ l'intensité ») au lieu de repartir de zéro.
 - Règles : la voiture n'est jamais créée ni masquée (pipelines chauds, règle 8) ; les tours rétrécissent autour de leur
   base enfouie (`-BASE_DEPTH_M`) ; aucun flash propre à la séquence (règle 7).
 
+
+### 2.9 Introduction et changement de DJ en 3D
+
+Le démarrage dure 29 s (voiture qui se matérialise, route, passage sous le portique du nom du DJ, quartier qui se matérialise) ; un changement de DJ dure 27 s. Spécification : `docs/superpowers/specs/2026-11-08-changement-dj-intro-portique-design.md`.
+
+- **Contrat** (`cf-render::run`) : `RunOrder::Handover { slot: Option<usize> }` (`None` = DJ suivant), `Phase::Handover`, `RunHandover` (DJ visé, publié par le monde), `StartSlot` (DJ par lequel repart `Démarrer`, consommé par le reset du show).
+- **Séquenceur** (`cf-world-neon::run`) : `handover_stages` (frise de la passation : double de l'ancienne voiture, arrivée de la nouvelle) ; la passation n'est acceptée que depuis `Running`, avec au moins deux DJs et une cible différente de l'actuel.
+- **Deux voitures** (`car::double`) : la voiture réelle (pilotée, `StreamFocus`) devient la nouvelle ; l'ancienne est un double visuel sans pilote, qui garde les couleurs de l'ancien DJ (`PaletteOverride`). La frise mène la réelle (`Pilot::warp`) jusqu'au dépassement, puis la rend au pilote. Le double est créé une fois au chargement et reste dessiné à une échelle invisible (règle 8).
+- **Portique** (`gantry`) : portail métallique avec le nom du DJ en néon géant (machine à lettres de `djsign`), posé 160 m devant la voiture ; enterré et invisible hors séquence.
+- **Palettes** (`cf-show::model::palettes`) : dix palettes assorties attribuées automatiquement aux DJs sans thème (jamais la même deux fois de suite) ; l'opérateur peut en choisir une à la main.
+- **Opérateur** : un clic sur un DJ pendant le show lance la passation vers lui ; à l'arrêt il désigne le DJ de départ ; ignoré pendant une séquence. Le bouton « DJ suivant » est grisé au dernier DJ.
+- Garde-fous : aucun flash (le clignotement du double est géométrique, règle 7) ; les bases des tours restent à `-BASE_DEPTH_M` pendant le repli ; endurance : `cf-world-neon/tests/handover_soak.rs`.
 ## 3. Plan d'action
 
 Chaque jalon se termine par une démo exécutable, `cargo fmt`, `cargo clippy -D warnings` et `cargo test` au vert.
