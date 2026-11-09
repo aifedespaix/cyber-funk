@@ -7,7 +7,8 @@
 
 use bevy_egui::egui;
 use cf_control::{Action, TriggerId};
-use cf_render::{ActiveEvents, WorldEvent};
+use cf_render::{ActiveEvents, DistrictAffinity, WorldEvent};
+use cf_show::district::{DistrictKind, DistrictSet};
 
 use super::columns::runs_as;
 use super::rows::{Row, draw_row};
@@ -35,6 +36,38 @@ pub(crate) fn fire(orders: &mut Vec<Action>, event: &WorldEvent) -> bool {
 pub(crate) fn fire_alone(orders: &mut Vec<Action>, gestures: &mut Vec<super::Gesture>, event: &WorldEvent) -> bool {
     gestures.push(super::Gesture::Sandbox(super::sandbox::SandboxGesture::Clear));
     fire(orders, event)
+}
+
+/// La place d'un événement dans le quartier affiché.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum Fit {
+    /// Il a sa place ici (ou rien n'est connu : table ou quartier absents).
+    Here,
+    /// Il n'est pas prévu ici : prévu pour `allowed`, le quartier affiché est `here`.
+    Outside { allowed: DistrictSet, here: DistrictKind },
+}
+
+/// La place de l'événement `event_id` dans le quartier `here`, d'après la table d'affinité.
+pub(crate) fn fit_of(affinity: Option<&DistrictAffinity>, here: Option<DistrictKind>, event_id: &str) -> Fit {
+    let (Some(affinity), Some(here)) = (affinity, here) else {
+        return Fit::Here;
+    };
+    let allowed = affinity.districts_of(event_id);
+    if allowed.contains(here) {
+        Fit::Here
+    } else {
+        Fit::Outside { allowed, here }
+    }
+}
+
+/// Les quartiers d'un ensemble, en clair (« Centre néon, Banlieue »), ou « aucun ».
+pub(crate) fn district_names(set: DistrictSet) -> String {
+    let names: Vec<&str> = set.kinds().map(DistrictKind::label).collect();
+    if names.is_empty() {
+        "aucun quartier".to_owned()
+    } else {
+        names.join(", ")
+    }
 }
 
 /// Ce qui tourne d'une puce.
@@ -88,8 +121,16 @@ pub(crate) fn draw_chip(
     pinned: bool,
     run: ChipRun,
     color: egui::Color32,
+    fit: Fit,
 ) -> Option<ChipClick> {
-    let title = chip_text(event.label, pinned, run);
+    // Hors de son quartier : grisé et marqué, mais toujours lançable (on juge du rendu avant de l'autoriser).
+    let (title, color) = match fit {
+        Fit::Here => (chip_text(event.label, pinned, run), color),
+        Fit::Outside { .. } => (
+            format!("○ {}", chip_text(event.label, pinned, run)),
+            color.gamma_multiply(0.4),
+        ),
+    };
     let response = draw_row(
         ui,
         &Row {
@@ -103,6 +144,16 @@ pub(crate) fn draw_chip(
         if !event.note.is_empty() {
             ui.label(event.note);
         }
+        if let Fit::Outside { allowed, here } = fit {
+            ui.colored_label(
+                egui::Color32::from_rgb(230, 190, 90),
+                format!(
+                    "Hors quartier : prévu pour {} (ici : {}). Il n'apparaît pas tout seul ; clic : le forcer pour juger du rendu.",
+                    district_names(allowed),
+                    here.label()
+                ),
+            );
+        }
         ui.weak("Clic : lancer (le limiteur de flashs reste actif) · Maj + clic : lancer seul · clic droit : épingler");
     });
     if response.secondary_clicked() {
@@ -115,5 +166,43 @@ pub(crate) fn draw_chip(
         })
     } else {
         None
+    }
+}
+
+#[cfg(test)]
+mod fit_tests {
+    use super::*;
+
+    fn table() -> DistrictAffinity {
+        DistrictAffinity::from_ron(r#"(events: {"landmark": ["neon"], "storm": []})"#).0
+    }
+
+    #[test]
+    fn without_a_table_or_a_district_everything_fits() {
+        assert_eq!(fit_of(None, Some(DistrictKind::Suburb), "landmark:arcade"), Fit::Here);
+        assert_eq!(fit_of(Some(&table()), None, "landmark:arcade"), Fit::Here);
+    }
+
+    #[test]
+    fn an_event_outside_its_districts_is_marked_with_where_it_belongs() {
+        let table = table();
+        assert_eq!(
+            fit_of(Some(&table), Some(DistrictKind::Neon), "landmark:arcade"),
+            Fit::Here
+        );
+        let Fit::Outside { allowed, here } = fit_of(Some(&table), Some(DistrictKind::Suburb), "landmark:arcade") else {
+            panic!("devrait être hors quartier");
+        };
+        assert_eq!(here, DistrictKind::Suburb);
+        assert_eq!(district_names(allowed), "Centre néon");
+    }
+
+    #[test]
+    fn an_event_no_district_welcomes_says_so() {
+        let table = table();
+        let Fit::Outside { allowed, .. } = fit_of(Some(&table), Some(DistrictKind::Neon), "storm") else {
+            panic!("devrait être hors quartier");
+        };
+        assert_eq!(district_names(allowed), "aucun quartier");
     }
 }

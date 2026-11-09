@@ -8,7 +8,7 @@
 use bevy_egui::egui::{self, Rect};
 use cf_render::{ActiveEvents, EventCategory};
 
-use super::chip::{ChipClick, chip_run, draw_chip, fire, fire_alone};
+use super::chip::{ChipClick, chip_run, draw_chip, fire, fire_alone, fit_of};
 use super::columns::{COLUMNS, column_color, column_index, column_title};
 use super::districts::{district_orders, draw_district_column};
 use super::lane::{draw_lane, draw_lane_header};
@@ -156,13 +156,21 @@ fn draw_chips(ui: &mut egui::Ui, column: EventCategory, view: &mut DebugView<'_>
     let pinned = view.pinned();
     let empty = ActiveEvents::default();
     let active = view.active.unwrap_or(&empty);
+    let (affinity, here) = (view.affinity, view.district.map(|d| d.current.kind));
     let DebugState { plan, gestures, .. } = &mut *view.state;
     let mut any = false;
     ui.spacing_mut().item_spacing = egui::vec2(4.0, 4.0);
     for event in plan.column(catalog, column) {
         any = true;
         let run = chip_run(event.id, active, view.now_s);
-        match draw_chip(ui, event, pinned.contains(event.id), run, column_color(column)) {
+        match draw_chip(
+            ui,
+            event,
+            pinned.contains(event.id),
+            run,
+            column_color(column),
+            fit_of(affinity, here, event.id),
+        ) {
             Some(ChipClick::Fire) => {
                 fire(view.orders, event);
             }

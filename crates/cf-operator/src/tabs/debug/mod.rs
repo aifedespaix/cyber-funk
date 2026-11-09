@@ -41,9 +41,9 @@ use bevy_egui::egui;
 use cf_cinema::{CinemaDirector, ShotOrder};
 use cf_control::Action;
 use cf_render::{
-    ActiveEvents, ActiveId, ArmedTriggers, CarSelection, DebugSandbox, DistrictGradeState, DistrictOrder,
-    DistrictState, EventCategory, EventJournal, FacadeTuning, GradeLibrary, GraffitiTuning, GraffitiWords, Settings,
-    SimClock, SimControl, WorldAutomation, WorldEventCatalog,
+    ActiveEvents, ActiveId, ArmedTriggers, CarSelection, DebugSandbox, DistrictAffinity, DistrictGradeState,
+    DistrictOrder, DistrictState, EventCategory, EventJournal, FacadeTuning, GradeLibrary, GraffitiTuning,
+    GraffitiWords, Settings, SimClock, SimControl, WorldAutomation, WorldEventCatalog,
 };
 use cf_show::persist::AppSettings;
 
@@ -130,6 +130,8 @@ pub(crate) struct DebugView<'a> {
     pub now_s: f64,
     pub settings: Option<&'a AppSettings>,
     pub district: Option<&'a DistrictState>,
+    /// Où chaque événement a sa place (puces grisées hors de leur quartier).
+    pub affinity: Option<&'a DistrictAffinity>,
     pub library: Option<&'a GradeLibrary>,
     pub cars: Option<&'a CarSelection>,
     /// Le réalisateur caméra (liste des plans).
@@ -306,6 +308,7 @@ pub(crate) struct DebugParams<'w> {
     armed: Option<Res<'w, ArmedTriggers>>,
     settings: Option<ResMut<'w, Settings>>,
     district: Option<Res<'w, DistrictState>>,
+    affinity: Option<Res<'w, DistrictAffinity>>,
     grades: Option<Res<'w, DistrictGradeState>>,
     districts: MessageWriter<'w, DistrictOrder>,
     tuning: Option<ResMut<'w, FacadeTuning>>,
@@ -341,6 +344,7 @@ pub(crate) fn show(
         armed,
         settings,
         district,
+        affinity,
         grades,
         districts,
         tuning,
@@ -366,6 +370,7 @@ pub(crate) fn show(
             now_s: shared.clock.map_or(0.0, SimClock::sim_s),
             settings: settings.as_deref().map(|s| &s.value),
             district: district.as_deref(),
+            affinity: affinity.as_deref(),
             library: grades.as_deref().map(DistrictGradeState::library),
             cars: cars.as_deref(),
             director: director.as_deref(),

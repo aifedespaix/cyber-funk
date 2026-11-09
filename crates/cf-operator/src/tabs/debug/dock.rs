@@ -9,7 +9,7 @@ use cf_control::Action;
 use cf_render::{CarSelection, FacadeTuning};
 use cf_show::persist::{AppSettings, CarChoice};
 
-use super::chip::{ChipClick, chip_run, draw_chip, fire, fire_alone, push_order};
+use super::chip::{ChipClick, chip_run, draw_chip, fire, fire_alone, fit_of, push_order};
 use super::pad::draw_pad;
 use super::persist::{family_is_open, section_is_open};
 use super::rows::{Row, draw_row};
@@ -168,6 +168,7 @@ fn draw_others(ui: &mut egui::Ui, view: &mut DebugView<'_>) {
     let remembered = view.settings.is_some_and(|s| family_is_open(s, OTHERS_KEY));
     let empty = ActiveEvents::default();
     let active = view.active.unwrap_or(&empty);
+    let (affinity, here) = (view.affinity, view.district.map(|d| d.current.kind));
     let DebugState { plan, gestures, .. } = &mut *view.state;
     let response = egui::CollapsingHeader::new(format!("Autres ({count})"))
         .id_salt("debug-others")
@@ -177,7 +178,14 @@ fn draw_others(ui: &mut egui::Ui, view: &mut DebugView<'_>) {
             for event in plan.others(catalog) {
                 let run = chip_run(event.id, active, view.now_s);
                 let color = ui.visuals().selection.bg_fill;
-                match draw_chip(ui, event, pinned.contains(event.id), run, color) {
+                match draw_chip(
+                    ui,
+                    event,
+                    pinned.contains(event.id),
+                    run,
+                    color,
+                    fit_of(affinity, here, event.id),
+                ) {
                     Some(ChipClick::Fire) => {
                         fire(view.orders, event);
                     }
