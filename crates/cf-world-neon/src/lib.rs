@@ -194,7 +194,7 @@ impl Plugin for NeonWorldPlugin {
                 sandbox::apply_car_speed.run_if(resource_exists::<PilotSettings>),
                 sandbox::apply_empty
                     .before(cf_render::WorldSet::Chunks)
-                    .run_if(resource_changed::<cf_render::DebugSandbox>),
+                    .run_if(resource_exists_and_changed::<cf_render::DebugSandbox>),
                 sandbox::apply_clear,
             )
                 .in_set(cf_render::CfSet::Simulate)

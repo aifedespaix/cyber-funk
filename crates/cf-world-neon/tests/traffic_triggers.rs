@@ -177,15 +177,21 @@ struct City {
 
 /// Rejoue `seconds` secondes avec l'orage, les feux d'artifice, la panne et le pouls de la ville lancés sans arrêt, des
 /// kicks à 10 Hz et `FlashKill` à `kill_at` (s) s'il y en a un.
+///
+/// Ce sont quatre événements de ciel, et le monde n'en laisse jamais deux se superposer (le forçage de l'opérateur ne
+/// contourne plus cette règle) : chacun repart dès que le ciel est libre, ce qui garde la charge hostile sans demander
+/// au monde de les empiler.
 fn hostile_city(seconds: f32, kill_at: Option<f32>) -> Vec<City> {
     let mut app = app();
     let mut out = Vec::new();
     let frames = (seconds / FRAME_S) as usize;
-    let mut slugs = ["storm", "fireworks", "blackout", "city-pulse"].into_iter().cycle();
+    let mut slugs = ["blackout", "city-pulse", "storm", "fireworks"].into_iter().cycle();
     for i in 0..frames {
         let t = i as f32 * FRAME_S;
-        // Un déclencheur toutes les 0,25 s, dans l'ordre : l'orage, les salves, la panne et le pouls repartent sans cesse.
+        // Un déclencheur toutes les 0,25 s, dans l'ordre, dès que rien ne tourne : l'orage, les salves, la panne et le
+        // pouls repartent sans cesse.
         if i % 15 == 0
+            && app.world().resource::<TrafficDirector>().active_count() == 0
             && let Some(slug) = slugs.next()
         {
             trigger(&mut app, slug);
