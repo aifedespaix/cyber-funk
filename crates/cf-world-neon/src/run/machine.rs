@@ -240,7 +240,7 @@ fn out(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::run::handover::{DoubleStages, HANDOVER_S};
+    use crate::run::handover::{DoubleStages, HANDOVER_MAX_S};
     use crate::run::timeline::brake_rate;
 
     const DT: f32 = 1.0 / 60.0;
@@ -502,7 +502,7 @@ mod tests {
     fn handover_ends_in_running_after_its_duration() {
         let mut seq = running(0, 3);
         seq.update(Some(RunOrder::Handover { slot: None }), DT, false);
-        run_for(&mut seq, HANDOVER_S - 0.5);
+        run_for(&mut seq, HANDOVER_MAX_S - 0.5);
         assert_eq!(seq.phase(), Phase::Handover);
         run_for(&mut seq, 1.0);
         assert_eq!(seq.phase(), Phase::Running);
@@ -515,7 +515,7 @@ mod tests {
         let mut seq = running(0, 2);
         seq.update(Some(RunOrder::Handover { slot: None }), 0.0, false);
         let (mut peak, mut last) = (0.0_f32, 0.0_f32);
-        for _ in 0..(HANDOVER_S * 60.0) as u32 {
+        for _ in 0..(HANDOVER_MAX_S * 60.0) as u32 {
             last = seq.update(None, DT, false).speed_cap_mps.unwrap_or(0.0);
             peak = peak.max(last);
         }
@@ -528,7 +528,7 @@ mod tests {
         let mut seq = running(0, 3);
         for _ in 0..30 {
             seq.update(Some(RunOrder::Handover { slot: None }), DT, true);
-            for _ in 0..(HANDOVER_S * 60.0) as u32 + 5 {
+            for _ in 0..(HANDOVER_MAX_S * 60.0) as u32 + 5 {
                 let o = seq.update(None, DT, true);
                 check(o);
                 assert!(o.arrival.gap_behind_m.is_finite() && o.double.presence.is_finite());

@@ -9,10 +9,10 @@ use bevy::prelude::*;
 use bevy::time::TimeUpdateStrategy;
 use cf_render::{AbsolutePosition, AudioFeatures, CorePlugin, CurrentShowFx, Phase, ShowFxInput, StreamFocus};
 use cf_world_neon::car::double::{DoubleCar, DoubleRoot, PaletteOverride};
-use cf_world_neon::car::handover_motion::PULL_RIGHT_M;
 use cf_world_neon::car::{Car, CarPlugin, CarRig, CarVariant, ModelQuality};
 use cf_world_neon::pilot::{Pilot, PilotBrain};
-use cf_world_neon::run::handover::{HANDOVER_S, HANDOVER_SWAP_S, OVERTAKE_S, handover_stages};
+use cf_world_neon::run::handover::{HandoverFrame, handover_stages};
+use cf_world_neon::run::variant::HandoverVariant;
 use cf_world_neon::run::{RunSequencer, RunStatus};
 use cf_world_neon::{ChasePlugin, NeonWorldPlugin, RunnerConfig};
 
@@ -74,14 +74,20 @@ fn built() -> App {
     panic!("le double n'a pas été construit : le modèle ne s'est pas chargé");
 }
 
+fn variant() -> HandoverVariant {
+    HandoverVariant::new(1, 1, None)
+}
+
 fn set_handover(app: &mut App, t: f32) {
-    let (stages, double, arrival) = handover_stages(t, false);
+    let v = variant();
+    let (stages, double, arrival) = handover_stages(t, &v, false);
     let mut out = RunSequencer::new().update(None, 0.0, false);
     out.phase = Phase::Handover;
-    out.progress = t / HANDOVER_S;
+    out.progress = t / v.duration_s();
     out.stages = stages;
     out.double = double;
     out.arrival = arrival;
+    out.handover = Some(HandoverFrame { t_s: t, variant: v });
     app.world_mut().resource_mut::<RunStatus>().0 = out;
 }
 
@@ -128,15 +134,15 @@ fn the_absent_double_is_tiny_but_still_drawn() {
 }
 
 #[test]
-fn during_a_handover_the_double_takes_the_old_car_place_and_the_new_car_is_warped_behind() {
+fn during_a_handover_the_double_takes_the_old_car_place_and_the_new_car_is_warped_far_behind() {
     let mut app = built();
     let before = {
         let mut q = app.world_mut().query_filtered::<&AbsolutePosition, With<Car>>();
         q.single(app.world()).expect("voiture").0.z
     };
-    set_handover(&mut app, 0.5);
+    set_handover(&mut app, 0.05);
     app.update();
-    set_handover(&mut app, HANDOVER_SWAP_S + 0.05);
+    set_handover(&mut app, 0.1);
     app.update();
     let double = double_position(&mut app);
     assert!(
@@ -145,9 +151,10 @@ fn during_a_handover_the_double_takes_the_old_car_place_and_the_new_car_is_warpe
         double.z
     );
     let warped = app.world().resource::<PilotBrain>().0.frame().car_z;
+    let gap = f64::from(variant().gap_m);
     assert!(
-        (warped - (double.z + 60.0)).abs() < 5.0,
-        "la nouvelle est ~60 m derrière : {warped}"
+        (warped - (double.z + gap)).abs() < 5.0,
+        "la nouvelle arrive de {gap} m derrière : {warped}"
     );
     let root = app.world().resource::<DoubleRoot>().0;
     assert!(
@@ -161,29 +168,30 @@ fn during_a_handover_the_double_takes_the_old_car_place_and_the_new_car_is_warpe
 }
 
 #[test]
-fn the_old_car_ends_stopped_on_the_right_and_the_pilot_gets_the_new_car_back_at_the_overtake() {
+fn the_director_gets_the_lone_car_to_film_and_the_pilot_gets_the_new_car_back_before_the_gantry() {
     let mut app = built();
-    let mut x_start = None;
+    let v = variant();
+    let m = v.marks();
+    let mut seen_feed = false;
     let mut released_z = None;
-    let steps = (HANDOVER_S * 60.0) as u32;
+    let steps = (v.duration_s() * 60.0) as u32;
+    let mut x_end = 0.0;
     for k in 0..steps {
         let t = k as f32 / 60.0;
         set_handover(&mut app, t);
         app.update();
-        if t >= HANDOVER_SWAP_S + 0.1 && x_start.is_none() {
-            x_start = Some(double_position(&mut app).x);
+        if t > 1.0 && app.world().resource::<cf_render::HandoverFeed>().0.is_some() {
+            seen_feed = true;
         }
-        if t > OVERTAKE_S + 0.5 && released_z.is_none() {
+        if t > m.release + 0.5 && released_z.is_none() {
             released_z = Some(app.world().resource::<PilotBrain>().0.frame().car_z);
         }
+        x_end = double_position(&mut app).x;
     }
-    let x_start = x_start.expect("l'échange a eu lieu");
-    let end = double_position(&mut app);
-    assert!(
-        (end.x - x_start - PULL_RIGHT_M).abs() < 1.0,
-        "déportée à droite : {} -> {}",
-        x_start,
-        end.x
-    );
+    assert!(seen_feed, "le plan de passation sait où est la voiture seule");
     assert!(released_z.is_some());
+    assert!(
+        (x_end.abs() - f64::from(v.lane_offset_m)).abs() < 1.5 && x_end.signum() == f64::from(v.side),
+        "l'ancienne finit sur son côté : {x_end}"
+    );
 }

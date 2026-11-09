@@ -367,7 +367,7 @@ l'intensité ») au lieu de repartir de zéro.
 - **Séquenceur** (`cf-world-neon::run`) : machine pure `RunSequencer` + frise `timeline.rs` (toutes les durées : 29 s au
   démarrage, 9 s à l'arrêt). `drive_run` applique les étapes aux cibles de la pré-intro (route, façades, ciel, enseigne,
   phares, vitesse), à `FacadeLook.collapse` (chute désynchronisée des tours, `facade_collapse.wesl`), à
-  `CarControls.presence` (effet télé), au plan d'attente (`cf-cinema` `waiting`, imposé par `ShotOrder`) et au gain
+  `CarControls.presence` (synchronisation de la voiture, §2.9), au plan d'attente (`cf-cinema` `waiting`, imposé par `ShotOrder`) et au gain
   audio (`AudioSequenceGain`). La pré-intro de niveau 0 s'efface devant lui.
 - **Show armé** : `run_show` ne tourne qu'à partir du point d'armement du démarrage (`ARM_AT`) et pendant l'arrêt.
 - **Annonce du DJ** : jamais en texte plein écran, seulement dans la simulation (enseigne néon, panneaux du monde).
@@ -377,15 +377,19 @@ l'intensité ») au lieu de repartir de zéro.
 
 ### 2.9 Introduction et changement de DJ en 3D
 
-Le démarrage dure 29 s (voiture qui se matérialise, route, passage sous le portique du nom du DJ, quartier qui se matérialise) ; un changement de DJ dure 27 s. Spécification : `docs/superpowers/specs/2026-11-08-changement-dj-intro-portique-design.md`.
+Le démarrage dure 29 s (voiture qui se synchronise, route, passage sous le portique du nom du DJ, quartier qui se matérialise) ; un changement de DJ dure 40 à 52 s selon la variante tirée. Spécification de la refonte : `docs/superpowers/specs/2026-11-09-synchronisation-passation-design.md`. Spécification : `docs/superpowers/specs/2026-11-08-changement-dj-intro-portique-design.md`.
 
 - **Contrat** (`cf-render::run`) : `RunOrder::Handover { slot: Option<usize> }` (`None` = DJ suivant), `Phase::Handover`, `RunHandover` (DJ visé, publié par le monde), `StartSlot` (DJ par lequel repart `Démarrer`, consommé par le reset du show).
-- **Séquenceur** (`cf-world-neon::run`) : `handover_stages` (frise de la passation : double de l'ancienne voiture, arrivée de la nouvelle) ; la passation n'est acceptée que depuis `Running`, avec au moins deux DJs et une cible différente de l'actuel.
+- **Séquenceur** (`cf-world-neon::run`) : `handover_stages` (frise de la passation, pilotée par une `HandoverVariant` tirée à chaque passation : `variant.rs`) ; la passation n'est acceptée que depuis `Running`, avec au moins deux DJs et une cible différente de l'actuel.
 - **Deux voitures** (`car::double`) : la voiture réelle (pilotée, `StreamFocus`) devient la nouvelle ; l'ancienne est un double visuel sans pilote, qui garde les couleurs de l'ancien DJ (`PaletteOverride`). La frise mène la réelle (`Pilot::warp`) jusqu'au dépassement, puis la rend au pilote. Le double est créé une fois au chargement et reste dessiné à une échelle invisible (règle 8).
 - **Portique** (`gantry`) : portail métallique avec le nom du DJ en néon géant (machine à lettres de `djsign`), posé 160 m devant la voiture ; enterré et invisible hors séquence.
 - **Palettes** (`cf-show::model::palettes`) : dix palettes assorties attribuées automatiquement aux DJs sans thème (jamais la même deux fois de suite) ; l'opérateur peut en choisir une à la main.
 - **Opérateur** : un clic sur un DJ pendant le show lance la passation vers lui ; à l'arrêt il désigne le DJ de départ ; ignoré pendant une séquence. Le bouton « DJ suivant » est grisé au dernier DJ.
-- Garde-fous : aucun flash (le clignotement du double est géométrique, règle 7) ; les bases des tours restent à `-BASE_DEPTH_M` pendant le repli ; endurance : `cf-world-neon/tests/handover_soak.rs`.
+- **Synchronisation de la voiture** (`car::sync`) : la voiture n'est plus écrasée puis regonflée ; elle a déjà sa forme et se synchronise (Matrice / Animus). `CarControls.presence` 0 → 1 déroule : squelette lumineux (calque `LightKind::Skeleton` : arêtes, lignes de balayage, bandes qui glissent), carrosserie noire qui reprend sa couleur par paliers, puis néons et phares. L'extinction est le film à l'envers. Le double de l'ancienne voiture se désynchronise de la même façon. Mode calme : pas de glitch.
+- **Décor au repos** (`cf_render::SceneIdle`) : tant que le quartier n'est pas là (attente, fin de l'arrêt, début du démarrage, passation une fois le quartier replié), plus de brouillard, de panneaux publicitaires, de projecteurs ni d'événements.
+- **Lumières des tours** : les fenêtres s'allument avec leur tour (shader des façades), plus de front global.
+- **Passation** : la voiture ralentit, les tours buguent plus longtemps puis s'enfoncent ; elle roule seule ; la caméra (`handover`, 5 styles tirés) passe devant et voit arriver la nouvelle voiture de 110 à 170 m derrière ; elle se range au centre, l'ancienne se déporte sur son côté ; côte à côte avec des variations de vitesse organiques ; l'ancienne se désynchronise ; le portique annonce le nouveau DJ.
+- Garde-fous : aucun flash (le glitch est géométrique, règle 7) ; les bases des tours restent à `-BASE_DEPTH_M` pendant le repli ; endurance : `cf-world-neon/tests/handover_soak.rs`.
 ## 3. Plan d'action
 
 Chaque jalon se termine par une démo exécutable, `cargo fmt`, `cargo clippy -D warnings` et `cargo test` au vert.

@@ -1,8 +1,7 @@
 //! La frise de l'intro (voiture, portique, quartier) et de la passation de DJ : valeurs de la spec.
 
-use super::handover::{
-    ArrivalStages, DoubleStages, HANDOVER_FIRE_S, HANDOVER_S, HANDOVER_SWAP_S, OVERTAKE_S, handover_stages,
-};
+use super::handover::{ArrivalStages, DoubleStages, HANDOVER_MAX_S, handover_stages};
+use super::variant::HandoverVariant;
 use super::timeline::{GANTRY_END_S, GANTRY_START_S, RunStages, START_S, starting_stages, stopping_stages};
 
 const DT: f32 = 1.0 / 60.0;
@@ -85,80 +84,114 @@ fn stopping_has_no_gantry_and_no_glitch() {
     }
 }
 
-#[test]
-fn the_handover_lasts_27_seconds_and_fires_the_director_at_its_start() {
-    assert!((HANDOVER_S - 27.0).abs() < f32::EPSILON);
-    assert!(HANDOVER_FIRE_S.abs() < f32::EPSILON);
+fn variant(number: u32) -> HandoverVariant {
+    HandoverVariant::new(number, 1, None)
 }
 
 #[test]
-fn the_district_folds_then_rebuilds_only_after_the_gantry() {
-    let (start, ..) = handover_stages(0.0, false);
+fn a_handover_lasts_about_forty_five_seconds_and_never_more_than_the_ceiling() {
+    for number in 0..200 {
+        let d = variant(number).duration_s();
+        assert!((40.0..=HANDOVER_MAX_S).contains(&d), "{d}");
+    }
+}
+
+#[test]
+fn the_district_stumbles_for_a_while_then_sinks_and_comes_back_only_after_the_gantry() {
+    let v = variant(0);
+    let m = v.marks();
+    let (start, ..) = handover_stages(0.0, &v, false);
     assert!(start.build >= 0.999 && start.collapse == 0.0 && start.windows >= 0.999);
-    let (folding, ..) = handover_stages(OVERTAKE_S - 2.0, false);
-    assert!(folding.collapse > 0.0 && folding.build >= 0.999);
-    let (hidden, ..) = handover_stages(12.0, false);
-    assert!(
-        hidden.build == 0.0 && hidden.collapse == 0.0,
-        "caché : rendu à l'état d'attente"
-    );
-    let (under_gantry, ..) = handover_stages(GANTRY_START_S.midpoint(GANTRY_END_S) + 1.0, false);
+    // Le repli démarre lentement : bien avant la moitié du temps, moins du quart est tombé (les tours buguent d'abord).
+    let (early, ..) = handover_stages(m.folded * 0.4, &v, false);
+    assert!(early.collapse > 0.0 && early.collapse < 0.35 && early.build >= 0.999, "{early:?}");
+    let (late, ..) = handover_stages(m.folded - 0.5, &v, false);
+    assert!(late.collapse > 0.85, "{late:?}");
+    let (hidden, ..) = handover_stages(m.folded + 0.1, &v, false);
+    assert!(hidden.build == 0.0 && hidden.collapse == 0.0, "caché : rendu à l'état d'attente");
+    let (under_gantry, ..) = handover_stages(m.gantry + 2.5, &v, false);
     assert!(under_gantry.build == 0.0 && under_gantry.gantry > 0.0);
-    let (end, ..) = handover_stages(HANDOVER_S, false);
+    let (end, ..) = handover_stages(m.end, &v, false);
     assert!(end.build >= 0.999 && end.collapse == 0.0 && end.gantry >= 0.999);
 }
 
 #[test]
-fn the_cars_swap_when_the_double_is_in_place_and_the_arrival_is_far_behind() {
-    let (before, d0, _) = handover_stages(HANDOVER_SWAP_S - 0.05, false);
-    assert!(before.car_presence >= 0.999 && d0.presence == 0.0);
-    let (after, d1, a1) = handover_stages(HANDOVER_SWAP_S + 0.05, false);
-    assert!(d1.presence >= 0.999, "le double a pris la place de l'ancienne");
-    assert!(after.car_presence < 0.5, "la voiture réelle est partie");
-    assert!(a1.gap_behind_m > 30.0, "elle arrive de loin derrière : {a1:?}");
+fn the_old_car_is_on_screen_at_once_and_the_new_one_is_absent_far_behind() {
+    let v = variant(0);
+    let (s, d, a) = handover_stages(0.1, &v, false);
+    assert!(d.presence >= 0.999, "le double a pris la place de l'ancienne");
+    assert!(s.car_presence == 0.0, "la voiture réelle est partie");
+    assert!(a.gap_behind_m > 100.0 && a.scripted, "elle arrivera de loin derrière : {a:?}");
 }
 
 #[test]
-fn the_new_car_overtakes_and_the_old_one_dies_afterwards() {
-    let (_, d, a) = handover_stages(OVERTAKE_S - 4.0, false);
-    assert!(a.gap_behind_m > 0.0 && d.presence >= 0.999);
-    let (_, _, a) = handover_stages(OVERTAKE_S, false);
-    assert!(a.gap_behind_m < 0.0, "la nouvelle voiture est passée devant");
-    let (_, d, _) = handover_stages(HANDOVER_S, false);
-    assert!(d.presence == 0.0, "l'ancienne est éteinte à la fin");
+fn the_new_car_synchronises_while_it_catches_up_and_the_old_one_desynchronises_once_side_by_side() {
+    let v = variant(3);
+    let m = v.marks();
+    let (s, _, a) = handover_stages(m.arrival + 1.0, &v, false);
+    assert!(s.car_presence > 0.0 && s.car_presence < 1.0 && a.gap_behind_m > 0.0);
+    let (s, d, a) = handover_stages(m.abreast + 0.2, &v, false);
+    assert!(s.car_presence >= 0.999 && d.presence >= 0.999 && a.gap_behind_m < 5.0, "{a:?}");
+    assert!(d.lateral >= 0.999, "l'ancienne s'est rangée sur le côté");
+    let (_, d, _) = handover_stages(m.fading + 1.0, &v, false);
+    assert!(d.presence < 1.0 && d.presence > 0.0 && d.fade > 0.0);
+    let (_, d, _) = handover_stages(m.gone, &v, false);
+    assert!(d.presence == 0.0, "l'ancienne a disparu avant le portique");
+    assert!(m.gone < m.gantry);
 }
 
 #[test]
-fn the_camera_holds_the_handover_shot_from_the_swap_to_the_overtake() {
-    assert!(!handover_stages(0.0, false).0.camera_handover);
-    assert!(handover_stages(HANDOVER_SWAP_S + 0.5, false).0.camera_handover);
-    assert!(!handover_stages(OVERTAKE_S + 1.0, false).0.camera_handover);
+fn the_camera_goes_in_front_of_the_lone_car_then_lets_go_after_it_is_gone() {
+    let v = variant(0);
+    let m = v.marks();
+    assert!(!handover_stages(0.5, &v, false).0.camera_handover);
+    assert!(handover_stages(m.camera + 0.5, &v, false).0.camera_handover);
+    assert!(handover_stages(m.fading, &v, false).0.camera_handover);
+    assert!(!handover_stages(m.gone + 1.5, &v, false).0.camera_handover);
+}
+
+#[test]
+fn the_pilot_gets_the_new_car_back_before_the_gantry() {
+    let v = variant(0);
+    let m = v.marks();
+    assert!(handover_stages(m.release - 0.1, &v, false).2.scripted);
+    assert!(!handover_stages(m.release + 0.1, &v, false).2.scripted);
+    assert!(m.release < m.gantry);
 }
 
 #[test]
 fn handover_stages_stay_finite_in_range_and_the_glitch_is_removed_by_reduced_motion() {
-    let mut max_glitch = 0.0_f32;
-    for k in 0..=(HANDOVER_S / DT) as u32 {
-        let t = k as f32 * DT;
-        let (s, d, a) = handover_stages(t, false);
-        assert!(all_unit(&s), "{t}: {s:?}");
-        assert!(
-            [d.presence, d.pull_right, d.brake, d.glitch].into_iter().all(unit),
-            "{t}: {d:?}"
-        );
-        assert!(
-            a.gap_behind_m.is_finite() && a.lateral_m.is_finite() && unit(a.boost),
-            "{t}: {a:?}"
-        );
-        max_glitch = max_glitch.max(d.glitch);
-        let (s, d, _) = handover_stages(t, true);
-        assert!(s.name_glitch == 0.0 && d.glitch == 0.0);
+    for number in 0..20 {
+        let v = variant(number);
+        let mut max_glitch = 0.0_f32;
+        for k in 0..=(v.duration_s() / DT) as u32 {
+            let t = k as f32 * DT;
+            let (s, d, a) = handover_stages(t, &v, false);
+            assert!(all_unit(&s), "{t}: {s:?}");
+            assert!([d.presence, d.slow, d.lateral, d.fade].into_iter().all(unit), "{t}: {d:?}");
+            assert!(a.gap_behind_m.is_finite() && a.gap_behind_m >= 0.0, "{t}: {a:?}");
+            max_glitch = max_glitch.max(s.name_glitch);
+            let (s, ..) = handover_stages(t, &v, true);
+            assert!(s.name_glitch == 0.0);
+        }
+        assert!(max_glitch > 0.5, "le glitch du nom existe sans reduce_motion");
     }
-    assert!(max_glitch > 0.5, "le glitch existe sans reduce_motion");
+}
+
+#[test]
+fn the_stages_never_go_backwards_where_they_should_not() {
+    let v = variant(5);
+    let mut prev = handover_stages(0.0, &v, false);
+    for k in 1..=(v.duration_s() / DT) as u32 {
+        let cur = handover_stages(k as f32 * DT, &v, false);
+        assert!(cur.1.slow >= prev.1.slow - 1e-6 && cur.1.lateral >= prev.1.lateral - 1e-6);
+        assert!(cur.2.gap_behind_m <= prev.2.gap_behind_m + 1e-4, "la nouvelle ne s'éloigne jamais");
+        prev = cur;
+    }
 }
 
 #[test]
 fn defaults_describe_a_neutral_double_and_arrival() {
     assert_eq!(DoubleStages::NONE.presence, 0.0);
-    assert_eq!(ArrivalStages::NONE.boost, 0.0);
+    assert!(!ArrivalStages::NONE.scripted);
 }

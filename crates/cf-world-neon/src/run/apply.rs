@@ -160,7 +160,7 @@ fn drive_run(
     // Le décor est au repos tant que le quartier n'est pas là : attente, fin de l'arrêt, début du démarrage, passation
     // une fois le quartier replié. Rien ne s'y passe : ni brouillard, ni pubs, ni lasers, ni événements.
     if let Some(idle) = links.idle.as_deref_mut() {
-        set(&mut idle.0, out.phase != Phase::Running && out.stages.build <= 0.0);
+        set(&mut idle.0, scene_is_idle(out.phase, out.stages.build));
     }
 
     // Hors séquence en cours, le séquenceur n'a la main qu'en attente ; en `Running` il rend tout une fois.
@@ -265,3 +265,31 @@ enum CameraHold {
 const WAITING_SHOT: &str = "waiting";
 /// Identifiant du plan de passation de DJ.
 const HANDOVER_SHOT: &str = "handover";
+
+/// Le décor est au repos : pas en `Running` et aucune tour en place. Pur, pour être testé.
+#[must_use]
+fn scene_is_idle(phase: Phase, build: f32) -> bool {
+    phase != Phase::Running && build <= 0.0
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::run::timeline::{RunStages, starting_stages, stopping_stages};
+
+    #[test]
+    fn the_scene_is_idle_while_waiting_and_never_while_running() {
+        assert!(scene_is_idle(Phase::Waiting, RunStages::WAITING.build));
+        assert!(!scene_is_idle(Phase::Running, 0.0));
+        assert!(!scene_is_idle(Phase::Running, 1.0));
+    }
+
+    #[test]
+    fn it_wakes_with_the_first_tower_at_the_start_and_sleeps_with_the_last_one_at_the_stop() {
+        assert!(scene_is_idle(Phase::Starting, starting_stages(0.0, false).build));
+        assert!(scene_is_idle(Phase::Starting, starting_stages(15.0, false).build), "route nue sous le portique");
+        assert!(!scene_is_idle(Phase::Starting, starting_stages(22.0, false).build));
+        assert!(!scene_is_idle(Phase::Stopping, stopping_stages(3.0).build));
+        assert!(scene_is_idle(Phase::Stopping, stopping_stages(7.0).build));
+    }
+}
