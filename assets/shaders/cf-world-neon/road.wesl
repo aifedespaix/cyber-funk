@@ -22,6 +22,17 @@
 import bevy_pbr::render::forward_io::VertexOutput;
 import bevy_pbr::render::mesh_view_bindings::view;
 
+// Sol mouillé (cyber-funk, pas dans Sillage) : la chaussée réfléchit les lumières comme dans la vraie vie.
+//
+//  - `Lamps` : jusqu'à 24 lampes ponctuelles que le processeur choisit chaque image (feux et néons de la voiture, puis les
+//    points lumineux les plus forts près d'elle : gyrophares, drones, feux de position), en repère rendu ;
+//  - le reflet d'une lampe est calculé par le rayon réfléchi : la normale du sol est perturbée par le relief de
+//    l'asphalte (étiré dans le sens de la marche, d'où les traînées verticales sous les lumières), les flaques (lisses) et les
+//    anneaux des gouttes ; la lampe s'allume là où ce rayon passe près d'elle ;
+//  - les fenêtres des immeubles se reflètent de la même façon : le rayon réfléchi est lancé contre les plans des façades, et
+//    on y lit la grille de fenêtres (`facade_reflection`) ;
+//  - la pluie dessine des anneaux qui s'élargissent, des éclaboussures, et déforme les reflets (`rain_ripples`).
+
 // L'atlas du mot « ERROR » que l'immeuble du même nom projette sur la chaussée (cuit à l'ouverture, J7-08).
 @group(constants::MATERIAL_BIND_GROUP) @binding(2) var decal_map: texture_2d<f32>;
 @group(constants::MATERIAL_BIND_GROUP) @binding(3) var decal_sampler: sampler;
@@ -50,6 +61,16 @@ struct Road {
 }
 
 @group(constants::MATERIAL_BIND_GROUP) @binding(0) var<uniform> road: Road;
+
+// Les lampes que reflète le sol (même disposition que `RoadLamps`, Rust). Une couleur nulle : lampe éteinte.
+struct Lamps {
+    // xyz : position en repère rendu, w : rayon d'éclat en mètres.
+    pos: array<vec4<f32>, 24>,
+    // rgb : couleur déjà multipliée par l'éclat (lumière linéaire).
+    color: array<vec4<f32>, 24>,
+}
+
+@group(constants::MATERIAL_BIND_GROUP) @binding(4) var<uniform> lamps: Lamps;
 
 // `smoothstep(edge0, edge1, x)` de GLSL accepte edge0 > edge1 (Sillage s'en sert pour des liserés : `smoothstep(0.16,
 // 0.0, d)`) ; WGSL l'interdit. 1 - smoothstep(e1, e0, x) donne exactement la même courbe.
@@ -91,6 +112,97 @@ fn prism(t: f32) -> vec3<f32> {
     let a = 0.5 + 0.5 * sin(t);
     let b = 0.5 + 0.5 * sin(t * 1.7 + 2.1);
     return mix(mix(road.mint.rgb, road.azure.rgb, a), mix(road.violet.rgb, road.rose.rgb, b), 0.5);
+}
+
+// Reflet des lampes dans un sol dont le rayon réfléchi est `r` en `p`. `rough` : étalement angulaire du reflet (rad) ; un
+// sol lisse concentre la lampe, un sol rugueux l'étire en traînée.
+fn lamp_reflection(p: vec3<f32>, r: vec3<f32>, rough: f32) -> vec3<f32> {
+    var acc = vec3<f32>(0.0);
+    for (var i = 0; i < 24; i++) {
+        let c = lamps.color[i].rgb;
+        if c.r + c.g + c.b < 0.001 {
+            continue;
+        }
+        let size = lamps.pos[i].w;
+        let to = lamps.pos[i].xyz - p;
+        let along = dot(to, r);
+        if along < 0.5 {
+            continue;
+        }
+        // Distance de la lampe au rayon, et largeur du reflet à cette distance.
+        let d2 = max(dot(to, to) - along * along, 0.0);
+        let s = size + rough * along;
+        let k = (size * size) / (d2 + s * s);
+        // Coupure douce loin de la lampe : le reflet ne s'étend pas à l'infini.
+        let cut = 1.0 - smoothstep(0.0, 1.0, d2 / (36.0 * s * s));
+        acc += c * min(k, 1.0) * cut;
+    }
+    return acc;
+}
+
+// Reflet des fenêtres des deux rangées d'immeubles (façades à 15,5 m de l'axe) : le rayon réfléchi `r` est lancé contre
+// chaque plan, et la grille de fenêtres (travées de 1,3 m, étages de 2,4 m, une sur deux allumée, comme sur les façades) y est
+// lue au point touché. Les couleurs viennent de la palette.
+fn facade_reflection(p: vec3<f32>, r: vec3<f32>) -> vec3<f32> {
+    var acc = vec3<f32>(0.0);
+    for (var s = 0; s < 2; s++) {
+        let side = select(1.0, -1.0, s == 0);
+        if r.x * side < 0.08 {
+            continue;
+        }
+        let t = (side * 15.5 - p.x) / r.x;
+        if t < 1.0 || t > 260.0 {
+            continue;
+        }
+        let h = p + r * t;
+        if h.y < 0.0 || h.y > 80.0 {
+            continue;
+        }
+        let cell = vec2<f32>(h.z / 1.3, h.y / 2.4);
+        let id = floor(cell);
+        let f = fract(cell);
+        let lit = step(h21(id + vec2<f32>(side * 9.0, 3.0)), 0.5);
+        let pane = smoothstep(0.1, 0.22, f.x) * (1.0 - smoothstep(0.78, 0.9, f.x))
+            * smoothstep(0.15, 0.3, f.y) * (1.0 - smoothstep(0.7, 0.85, f.y));
+        let tone = h21(id + 57.0);
+        let warm = mix(road.violet.rgb, road.rose.rgb, clamp((tone - 0.5) * 2.0, 0.0, 1.0));
+        let cool = mix(road.mint.rgb, road.azure.rgb, clamp(tone * 2.0, 0.0, 1.0));
+        let colour = select(cool, warm, tone > 0.5);
+        let bright = 0.55 + 0.45 * step(0.8, h21(id + 11.0));
+        acc += colour * lit * pane * bright * (1.0 - smoothstep(120.0, 260.0, t));
+    }
+    return acc;
+}
+
+// Les gouttes qui tombent sur le sol : trois tailles de cellules, une goutte par cellule et par cycle (0,7 à 1,5 Hz), dont
+// l'impact lance un anneau qui s'élargit en s'éteignant. Rend la pente de la surface (xy), l'éclat des anneaux (z) et
+// l'éclaboussure de l'impact (w).
+fn rain_ripples(p: vec2<f32>, time: f32, rain: f32) -> vec4<f32> {
+    var out = vec4<f32>(0.0);
+    for (var l = 0; l < 3; l++) {
+        let sc = select(select(1.2, 1.9, l == 1), 3.0, l == 0);
+        let q = p / sc + f32(l) * 13.7;
+        let id = floor(q);
+        let h = hash(id + f32(l));
+        let on = step(h, 0.2 + rain * 0.6);
+        let rate = 0.7 + 0.8 * hash(id + 3.1);
+        let ph = fract(time * rate + h * 7.0);
+        let c = (vec2<f32>(hash(id + 1.7), hash(id + 9.2)) - 0.5) * 0.5;
+        let v = (fract(q) - 0.5 - c) * sc;
+        let d = length(v);
+        let radius = ph * 0.34 * sc;
+        let w = 0.04 + 0.05 * ph;
+        let env = (1.0 - ph) * (1.0 - ph);
+        let e = (d - radius) / w;
+        let wave = exp(-e * e) * env * on;
+        // Pente : la dérivée du profil (gaussienne) selon le rayon, dirigée selon le rayon.
+        let dir = v / max(d, 0.001);
+        out = vec4<f32>(out.xy + dir * (-2.0 * e / w) * wave * 0.012, out.z + wave, out.w);
+        // Éclaboussure : un éclat bref à l'impact.
+        let splash = exp(-d * d / 0.012) * pow(1.0 - ph, 6.0) * on;
+        out.w += splash;
+    }
+    return out;
 }
 
 @fragment
@@ -146,7 +258,8 @@ fn fragment(in: VertexOutput) -> @location(0) vec4<f32> {
     col += field_sheen(world, view.world_position) * (0.38 + wet_k * 2.4)
         + ice * 0.06 * field_light(world, vec3<f32>(0.0, 1.0, 0.0)) * (1.0 + wet_k * 3.0);
 
-    // Chaussée mouillée : les optiques de la voiture se reflètent dans le sol (phares devant, feux rouges derrière).
+    // Lueur diffuse des optiques sur l'asphalte mouillé (phares devant, feux rouges derrière) : le halo mat autour de la voiture.
+    // Les reflets nets viennent des lampes, plus bas.
     let hq = p - car.xz;
     var ahead = 0.0;
     var behind = 0.0;
@@ -157,26 +270,41 @@ fn fragment(in: VertexOutput) -> @location(0) vec4<f32> {
         let r = (hq - vec2<f32>(sx * 1.05, 2.8)) / vec2<f32>(0.5, 2.4);
         behind += exp(-dot(r, r));
     }
-    col += mix(ice, glow_color, 0.25) * ahead * wet_k * 0.8;
-    col += road.rose.rgb * behind * wet_k * (0.5 + brake * 2.0);
+    col += mix(ice, glow_color, 0.25) * ahead * wet_k * 0.4;
+    col += road.rose.rgb * behind * wet_k * (0.25 + brake * 1.0);
 
-    // Gouttes qui tombent : des ronds qui s'élargissent et s'éteignent, plus nets dans les flaques.
-    if rain > 0.01 {
-        var rip = 0.0;
-        for (var l = 0; l < 2; l++) {
-            let sc = select(2.5, 1.6, l == 0);
-            let q = p / sc + f32(l) * 13.7;
-            let id = floor(q);
-            let f = fract(q) - 0.5;
-            let h = hash(id);
-            let ph = fract(time * (0.6 + 0.5 * hash(id + 3.1)) + h);
-            let c = (vec2<f32>(hash(id + 1.7), hash(id + 9.2)) - 0.5) * 0.5;
-            let dd = length(f - c) * sc;
-            rip += sstep(0.08, 0.0, abs(dd - ph * 0.6)) * (1.0 - ph) * step(h, 0.4 + rain * 0.5);
+    // Sol mouillé : reflets des lumières et des fenêtres, brisés par la pluie.
+    let water = max(wet, rain);
+    if water > 0.02 {
+        let pudk = smoothstep(0.25, 0.75, pud);
+        // Les flaques sont lisses (reflet net), le reste de l'asphalte rugueux (reflet étiré en traînée).
+        let refl = water * (0.4 + 0.6 * pudk);
+        let near_k = 1.0 - smoothstep(30.0, 110.0, view_distance);
+        var rip = vec4<f32>(0.0);
+        if rain > 0.01 {
+            rip = rain_ripples(p, time, rain);
         }
-        let near = 1.0 - smoothstep(30.0, 130.0, view_distance);
-        let lit = mix(ice, mood, 0.4) * 0.45 + field_light(world, vec3<f32>(0.0, 1.0, 0.0)) * 1.4;
-        col += lit * rip * rain * (0.35 + 0.65 * pud) * near;
+        // Relief de l'asphalte, étiré dans le sens de la marche : les reflets des lumières s'étirent en traînées verticales.
+        let sigma = mix(0.14, 0.015, pudk) * (1.0 + 1.5 * rain);
+        let n1 = vnoise(p * vec2<f32>(2.1, 0.55) + 3.0) - 0.5;
+        let n2 = vnoise(p * vec2<f32>(0.9, 0.22) + 11.0) - 0.5;
+        let n3 = vnoise(p * vec2<f32>(7.0, 2.6) + 29.0 + vec2<f32>(0.0, time * 0.4)) - 0.5;
+        let slope = vec2<f32>((n1 + 0.5 * n3) * 2.0, (n2 + 0.5 * n3) * 5.0) * sigma + rip.xy * near_k;
+        let normal = normalize(vec3<f32>(slope.x, 1.0, slope.y));
+        let incident = normalize(world - view.world_position);
+        let reflected = reflect(incident, normal);
+        // Fresnel : presque un miroir sous une incidence rasante, presque rien en regardant droit dessous.
+        let facing = clamp(dot(normal, -incident), 0.0, 1.0);
+        let fresnel = 0.04 + 0.96 * pow(1.0 - facing, 5.0);
+        let rough = mix(0.09, 0.006, pudk);
+        let seen = lamp_reflection(world, reflected, rough) + facade_reflection(world, reflected) * 0.8;
+        col += min(seen, vec3<f32>(3.0)) * fresnel * refl * 1.3;
+
+        // Les gouttes : anneaux qui s'élargissent (éclairés par la lumière ambiante et celle des immeubles-vitrines) et
+        // éclaboussures blanches à l'impact. Plus de gouttes au loin que l'œil ne distingue : on les fond dans la rugosité.
+        let lit = mix(ice, mood, 0.4) * 0.6 + field_light(world, vec3<f32>(0.0, 1.0, 0.0)) * 1.4;
+        col += lit * rip.z * rain * (0.5 + 0.5 * pudk) * near_k * 1.6;
+        col += ice * rip.w * rain * near_k * 1.2;
     }
 
     // Zone de glitch : scanlines qui défilent, bandes aux canaux inversés.

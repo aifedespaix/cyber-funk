@@ -58,10 +58,14 @@ pub enum EventName {
     HoloTitle,
     /// Saut de moto d'un immeuble à l'autre, par-dessus la route.
     MotoJump,
+    /// Visite en drone : la caméra devient un drone qui tourne autour de la voiture, entre dedans, en ressort.
+    DroneTour,
+    /// Escadrille de drones qui double la voiture et dessine une forme à côté d'elle.
+    DroneFormation,
 }
 
 /// Nombre d'événements du catalogue.
-pub const EVENT_COUNT: usize = 24;
+pub const EVENT_COUNT: usize = 26;
 
 /// Après un changement de DJ ou de niveau, le titre holographique est tiré en priorité pendant ce temps (s).
 pub const TITLE_WINDOW_S: f64 = 70.0;
@@ -96,6 +100,8 @@ impl EventName {
         Self::CityPulse,
         Self::HoloTitle,
         Self::MotoJump,
+        Self::DroneTour,
+        Self::DroneFormation,
     ];
 
     /// Le slug écrit dans les looks (`"chase"`, `"city-pulse"`…).
@@ -126,6 +132,8 @@ impl EventName {
             Self::CityPulse => "city-pulse",
             Self::HoloTitle => "holo-title",
             Self::MotoJump => "moto-jump",
+            Self::DroneTour => "drone-tour",
+            Self::DroneFormation => "drone-formation",
         }
     }
 
@@ -157,6 +165,8 @@ impl EventName {
             Self::CityPulse => "event:city-pulse",
             Self::HoloTitle => "event:holo-title",
             Self::MotoJump => "event:moto-jump",
+            Self::DroneTour => "event:drone-tour",
+            Self::DroneFormation => "event:drone-formation",
         }
     }
 
@@ -177,9 +187,9 @@ impl EventName {
     pub const fn weight(self) -> f64 {
         match self {
             Self::Chase => 3.0,
-            Self::Convoy | Self::Crossroad => 2.0,
+            Self::Convoy | Self::Crossroad | Self::DroneFormation => 2.0,
             Self::Tower | Self::Tunnel => 1.7,
-            Self::Airship | Self::Fish | Self::CityPulse | Self::Dancer | Self::Storm => 1.5,
+            Self::Airship | Self::Fish | Self::CityPulse | Self::Dancer | Self::Storm | Self::DroneTour => 1.5,
             Self::Swarm | Self::Lanterns | Self::Fireworks => 1.6,
             Self::Escort | Self::Adship => 2.2,
             Self::Landmark => 3.6,
@@ -204,6 +214,7 @@ impl EventName {
                 | Self::Toll
                 | Self::Tunnel
                 | Self::MotoJump
+                | Self::DroneTour
         )
     }
 
@@ -261,6 +272,9 @@ impl EventName {
             Self::Adship => Some(18.0),
             // Les toits font de 20 à 46 m : une voiture haute les raserait.
             Self::MotoJump => Some(12.0),
+            // Le drone entre dans l'habitacle et la forme se tient à côté de la voiture : au sol ou presque.
+            Self::DroneTour => Some(4.0),
+            Self::DroneFormation => Some(8.0),
             _ => None,
         }
     }
@@ -272,7 +286,7 @@ impl EventName {
         match section {
             Section::Calm => match self {
                 Self::HoloTitle => 1.3,
-                Self::Tunnel | Self::Storm | Self::Race | Self::Chase | Self::MotoJump => 0.5,
+                Self::Tunnel | Self::Storm | Self::Race | Self::Chase | Self::MotoJump | Self::DroneFormation => 0.5,
                 Self::CityPulse => 0.2,
                 Self::Aurora => 1.9,
                 Self::Lanterns => 1.8,
@@ -281,7 +295,7 @@ impl EventName {
                 Self::Escort => 1.2,
                 Self::Fireworks => 0.4,
                 Self::Swarm | Self::Bikes => 0.6,
-                Self::Convoy => 0.7,
+                Self::Convoy | Self::DroneTour => 0.7,
                 _ => 1.0,
             },
             Section::Groove => match self {
@@ -295,7 +309,7 @@ impl EventName {
                 Self::Fireworks => 1.9,
                 Self::Storm => 1.6,
                 Self::Swarm | Self::Bikes => 1.4,
-                Self::MotoJump => 1.3,
+                Self::MotoJump | Self::DroneTour | Self::DroneFormation => 1.3,
                 Self::Convoy | Self::Dancer => 1.2,
                 Self::Aurora | Self::Lanterns | Self::Fish => 0.5,
                 Self::Refuel => 0.6,
@@ -325,13 +339,14 @@ mod tests {
         let show_only = EventName::ALL.into_iter().filter(|n| n.is_show_only()).count();
         let breathing = EventName::ALL.into_iter().filter(|n| n.is_breathing_ok()).count();
         let calm = EventName::ALL.into_iter().filter(|n| n.is_calm_ok()).count();
-        assert_eq!((structures, sky, show_only, breathing, calm), (8, 5, 3, 6, 11));
+        assert_eq!((structures, sky, show_only, breathing, calm), (9, 5, 3, 6, 11));
     }
 
     #[test]
     fn le_poids_total_et_quelques_humeurs_sont_ceux_de_sillage() {
         let total: f64 = EventName::ALL.into_iter().map(EventName::weight).sum();
-        assert!((total - 43.4).abs() < 1e-9, "{total}");
+        // 43,4 (Sillage et le saut de moto) plus la visite en drone (1,5) et l'escadrille (2,0).
+        assert!((total - 46.9).abs() < 1e-9, "{total}");
         assert!((EventName::Landmark.weight() - 3.6).abs() < f64::EPSILON);
         assert!((EventName::Aurora.section_bias(Section::Calm) - 1.9).abs() < f64::EPSILON);
         assert!((EventName::Fireworks.section_bias(Section::Peak) - 1.9).abs() < f64::EPSILON);
