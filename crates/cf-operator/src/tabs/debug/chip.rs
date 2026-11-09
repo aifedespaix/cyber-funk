@@ -30,6 +30,13 @@ pub(crate) fn fire(orders: &mut Vec<Action>, event: &WorldEvent) -> bool {
     push_order(orders, Action::Trigger(TriggerId::new(event.id)))
 }
 
+/// « Lancer seul » : nettoie le monde, passe en manuel, puis lance l'événement. L'ordre de lancement part par le chemin du
+/// MIDI comme un clic ordinaire ; le nettoyage est appliqué par le monde avant que l'événement soit créé.
+pub(crate) fn fire_alone(orders: &mut Vec<Action>, gestures: &mut Vec<super::Gesture>, event: &WorldEvent) -> bool {
+    gestures.push(super::Gesture::Sandbox(super::sandbox::SandboxGesture::Clear));
+    fire(orders, event)
+}
+
 /// Ce qui tourne d'une puce.
 #[derive(Debug, Clone, Copy, Default, PartialEq)]
 pub(crate) struct ChipRun {
@@ -68,6 +75,8 @@ pub(crate) fn chip_text(label: &str, pinned: bool, run: ChipRun) -> String {
 pub(crate) enum ChipClick {
     /// Clic : lancer.
     Fire,
+    /// Maj + clic : lancer seul (nettoyer, passer en manuel, puis lancer).
+    FireAlone,
     /// Clic droit : épingler ou désépingler.
     TogglePin,
 }
@@ -94,12 +103,16 @@ pub(crate) fn draw_chip(
         if !event.note.is_empty() {
             ui.label(event.note);
         }
-        ui.weak("Clic : lancer (le limiteur de flashs reste actif) · clic droit : épingler");
+        ui.weak("Clic : lancer (le limiteur de flashs reste actif) · Maj + clic : lancer seul · clic droit : épingler");
     });
     if response.secondary_clicked() {
         Some(ChipClick::TogglePin)
     } else if response.clicked() {
-        Some(ChipClick::Fire)
+        Some(if ui.input(|input| input.modifiers.shift) {
+            ChipClick::FireAlone
+        } else {
+            ChipClick::Fire
+        })
     } else {
         None
     }

@@ -464,6 +464,11 @@ fn the_tab_draws_headless_and_a_frame_without_click_does_nothing() {
                 catalog: Some(&catalog),
                 active: Some(&active),
                 journal: None,
+                sandbox: super::sandbox::SandboxView {
+                    sandbox: None,
+                    paused: None,
+                    armed: 0,
+                },
                 manual: Some(false),
                 now_s: 4.0,
                 settings: None,

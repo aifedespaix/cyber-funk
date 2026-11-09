@@ -9,7 +9,7 @@ use cf_control::Action;
 use cf_render::{CarSelection, FacadeTuning};
 use cf_show::persist::{AppSettings, CarChoice};
 
-use super::chip::{ChipClick, chip_run, draw_chip, fire, push_order};
+use super::chip::{ChipClick, chip_run, draw_chip, fire, fire_alone, push_order};
 use super::pad::draw_pad;
 use super::persist::{family_is_open, section_is_open};
 use super::rows::{Row, draw_row};
@@ -180,6 +180,9 @@ fn draw_others(ui: &mut egui::Ui, view: &mut DebugView<'_>) {
                 match draw_chip(ui, event, pinned.contains(event.id), run, color) {
                     Some(ChipClick::Fire) => {
                         fire(view.orders, event);
+                    }
+                    Some(ChipClick::FireAlone) => {
+                        fire_alone(view.orders, gestures, event);
                     }
                     Some(ChipClick::TogglePin) => gestures.push(Gesture::TogglePin(event.id)),
                     None => {}

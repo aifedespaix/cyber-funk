@@ -8,7 +8,7 @@
 use bevy_egui::egui::{self, Rect};
 use cf_render::{ActiveEvents, EventCategory};
 
-use super::chip::{ChipClick, chip_run, draw_chip, fire};
+use super::chip::{ChipClick, chip_run, draw_chip, fire, fire_alone};
 use super::columns::{COLUMNS, column_color, column_index, column_title};
 use super::districts::{district_orders, draw_district_column};
 use super::lane::{draw_lane, draw_lane_header};
@@ -165,6 +165,9 @@ fn draw_chips(ui: &mut egui::Ui, column: EventCategory, view: &mut DebugView<'_>
         match draw_chip(ui, event, pinned.contains(event.id), run, column_color(column)) {
             Some(ChipClick::Fire) => {
                 fire(view.orders, event);
+            }
+            Some(ChipClick::FireAlone) => {
+                fire_alone(view.orders, gestures, event);
             }
             Some(ChipClick::TogglePin) => gestures.push(Gesture::TogglePin(event.id)),
             None => {}

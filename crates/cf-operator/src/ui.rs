@@ -185,6 +185,7 @@ pub(crate) fn main_panel(
                         automation: &mut shell.automation,
                         active: &mut shell.active,
                         clock: shell.clock.as_deref(),
+                        sim: &mut shell.sim,
                     };
                     debug::show(
                         &mut root,

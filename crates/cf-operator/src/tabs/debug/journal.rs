@@ -24,6 +24,7 @@ const WAITING: egui::Color32 = egui::Color32::from_rgb(230, 190, 90);
 pub(crate) fn describe(entry: &JournalEntry) -> (egui::Color32, &'static str, String) {
     match entry.state {
         JournalState::Started => (OK, "✔", "lancé".to_owned()),
+        JournalState::Armed => (WAITING, "⏸", "armé : part à la reprise".to_owned()),
         JournalState::Pending => (WAITING, "…", "en attente".to_owned()),
         JournalState::Refused(reason) => (REFUSED, "✖", format!("refusé : {}", reason.text())),
     }

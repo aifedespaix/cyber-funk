@@ -26,6 +26,7 @@ mod lane;
 mod pad;
 mod persist;
 mod rows;
+mod sandbox;
 #[cfg(test)]
 mod tests;
 #[cfg(test)]
@@ -40,9 +41,9 @@ use bevy_egui::egui;
 use cf_cinema::{CinemaDirector, ShotOrder};
 use cf_control::Action;
 use cf_render::{
-    ActiveEvents, ActiveId, CarSelection, DistrictGradeState, DistrictOrder, DistrictState, EventCategory,
-    EventJournal, FacadeTuning, GradeLibrary, GraffitiTuning, GraffitiWords, Settings, SimClock, WorldAutomation,
-    WorldEventCatalog,
+    ActiveEvents, ActiveId, ArmedTriggers, CarSelection, DebugSandbox, DistrictGradeState, DistrictOrder,
+    DistrictState, EventCategory, EventJournal, FacadeTuning, GradeLibrary, GraffitiTuning, GraffitiWords, Settings,
+    SimClock, SimControl, WorldAutomation, WorldEventCatalog,
 };
 use cf_show::persist::AppSettings;
 
@@ -107,6 +108,8 @@ pub(crate) enum Gesture {
     OthersOpen(bool),
     /// Ordre au réalisateur (plan caméra imposé, ou retour à l'auto).
     Shot(ShotOrder),
+    /// Bac à sable : nettoyer, vitesse, quartier vide, pause.
+    Sandbox(sandbox::SandboxGesture),
 }
 
 /// Ce que le dessin lit. Tout est facultatif sauf l'état et la file d'ordres : un plugin absent (monde, réglages) se dit
@@ -120,6 +123,8 @@ pub(crate) struct DebugView<'a> {
     pub active: Option<&'a ActiveEvents>,
     /// Le journal des demandes (bandeau du bas).
     pub journal: Option<&'a EventJournal>,
+    /// Le bac à sable (réglages, pause, nombre d'événements armés).
+    pub sandbox: sandbox::SandboxView,
     pub manual: Option<bool>,
     /// Temps de simulation (s), celui de `ActiveEvents`.
     pub now_s: f64,
@@ -155,6 +160,7 @@ pub(crate) fn draw(ui: &mut egui::Ui, view: &mut DebugView<'_>) {
         filter, plan, gestures, ..
     } = &mut *view.state;
     top_bar::draw(ui, bar, filter, gestures);
+    sandbox::draw(ui, &view.sandbox, gestures);
     if let Some(catalog) = view.catalog {
         plan.refresh(catalog, filter, pinned);
     }
@@ -227,7 +233,12 @@ pub(crate) fn apply_gestures(
                     set_family_open(&mut settings.value, OTHERS_KEY, open);
                 }
             }
-            Gesture::District(_) | Gesture::Tuning(_) | Gesture::Graffiti(_) | Gesture::Car(_) | Gesture::Shot(_) => {
+            Gesture::District(_)
+            | Gesture::Tuning(_)
+            | Gesture::Graffiti(_)
+            | Gesture::Car(_)
+            | Gesture::Shot(_)
+            | Gesture::Sandbox(_) => {
                 return true;
             }
         }
@@ -291,6 +302,8 @@ pub(crate) struct DebugParams<'w> {
     state: ResMut<'w, DebugState>,
     catalog: Option<Res<'w, WorldEventCatalog>>,
     journal: Option<Res<'w, EventJournal>>,
+    sandbox: Option<ResMut<'w, DebugSandbox>>,
+    armed: Option<Res<'w, ArmedTriggers>>,
     settings: Option<ResMut<'w, Settings>>,
     district: Option<Res<'w, DistrictState>>,
     grades: Option<Res<'w, DistrictGradeState>>,
@@ -309,6 +322,7 @@ pub(crate) struct Shared<'a, 'w> {
     pub automation: &'a mut Option<ResMut<'w, WorldAutomation>>,
     pub active: &'a mut Option<ResMut<'w, ActiveEvents>>,
     pub clock: Option<&'a SimClock>,
+    pub sim: &'a mut Option<ResMut<'w, SimControl>>,
 }
 
 /// Dessine l'onglet dans le panneau central puis applique les gestes de l'image.
@@ -323,6 +337,8 @@ pub(crate) fn show(
         state,
         catalog,
         journal,
+        sandbox,
+        armed,
         settings,
         district,
         grades,
@@ -341,6 +357,11 @@ pub(crate) fn show(
             catalog: catalog.as_deref(),
             active: shared.active.as_deref(),
             journal: journal.as_deref(),
+            sandbox: sandbox::SandboxView {
+                sandbox: sandbox.as_deref().cloned(),
+                paused: shared.sim.as_deref().map(SimControl::paused),
+                armed: armed.as_deref().map_or(0, ArmedTriggers::len),
+            },
             manual: shared.automation.as_deref().map(|a| a.manual),
             now_s: shared.clock.map_or(0.0, SimClock::sim_s),
             settings: settings.as_deref().map(|s| &s.value),
@@ -359,12 +380,16 @@ pub(crate) fn show(
         return;
     }
     let gestures = &mut state.gestures;
-    gestures.retain(|gesture| {
-        if let Gesture::Shot(order) = gesture {
+    gestures.retain(|gesture| match gesture {
+        Gesture::Shot(order) => {
             shots.write(*order);
-            return false;
+            false
         }
-        true
+        Gesture::Sandbox(action) => {
+            sandbox::apply(*action, sandbox, shared.sim, shared.automation);
+            false
+        }
+        _ => true,
     });
     apply_gestures(gestures, shared.automation, shared.active, settings);
     apply_world_gestures(gestures, districts, tuning, graffiti, words.as_deref(), cars, settings);
