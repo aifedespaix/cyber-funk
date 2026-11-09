@@ -7,6 +7,8 @@
 //! - [`pace`] : l'allure selon la musique, l'intensité et la porte `cruise` ;
 //! - [`dance`] et [`race_line`] : la chorégraphie sur le temps musical (positions latérales, horloge de danse) et la
 //!   ligne de course du spectacle ;
+//! - [`sway`] : les petits écarts par-dessus la ligne de course (embardées sur les kicks, zigzags sur la phrase,
+//!   traversée sur un drop) ;
 //! - [`steer`] : le volant (coût de chaque position latérale, voitures au sol à dépasser) ;
 //! - [`flight`] : la machine de vol (étages, décollage, figures, esquive des arches) et les pilotes de la verticale ;
 //! - [`drive`] : [`Pilot`], tout cela réuni en une fonction pure `update(PilotTick) -> PilotFrame` ;
@@ -42,6 +44,7 @@ pub mod pace;
 pub mod race_line;
 pub mod rand;
 pub mod steer;
+pub mod sway;
 mod systems;
 
 use bevy::prelude::*;

@@ -8,7 +8,7 @@ const LANES: [f64; 5] = [-1.0, -0.55, 0.0, 0.55, 1.0];
 /// Rang de la file centrale, point de départ.
 const CENTER: usize = 2;
 /// Plus loin que cela, la ligne sortirait de la route accessible (±4,6 m).
-const MAX_X: f64 = 3.8;
+pub const MAX_X: f64 = 3.8;
 const BEATS_PER_BAR: f64 = 4.0;
 /// Période de la grande courbe : une phrase de huit mesures.
 const PHRASE_BEATS: f64 = 32.0;
@@ -76,6 +76,22 @@ impl RaceLine {
         let rate = if rate.is_finite() { rate } else { 5.0 };
         self.follow(want, dt, (rate * 0.5).clamp(1.6, 2.6));
         self.x
+    }
+
+    /// Traverse la route : passe à la file symétrique (un drop, par exemple). Une file centrale part d'un côté au hasard,
+    /// pour que le geste se voie toujours.
+    pub fn mirror(&mut self) {
+        let lane = if self.lane == CENTER {
+            if hash(self.seed, self.x) < 0.5 {
+                0
+            } else {
+                LANES.len() - 1
+            }
+        } else {
+            LANES.len() - 1 - self.lane
+        };
+        self.previous = self.lane;
+        self.lane = lane;
     }
 
     /// File suivante : jamais la même, et de l'autre côté une fois sur deux pour que le changement se voie.
@@ -146,6 +162,26 @@ mod tests {
             );
             previous = x;
         }
+    }
+
+    #[test]
+    fn mirror_envoie_la_voiture_de_l_autre_cote() {
+        let mut line = RaceLine::new(9.0);
+        let mut beat = 0.0;
+        // Jusqu'à tomber sur une file franchement d'un côté.
+        for _ in 0..3000 {
+            beat += 2.0 / 60.0;
+            line.update(1.0 / 60.0, beat, 1.0, 5.0);
+            if LANES[line.lane].abs() >= 0.99 {
+                break;
+            }
+        }
+        let side = LANES[line.lane];
+        line.mirror();
+        assert!((LANES[line.lane] + side).abs() < 1e-12, "file symétrique");
+        let mut centered = RaceLine::new(1.0);
+        centered.mirror();
+        assert!(LANES[centered.lane].abs() >= 0.99, "depuis le centre : un bord");
     }
 
     #[test]
