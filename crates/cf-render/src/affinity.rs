@@ -45,14 +45,13 @@ impl DistrictAffinity {
             let mut kinds = Vec::with_capacity(slugs.len());
             let mut known = true;
             for slug in &slugs {
-                match DistrictKind::ALL.into_iter().find(|kind| kind.slug() == slug) {
-                    Some(kind) => kinds.push(kind),
-                    None => {
-                        problems.push(format!(
-                            "affinity.ron : « {id} » nomme le quartier inconnu « {slug} », entrée écartée"
-                        ));
-                        known = false;
-                    }
+                if let Some(kind) = DistrictKind::ALL.into_iter().find(|kind| kind.slug() == slug) {
+                    kinds.push(kind);
+                } else {
+                    problems.push(format!(
+                        "affinity.ron : « {id} » nomme le quartier inconnu « {slug} », entrée écartée"
+                    ));
+                    known = false;
                 }
             }
             if known {

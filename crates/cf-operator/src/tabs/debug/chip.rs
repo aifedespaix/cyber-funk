@@ -190,19 +190,26 @@ mod fit_tests {
             fit_of(Some(&table), Some(DistrictKind::Neon), "landmark:arcade"),
             Fit::Here
         );
-        let Fit::Outside { allowed, here } = fit_of(Some(&table), Some(DistrictKind::Suburb), "landmark:arcade") else {
-            panic!("devrait être hors quartier");
-        };
-        assert_eq!(here, DistrictKind::Suburb);
-        assert_eq!(district_names(allowed), "Centre néon");
+        assert_eq!(
+            fit_of(Some(&table), Some(DistrictKind::Suburb), "landmark:arcade"),
+            Fit::Outside {
+                allowed: DistrictSet::of(&[DistrictKind::Neon]),
+                here: DistrictKind::Suburb,
+            }
+        );
+        assert_eq!(district_names(DistrictSet::of(&[DistrictKind::Neon])), "Centre néon");
     }
 
     #[test]
     fn an_event_no_district_welcomes_says_so() {
         let table = table();
-        let Fit::Outside { allowed, .. } = fit_of(Some(&table), Some(DistrictKind::Neon), "storm") else {
-            panic!("devrait être hors quartier");
-        };
-        assert_eq!(district_names(allowed), "aucun quartier");
+        assert_eq!(
+            fit_of(Some(&table), Some(DistrictKind::Neon), "storm"),
+            Fit::Outside {
+                allowed: DistrictSet::NONE,
+                here: DistrictKind::Neon,
+            }
+        );
+        assert_eq!(district_names(DistrictSet::NONE), "aucun quartier");
     }
 }
