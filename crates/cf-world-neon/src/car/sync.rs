@@ -238,7 +238,7 @@ mod tests {
     fn stutter_stays_small_and_geometric() {
         for step in 0..200 {
             let s = sync_scale(0.5, 1.0, f64::from(step) * 0.03);
-            assert!((s.x - 1.0).abs() <= STUTTER + 1e-6 && s.y == 1.0, "{s:?}");
+            assert!((s.x - 1.0).abs() <= STUTTER + 1e-6 && (s.y - 1.0).abs() < 1e-6, "{s:?}");
         }
     }
 }

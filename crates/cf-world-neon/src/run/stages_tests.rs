@@ -135,20 +135,20 @@ fn the_old_car_is_on_screen_at_once_and_the_new_one_is_absent_far_behind() {
 
 #[test]
 fn the_new_car_synchronises_while_it_catches_up_and_the_old_one_desynchronises_once_side_by_side() {
-    let v = variant(3);
-    let m = v.marks();
-    let (s, _, a) = handover_stages(m.arrival + 1.0, &v, false);
-    assert!(s.car_presence > 0.0 && s.car_presence < 1.0 && a.gap_behind_m > 0.0);
-    let (s, d, a) = handover_stages(m.abreast + 0.2, &v, false);
+    let var = variant(3);
+    let m = var.marks();
+    let (sync_stage, _, arr) = handover_stages(m.arrival + 1.0, &var, false);
+    assert!(sync_stage.car_presence > 0.0 && sync_stage.car_presence < 1.0 && arr.gap_behind_m > 0.0);
+    let (sync_stage, dbl, arr) = handover_stages(m.abreast + 0.2, &var, false);
     assert!(
-        s.car_presence >= 0.999 && d.presence >= 0.999 && a.gap_behind_m < 5.0,
-        "{a:?}"
+        sync_stage.car_presence >= 0.999 && dbl.presence >= 0.999 && arr.gap_behind_m < 5.0,
+        "{arr:?}"
     );
-    assert!(d.lateral >= 0.999, "l'ancienne s'est rangée sur le côté");
-    let (_, d, _) = handover_stages(m.fading + 1.0, &v, false);
-    assert!(d.presence < 1.0 && d.presence > 0.0 && d.fade > 0.0);
-    let (_, d, _) = handover_stages(m.gone, &v, false);
-    assert!(d.presence == 0.0, "l'ancienne a disparu avant le portique");
+    assert!(dbl.lateral >= 0.999, "l'ancienne s'est rangée sur le côté");
+    let (_, dbl, _) = handover_stages(m.fading + 1.0, &var, false);
+    assert!(dbl.presence < 1.0 && dbl.presence > 0.0 && dbl.fade > 0.0);
+    let (_, dbl, _) = handover_stages(m.gone, &var, false);
+    assert!(dbl.presence == 0.0, "l'ancienne a disparu avant le portique");
     assert!(m.gone < m.gantry);
 }
 
@@ -174,20 +174,23 @@ fn the_pilot_gets_the_new_car_back_before_the_gantry() {
 #[test]
 fn handover_stages_stay_finite_in_range_and_the_glitch_is_removed_by_reduced_motion() {
     for number in 0..20 {
-        let v = variant(number);
+        let var = variant(number);
         let mut max_glitch = 0.0_f32;
-        for k in 0..=(v.duration_s() / DT) as u32 {
-            let t = k as f32 * DT;
-            let (s, d, a) = handover_stages(t, &v, false);
-            assert!(all_unit(&s), "{t}: {s:?}");
+        for k in 0..=(var.duration_s() / DT) as u32 {
+            let time = k as f32 * DT;
+            let (stage, dbl, arr) = handover_stages(time, &var, false);
+            assert!(all_unit(&stage), "{time}: {stage:?}");
             assert!(
-                [d.presence, d.slow, d.lateral, d.fade].into_iter().all(unit),
-                "{t}: {d:?}"
+                [dbl.presence, dbl.slow, dbl.lateral, dbl.fade].into_iter().all(unit),
+                "{time}: {dbl:?}"
             );
-            assert!(a.gap_behind_m.is_finite() && a.gap_behind_m >= 0.0, "{t}: {a:?}");
-            max_glitch = max_glitch.max(s.name_glitch);
-            let (s, ..) = handover_stages(t, &v, true);
-            assert!(s.name_glitch == 0.0);
+            assert!(
+                arr.gap_behind_m.is_finite() && arr.gap_behind_m >= 0.0,
+                "{time}: {arr:?}"
+            );
+            max_glitch = max_glitch.max(stage.name_glitch);
+            let (calm, ..) = handover_stages(time, &var, true);
+            assert!(calm.name_glitch.abs() < f32::EPSILON);
         }
         assert!(max_glitch > 0.5, "le glitch du nom existe sans reduce_motion");
     }
@@ -211,5 +214,5 @@ fn the_stages_never_go_backwards_where_they_should_not() {
 #[test]
 fn defaults_describe_a_neutral_double_and_arrival() {
     assert_eq!(DoubleStages::NONE.presence, 0.0);
-    assert!(!ArrivalStages::NONE.scripted);
+    const { assert!(!ArrivalStages::NONE.scripted) };
 }

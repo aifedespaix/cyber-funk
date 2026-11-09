@@ -192,7 +192,7 @@ fn the_director_gets_the_lone_car_to_film_and_the_pilot_gets_the_new_car_back_be
     assert!(seen_feed, "le plan de passation sait où est la voiture seule");
     assert!(released_z.is_some());
     assert!(
-        (x_end.abs() - f64::from(v.lane_offset_m)).abs() < 1.5 && x_end.signum() == f64::from(v.side),
+        (x_end.abs() - f64::from(v.lane_offset_m)).abs() < 1.5 && (x_end.signum() - f64::from(v.side)).abs() < 1e-9,
         "l'ancienne finit sur son côté : {x_end}"
     );
 }

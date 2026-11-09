@@ -233,7 +233,7 @@ mod tests {
             let v = HandoverVariant::new(number, (number % 5) as usize, None);
             assert!((8.0..=11.5).contains(&v.lone_speed_mps), "{v:?}");
             assert!((110.0..=170.0).contains(&v.gap_m) && (3.0..=5.0).contains(&v.together_s));
-            assert!(v.side.abs() == 1.0 && v.framing.style < FRAMING_STYLES);
+            assert!((v.side.abs() - 1.0).abs() < 1e-6 && v.framing.style < FRAMING_STYLES);
             let m = v.marks();
             assert!(m.camera < m.folded && m.slowed < m.folded);
             assert!(m.arrival < m.abreast && m.abreast < m.fading && m.fading < m.gone);

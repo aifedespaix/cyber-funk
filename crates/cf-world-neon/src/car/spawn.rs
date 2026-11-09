@@ -191,6 +191,39 @@ fn build_materials(
     (built, handles, signal_mats, screens)
 }
 
+impl Built {
+    /// Pose le matériau sur l'entité d'une pièce (rien pour une pièce ignorée).
+    fn insert_into(&self, piece: &mut EntityCommands) {
+        match self {
+            Self::Standard(handle) => piece.insert(MeshMaterial3d(handle.clone())),
+            Self::Paint(handle) => piece.insert(MeshMaterial3d(handle.clone())),
+            Self::Glass(handle) => piece.insert(MeshMaterial3d(handle.clone())),
+            Self::Skip => piece,
+        };
+    }
+}
+
+/// Une pièce du calque squelette de la synchronisation : même maillage que la pièce, matériau additif partagé.
+fn spawn_skeleton_piece(
+    commands: &mut Commands,
+    node: &str,
+    mesh: Handle<Mesh>,
+    material: &Handle<CarLightMaterial>,
+    parent: Entity,
+) -> Entity {
+    commands
+        .spawn((
+            Name::new(format!("{node} · squelette")),
+            Mesh3d(mesh),
+            MeshMaterial3d(material.clone()),
+            Transform::IDENTITY,
+            Visibility::default(),
+            WorldLayer,
+            ChildOf(parent),
+        ))
+        .id()
+}
+
 /// Pose la voiture sous `root` : retourne le [`CarRig`] à poser sur l'entité racine.
 ///
 /// `model` est consommé : ses maillages et images passent dans les `Assets`, sans copie.
@@ -276,30 +309,14 @@ pub fn spawn_car(
                 layer,
                 ChildOf(entity),
             ));
-            match &built[material] {
-                Built::Standard(handle) => {
-                    piece.insert(MeshMaterial3d(handle.clone()));
-                }
-                Built::Paint(handle) => {
-                    piece.insert(MeshMaterial3d(handle.clone()));
-                }
-                Built::Glass(handle) => {
-                    piece.insert(MeshMaterial3d(handle.clone()));
-                }
-                Built::Skip => {}
-            }
-            let overlay = commands
-                .spawn((
-                    Name::new(format!("{} · squelette", node.name)),
-                    Mesh3d(meshes[mesh].clone()),
-                    MeshMaterial3d(skeleton.clone()),
-                    Transform::IDENTITY,
-                    Visibility::default(),
-                    layer,
-                    ChildOf(entity),
-                ))
-                .id();
-            skeleton_parts.push(overlay);
+            built[material].insert_into(&mut piece);
+            skeleton_parts.push(spawn_skeleton_piece(
+                commands,
+                &node.name,
+                meshes[mesh].clone(),
+                &skeleton,
+                entity,
+            ));
         }
         stack.extend(node.children.iter().map(|&c| (c, entity)));
     }
