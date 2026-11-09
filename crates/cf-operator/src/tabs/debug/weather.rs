@@ -55,7 +55,9 @@ mod tests {
             screen_rect: Some(egui::Rect::from_min_size(egui::Pos2::ZERO, egui::vec2(400.0, 400.0))),
             ..egui::RawInput::default()
         };
-        let _ = ctx.run_ui(raw, |ui| out = draw(ui, current));
+        let mut output = ctx.run_ui(raw, |ui| out = draw(ui, current));
+        // Les textures de la première image ne sont pas appliquées : on les jette exprès.
+        output.textures_delta.clear();
         out
     }
 
