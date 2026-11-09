@@ -118,7 +118,8 @@ pub fn starting_stages(t_s: f32, reduce_motion: bool) -> RunStages {
         road: mix(WAIT_ROAD, 1.0, ramp(t_s, 0.5, 5.0)),
         lights: ramp(t_s, 1.0, 3.5),
         build: ramp(t_s, GANTRY_END_S, START_S),
-        windows: ramp(t_s, GANTRY_END_S + 3.0, START_S - 1.0),
+        // Les lumières sont celles des tours (shader) : plus de front global, une tour allume ses fenêtres une fois sortie.
+        windows: 1.0,
         sky: mix(WAIT_SKY, 1.0, ramp(t_s, GANTRY_END_S, START_S - 2.0)),
         sign: ramp(t_s, GANTRY_START_S + 0.5, GANTRY_START_S + 4.0),
         drive: ramp(t_s, 1.5, 10.0),
@@ -146,7 +147,7 @@ pub fn stopping_stages(t_s: f32) -> RunStages {
         road: mix(1.0, WAIT_ROAD, ramp(t_s, 6.0, 9.0)),
         lights: 1.0 - ramp(t_s, 5.0, 6.5),
         build: if hidden { 0.0 } else { 1.0 },
-        windows: 1.0 - ramp(t_s, 0.0, 2.0),
+        windows: 1.0,
         sky: mix(1.0, WAIT_SKY, ramp(t_s, 6.0, 9.0)),
         sign: 1.0 - ramp(t_s, 0.0, 1.5),
         drive: (1.0 - t_s * BRAKE_MPS2 / CRUISE_MPS).max(0.0),

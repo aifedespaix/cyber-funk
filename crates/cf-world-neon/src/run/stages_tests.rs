@@ -39,7 +39,7 @@ fn the_intro_lasts_29_seconds_with_the_gantry_between_12_and_17() {
 #[test]
 fn at_the_start_the_car_is_absent_and_the_district_too() {
     let s = starting_stages(0.0, false);
-    assert!(s.car_presence == 0.0 && s.build == 0.0 && s.gantry == 0.0 && s.windows == 0.0);
+    assert!(s.car_presence == 0.0 && s.build == 0.0 && s.gantry == 0.0);
 }
 
 #[test]

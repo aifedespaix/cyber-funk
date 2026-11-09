@@ -87,11 +87,7 @@ pub fn handover_stages(t_s: f32, reduce_motion: bool) -> (RunStages, DoubleStage
         road: 1.0,
         lights: 1.0,
         build: if hidden { ramp(t_s, g1, HANDOVER_S) } else { 1.0 },
-        windows: if hidden {
-            ramp(t_s, g1 + 3.0, HANDOVER_S - 1.0)
-        } else {
-            1.0 - ramp(t_s, 0.0, 3.0)
-        },
+        windows: 1.0,
         sky: 1.0,
         sign: if hidden {
             ramp(t_s, g0 + 0.5, g0 + 4.0)

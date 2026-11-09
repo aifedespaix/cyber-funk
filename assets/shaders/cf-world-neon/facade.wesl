@@ -237,6 +237,14 @@ fn fragment(in: FacadeVarying) -> @location(0) vec4<f32> {
             discard;
         }
     }
+    // Les lumières sont celles de la tour elle-même : une tour qui sort de terre n'allume ses fenêtres qu'une fois formée
+    // (elles s'allument à quelques étages sous la ligne de balayage, jamais devant), et une tour qui se désynchronise
+    // les éteint dès qu'elle commence à glitcher puis à s'enfoncer. Aucune lumière n'est donnée aux tours absentes.
+    var awake = 1.0;
+    if build < 0.999 {
+        awake = 1.0 - smoothstep(build_top - 45.0, build_top - 12.0, in.world.y);
+    }
+    awake *= 1.0 - smoothstep(0.0, 0.35, collapse_t(facade.weather.w, in.cascade));
     // Entier arrondi : une graine interpolée varierait d'un pixel à l'autre et bruiterait le hachage.
     let seed = floor(in.info.x + 0.5);
     let tier = in.info.z;
@@ -252,7 +260,7 @@ fn fragment(in: FacadeVarying) -> @location(0) vec4<f32> {
     // Antenne : un trait lumineux dont la pointe bat avec le kick.
     if tier > 1.5 && !far {
         let tip = smoothstep(0.6, 1.0, in.local.y / in.size.y);
-        let c = v_c * (0.5 + tip * (2.2 + pulse * 3.0));
+        let c = v_c * (0.5 + tip * (2.2 + pulse * 3.0)) * awake;
         let f = smoothstep(120.0 * vista(), 380.0 * vista(), dist);
         return vec4<f32>(mix(c, haze, f), 1.0);
     }
@@ -319,7 +327,7 @@ fn fragment(in: FacadeVarying) -> @location(0) vec4<f32> {
         // Panne de courant : part de lumière qui reste aux fenêtres derrière le front (1 partout sans panne).
         let power_edge = max(facade.power.y, 0.001);
         let behind = smoothstep(-power_edge, power_edge, (in.world.z - facade.power.x) * facade.power.w);
-        let power_left = 1.0 - facade.power.z * behind;
+        let power_left = (1.0 - facade.power.z * behind) * awake;
         // Mouvement du tempérament (vague, dérive, balayage, pulsation) ; rien au loin : pas de scintillement sous-pixel.
         var motion = 1.0;
         if !far {
