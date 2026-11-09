@@ -31,6 +31,7 @@ mod sandbox;
 mod tests;
 #[cfg(test)]
 mod tests_world;
+mod timeline;
 mod top_bar;
 
 use std::collections::BTreeSet;
@@ -41,9 +42,9 @@ use bevy_egui::egui;
 use cf_cinema::{CinemaDirector, ShotOrder};
 use cf_control::Action;
 use cf_render::{
-    ActiveEvents, ActiveId, ArmedTriggers, CarSelection, DebugSandbox, DistrictAffinity, DistrictGradeState,
-    DistrictOrder, DistrictState, EventCategory, EventJournal, FacadeTuning, GradeLibrary, GraffitiTuning,
-    GraffitiWords, Settings, SimClock, SimControl, WorldAutomation, WorldEventCatalog,
+    ActiveEvents, ActiveId, ArmedTriggers, CarSelection, DebugSandbox, DebugTimeline, DistrictAffinity,
+    DistrictGradeState, DistrictOrder, DistrictState, EventCategory, EventJournal, FacadeTuning, GradeLibrary,
+    GraffitiTuning, GraffitiWords, Settings, SimClock, SimControl, TimelineReplay, WorldAutomation, WorldEventCatalog,
 };
 use cf_show::persist::AppSettings;
 
@@ -123,6 +124,9 @@ pub(crate) struct DebugView<'a> {
     pub active: Option<&'a ActiveEvents>,
     /// Le journal des demandes (bandeau du bas).
     pub journal: Option<&'a EventJournal>,
+    /// La timeline de la session et l'état du rejeu.
+    pub timeline: Option<&'a DebugTimeline>,
+    pub replaying: bool,
     /// Le bac à sable (réglages, pause, nombre d'événements armés).
     pub sandbox: sandbox::SandboxView,
     pub manual: Option<bool>,
@@ -168,9 +172,15 @@ pub(crate) fn draw(ui: &mut egui::Ui, view: &mut DebugView<'_>) {
     }
     ui.separator();
     let mut body = ui.available_rect_before_wrap();
-    // Le bandeau du journal prend le bas ; sur une fenêtre basse, la grille garde toute la place.
+    // Les bandeaux du bas (timeline au-dessus, journal dessous) ; sur une fenêtre basse, la grille garde toute la place.
     let journal_rect = (body.height() >= journal::MIN_HEIGHT_FOR_JOURNAL).then(|| {
         let top = body.bottom() - journal::JOURNAL_HEIGHT;
+        let rect = egui::Rect::from_min_max(egui::pos2(body.left(), top), body.max);
+        body.max.y = top - GAP;
+        rect
+    });
+    let timeline_rect = (journal_rect.is_some() && body.height() >= timeline::MIN_HEIGHT_FOR_TIMELINE).then(|| {
+        let top = body.bottom() - timeline::TIMELINE_HEIGHT;
         let rect = egui::Rect::from_min_max(egui::pos2(body.left(), top), body.max);
         body.max.y = top - GAP;
         rect
@@ -178,6 +188,18 @@ pub(crate) fn draw(ui: &mut egui::Ui, view: &mut DebugView<'_>) {
     let (grid_rect, dock_rect) = split_dock(body, DOCK_WIDTH, GAP);
     grid::draw_grid(ui, grid_rect, view);
     in_rect(ui, dock_rect, |ui| dock::draw_dock(ui, view));
+    if let Some(rect) = timeline_rect {
+        let shown = timeline::TimelineView {
+            timeline: view.timeline,
+            now_s: view.now_s,
+            replaying: view.replaying,
+        };
+        let (journal, now_s) = (view.journal, view.now_s);
+        let gestures = &mut view.state.gestures;
+        in_rect(ui, rect, |ui| {
+            timeline::draw(ui, shown, gestures, |t| timeline::full_report(t, journal, now_s));
+        });
+    }
     if let Some(rect) = journal_rect {
         in_rect(ui, rect, |ui| journal::draw(ui, view.journal));
     }
@@ -305,6 +327,8 @@ pub(crate) struct DebugParams<'w> {
     catalog: Option<Res<'w, WorldEventCatalog>>,
     journal: Option<Res<'w, EventJournal>>,
     sandbox: Option<ResMut<'w, DebugSandbox>>,
+    timeline: Option<ResMut<'w, DebugTimeline>>,
+    replay: Option<ResMut<'w, TimelineReplay>>,
     armed: Option<Res<'w, ArmedTriggers>>,
     settings: Option<ResMut<'w, Settings>>,
     district: Option<Res<'w, DistrictState>>,
@@ -341,6 +365,8 @@ pub(crate) fn show(
         catalog,
         journal,
         sandbox,
+        timeline,
+        replay,
         armed,
         settings,
         district,
@@ -361,6 +387,8 @@ pub(crate) fn show(
             catalog: catalog.as_deref(),
             active: shared.active.as_deref(),
             journal: journal.as_deref(),
+            timeline: timeline.as_deref(),
+            replaying: replay.as_deref().is_some_and(TimelineReplay::running),
             sandbox: sandbox::SandboxView {
                 sandbox: sandbox.as_deref().cloned(),
                 paused: shared.sim.as_deref().map(SimControl::paused),
@@ -391,7 +419,15 @@ pub(crate) fn show(
             false
         }
         Gesture::Sandbox(action) => {
-            sandbox::apply(*action, sandbox, shared.sim, shared.automation);
+            let mut targets = sandbox::Targets {
+                sandbox,
+                sim: shared.sim,
+                automation: shared.automation,
+                timeline,
+                replay,
+                now_s: shared.clock.map_or(0.0, SimClock::sim_s),
+            };
+            sandbox::apply(*action, &mut targets);
             false
         }
         _ => true,

@@ -149,7 +149,7 @@ pub struct ActiveEventsPlugin;
 
 impl Plugin for ActiveEventsPlugin {
     fn build(&self, app: &mut App) {
-        app.add_plugins(crate::event_journal::EventJournalPlugin)
+        app.add_plugins((crate::event_journal::EventJournalPlugin, crate::TimelinePlugin))
             .init_resource::<crate::DebugSandbox>()
             .init_resource::<crate::DistrictAffinity>()
             .init_resource::<ActiveEvents>()

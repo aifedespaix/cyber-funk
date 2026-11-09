@@ -10,8 +10,9 @@
 //! Un clic sur une puce avec **Maj** enfoncée la lance seule : nettoyage, mode manuel, puis l'événement.
 //! Le dessin ne lit que des valeurs et n'écrit que des [`SandboxGesture`] (appliqués ensuite aux ressources).
 
+use bevy::prelude::{DetectChangesMut, ResMut};
 use bevy_egui::egui;
-use cf_render::{DebugSandbox, SPEED_PRESETS};
+use cf_render::{DebugSandbox, DebugTimeline, SPEED_PRESETS, SimControl, TimelineReplay, WorldAutomation};
 
 use super::Gesture;
 
@@ -26,6 +27,10 @@ pub(crate) enum SandboxGesture {
     Empty(bool),
     /// Mettre en pause ou reprendre.
     SetPaused(bool),
+    /// Rejouer la séquence enregistrée : nettoyer, puis relancer les mêmes demandes aux mêmes instants.
+    Replay,
+    /// Remettre la timeline à zéro.
+    ClearTimeline,
 }
 
 /// Ce que la barre affiche.
@@ -122,26 +127,45 @@ pub(crate) fn draw(ui: &mut egui::Ui, view: &SandboxView, gestures: &mut Vec<Ges
     });
 }
 
-/// Applique un geste aux ressources. Chaque ressource n'est écrite que si le geste la change.
-pub(crate) fn apply(
-    gesture: SandboxGesture,
-    sandbox: &mut Option<bevy::prelude::ResMut<DebugSandbox>>,
-    sim: &mut Option<bevy::prelude::ResMut<cf_render::SimControl>>,
-    automation: &mut Option<bevy::prelude::ResMut<cf_render::WorldAutomation>>,
-) {
-    use bevy::prelude::DetectChangesMut;
-    match gesture {
-        SandboxGesture::Clear => {
-            if let Some(sandbox) = sandbox.as_mut() {
-                sandbox.request_clear();
-            }
-            // Un monde propre qui se repeuple tout seul ne sert à rien pour tester : on passe en manuel.
-            if let Some(automation) = automation.as_mut() {
-                automation.set_if_neq(cf_render::WorldAutomation { manual: true });
-            }
+/// Les ressources que les gestes du bac à sable écrivent. Chacune est facultative : monde ou commande absents, le geste
+/// est ignoré sans bruit.
+#[allow(missing_debug_implementations)] // Des accès aux ressources, rien à afficher.
+pub(crate) struct Targets<'a, 'w, 'x> {
+    pub sandbox: &'a mut Option<ResMut<'w, DebugSandbox>>,
+    pub sim: &'a mut Option<ResMut<'x, SimControl>>,
+    pub automation: &'a mut Option<ResMut<'x, WorldAutomation>>,
+    pub timeline: &'a mut Option<ResMut<'w, DebugTimeline>>,
+    pub replay: &'a mut Option<ResMut<'w, TimelineReplay>>,
+    /// Temps de simulation (s).
+    pub now_s: f64,
+}
+
+impl Targets<'_, '_, '_> {
+    /// Nettoie : événements arrêtés, timeline à zéro, mode manuel. La timeline repart de zéro ici, avant que les demandes
+    /// qui suivent (« lancer seul ») ne soient enregistrées.
+    fn clear(&mut self) {
+        if let Some(sandbox) = self.sandbox.as_mut() {
+            sandbox.request_clear();
         }
+        if let Some(timeline) = self.timeline.as_mut() {
+            timeline.reset();
+        }
+        if let Some(replay) = self.replay.as_mut() {
+            replay.stop();
+        }
+        // Un monde propre qui se repeuple tout seul ne sert à rien pour tester : on passe en manuel.
+        if let Some(automation) = self.automation.as_mut() {
+            automation.set_if_neq(WorldAutomation { manual: true });
+        }
+    }
+}
+
+/// Applique un geste aux ressources. Chaque ressource n'est écrite que si le geste la change.
+pub(crate) fn apply(gesture: SandboxGesture, targets: &mut Targets<'_, '_, '_>) {
+    match gesture {
+        SandboxGesture::Clear => targets.clear(),
         SandboxGesture::Speed(speed) => {
-            if let Some(sandbox) = sandbox.as_mut() {
+            if let Some(sandbox) = targets.sandbox.as_mut() {
                 let mut next = (**sandbox).clone();
                 next.set_car_speed(speed);
                 if **sandbox != next {
@@ -150,17 +174,37 @@ pub(crate) fn apply(
             }
         }
         SandboxGesture::Empty(empty) => {
-            if let Some(sandbox) = sandbox.as_mut()
+            if let Some(sandbox) = targets.sandbox.as_mut()
                 && sandbox.empty() != empty
             {
                 sandbox.set_empty(empty);
             }
         }
         SandboxGesture::SetPaused(paused) => {
-            if let Some(sim) = sim.as_mut()
+            if let Some(sim) = targets.sim.as_mut()
                 && sim.paused() != paused
             {
                 sim.set_paused(paused);
+            }
+        }
+        SandboxGesture::Replay => {
+            // Les demandes sont copiées avant le nettoyage, qui remet la timeline à zéro.
+            let requests: Vec<(f64, String)> = targets
+                .timeline
+                .as_deref()
+                .map(|timeline| timeline.requests().to_vec())
+                .unwrap_or_default();
+            if requests.is_empty() {
+                return;
+            }
+            targets.clear();
+            if let Some(replay) = targets.replay.as_mut() {
+                replay.start(targets.now_s, &requests);
+            }
+        }
+        SandboxGesture::ClearTimeline => {
+            if let Some(timeline) = targets.timeline.as_mut() {
+                timeline.reset();
             }
         }
     }
@@ -179,28 +223,76 @@ mod tests {
 
     use bevy::ecs::system::RunSystemOnce;
     use bevy::prelude::*;
-    use cf_render::{SimControl, WorldAutomation};
+
+    /// Les ressources du bac à sable, prises ensemble pour qu'elles partagent une même durée de vie.
+    #[derive(bevy::ecs::system::SystemParam)]
+    struct Res3<'w> {
+        sandbox: Option<ResMut<'w, DebugSandbox>>,
+        sim: Option<ResMut<'w, SimControl>>,
+        automation: Option<ResMut<'w, WorldAutomation>>,
+        timeline: Option<ResMut<'w, DebugTimeline>>,
+        replay: Option<ResMut<'w, TimelineReplay>>,
+    }
 
     fn run(world: &mut World, gesture: SandboxGesture) {
         world
-            .run_system_once(
-                move |mut sandbox: Option<ResMut<DebugSandbox>>,
-                      mut sim: Option<ResMut<SimControl>>,
-                      mut automation: Option<ResMut<WorldAutomation>>| {
-                    apply(gesture, &mut sandbox, &mut sim, &mut automation);
-                },
-            )
+            .run_system_once(move |mut r: Res3| {
+                let mut targets = Targets {
+                    sandbox: &mut r.sandbox,
+                    sim: &mut r.sim,
+                    automation: &mut r.automation,
+                    timeline: &mut r.timeline,
+                    replay: &mut r.replay,
+                    now_s: 42.0,
+                };
+                apply(gesture, &mut targets);
+            })
             .expect("le système tourne");
     }
 
     #[test]
-    fn clearing_asks_the_world_and_goes_manual() {
+    fn clearing_asks_the_world_resets_the_timeline_and_goes_manual() {
         let mut world = World::new();
         world.init_resource::<DebugSandbox>();
         world.init_resource::<WorldAutomation>();
+        world.init_resource::<DebugTimeline>();
+        world.resource_mut::<DebugTimeline>().request(1.0, "chase");
         run(&mut world, SandboxGesture::Clear);
         assert_eq!(world.resource::<DebugSandbox>().clear_seq(), 1);
         assert!(world.resource::<WorldAutomation>().manual);
+        assert!(world.resource::<DebugTimeline>().is_empty());
+    }
+
+    #[test]
+    fn replay_clears_then_starts_from_the_recorded_requests() {
+        let mut world = World::new();
+        world.init_resource::<DebugSandbox>();
+        world.init_resource::<DebugTimeline>();
+        world.init_resource::<TimelineReplay>();
+        world.resource_mut::<DebugTimeline>().request(5.0, "chase");
+        world.resource_mut::<DebugTimeline>().request(7.0, "storm");
+        run(&mut world, SandboxGesture::Replay);
+        assert_eq!(world.resource::<DebugSandbox>().clear_seq(), 1, "nettoyé d'abord");
+        assert!(world.resource::<DebugTimeline>().is_empty());
+        let mut replay = world.resource_mut::<TimelineReplay>();
+        assert!(replay.running());
+        let first: Vec<_> = replay.due(42.0).map(|id| id.0.to_string()).collect();
+        assert_eq!(first, ["chase"], "la première demande part à l'instant 0 du rejeu");
+    }
+
+    #[test]
+    fn replay_with_nothing_recorded_does_nothing() {
+        let mut world = World::new();
+        world.init_resource::<DebugSandbox>();
+        world.init_resource::<DebugTimeline>();
+        world.init_resource::<TimelineReplay>();
+        run(&mut world, SandboxGesture::Replay);
+        assert_eq!(
+            world.resource::<DebugSandbox>().clear_seq(),
+            0,
+            "pas de nettoyage pour rien"
+        );
+        assert!(!world.resource::<TimelineReplay>().running());
     }
 
     #[test]
@@ -225,6 +317,8 @@ mod tests {
             SandboxGesture::Speed(0.5),
             SandboxGesture::Empty(true),
             SandboxGesture::SetPaused(true),
+            SandboxGesture::Replay,
+            SandboxGesture::ClearTimeline,
         ] {
             run(&mut world, gesture);
         }

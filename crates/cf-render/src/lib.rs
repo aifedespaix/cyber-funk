@@ -27,6 +27,7 @@ pub mod settings;
 pub mod show;
 mod sim;
 pub mod streaming;
+mod timeline;
 pub mod titles;
 mod tuning;
 pub mod warmup;
@@ -86,6 +87,7 @@ pub use show::{
 };
 pub use sim::{SimClock, SimControl, SimReset, sim_running};
 pub use streaming::{ChunkInfo, ChunkPlan, ChunkStream, EntityPool, PieceRegistry, StreamLayout, StreamStats};
+pub use timeline::{DebugTimeline, MAX_REQUESTS, MAX_SPANS, TimelinePlugin, TimelineReplay, TimelineSpan};
 pub use titles::{ActiveTitle, TitleCard, TitleKind, TitleSettings, TitlesPlugin};
 pub use tuning::{CAR_FOLLOW_KEY, FacadeTuning, WINDOW_LIFE_KEY, store_tuning, tuning_from_entries};
 pub use warmup::{

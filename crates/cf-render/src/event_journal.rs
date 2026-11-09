@@ -264,6 +264,7 @@ pub fn record_requests(
     control: Res<SimControl>,
     mut journal: ResMut<EventJournal>,
     mut armed: ResMut<ArmedTriggers>,
+    mut timeline: ResMut<crate::DebugTimeline>,
 ) {
     let now = clock.sim_s();
     let mut skip = std::mem::take(&mut armed.reemitted);
@@ -288,6 +289,7 @@ pub fn record_requests(
             }
         } else {
             journal.request(now, &id.0);
+            timeline.request(now, &id.0);
         }
     }
     if !control.paused() && !armed.ids.is_empty() {
@@ -295,6 +297,7 @@ pub fn record_requests(
         armed.reemitted = ids.len();
         journal.release_armed(now);
         for id in ids {
+            timeline.request(now, &id.0);
             actions.write(ControlAction(TimedAction {
                 time_s: time.elapsed_secs_f64(),
                 action: Action::Trigger(id),
