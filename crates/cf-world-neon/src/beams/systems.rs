@@ -17,6 +17,7 @@ pub(super) fn step_beams(
     palette: Option<Res<ScenePalette>>,
     world: Option<Res<NeonWorld>>,
     traffic: Option<Res<TrafficDirector>>,
+    idle: Option<Res<cf_render::SceneIdle>>,
     car: Query<&AbsolutePosition, With<StreamFocus>>,
     mut beams: ResMut<Beams>,
 ) {
@@ -28,11 +29,13 @@ pub(super) fn step_beams(
     let Beams { field, pulse, window } = &mut *beams;
     pulse.update(dt_s, now_s, policy, features.pulse);
     // Sans ville (route seule), pas de tours donc pas de balayeurs.
-    let anchors = match world.as_deref().filter(|w| w.has_city()) {
+    // Décor au repos : ni projecteurs de tours ni projecteurs épinglés par les événements.
+    let idle = idle.is_some_and(|i| i.0);
+    let anchors = match world.as_deref().filter(|w| w.has_city() && !idle) {
         Some(world) => window.refresh(car.0.z, world.scenery()),
         None => &[],
     };
-    let pins = traffic.as_deref().map_or(&[][..], |t| t.scene.pins());
+    let pins = traffic.as_deref().filter(|_| !idle).map_or(&[][..], |t| t.scene.pins());
     field.update(&BeamInput {
         dt_s,
         time_s: now_s,

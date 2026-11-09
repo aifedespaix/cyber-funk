@@ -202,6 +202,12 @@ impl Plugin for NeonWorldPlugin {
         )
         .add_systems(
             Update,
+            sandbox::apply_idle
+                .in_set(cf_render::CfSet::Simulate)
+                .before(traffic::TrafficSet::Step),
+        )
+        .add_systems(
+            Update,
             graffiti::projector::place_projectors
                 .in_set(cf_render::CfSet::Simulate)
                 .after(cf_render::WorldSet::Chunks)

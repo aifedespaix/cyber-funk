@@ -28,6 +28,12 @@ pub enum RunOrder {
 #[derive(Resource, Debug, Default, Clone, Copy, PartialEq, Eq)]
 pub struct RunHandover(pub Option<usize>);
 
+/// Le décor est au repos : la route seule, sans brouillard, sans panneaux publicitaires, sans projecteurs ni événements.
+/// Écrit par le monde seulement (le séquenceur : attente, arrêt terminé, passation tant que le quartier est replié) ;
+/// lu par la météo, les enseignes, les projecteurs et le trafic. Faux sans séquenceur.
+#[derive(Resource, Debug, Default, Clone, Copy, PartialEq, Eq)]
+pub struct SceneIdle(pub bool);
+
 /// Marque qu'un séquenceur pilote [`RunPhase`] : l'opérateur en suit alors la phase au lieu de basculer seul.
 #[derive(Resource, Debug, Default, Clone, Copy)]
 pub struct RunSequenced;
@@ -96,7 +102,8 @@ impl Plugin for RunPlugin {
     fn build(&self, app: &mut App) {
         app.add_message::<RunOrder>()
             .init_resource::<RunPhase>()
-            .init_resource::<RunHandover>();
+            .init_resource::<RunHandover>()
+            .init_resource::<SceneIdle>();
     }
 }
 

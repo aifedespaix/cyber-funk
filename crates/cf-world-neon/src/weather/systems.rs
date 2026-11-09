@@ -196,7 +196,9 @@ pub(super) fn update_haze(
     rig: Res<HazeRig>,
     mut materials: ResMut<Assets<HazeMaterial>>,
     mut hazes: Query<(&Haze, &mut Visibility)>,
+    idle: Option<Res<cf_render::SceneIdle>>,
 ) {
+    let idle = idle.is_some_and(|i| i.0);
     let mood = mood.map_or_else(
         || cf_render::palette::mood_color(&palette, cf_render::palette::NEUTRAL_INTENSITY),
         |m| m.color,
@@ -220,11 +222,27 @@ pub(super) fn update_haze(
         );
     }
     for (haze, mut visibility) in &mut hazes {
-        let wanted = if haze.0 + 1 == rig.materials.len() && particles < 0.5 {
+        // Décor au repos : plus de brume basse (les entités restent dessinées à l'état caché, pipelines chauds).
+        let wanted = if idle || (haze.0 + 1 == rig.materials.len() && particles < 0.5) {
             Visibility::Hidden
         } else {
             Visibility::Inherited
         };
+        visibility.set_if_neq(wanted);
+    }
+}
+
+/// `CfSet::Present`, après `update_mist` : au repos, la nappe de brume est cachée ; sinon elle est visible.
+pub(super) fn rest_mist(
+    idle: Option<Res<cf_render::SceneIdle>>,
+    mut mists: Query<&mut Visibility, With<Mist>>,
+) {
+    let wanted = if idle.is_some_and(|i| i.0) {
+        Visibility::Hidden
+    } else {
+        Visibility::Inherited
+    };
+    for mut visibility in &mut mists {
         visibility.set_if_neq(wanted);
     }
 }

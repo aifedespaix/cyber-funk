@@ -259,6 +259,7 @@ pub fn render_signs(
     mut demand: Option<ResMut<FeedDemand>>,
     feeds: Option<Res<FeedImages>>,
     ready: Option<Res<FeedReady>>,
+    idle: Option<Res<cf_render::SceneIdle>>,
     mut roots: Query<(&mut AbsolutePosition, &mut Transform, &mut Visibility), With<SignUnitIndex>>,
     mut parts: Query<(&mut Transform, &mut Visibility), Without<SignUnitIndex>>,
 ) {
@@ -277,6 +278,11 @@ pub fn render_signs(
             visibility.set_if_neq(Visibility::Hidden);
             continue;
         };
+        // Décor au repos : les panneaux publicitaires sont éteints (l'état de l'unité continue, rien n'est perdu).
+        if idle.as_deref().is_some_and(|i| i.0) {
+            visibility.set_if_neq(Visibility::Hidden);
+            continue;
+        }
         if unit.fresh {
             unit_rig.gate.reset();
             unit_rig.resolved = resolved.0[index];

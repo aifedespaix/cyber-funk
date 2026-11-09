@@ -8,7 +8,7 @@
 //! - « Tout nettoyer » arrête les événements du trafic, coupe la cascade en cours et vide le registre.
 
 use bevy::prelude::*;
-use cf_render::{ActiveEvents, ArmedTriggers, ChunkStream, DebugSandbox};
+use cf_render::{ActiveEvents, ArmedTriggers, ChunkStream, DebugSandbox, SceneIdle};
 
 use crate::pilot::PilotSettings;
 use crate::stunts::StuntDirector;
@@ -49,6 +49,33 @@ pub(crate) fn apply_clear(
         return;
     }
     *seen = sandbox.clear_seq();
+    clear_events(traffic, stunts, active, armed);
+}
+
+/// `CfSet::Simulate`, avant le trafic : au passage du décor au repos (arrêt, attente, quartier replié), tous les
+/// événements en cours finissent et les demandes armées sont abandonnées ; rien ne repart tant que le décor dort.
+pub(crate) fn apply_idle(
+    idle: Option<Res<SceneIdle>>,
+    mut was_idle: Local<bool>,
+    traffic: Option<ResMut<TrafficDirector>>,
+    stunts: Option<ResMut<StuntDirector>>,
+    active: Option<ResMut<ActiveEvents>>,
+    armed: Option<ResMut<ArmedTriggers>>,
+) {
+    let now = idle.is_some_and(|i| i.0);
+    if now && !*was_idle {
+        clear_events(traffic, stunts, active, armed);
+    }
+    *was_idle = now;
+}
+
+/// Arrête tous les événements, coupe la cascade et vide les registres.
+fn clear_events(
+    traffic: Option<ResMut<TrafficDirector>>,
+    stunts: Option<ResMut<StuntDirector>>,
+    active: Option<ResMut<ActiveEvents>>,
+    armed: Option<ResMut<ArmedTriggers>>,
+) {
     if let Some(mut traffic) = traffic {
         traffic.request_clear();
     }

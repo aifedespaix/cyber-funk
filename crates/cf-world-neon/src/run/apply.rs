@@ -15,7 +15,7 @@ use bevy::prelude::*;
 use cf_cinema::{ShotOrder, TransitionKind};
 use cf_render::{
     AudioCommand, AudioFeatures, AudioSequenceGain, CfSet, ControlAction, CurrentShow, Phase, RunHandover, RunOrder,
-    RunPhase, ShowSheet, SimControl,
+    RunPhase, SceneIdle, ShowSheet, SimControl,
 };
 
 use super::machine::{RunOutput, RunSequencer};
@@ -73,6 +73,7 @@ struct ShowLinks<'w> {
     settings: Option<Res<'w, crate::djsign::DjSignSettings>>,
     control: MessageWriter<'w, ControlAction>,
     handover: Option<ResMut<'w, RunHandover>>,
+    idle: Option<ResMut<'w, SceneIdle>>,
 }
 
 /// `CfSet::Simulate` : lit l'ordre de l'opérateur, avance la séquence et l'applique au monde.
@@ -156,6 +157,11 @@ fn drive_run(
     direct_camera(wanted, &mut camera_held, &mut shots);
     set(&mut *phase, published);
     set(&mut status.0, out);
+    // Le décor est au repos tant que le quartier n'est pas là : attente, fin de l'arrêt, début du démarrage, passation
+    // une fois le quartier replié. Rien ne s'y passe : ni brouillard, ni pubs, ni lasers, ni événements.
+    if let Some(idle) = links.idle.as_deref_mut() {
+        set(&mut idle.0, out.phase != Phase::Running && out.stages.build <= 0.0);
+    }
 
     // Hors séquence en cours, le séquenceur n'a la main qu'en attente ; en `Running` il rend tout une fois.
     let in_charge = out.phase != Phase::Running;

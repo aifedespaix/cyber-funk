@@ -138,9 +138,11 @@ pub(crate) struct SignAccess<'w> {
 pub(crate) fn take_triggers(
     runtime: Option<ResMut<ShowRuntime>>,
     automation: Automation,
+    idle: Option<Res<cf_render::SceneIdle>>,
     mut director: ResMut<TrafficDirector>,
 ) {
-    let spontaneous = automation.may_spawn();
+    let idle = idle.is_some_and(|i| i.0);
+    let spontaneous = automation.may_spawn() && !idle;
     if director.spontaneous() != spontaneous {
         director.set_spontaneous(spontaneous);
     }
@@ -149,7 +151,10 @@ pub(crate) fn take_triggers(
     // Tous les déclencheurs du trafic en attente, pas seulement le plus ancien de la file : la file du directeur retient
     // les demandes forcées et les rend une à une.
     while let Some(id) = runtime.director_mut().take_trigger_where(is_traffic) {
-        if let Some(name) = EventName::from_slug(&id.0) {
+        // Décor au repos : la demande est consommée mais rien ne part (elle ne resurgirait pas au démarrage).
+        if let Some(name) = EventName::from_slug(&id.0)
+            && !idle
+        {
             director.force(name);
         }
     }
