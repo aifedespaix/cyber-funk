@@ -499,6 +499,75 @@ fn the_operator_can_still_force_an_event_outside_its_district() {
     assert_eq!(listed(&app)[0].0, "storm");
 }
 
+#[test]
+fn the_timeline_records_real_events_from_second_zero_and_closes_them() {
+    let mut app = traffic_app(true, true);
+    for i in 0..30 {
+        frame(&mut app, i);
+    }
+    trigger(&mut app, "chase");
+    let seen = until(&mut app, 30, 5.0, |app| !listed(app).is_empty()).expect("la poursuite ne part pas");
+    // La timeline suit le registre avec une image de retard (il est publié après elle dans l'image).
+    frame(&mut app, seen + 1);
+    {
+        let timeline = app.world().resource::<cf_render::DebugTimeline>();
+        assert_eq!(timeline.spans().len(), 1);
+        assert!(
+            timeline.spans()[0].start_s < 1.0,
+            "la timeline part de zéro à la première demande"
+        );
+        assert_eq!(timeline.spans()[0].end_s, None, "elle tourne encore");
+        assert_eq!(timeline.requests().len(), 1);
+        assert_eq!(timeline.requests()[0].1, "chase");
+    }
+    let ended = until(&mut app, seen + 2, 240.0, |app| listed(app).is_empty()).expect("la poursuite ne finit pas");
+    frame(&mut app, ended + 1);
+    let timeline = app.world().resource::<cf_render::DebugTimeline>();
+    assert!(
+        timeline.spans()[0].end_s.is_some_and(|end| end > 1.0),
+        "fermée à sa fin"
+    );
+    assert!(timeline.length_s(0.0) > 1.0);
+}
+
+#[test]
+fn replaying_the_recorded_requests_restarts_the_same_events() {
+    let mut app = traffic_app(true, true);
+    app.add_systems(Update, crate::sandbox::apply_clear.in_set(cf_render::CfSet::Simulate));
+    for i in 0..5 {
+        frame(&mut app, i);
+    }
+    trigger(&mut app, "chase");
+    let seen = until(&mut app, 5, 5.0, |app| !listed(app).is_empty()).expect("la poursuite ne part pas");
+    let requests = app.world().resource::<cf_render::DebugTimeline>().requests().to_vec();
+    assert_eq!(requests.len(), 1);
+
+    // Ce que fait le geste « Rejouer » : nettoyer, remettre la timeline à zéro, lancer le rejeu.
+    let now = app.world().resource::<cf_render::SimClock>().sim_s();
+    app.world_mut()
+        .resource_mut::<cf_render::DebugSandbox>()
+        .request_clear();
+    app.world_mut().resource_mut::<cf_render::DebugTimeline>().reset();
+    app.world_mut()
+        .resource_mut::<cf_render::TimelineReplay>()
+        .start(now, &requests);
+    for i in seen + 1..seen + 3 {
+        frame(&mut app, i);
+    }
+    until(&mut app, seen + 3, 5.0, |app| !listed(app).is_empty()).expect("le rejeu ne relance pas la poursuite");
+    assert_eq!(listed(&app)[0].0, "chase");
+    assert!(
+        !app.world().resource::<cf_render::TimelineReplay>().running(),
+        "rejeu fini"
+    );
+    let timeline = app.world().resource::<cf_render::DebugTimeline>();
+    assert_eq!(
+        timeline.requests().len(),
+        1,
+        "le rejeu s'enregistre à son tour, sans doublon"
+    );
+}
+
 // ---------------------------------------------------------------------------------------------------------------------
 // Immeubles-vitrines.
 
