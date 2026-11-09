@@ -7,8 +7,8 @@ use cf_analysis::Section;
 use super::animation::CarAnimation;
 use super::dance::{DanceClock, DanceStyle, dance_position};
 use super::flight::{
-    AutoContext, AutoFlight, DanceContext, DanceFlight, Flight, FlightEnv, FlightEvents, FlightPhase, Obstruction,
-    bridge_obstructions,
+    AutoContext, AutoFlight, DanceContext, DanceFlight, Flight, FlightCommand, FlightEnv, FlightEvents, FlightPhase,
+    Obstruction, bridge_obstructions,
 };
 use super::input::{BeatInput, PilotTraffic, ShowInput};
 use super::pace::{CRUISE, Pace, PaceState};
@@ -27,6 +27,11 @@ const COAST_RATE: f64 = 1.6;
 const SCROLL: f64 = 0.85;
 /// Structures retenues par image (arches et trafic).
 const MAX_OBSTRUCTIONS: usize = 16;
+/// Ordres manuels gardés en attente (le pilote en joue un par image).
+const MAX_MANUAL_COMMANDS: usize = 8;
+/// Adhérence minimale au pilotage manuel : même à l'arrêt (pas de musique), le volant braque et la voiture glisse vers la
+/// voie demandée, pour que l'opérateur voie le résultat de son bouton.
+const MANUAL_MIN_GRIP: f64 = 0.55;
 
 /// Réglages du pilote (ressource Bevy).
 #[derive(bevy::prelude::Resource, Debug, Clone, Copy, PartialEq)]
@@ -119,6 +124,10 @@ pub struct Pilot {
     brake: f64,
     wheel_angle: f64,
     refusals: u32,
+    /// Pilotage manuel : voie visée (−1..=1) ; `None` : le pilote automatique conduit.
+    manual_lane: Option<f64>,
+    /// Ordres de vol manuels en attente.
+    manual_commands: Vec<FlightCommand>,
     last: PilotFrame,
 }
 
@@ -151,6 +160,8 @@ impl Pilot {
             brake: 0.0,
             wheel_angle: 0.0,
             refusals: 0,
+            manual_lane: None,
+            manual_commands: Vec::with_capacity(MAX_MANUAL_COMMANDS),
             last,
         }
     }
@@ -176,6 +187,28 @@ impl Pilot {
         self.last.car_x = x;
         self.last.car_z = z;
         self.last.speed = self.speed;
+    }
+
+    /// Engage (`Some(voie)`, −1..=1) ou rend (`None`) le pilotage manuel. Engagé, la voie visée remplace la ligne de
+    /// course et le pilote de la verticale se tait : seuls les ordres de [`Self::command`] font voler la voiture.
+    pub fn set_manual(&mut self, lane: Option<f64>) {
+        self.manual_lane = lane.map(|lane| lane.clamp(-1.0, 1.0));
+        if lane.is_none() {
+            self.manual_commands.clear();
+        }
+    }
+
+    /// Le pilotage manuel est engagé.
+    #[must_use]
+    pub fn is_manual(&self) -> bool {
+        self.manual_lane.is_some()
+    }
+
+    /// Donne un ordre de vol (joué à la prochaine image). Ignoré hors pilotage manuel ou quand la file est pleine.
+    pub fn command(&mut self, command: FlightCommand) {
+        if self.manual_lane.is_some() && self.manual_commands.len() < MAX_MANUAL_COMMANDS {
+            self.manual_commands.push(command);
+        }
     }
 
     /// Changement de titre : on oublie l'allure du morceau précédent.
@@ -260,7 +293,10 @@ impl Pilot {
     /// Taux de rattrapage latéral réel : sans vitesse, le volant braque mais la voiture ne glisse pas ; très vite au-delà
     /// de la croisière, elle sous-vire.
     fn lateral_rate(&self) -> f64 {
-        let grip = (self.speed / (CRUISE * GRIP_SPEED_RATIO)).min(1.0);
+        let mut grip = (self.speed / (CRUISE * GRIP_SPEED_RATIO)).min(1.0);
+        if self.manual_lane.is_some() {
+            grip = grip.max(MANUAL_MIN_GRIP);
+        }
         let understeer = 1.0 - 0.4 * ((self.speed - CRUISE) / (CRUISE * 0.6)).clamp(0.0, 1.0);
         FULL_RATE * grip * grip * (3.0 - 2.0 * grip) * understeer
     }
@@ -273,6 +309,10 @@ impl Pilot {
         preferred: Option<f64>,
         dt: f64,
     ) -> f64 {
+        // Pilotage manuel : la voie demandée, rien d'autre (même au niveau 0).
+        if let Some(lane) = self.manual_lane {
+            return lane;
+        }
         // Niveau 0 (pré-intro) : la voiture file droit.
         if show.is_some_and(|s| s.level == 0) {
             return 0.0;
@@ -307,6 +347,8 @@ impl Pilot {
             bands: &t.traffic.bands,
         };
         let command = match (t.settings.dance, show) {
+            // Pilotage manuel : le pilote de la verticale se tait ; les ordres de l'opérateur passent plus bas.
+            _ if self.manual_lane.is_some() => None,
             // La danse prime sur le pilote quand aucun spectacle ne tourne ; chaque kick fait rebondir la caisse.
             (Some(style), None) => {
                 if b.kick && self.flight.phase() == FlightPhase::Flying {
@@ -339,6 +381,10 @@ impl Pilot {
         };
         if let Some(command) = command {
             command.apply(&mut self.flight, &env);
+        }
+        // Un ordre manuel par image : une figure refusée ne bloque pas les suivants, elle tressaute (voir `refusals`).
+        if !self.manual_commands.is_empty() {
+            self.manual_commands.remove(0).apply(&mut self.flight, &env);
         }
         let frame = self.flight.update(&env);
         if self.flight.refusals != self.refusals {

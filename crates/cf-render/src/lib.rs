@@ -15,6 +15,7 @@ mod event_journal;
 mod events_catalog;
 mod graffiti_tuning;
 pub mod layers;
+mod manual_drive;
 pub mod origin;
 pub mod palette;
 pub mod postfx;
@@ -25,12 +26,14 @@ mod schedule;
 pub mod screens;
 pub mod settings;
 pub mod show;
+mod sign_debug;
 mod sim;
 pub mod streaming;
 mod timeline;
 pub mod titles;
 mod tuning;
 pub mod warmup;
+mod weather_control;
 pub mod world;
 
 pub use active_events::{
@@ -55,7 +58,7 @@ pub use debuglog::{DebugLog, DebugLogPlugin};
 pub use diagnostics::{
     DiagnosticsPlugin, DiagnosticsSnapshot, ExportError, MeasurementSession, PassTiming, RenderScale, SessionRow,
 };
-pub use district::{DISTRICT_HISTORY, DistrictOrder, DistrictState};
+pub use district::{DISTRICT_HISTORY, DistrictOrder, DistrictPhase, DistrictState};
 pub use event_journal::{
     ARMED_MAX, ArmedTriggers, EventJournal, EventJournalPlugin, JournalEntry, JournalState, RefusalReason,
     UNCLAIMED_AFTER_S,
@@ -67,6 +70,7 @@ pub use layers::{
     LayerTargets, LayerWarmup, LayersPlugin, OFF_BELOW, OVERLAY_COMPOSITOR_ORDER, OverlayCompositor, OverlayLayer,
     WorldLayer,
 };
+pub use manual_drive::{FlightStatus, LANE_STEP, MAX_ORDERS, ManualDrive, ManualOrder};
 pub use origin::{AbsolutePosition, FloatingOrigin, ORIGIN_STEP, OriginPlugin, OriginTracker, StreamFocus};
 pub use palette::{
     DistrictGrade, DistrictGradeState, GradeLibrary, PaletteChanged, PaletteDriver, PaletteError, PalettePlugin,
@@ -85,14 +89,18 @@ pub use settings::{Settings, SettingsPlugin};
 pub use show::{
     CurrentShow, SheetCue, SheetSlot, ShowControls, ShowEventMessage, ShowPlugin, ShowRuntime, ShowSheet, StartSlot,
 };
+pub use sign_debug::{SignAdInfo, SignCatalog, SignFormatInfo, SignGroup, SignOrder};
 pub use sim::{SimClock, SimControl, SimReset, sim_running};
 pub use streaming::{ChunkInfo, ChunkPlan, ChunkStream, EntityPool, PieceRegistry, StreamLayout, StreamStats};
-pub use timeline::{DebugTimeline, MAX_REQUESTS, MAX_SPANS, TimelinePlugin, TimelineReplay, TimelineSpan};
+pub use timeline::{
+    DebugTimeline, MAX_REQUESTS, MAX_SHOTS, MAX_SPANS, ShotSpan, TimelinePlugin, TimelineReplay, TimelineSpan,
+};
 pub use titles::{ActiveTitle, TitleCard, TitleKind, TitleSettings, TitlesPlugin};
 pub use tuning::{CAR_FOLLOW_KEY, FacadeTuning, WINDOW_LIFE_KEY, store_tuning, tuning_from_entries};
 pub use warmup::{
     AppState, LatePipelines, LoadTracker, WarmupAppExt, WarmupPlugin, WarmupProgress, WarmupRegistry, show_may_run,
 };
+pub use weather_control::{RainMode, WeatherControl};
 pub use world::{
     BoxWorld, CurrentGates, Replan, Subject, SubjectKind, Subjects, World, WorldCorePlugin, WorldError, WorldPlugin,
     WorldSet,

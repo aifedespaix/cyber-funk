@@ -23,6 +23,9 @@ use crate::pilot::flight::Obstruction;
 use crate::rng::hash;
 pub use types::{CamShot, Display, RoadFrame, SignAd, SignRoad, SignState, Unit};
 
+/// Rang du premier emplacement posé à la main : très au-dessus des rangs de la route, pour que les deux ne se croisent
+/// jamais (les hasards du panneau en dépendent).
+const PIN_BASE: i64 = 1_000_000;
 /// Écart entre deux emplacements le long de la route, et décalage du premier.
 pub const SPACING: f64 = 105.0;
 /// Décalage du premier emplacement, en m.
@@ -116,7 +119,7 @@ impl SignRoad {
         }
         let wanted = &wanted[..count];
         for unit in &mut self.units {
-            if !unit.leased && unit.slot.is_some_and(|slot| !wanted.iter().any(|(k, _)| *k == slot)) {
+            if !unit.leased && !unit.pinned && unit.slot.is_some_and(|slot| !wanted.iter().any(|(k, _)| *k == slot)) {
                 unit.release();
             }
         }
@@ -132,8 +135,74 @@ impl SignRoad {
             if unit.state.is_some() {
                 life::step(unit, frame);
             }
+            // Un panneau posé à la main part une fois dépassé et éteint : l'unité retourne au pool.
+            if unit.pinned && !unit.visible && unit.state.is_some_and(|s| s.range < 0.0) {
+                unit.release();
+            }
         }
         self.select_feed();
+    }
+
+    /// Pose un panneau à la main (onglet Debug) devant la voiture, à l'endroit où il est lu en entier. `ad` et `slogan` :
+    /// `None` pour ce que la route aurait tiré. `serial` varie le côté et le tirage d'une pose à l'autre. Rend `false` si
+    /// aucune unité ne peut être prise (toutes prêtées au vaisseau publicitaire).
+    pub fn pin(
+        &mut self,
+        id: FormatId,
+        ad: Option<AdId>,
+        slogan: Option<u8>,
+        serial: u32,
+        frame: &RoadFrame<'_>,
+    ) -> bool {
+        // Une unité libre, sinon la plus en arrière (jamais une unité prêtée).
+        let index = self.units.iter().position(Unit::is_free).or_else(|| {
+            self.units
+                .iter()
+                .enumerate()
+                .filter(|(_, u)| !u.leased)
+                .max_by(|(_, a), (_, b)| a.z.total_cmp(&b.z))
+                .map(|(i, _)| i)
+        });
+        let Some(index) = index else { return false };
+        let format = id.format();
+        let k = PIN_BASE + i64::from(serial);
+        let kf = k as f64;
+        let side = if serial % 2 == 0 { 1.0_f32 } else { -1.0 };
+        let shot = match ad {
+            Some(CAR_FRONT_AD) => CamShot::Front,
+            Some(CAR_SIDE_AD) => CamShot::Side,
+            Some(WATCH_AD) => CamShot::Wide,
+            _ => shot_for(k),
+        };
+        let ad = ad.unwrap_or_else(|| ad_for(k, format.look, shot));
+        let count = ad.ad().slogans.len().max(1);
+        let slogan = slogan.map_or_else(
+            || slogan_index(ad.ad(), k, id, frame.show.active),
+            |s| usize::from(s).min(count - 1),
+        );
+        // Assez loin pour la voir arriver, assez près pour être déjà opaque (le fondu d'entrée s'achève à `range - 110`).
+        let distance = (format.range - 140.0).clamp(120.0, 300.0);
+        let layout = id.layout(side, |salt| hash(kf, salt));
+        let state = SignState {
+            ad: SignAd::Catalogue(ad),
+            seed: (hash(kf, 3.0) * std::f64::consts::TAU) as f32,
+            slogan: slogan as u8,
+            born: frame.time,
+            range: distance,
+            live: false,
+            shot,
+            phantom: matches!(format.mount, Mount::Gantry | Mount::Arm) && hash(kf, 31.0) < PHANTOM_CHANCE,
+            flashed: false,
+            radar: false,
+        };
+        let unit = &mut self.units[index];
+        unit.release();
+        unit.slot = Some(k);
+        unit.pinned = true;
+        unit.z = frame.car_z - distance;
+        unit.state = Some(state);
+        unit.apply(id, side, layout, format.width);
+        true
     }
 
     fn place(&mut self, index: usize, k: i64, id: FormatId, frame: &RoadFrame<'_>) {

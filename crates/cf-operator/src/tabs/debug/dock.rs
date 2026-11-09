@@ -1,20 +1,15 @@
-//! Le dock à droite de la grille : plans caméra, pad voiture, « Autres » (familles sans colonne) et « Réglages monde »
-//! (façades et choix de la voiture, repris de l'ancienne fenêtre « Debug monde »).
-//!
-//! Plans caméra : « Plan suivant » (`Action::SkipShot`, touche `N`), « Enseigne DJ » (`Action::ShowDj`, touche `T`) et
-//! la liste du catalogue du réalisateur (message `ShotOrder`, qui coupe sur le plan choisi et le garde).
+//! Le dock à droite de la grille : pad voiture, DJ, « Autres » (familles sans colonne) et « Réglages monde » (façades,
+//! graffitis, voiture, météo, repris de l'ancienne fenêtre « Debug monde »). Les plans caméra ont leur propre colonne
+//! (`camera`), l'enseigne du DJ est dans la colonne des panneaux.
 
 use bevy_egui::egui;
-use cf_control::Action;
 use cf_render::{CarSelection, FacadeTuning};
 use cf_show::persist::{AppSettings, CarChoice};
 
-use super::chip::{ChipClick, chip_run, draw_chip, fire, fire_alone, fit_of, push_order};
+use super::chip::{ChipClick, chip_run, draw_chip, fire, fire_alone, fit_of};
 use super::pad::draw_pad;
 use super::persist::{family_is_open, section_is_open};
-use super::rows::{Row, draw_row};
 use super::{DebugState, DebugView, Gesture};
-use cf_cinema::ShotOrder;
 use cf_render::ActiveEvents;
 
 /// Largeur du dock (px), celle de la maquette.
@@ -32,11 +27,13 @@ pub(crate) enum Section {
     Graffiti,
     /// Choix de la voiture.
     Car,
+    /// Pluie, brume, brouillard, éclairs.
+    Weather,
 }
 
 impl Section {
     /// Toutes les sections, dans l'ordre d'affichage.
-    pub(crate) const ALL: [Section; 3] = [Self::Facades, Self::Graffiti, Self::Car];
+    pub(crate) const ALL: [Section; 4] = [Self::Facades, Self::Graffiti, Self::Car, Self::Weather];
 
     /// Identifiant stable, écrit dans les réglages : ne jamais le renommer (`DebugPanelPrefs::closed_sections`, déjà
     /// présent dans les fichiers de l'ancienne fenêtre).
@@ -45,6 +42,7 @@ impl Section {
             Self::Facades => "facades",
             Self::Graffiti => "graffiti",
             Self::Car => "car",
+            Self::Weather => "weather",
         }
     }
 
@@ -54,13 +52,9 @@ impl Section {
             Self::Facades => "Façades",
             Self::Graffiti => "Graffitis",
             Self::Car => "Voiture",
+            Self::Weather => "Météo",
         }
     }
-}
-
-/// Les ordres caméra qui existent, dans l'ordre des boutons.
-pub(crate) fn camera_actions() -> [Action; 2] {
-    [Action::SkipShot, Action::ShowDj]
 }
 
 /// Demande cette voiture et la retient dans les réglages. Ne fait rien (`false`) si elle est déjà celle qu'on veut, pas
@@ -81,77 +75,15 @@ pub(crate) fn draw_dock(ui: &mut egui::Ui, view: &mut DebugView<'_>) {
         .show(ui, |ui| {
             egui::Frame::group(ui.style()).show(ui, |ui| {
                 ui.set_width(ui.available_width());
-                draw_cameras(ui, view);
+                ui.strong("Voiture");
+                draw_pad(ui, view.drive, view.state);
             });
             egui::Frame::group(ui.style()).show(ui, |ui| {
                 ui.set_width(ui.available_width());
-                ui.strong("Voiture");
-                draw_pad(ui, view.orders);
+                super::dj::draw(ui, &view.dj, &mut view.state.gestures);
             });
             draw_others(ui, view);
             draw_world_settings(ui, view);
-        });
-}
-
-/// Hauteur de la liste des plans (px) : elle défile seule, le dock garde la place pour le reste.
-const SHOT_LIST_HEIGHT: f32 = 260.0;
-/// Teinte des plans caméra.
-const SHOT_COLOR: egui::Color32 = egui::Color32::from_rgb(0x27, 0xe6, 0xff);
-
-/// Plans caméra : « Auto » puis tous les plans du catalogue. Choisir un plan y coupe et le garde ; « Auto » rend la
-/// main au réalisateur. Aucun mode n'est touché : le mode manuel reste ce qu'il était.
-fn draw_cameras(ui: &mut egui::Ui, view: &mut DebugView<'_>) {
-    ui.strong("Plans caméra");
-    let [skip, dj] = camera_actions();
-    ui.horizontal_wrapped(|ui| {
-        if ui
-            .button("Plan suivant")
-            .on_hover_text("Le réalisateur coupe vers un autre plan (comme la touche N).")
-            .clicked()
-        {
-            push_order(view.orders, skip);
-        }
-        if ui
-            .button("Enseigne DJ")
-            .on_hover_text("Le réalisateur montre l'enseigne du DJ (comme la touche T).")
-            .clicked()
-        {
-            push_order(view.orders, dj);
-        }
-    });
-    let Some(director) = view.director else {
-        ui.weak("Réalisateur absent (monde absent).");
-        return;
-    };
-    let held = director.held_shot();
-    let on_air = director.shot_id();
-    ui.spacing_mut().item_spacing = egui::vec2(4.0, 4.0);
-    egui::ScrollArea::vertical()
-        .id_salt("debug-shots")
-        .max_height(SHOT_LIST_HEIGHT)
-        .auto_shrink([false, true])
-        .show(ui, |ui| {
-            let auto = Row {
-                detail: "Le réalisateur enchaîne les plans",
-                selected: held.is_none(),
-                ..Row::new("Auto", SHOT_COLOR)
-            };
-            if draw_row(ui, &auto).clicked() && held.is_some() {
-                view.state.gestures.push(Gesture::Shot(ShotOrder::Release));
-            }
-            for info in director.shot_infos() {
-                let detail = format!("{:.0} à {:.0} s", info.min_s, info.max_s);
-                let row = Row {
-                    detail: &detail,
-                    badge: if on_air == Some(info.id) { "à l'antenne" } else { "" },
-                    selected: held == Some(info.id),
-                    running: on_air == Some(info.id),
-                    ..Row::new(info.id, SHOT_COLOR)
-                };
-                if draw_row(ui, &row).clicked() {
-                    view.state.gestures.push(Gesture::Shot(ShotOrder::Hold(info.id)));
-                }
-            }
         });
 }
 
@@ -231,6 +163,16 @@ fn draw_world_settings(ui: &mut egui::Ui, view: &mut DebugView<'_>) {
                     }
                     None => {
                         ui.weak("Réglages des graffitis absents (monde absent).");
+                    }
+                },
+                Section::Weather => match view.weather {
+                    Some(weather) => {
+                        if let Some(next) = super::weather::draw(ui, weather) {
+                            view.state.gestures.push(Gesture::Weather(next));
+                        }
+                    }
+                    None => {
+                        ui.weak("Réglages de météo absents (monde absent).");
                     }
                 },
                 Section::Car => match view.cars {

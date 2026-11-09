@@ -122,6 +122,8 @@ pub struct Unit {
     pub slot: Option<i64>,
     /// Prêté à un événement : ni recyclé ni placé par la route.
     pub leased: bool,
+    /// Posé à la main (onglet Debug) : la route ne le recycle pas ; il part une fois dépassé et éteint.
+    pub pinned: bool,
     /// Position z (m, repère de la route).
     pub z: f64,
     /// Côté de la route, -1 ou 1.
@@ -159,6 +161,7 @@ impl Unit {
         Self {
             slot: None,
             leased: false,
+            pinned: false,
             z: 0.0,
             side: 1.0,
             format: None,
@@ -179,6 +182,7 @@ impl Unit {
 
     pub(super) fn release(&mut self) {
         self.slot = None;
+        self.pinned = false;
         self.state = None;
         self.format = None;
         self.visible = false;

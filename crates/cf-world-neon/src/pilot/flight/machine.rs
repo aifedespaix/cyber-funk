@@ -125,6 +125,17 @@ impl Flight {
         }
     }
 
+    /// Se pose tout de suite, de n'importe quel étage : descend au sol puis replie les roues. Sans effet au sol.
+    pub fn land_now(&mut self) -> bool {
+        match self.phase {
+            FlightPhase::Ground | FlightPhase::Retracting => false,
+            FlightPhase::Deploying | FlightPhase::Flying => {
+                self.pending = None;
+                self.land()
+            }
+        }
+    }
+
     /// Lance une figure. Un salto ajoute ou retire un étage en passant (arrière : haut ; avant : bas, sans jamais
     /// atterrir).
     pub fn do_trick(&mut self, kind: TrickKind, env: &FlightEnv<'_>) -> bool {
@@ -185,7 +196,7 @@ impl Flight {
         self.retry(env, dt);
         self.spring(dt);
         self.dodge(env, dt);
-        let (trick_roll, trick_pitch, hop) = self.step_trick(dt);
+        let (trick_roll, trick_pitch, trick_yaw, hop) = self.step_trick(dt);
 
         // Un rebond de caisse, ressort sous-amorti : il se calme seul.
         self.bounce_velocity += (-160.0 * self.bounce - 9.0 * self.bounce_velocity) * dt;
@@ -214,6 +225,7 @@ impl Flight {
             roll: self.bank.clamp(-0.35, 0.35),
             trick_roll,
             trick_pitch,
+            trick_yaw,
             bounce: self.bounce,
             dodge: if self.dodge_busy {
                 self.dodge_side
@@ -361,29 +373,31 @@ impl Flight {
     }
 
     /// Avance la figure en cours : rotation de tonneau, de salto, saut de la caisse.
-    fn step_trick(&mut self, dt: f64) -> (f64, f64, f64) {
+    fn step_trick(&mut self, dt: f64) -> (f64, f64, f64, f64) {
         let Some(mut trick) = self.trick else {
-            return (0.0, 0.0, 0.0);
+            return (0.0, 0.0, 0.0, 0.0);
         };
         trick.t += dt / trick.kind.seconds();
         let done = trick.t >= 1.0;
         let progress = trick.t.min(1.0);
         let turn = smoother(progress) * std::f64::consts::TAU;
         let wave = (progress * std::f64::consts::PI).sin();
-        let (roll, pitch, hop) = match trick.kind {
-            TrickKind::RollLeft => (-turn, 0.0, wave * 0.25),
-            TrickKind::RollRight => (turn, 0.0, wave * 0.25),
-            TrickKind::Backflip => (0.0, turn, wave * 0.9),
-            TrickKind::Frontflip => (0.0, -turn, wave * 0.9),
+        let (roll, pitch, yaw, hop) = match trick.kind {
+            TrickKind::RollLeft => (-turn, 0.0, 0.0, wave * 0.25),
+            TrickKind::RollRight => (turn, 0.0, 0.0, wave * 0.25),
+            TrickKind::Backflip => (0.0, turn, 0.0, wave * 0.9),
+            TrickKind::Frontflip => (0.0, -turn, 0.0, wave * 0.9),
+            TrickKind::SpinLeft => (0.0, 0.0, -turn, wave * 0.15),
+            TrickKind::SpinRight => (0.0, 0.0, turn, wave * 0.15),
         };
         if done {
             self.trick = None;
             self.trick_cooldown = TRICK_COOLDOWN;
             self.events.trick_done = Some(trick.kind);
-            return (0.0, 0.0, 0.0);
+            return (0.0, 0.0, 0.0, 0.0);
         }
         self.trick = Some(trick);
-        (roll, pitch, hop)
+        (roll, pitch, yaw, hop)
     }
 }
 

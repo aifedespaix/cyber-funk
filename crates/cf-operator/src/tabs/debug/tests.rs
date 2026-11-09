@@ -21,7 +21,6 @@ use super::columns::{PlanCache, column_for_family, column_of, plan_columns, runs
 use super::districts::{TRANSITION_FALLBACK_TIP, TRANSITIONS, transition_tooltip};
 use super::grid::{split_column, split_columns};
 use super::lane::{LaneRow, draw_row_line, lane_rows, row_time_text};
-use super::pad::PadMove;
 use super::top_bar::{BarLayout, TopBar, load_ratio, wants_search_focus};
 use super::{DebugState, DebugView, Gesture, apply_gestures, camera_actions, draw};
 
@@ -437,9 +436,6 @@ fn the_grid_has_four_equal_columns_split_two_thirds_one_third() {
 #[test]
 fn only_existing_entry_points_are_wired_in_the_dock() {
     assert_eq!(camera_actions(), [Action::SkipShot, Action::ShowDj]);
-    let wired: Vec<_> = PadMove::ALL.into_iter().filter_map(PadMove::action).collect();
-    assert_eq!(wired, [Action::Ascension], "le pilote n'a aucune autre entrée manuelle");
-    assert_eq!(PadMove::ALL.len(), 10);
 }
 
 // --- Dessin (sans fenêtre) ---
@@ -478,6 +474,15 @@ fn the_tab_draws_headless_and_a_frame_without_click_does_nothing() {
                 affinity: None,
                 library: None,
                 cars: None,
+                drive: None,
+                weather: None,
+                signs: None,
+                dj: super::dj::DjView {
+                    sheet: None,
+                    slot: None,
+                    handover_to: None,
+                    run: None,
+                },
                 director: None,
                 tuning: None,
                 graffiti: None,

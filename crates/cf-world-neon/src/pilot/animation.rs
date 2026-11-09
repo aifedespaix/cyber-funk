@@ -29,6 +29,8 @@ pub struct CarAnimation {
     pub trick_roll: f32,
     /// Rotation de salto en cours, rad (0 à ±2π ; + = arrière).
     pub trick_pitch: f32,
+    /// Rotation de vrille en cours, rad (0 à ±2π ; + = vers la droite).
+    pub trick_yaw: f32,
     /// La figure en cours, ou `None`.
     pub trick: Option<TrickKind>,
     /// Rebond de la caisse sur ses répulseurs, m.
@@ -50,6 +52,7 @@ impl From<&FlightFrame> for CarAnimation {
             roll: f.roll as f32,
             trick_roll: f.trick_roll as f32,
             trick_pitch: f.trick_pitch as f32,
+            trick_yaw: f.trick_yaw as f32,
             trick: f.trick,
             bounce: f.bounce as f32,
             dodge: f.dodge,
@@ -70,7 +73,10 @@ impl CarAnimation {
     pub fn orientation(&self) -> Quat {
         // Nez en l'air = rotation positive autour de x ; un roulis à droite couche le côté droit, soit une rotation
         // négative autour de z.
-        Quat::from_rotation_x(self.pitch + self.trick_pitch) * Quat::from_rotation_z(-(self.roll + self.trick_roll))
+        // Une vrille à droite tourne le nez vers la droite : rotation négative autour de y (le nez pointe vers −z).
+        Quat::from_rotation_y(-self.trick_yaw)
+            * Quat::from_rotation_x(self.pitch + self.trick_pitch)
+            * Quat::from_rotation_z(-(self.roll + self.trick_roll))
     }
 }
 

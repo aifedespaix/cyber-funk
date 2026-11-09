@@ -112,6 +112,7 @@ pub(crate) fn drive_stunts(
     mut spawn_rng: Local<SpawnRng>,
 ) {
     let Ok(mut position) = cars.single_mut() else { return };
+
     let features = features.as_deref().map(|f| f.0);
     let planned = runtime
         .as_deref()
@@ -177,7 +178,20 @@ pub(crate) fn drive_stunts(
 
 /// `StuntSet`, avant [`drive_stunts`] : le mode manuel coupe le tirage au hasard (l'Ascension demandée et le drop
 /// préparé passent toujours).
-pub(crate) fn gate_stunts(automation: Automation, mut director: ResMut<StuntDirector>) {
+pub(crate) fn gate_stunts(
+    automation: Automation,
+    mut director: ResMut<StuntDirector>,
+    time: Res<Time>,
+    manual: Option<Res<cf_render::ManualDrive>>,
+    mut seen_ascension: Local<u32>,
+) {
+    // Une nouvelle demande d'Ascension du Debug (ni spectacle ni temps fort requis).
+    if let Some(manual) = manual.as_deref()
+        && manual.ascension_seq() != *seen_ascension
+    {
+        *seen_ascension = manual.ascension_seq();
+        director.request_ascension(time.elapsed_secs_f64());
+    }
     let spontaneous = automation.may_spawn();
     if director.spontaneous() != spontaneous {
         director.set_spontaneous(spontaneous);

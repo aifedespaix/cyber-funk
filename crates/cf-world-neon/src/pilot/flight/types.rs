@@ -27,6 +27,10 @@ pub enum TrickKind {
     Backflip,
     /// Salto avant (descend d'un étage).
     Frontflip,
+    /// Vrille à gauche : un tour à plat autour de la verticale.
+    SpinLeft,
+    /// Vrille à droite.
+    SpinRight,
 }
 
 impl TrickKind {
@@ -36,6 +40,7 @@ impl TrickKind {
         match self {
             Self::RollLeft | Self::RollRight => 0.95,
             Self::Backflip | Self::Frontflip => 1.2,
+            Self::SpinLeft | Self::SpinRight => 1.1,
         }
     }
 }
@@ -95,6 +100,8 @@ pub struct FlightFrame {
     pub trick_roll: f64,
     /// Rotation de salto en cours (rad, de 0 à ±2π).
     pub trick_pitch: f64,
+    /// Rotation de vrille en cours (rad, de 0 à ±2π ; + = vers la droite).
+    pub trick_yaw: f64,
     /// Rebond de la caisse sur ses répulseurs (m), poussé par la musique.
     pub bounce: f64,
     /// Esquive en cours.

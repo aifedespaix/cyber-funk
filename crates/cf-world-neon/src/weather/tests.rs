@@ -101,6 +101,49 @@ fn sans_spectacle_le_tonnerre_n_allume_aucun_eclair() {
 }
 
 #[test]
+fn la_meteo_a_la_main_force_la_pluie_et_coupe_la_brume() {
+    use cf_render::{RainMode, WeatherControl};
+    let mut app = app();
+    app.init_resource::<WeatherControl>();
+    // Sans moteur de rendu, `Mesh3d` n'impose pas `Visibility` : on la pose comme le ferait le rendu.
+    let mist = app
+        .world_mut()
+        .query_filtered::<Entity, With<super::mist::Mist>>()
+        .single(app.world())
+        .unwrap();
+    app.world_mut().entity_mut(mist).insert(Visibility::Inherited);
+    let mist_visibility = |app: &mut App| {
+        let mut query = app.world_mut().query_filtered::<&Visibility, With<super::mist::Mist>>();
+        query.iter(app.world()).copied().next()
+    };
+    app.update();
+    assert_eq!(mist_visibility(&mut app), Some(Visibility::Inherited));
+
+    app.world_mut().resource_mut::<WeatherControl>().rain = RainMode::Forced;
+    for _ in 0..(6.0 / DT_S) as usize {
+        app.update();
+    }
+    assert!(
+        app.world().resource::<WeatherState>().weather.rain > 0.99,
+        "il pleut à la demande"
+    );
+
+    {
+        let mut control = app.world_mut().resource_mut::<WeatherControl>();
+        control.rain = RainMode::Off;
+        control.mist = false;
+    }
+    for _ in 0..(8.0 / DT_S) as usize {
+        app.update();
+    }
+    assert!(
+        app.world().resource::<WeatherState>().weather.rain < 0.01,
+        "plus une goutte"
+    );
+    assert_eq!(mist_visibility(&mut app), Some(Visibility::Hidden), "brume coupée");
+}
+
+#[test]
 fn la_qualite_adaptative_allege_la_pluie_et_la_brume() {
     let mut app = app();
     app.world_mut().resource_mut::<WeatherState>().weather.rain = 1.0;

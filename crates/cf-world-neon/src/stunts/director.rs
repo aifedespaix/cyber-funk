@@ -35,6 +35,8 @@ const RARE_GAP: f64 = 100.0;
 const OVERDUE: f64 = 6.0;
 /// La route doit défiler à cette vitesse au moins pour qu'on lance une cascade (m/s).
 const MIN_SPEED: f64 = 12.0;
+/// Une Ascension demandée à la main attend au plus ce temps (s) que la route soit libre.
+const FORCED_WAIT: f64 = 10.0;
 
 /// Ce que le directeur lit à chaque image (`StuntFrame`).
 #[derive(Debug, Clone, Copy)]
@@ -123,6 +125,10 @@ pub struct StuntDirector {
     rng: Rand,
     /// Faux en mode manuel : plus de tirage au hasard.
     spontaneous: bool,
+    /// Ascension demandée à la main depuis le Debug : expire à cet instant (s), `None` sans demande.
+    forced_ascension: Option<f64>,
+    /// La cascade en cours vient d'une demande à la main : ni musique ni niveau du spectacle ne la coupent.
+    forced_run: bool,
     launches: u32,
     origin: EventOrigin,
 }
@@ -170,6 +176,8 @@ impl StuntDirector {
             warned_unknown: false,
             rng,
             spontaneous: true,
+            forced_ascension: None,
+            forced_run: false,
             launches: 0,
             origin: EventOrigin::Auto,
         }
@@ -212,6 +220,13 @@ impl StuntDirector {
     /// Mode manuel (`false`) : plus de tirage au hasard ; l'Ascension demandée et la cascade du drop préparé passent.
     pub fn set_spontaneous(&mut self, on: bool) {
         self.spontaneous = on;
+    }
+
+    /// Demande l'Ascension tout de suite (onglet Debug) : sans spectacle, sans temps fort, sans musique, et sans la
+    /// porte `ascension`. Elle part dès que la route est libre ; sans cela, la demande expire au bout de [`FORCED_WAIT`]
+    /// secondes.
+    pub fn request_ascension(&mut self, now: f64) {
+        self.forced_ascension = Some(now + FORCED_WAIT);
     }
 
     /// Le tirage au hasard est permis (faux en mode manuel).
@@ -258,8 +273,29 @@ impl StuntDirector {
             beat: f.beat,
             show: f.show,
         };
-        let enabled = f.enabled;
-        let open = self.track(f.show.as_ref(), f.now, link);
+        // Une Ascension demandée à la main part tout de suite (le Debug n'a ni spectacle ni musique) et va à son terme.
+        if self.run.is_none()
+            && let Some(until) = self.forced_ascension
+        {
+            if f.now > until {
+                self.forced_ascension = None;
+            } else if !world.busy()
+                && self.launch(
+                    StuntKind::Ascension,
+                    false,
+                    EventOrigin::Manual,
+                    &env,
+                    registry,
+                    world,
+                    link,
+                )
+            {
+                self.forced_ascension = None;
+                self.forced_run = true;
+            }
+        }
+        let enabled = f.enabled || self.forced_run;
+        let open = self.track(f.show.as_ref(), f.now, link) || self.forced_run;
 
         if self.run.is_none() {
             self.weight = 0.0;
@@ -599,6 +635,7 @@ impl StuntDirector {
             run.end(world);
         }
         self.active = false;
+        self.forced_run = false;
         self.weight = 0.0;
         self.fx_off = false;
         world.hold(false);

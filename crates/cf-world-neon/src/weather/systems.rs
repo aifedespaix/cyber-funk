@@ -7,10 +7,11 @@
 
 use bevy::math::Vec4;
 use bevy::prelude::*;
+use cf_render::RainMode;
 use cf_render::postfx::LensWeather;
 use cf_render::{
     AbsolutePosition, AudioFeatures, CameraPose, CurrentShow, CurrentShowFx, FloatingOrigin, QualityLevers, SceneMood,
-    ScenePalette, StreamFocus,
+    ScenePalette, StreamFocus, WeatherControl,
 };
 
 use super::haze::{Haze, HazeFrame, HazeMaterial, HazeRig, haze_params, haze_position};
@@ -130,6 +131,7 @@ pub(super) fn step_weather(
     sky: Option<Res<SkyLook>>,
     car: Query<&CarState, With<Car>>,
     pose: Option<Res<CameraPose>>,
+    control: Option<Res<WeatherControl>>,
     mut state: ResMut<WeatherState>,
     mut road: ResMut<RoadLook>,
     mut lens: ResMut<LensWeather>,
@@ -138,8 +140,17 @@ pub(super) fn step_weather(
     let dt = time.delta_secs();
     let state = &mut *state;
     state.weather.set_enabled(settings.enabled);
+    let control = control.as_deref().copied().unwrap_or_default();
+    state.weather.set_forced(match control.rain {
+        RainMode::Auto => None,
+        RainMode::Forced => Some(true),
+        RainMode::Off => Some(false),
+    });
     state.weather.update(dt, show.map(|s| s.0.level));
-    let policy = show_fx.map(|s| (s.0.flashes, s.0.breathing));
+    // Éclairs coupés par l'opérateur : même voie que « pas de spectacle », il reste le tonnerre sonore.
+    let policy = show_fx
+        .filter(|_| control.lightning)
+        .map(|s| (s.0.flashes, s.0.breathing));
     let rumble = state.weather.thunder;
     if rumble {
         thunder.write(Thunder);
@@ -192,6 +203,7 @@ pub(super) fn update_haze(
     features: Option<Res<AudioFeatures>>,
     levers: Option<Res<QualityLevers>>,
     state: Res<WeatherState>,
+    control: Option<Res<WeatherControl>>,
     car: Query<&CarState, With<Car>>,
     rig: Res<HazeRig>,
     mut materials: ResMut<Assets<HazeMaterial>>,
@@ -219,8 +231,9 @@ pub(super) fn update_haze(
             },
         );
     }
+    let shown = control.is_none_or(|c| c.haze);
     for (haze, mut visibility) in &mut hazes {
-        let wanted = if haze.0 + 1 == rig.materials.len() && particles < 0.5 {
+        let wanted = if !shown || (haze.0 + 1 == rig.materials.len() && particles < 0.5) {
             Visibility::Hidden
         } else {
             Visibility::Inherited
@@ -237,9 +250,19 @@ pub(super) fn update_mist(
     features: Option<Res<AudioFeatures>>,
     levers: Option<Res<QualityLevers>>,
     state: Res<WeatherState>,
+    control: Option<Res<WeatherControl>>,
     rig: Res<MistRig>,
     mut materials: ResMut<Assets<MistMaterial>>,
+    mut mists: Query<&mut Visibility, With<Mist>>,
 ) {
+    let wanted = if control.is_none_or(|c| c.mist) {
+        Visibility::Inherited
+    } else {
+        Visibility::Hidden
+    };
+    for mut visibility in &mut mists {
+        visibility.set_if_neq(wanted);
+    }
     let mood = mood.map_or_else(
         || cf_render::palette::mood_color(&palette, cf_render::palette::NEUTRAL_INTENSITY),
         |m| m.color,

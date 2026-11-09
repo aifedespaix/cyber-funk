@@ -104,10 +104,12 @@ pub fn fill_cinema_world(world: &mut CinemaWorld, input: &CinemaInput<'_>) {
     };
     world.trick = a.trick.map(|kind| Trick {
         kind: match kind {
-            TrickKind::RollLeft | TrickKind::RollRight => CinemaTrick::Roll,
+            TrickKind::RollLeft | TrickKind::RollRight | TrickKind::SpinLeft | TrickKind::SpinRight => {
+                CinemaTrick::Roll
+            }
             TrickKind::Backflip | TrickKind::Frontflip => CinemaTrick::Flip,
         },
-        progress: (a.trick_roll.abs().max(a.trick_pitch.abs()) / TAU).clamp(0.0, 1.0),
+        progress: (a.trick_roll.abs().max(a.trick_pitch.abs()).max(a.trick_yaw.abs()) / TAU).clamp(0.0, 1.0),
     });
     let f = input.features;
     world.beat = BeatView {
