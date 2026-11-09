@@ -11,6 +11,7 @@ publish.workspace = true
 workspace = true
 
 [dependencies]
+cf-control.workspace = true
 bevy.workspace = true
 cf-analysis.workspace = true
 cf-cinema.workspace = true
@@ -29,7 +30,6 @@ tracing.workspace = true
 
 [dev-dependencies]
 assert_no_alloc.workspace = true
-cf-control.workspace = true
 tempfile.workspace = true
 
 [features]
