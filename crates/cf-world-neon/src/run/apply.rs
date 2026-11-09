@@ -169,12 +169,13 @@ fn drive_run(
         return;
     }
     owned.engaged = in_charge;
-    apply(&out, &mut targets, &mut owned);
+    let calm = links.settings.as_deref().is_some_and(|s| s.calm);
+    apply(&out, &mut targets, &mut owned, calm);
     gate_spontaneous(&mut targets, out.phase, &mut silenced);
 }
 
 /// Pose les étapes sur les cibles ; une cible absente est ignorée (exemples, tests).
-fn apply(out: &RunOutput, targets: &mut Targets, owned: &mut Owned) {
+fn apply(out: &RunOutput, targets: &mut Targets, owned: &mut Owned, calm: bool) {
     let s = out.stages;
     if let Some(r) = targets.road.as_deref_mut() {
         set(&mut r.draw, s.road);
@@ -193,6 +194,7 @@ fn apply(out: &RunOutput, targets: &mut Targets, owned: &mut Owned) {
     if let Some(c) = targets.controls.as_deref_mut() {
         set(&mut c.light_scale, s.lights);
         set(&mut c.presence, s.car_presence);
+        set(&mut c.calm, calm);
     }
     if let Some(p) = targets.pilot.as_deref_mut() {
         set(&mut p.speed_cap_mps, out.speed_cap_mps.map(f64::from));

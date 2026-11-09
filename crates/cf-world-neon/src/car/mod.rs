@@ -34,7 +34,7 @@ pub mod model;
 pub mod motion;
 pub mod paint;
 pub mod plate;
-pub mod presence;
+pub mod sync;
 pub mod rig;
 pub mod safety;
 pub mod screens;
@@ -167,7 +167,7 @@ impl Plugin for CarPlugin {
                     crate::rider::driver::attach_driver,
                     systems::drive_car,
                     double::drive_double_pose.run_if(resource_exists::<crate::run::RunStatus>),
-                    presence::apply_presence,
+                    sync::apply_sync,
                     hover::animate_hover,
                     crate::rider::driver::animate_driver,
                     systems::advance_look,

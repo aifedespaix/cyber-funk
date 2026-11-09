@@ -52,6 +52,9 @@ pub enum LightKind {
     Smoke = 4,
     /// Bande de la traînée : la couleur du sommet porte l'opacité.
     Ribbon = 5,
+    /// Calque squelette de la synchronisation : lignes de balayage, arêtes et silhouette d'un maillage, bandes qui
+    /// glissent (voir `sync.rs`).
+    Skeleton = 6,
 }
 
 /// Les uniformes du shader des lumières : tout en `Vec4`, la disposition mémoire ne dépend d'aucune règle d'alignement.
@@ -59,7 +62,8 @@ pub enum LightKind {
 pub struct LightParams {
     /// `rgb` : teinte (lumière linéaire, au-delà de 1 le bloom s'en empare) ; `w` : opacité (`uK`).
     pub color: Vec4,
-    /// `x` : motif ([`LightKind`]), `y` : écart des lobes de la flaque (`uSplit`).
+    /// `x` : motif ([`LightKind`]), `y` : écart des lobes de la flaque (`uSplit`), `z` : force du glitch du squelette
+    /// (0 à 1), `w` : horloge du squelette (s).
     pub params: Vec4,
 }
 
@@ -84,6 +88,13 @@ impl CarLightMaterial {
             },
             depth_bias,
         }
+    }
+
+    /// Le calque squelette : teinte, opacité, force du glitch (0 à 1) et horloge (s).
+    pub fn set_skeleton(&mut self, color: bevy::color::LinearRgba, k: f32, glitch: f32, time_s: f32) {
+        self.params.color = Vec4::new(color.red, color.green, color.blue, k);
+        self.params.params.z = glitch;
+        self.params.params.w = time_s;
     }
 
     /// Teinte et opacité de l'image.

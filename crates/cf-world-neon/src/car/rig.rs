@@ -172,6 +172,10 @@ pub struct CarRig {
     pub signals: Vec<SignalRig>,
     /// Lumières ajoutées par le code.
     pub lights: LightRig,
+    /// Matériau du calque squelette de la synchronisation (un par voiture : le double a le sien).
+    pub skeleton: Handle<CarLightMaterial>,
+    /// Les pièces du calque squelette, cachées une fois la voiture synchronisée.
+    pub skeleton_parts: Vec<Entity>,
 }
 
 /// La lumière de l'image, décidée une fois par `advance_look` puis appliquée aux matériaux et aux lumières.
@@ -231,6 +235,8 @@ pub struct CarState {
     pub lateral_mps: f32,
     /// Accélération longitudinale mesurée, m/s².
     pub accel_mps2: f32,
+    /// Le film de synchronisation de l'image : écrit par `sync.rs`, lu par la peinture et les néons.
+    pub sync: super::sync::SyncLook,
 }
 
 impl CarState {
@@ -254,6 +260,7 @@ impl CarState {
             speed_mps: 0.0,
             lateral_mps: 0.0,
             accel_mps2: 0.0,
+            sync: super::sync::SyncLook::DONE,
         }
     }
 }

@@ -44,9 +44,11 @@ pub struct CarControls {
     pub lit: Option<LinearRgba>,
     /// Part des phares allumée, 0 à 1 (`setLightLevel` de Sillage) : la pré-intro les allume avant le départ. 1 : normal.
     pub light_scale: f32,
-    /// Présence de la voiture, 0 (éteinte et repliée, invisible) à 1 (pleine) : effet « vieille télé » au démarrage et à
-    /// l'arrêt du show (voir `presence.rs`). 1 : normal.
+    /// Présence de la voiture, 0 (absente, invisible) à 1 (synchronisée) : au démarrage elle se synchronise (squelette,
+    /// glitch, couleurs, lumières) et se désynchronise à l'arrêt (voir `sync.rs`). 1 : normal.
     pub presence: f32,
+    /// Mode calme : pas de glitch dans la synchronisation.
+    pub calm: bool,
     /// Progression du déploiement du mode volant, 0 (au sol) à 1 (en vol) : bascule les roues et allume leurs répulseurs
     /// (voir `hover.rs`). Écrite par le pilote (`hover_amount`).
     pub hover: f32,
@@ -64,6 +66,7 @@ impl Default for CarControls {
             lit: None,
             light_scale: 1.0,
             presence: 1.0,
+            calm: false,
             hover: 0.0,
             bounce_m: 0.0,
             wet: 0.0,
@@ -562,6 +565,13 @@ pub(super) fn apply_model_lights(
 ) {
     for (rig, state) in &mut cars {
         let Some(look) = state.look else { continue };
+        // Synchronisation en cours (`sync.rs`) : les néons n'arrivent qu'avec les lumières, la tôle avec sa couleur.
+        let sync = state.sync;
+        let look = Look {
+            glow: scale_color(look.glow, sync.lights),
+            secondary: scale_color(look.secondary, sync.lights),
+            ..look
+        };
         let m = &rig.materials;
         // Néons : la lueur du moment, et la même mêlée de corail pour les accents.
         neon(&mut standard, m.neon_primary.as_ref(), look.glow);
@@ -626,7 +636,7 @@ pub(super) fn apply_model_lights(
             }
         }
         apply_logo(rig, state, &look, &mut standard, &mut transforms);
-        apply_paint(rig, &look, controls.wet, &mut paint);
+        apply_paint(rig, &look, controls.wet, sync.body, &mut paint);
     }
 }
 
@@ -673,15 +683,17 @@ fn mix_color(a: LinearRgba, b: LinearRgba, t: f32) -> LinearRgba {
 /// Rugosité de la peinture sèche (`finish.x` de la finition « metallic »).
 const PAINT_ROUGHNESS: f32 = 0.32;
 
-fn apply_paint(rig: &CarRig, look: &Look, wet: f32, paint: &mut Assets<CarPaintMaterial>) {
+fn apply_paint(rig: &CarRig, look: &Look, wet: f32, body: f32, paint: &mut Assets<CarPaintMaterial>) {
     let Some(handle) = &rig.materials.paint else { return };
     let (hue, sat, val) = paint_scales(look.palette.violet);
+    // Carrosserie pas encore synchronisée : noire, sans liseré (`body` = 0) ; elle reprend sa teinte par paliers.
+    let val = val * body;
     let rim = Vec4::new(look.glow.red, look.glow.green, look.glow.blue, 1.0);
     let rim_b = Vec4::new(look.secondary.red, look.secondary.green, look.secondary.blue, 1.0);
     // Mouillée, la tôle est plus lisse (rugosité −60 %) et le liseré néon s'y reflète plus fort (+80 %).
     let wet = wet.clamp(0.0, 1.0);
     let roughness = PAINT_ROUGHNESS * (1.0 - 0.6 * wet);
-    let strength = 0.35 * (1.0 + look.pulse * 1.6) * (1.0 + 0.8 * wet);
+    let strength = 0.35 * (1.0 + look.pulse * 1.6) * (1.0 + 0.8 * wet) * body;
     let wanted = Vec3::new(hue, sat, val);
     let differs = |x: &CarPaintMaterial| {
         let p = &x.extension.params;

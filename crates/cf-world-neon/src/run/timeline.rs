@@ -116,7 +116,7 @@ pub fn starting_stages(t_s: f32, reduce_motion: bool) -> RunStages {
     };
     RunStages {
         road: mix(WAIT_ROAD, 1.0, ramp(t_s, 0.5, 5.0)),
-        lights: ramp(t_s, 1.0, 3.5),
+        lights: ramp(t_s, 4.0, 5.5),
         build: ramp(t_s, GANTRY_END_S, START_S),
         // Les lumières sont celles des tours (shader) : plus de front global, une tour allume ses fenêtres une fois sortie.
         windows: 1.0,
@@ -124,7 +124,8 @@ pub fn starting_stages(t_s: f32, reduce_motion: bool) -> RunStages {
         sign: ramp(t_s, GANTRY_START_S + 0.5, GANTRY_START_S + 4.0),
         drive: ramp(t_s, 1.5, 10.0),
         collapse: 0.0,
-        car_presence: ramp(t_s, 0.0, 4.0),
+        // La voiture se synchronise : squelette, couleurs puis lumières (voir `car/sync.rs`).
+        car_presence: ramp(t_s, 0.3, 5.8),
         music: ramp(t_s, 0.0, MUSIC_FADE_IN_S),
         // Absent avant le début du passage, replié à la fin ; la voiture passe dessous au milieu (~0,5).
         gantry: if t_s < GANTRY_START_S - 1.0 {
@@ -145,14 +146,15 @@ pub fn stopping_stages(t_s: f32) -> RunStages {
     let hidden = t_s >= 6.5;
     RunStages {
         road: mix(1.0, WAIT_ROAD, ramp(t_s, 6.0, 9.0)),
-        lights: 1.0 - ramp(t_s, 5.0, 6.5),
+        lights: 1.0 - ramp(t_s, 4.0, 5.5),
         build: if hidden { 0.0 } else { 1.0 },
         windows: 1.0,
         sky: mix(1.0, WAIT_SKY, ramp(t_s, 6.0, 9.0)),
         sign: 1.0 - ramp(t_s, 0.0, 1.5),
         drive: (1.0 - t_s * BRAKE_MPS2 / CRUISE_MPS).max(0.0),
         collapse: if hidden { 0.0 } else { ramp(t_s, 1.0, 6.5) },
-        car_presence: 1.0 - ramp(t_s, 5.0, 6.5),
+        // Elle se désynchronise : l'inverse du démarrage.
+        car_presence: 1.0 - ramp(t_s, 3.5, 9.0),
         music: 1.0 - ramp(t_s, 0.0, MUSIC_FADE_OUT_S),
         gantry: 0.0,
         name_glitch: 0.0,

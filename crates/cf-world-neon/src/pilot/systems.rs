@@ -74,6 +74,7 @@ pub(super) fn drive_pilot(
         lit: controls.lit,
         light_scale: controls.light_scale,
         presence: controls.presence,
+        calm: controls.calm,
         hover: frame.animation.hover_amount,
         bounce_m: frame.animation.bounce,
         wet: controls.wet,

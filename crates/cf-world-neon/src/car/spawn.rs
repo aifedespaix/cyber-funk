@@ -235,6 +235,9 @@ pub fn spawn_car(
         mesh: assets.meshes.add(super::shapes::ground_quad()),
         material: pad_material.clone(),
     };
+    // Le calque squelette de la synchronisation : un seul matériau pour la voiture, une pièce par maillage visible.
+    let skeleton = assets.lights.add(CarLightMaterial::new(LightKind::Skeleton, 0.0));
+    let mut skeleton_parts: Vec<Entity> = Vec::new();
     let mut tucks: Vec<Tuck> = Vec::new();
     let mut tucked: Vec<usize> = Vec::new();
     let mut stack: Vec<(usize, Entity)> = Vec::new();
@@ -285,6 +288,18 @@ pub fn spawn_car(
                 }
                 Built::Skip => {}
             }
+            let overlay = commands
+                .spawn((
+                    Name::new(format!("{} · squelette", node.name)),
+                    Mesh3d(meshes[mesh].clone()),
+                    MeshMaterial3d(skeleton.clone()),
+                    Transform::IDENTITY,
+                    Visibility::default(),
+                    layer,
+                    ChildOf(entity),
+                ))
+                .id();
+            skeleton_parts.push(overlay);
         }
         stack.extend(node.children.iter().map(|&c| (c, entity)));
     }
@@ -328,5 +343,7 @@ pub fn spawn_car(
         materials: handles,
         signals,
         lights,
+        skeleton,
+        skeleton_parts,
     }
 }

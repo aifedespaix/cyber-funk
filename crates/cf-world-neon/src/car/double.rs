@@ -14,7 +14,7 @@ use cf_render::{AbsolutePosition, Phase, ScenePalette, WorldLayer};
 
 use super::glow::CarPalette;
 use super::handover_motion::HandoverMotion;
-use super::presence::{MIN_SCALE, tv_scale};
+use super::sync::{apply_look, sync_look, sync_scale};
 use super::rig::{Car, CarRig, CarState};
 use super::spawn::{CarAssets, spawn_car};
 use super::switch::{ActiveCar, CarModels};
@@ -47,9 +47,6 @@ type RealCar = (With<Car>, Without<DoubleCar>);
 /// Le double, pas la voiture réelle.
 type DoubleOnly = (With<DoubleCar>, Without<Car>);
 
-/// Amplitude du bégaiement géométrique du double qui s'éteint (largeur relative).
-const GLITCH_SCALE: f32 = 0.18;
-
 /// `CfSet::Simulate` : crée le double dès que le modèle est décodé et que la voiture est posée.
 #[allow(clippy::too_many_arguments)] // Les paramètres d'un système Bevy : ressources et requêtes.
 pub(super) fn build_double(
@@ -74,7 +71,7 @@ pub(super) fn build_double(
             DoubleCar,
             WorldLayer,
             AbsolutePosition::default(),
-            Transform::from_scale(Vec3::splat(MIN_SCALE)),
+            Transform::from_scale(Vec3::splat(super::sync::MIN_SCALE)),
             Visibility::Inherited,
         ))
         .id();
@@ -147,6 +144,9 @@ pub(super) fn drive_handover(
 pub(super) fn drive_double_pose(
     time: Res<Time>,
     status: Res<RunStatus>,
+    controls: Res<super::systems::CarControls>,
+    mut lights: ResMut<Assets<super::materials::CarLightMaterial>>,
+    mut visibility: Query<&mut Visibility>,
     mut doubles: Query<(&AbsolutePosition, &CarRig, &mut CarState, &mut Transform), With<DoubleCar>>,
     mut transforms: Query<&mut Transform, Without<DoubleCar>>,
 ) {
@@ -165,16 +165,14 @@ pub(super) fn drive_double_pose(
         };
         let pose = state.motion.update(&input);
         apply_pose(&pose, 0.0, rig, &mut root, &mut transforms);
-        let mut scale = tv_scale(stages.presence);
-        if stages.glitch > 0.0 {
-            // 10 Hz, quantifié : la largeur saute, la lumière ne bouge pas.
-            let step = (now * 10.0).floor() as i64;
-            let h = (step * 7919).rem_euclid(1000) as f32 / 1000.0 - 0.5;
-            scale.x *= 1.0 + GLITCH_SCALE * h * stages.glitch;
-        }
-        let scale = scale.max(Vec3::splat(MIN_SCALE));
+        // Le double se désynchronise comme la voiture se synchronise, à l'envers ; le bug de fin de vie (`stages.glitch`)
+        // s'ajoute au glitch du film.
+        let mut look = sync_look(stages.presence, controls.calm);
+        look.glitch = look.glitch.max(stages.glitch);
+        let scale = sync_scale(stages.presence, look.glitch, now);
         if root.scale != scale {
             root.scale = scale;
         }
+        apply_look(rig, &mut state, look, time.elapsed_secs(), &mut lights, &mut visibility);
     }
 }
