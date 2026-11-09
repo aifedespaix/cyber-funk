@@ -167,7 +167,7 @@ impl SignRoad {
         let format = id.format();
         let k = PIN_BASE + i64::from(serial);
         let kf = k as f64;
-        let side = if serial % 2 == 0 { 1.0_f32 } else { -1.0 };
+        let side = if serial.is_multiple_of(2) { 1.0_f32 } else { -1.0 };
         let shot = match ad {
             Some(CAR_FRONT_AD) => CamShot::Front,
             Some(CAR_SIDE_AD) => CamShot::Side,

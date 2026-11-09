@@ -134,6 +134,7 @@ impl ManualDrive {
     }
 
     /// Publie l'état du vol. Rend `true` s'il a changé (l'appelant ne réveille la ressource que dans ce cas).
+    #[must_use]
     pub fn would_change(&self, status: FlightStatus) -> bool {
         self.status != status
     }
@@ -167,7 +168,7 @@ mod tests {
     fn hors_pilotage_manuel_aucun_ordre_de_vol_ne_passe_mais_l_ascension_se_demande() {
         let mut drive = ManualDrive::default();
         drive.push(ManualOrder::Up);
-        assert!(drive.pending().is_empty());
+        assert_eq!(drive.pending(), []);
         drive.request_ascension();
         assert_eq!(drive.ascension_seq(), 1);
     }
@@ -192,7 +193,7 @@ mod tests {
         drive.push(ManualOrder::TakeOff);
         drive.set_engaged(false);
         assert!(drive.lane().abs() < f32::EPSILON);
-        assert!(drive.pending().is_empty());
+        assert_eq!(drive.pending(), []);
         assert!(!drive.engaged());
     }
 }

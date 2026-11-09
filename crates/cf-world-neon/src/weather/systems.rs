@@ -243,6 +243,7 @@ pub(super) fn update_haze(
 }
 
 /// `CfSet::Present` : remplit le matériau de la brume (palette, pouls, éclair accordé, qualité).
+#[allow(clippy::too_many_arguments)] // Les paramètres d'un système Bevy : ressources et requêtes.
 pub(super) fn update_mist(
     time: Res<Time>,
     palette: Res<ScenePalette>,

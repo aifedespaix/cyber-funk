@@ -189,7 +189,7 @@ mod tests {
         }
         for format in &catalog.formats {
             assert!(FormatId::from_name(format.key).is_some(), "{} inconnu", format.key);
-            assert!(!format.ads.is_empty());
+            assert_ne!(format.ads.len(), 0);
             assert!(format.ads.iter().all(|&ad| usize::from(ad) < CATALOGUE_LEN));
         }
     }

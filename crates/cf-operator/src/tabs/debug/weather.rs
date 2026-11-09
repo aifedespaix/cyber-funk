@@ -75,7 +75,7 @@ mod tests {
     #[test]
     fn chaque_mode_de_pluie_a_une_infobulle() {
         for mode in RainMode::ALL {
-            assert!(!rain_hint(mode).is_empty());
+            assert_ne!(rain_hint(mode), "");
         }
     }
 }

@@ -23,6 +23,7 @@ const INNER_MARGIN: f32 = 6.0;
 
 /// Les ordres caméra qui existent, dans l'ordre des boutons : « Plan suivant » ici, « Enseigne DJ » dans la colonne des
 /// panneaux.
+#[cfg(test)]
 pub(crate) fn camera_actions() -> [Action; 2] {
     [Action::SkipShot, Action::ShowDj]
 }
