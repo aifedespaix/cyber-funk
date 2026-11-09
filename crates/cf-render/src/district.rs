@@ -10,6 +10,33 @@ use cf_show::district::{DistrictId, DistrictKind, StayReason, TransitionKind};
 /// Nombre de quartiers gardés dans [`DistrictState::history`].
 pub const DISTRICT_HISTORY: usize = 5;
 
+/// Où en est la transition en cours (ce que l'opérateur doit comprendre quand « rien ne change »).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum DistrictPhase {
+    /// Pas de transition : le quartier affiché est le quartier réel.
+    #[default]
+    Idle,
+    /// Le nouveau quartier est posé loin devant ; la voiture doit encore y rouler (la couleur ne bouge pas).
+    Approach,
+    /// La voiture est arrivée mais la musique retient le changement (pic, drop).
+    Held,
+    /// La voiture traverse le dégradé : la ville et la couleur changent maintenant.
+    Crossing,
+}
+
+impl DistrictPhase {
+    /// Libellé court, pour l'interface.
+    #[must_use]
+    pub const fn label(self) -> &'static str {
+        match self {
+            Self::Idle => "stable",
+            Self::Approach => "approche",
+            Self::Held => "retenu par la musique",
+            Self::Crossing => "traversée",
+        }
+    }
+}
+
 /// L'état du moteur de quartiers, copie lisible pour l'interface (panneau F4). Écrit chaque image par le monde.
 #[derive(Resource, Debug, Clone, Copy, PartialEq)]
 pub struct DistrictState {
@@ -32,6 +59,12 @@ pub struct DistrictState {
     /// Durée des prochaines transitions (s, 1..=10) : longueur du dégradé (distance parcourue pendant ce temps) et
     /// fondu de l'étalonnage. Réglée par [`DistrictOrder::SetFadeSeconds`].
     pub fade_s: f32,
+    /// Où en est la transition en cours.
+    pub phase: DistrictPhase,
+    /// Distance (m) que la voiture doit encore rouler avant d'atteindre le nouveau quartier ; 0 hors approche.
+    pub approach_m: f32,
+    /// Vitesse mesurée de la voiture (m/s) : à 0, l'approche n'avance pas.
+    pub car_speed_mps: f32,
 }
 
 impl Default for DistrictState {
@@ -52,6 +85,9 @@ impl Default for DistrictState {
             history,
             fallback: false,
             fade_s: 10.0,
+            phase: DistrictPhase::Idle,
+            approach_m: 0.0,
+            car_speed_mps: 0.0,
         }
     }
 }

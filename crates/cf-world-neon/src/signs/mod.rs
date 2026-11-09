@@ -26,6 +26,7 @@ pub mod ads;
 pub mod atlas;
 pub mod audio;
 pub mod bake;
+pub mod debug;
 pub mod flash;
 pub mod formats;
 pub mod icons;
@@ -106,7 +107,7 @@ impl Plugin for SignsPlugin {
         if !rendering && !self.force {
             return;
         }
-        app.add_systems(Startup, (rig::spawn_rig, bake::start_bake))
+        app.add_systems(Startup, (rig::spawn_rig, bake::start_bake, debug::publish_catalog))
             .add_systems(
                 Update,
                 publish::publish_sign_obstructions
@@ -119,6 +120,9 @@ impl Plugin for SignsPlugin {
                 Update,
                 (
                     bake::poll_bake.run_if(resource_exists::<bake::SignBake>),
+                    debug::apply_orders
+                        .before(systems::update_signs)
+                        .run_if(resource_exists::<cf_render::SignCatalog>),
                     systems::update_signs
                         .after(WorldSet::Chunks)
                         .after(crate::pilot::PilotSet)

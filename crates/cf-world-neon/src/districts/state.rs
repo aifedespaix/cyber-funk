@@ -5,7 +5,7 @@
 use bevy::prelude::Resource;
 use cf_analysis::Section;
 use cf_render::palette::MAX_WAIT;
-use cf_render::{DISTRICT_HISTORY, DistrictGradeState, DistrictOrder, DistrictState};
+use cf_render::{DISTRICT_HISTORY, DistrictGradeState, DistrictOrder, DistrictPhase, DistrictState};
 use cf_show::district::{
     Decision, DistrictId, Governor, GovernorSnapshot, StayReason, TRANSITION_MAX_S, TransitionKind,
 };
@@ -205,6 +205,8 @@ impl DistrictDriver {
         state.transition = change.transition;
         state.fallback = !change.transition.implemented();
         state.progress = 0.0;
+        state.phase = DistrictPhase::Approach;
+        state.approach_m = 0.0;
     }
 
     /// Une image : mesure la vitesse, détecte la fin d'un événement, avance la transition (et l'étalonnage, quand la
@@ -221,6 +223,7 @@ impl DistrictDriver {
         state: &mut DistrictState,
     ) -> Option<Change> {
         self.measure_speed(input);
+        state.car_speed_mps = self.speed_mps;
         // Un événement de moins qu'à l'image précédente : il vient de finir (une seule image).
         let event_ended = matches!((self.last_events, input.active_events), (Some(before), Some(now)) if now < before);
         self.last_events = input.active_events;
@@ -316,6 +319,11 @@ impl DistrictDriver {
             if !reached && running.approach_s < APPROACH_MAX_S {
                 governor.hold_transition(input.now_s);
                 state.progress = 0.0;
+                state.phase = DistrictPhase::Approach;
+                state.approach_m = match (running.from, car_row) {
+                    (Some(from), Some(row)) => ((from - row).max(0) as f32) * CHUNK_LENGTH_M,
+                    _ => 0.0,
+                };
                 return None;
             }
             // Dans la zone : jamais de changement visible en plein drop ni en Peak (sauf forçage, sauf retenue trop
@@ -327,10 +335,14 @@ impl DistrictDriver {
                 running.held_s += dt;
                 governor.hold_transition(input.now_s);
                 state.progress = 0.0;
+                state.phase = DistrictPhase::Held;
+                state.approach_m = 0.0;
                 return Some(reason);
             }
             // Entrée dans la zone : la couleur suit la voiture, sur le temps de traversée de la zone.
             running.zone_s = Some(0.0);
+            state.phase = DistrictPhase::Crossing;
+            state.approach_m = 0.0;
             governor.restart_dwell(input.now_s);
             let crossing_s = running.blend_rows as f32 * CHUNK_LENGTH_M / self.speed_mps.max(1e-3);
             if let Some(grade) = grade.as_deref_mut() {
@@ -356,6 +368,8 @@ impl DistrictDriver {
             governor.transition_done();
             state.current = state.target.take().unwrap_or(state.current);
             state.progress = 1.0;
+            state.phase = DistrictPhase::Idle;
+            state.approach_m = 0.0;
         } else {
             governor.hold_transition(input.now_s);
         }

@@ -101,7 +101,6 @@ impl Plugin for WeatherPlugin {
                 Update,
                 (
                     systems::update_mist.run_if(resource_exists::<mist::MistRig>),
-                    systems::rest_mist,
                     systems::update_rain.run_if(resource_exists::<rain::RainRig>),
                     systems::update_haze.run_if(resource_exists::<haze::HazeRig>),
                 )

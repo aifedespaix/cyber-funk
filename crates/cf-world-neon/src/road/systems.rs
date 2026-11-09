@@ -5,9 +5,11 @@ use bevy::math::{DVec3, Vec4};
 use bevy::prelude::*;
 use cf_render::{AbsolutePosition, AudioFeatures, FloatingOrigin, StreamFocus};
 
+use super::lamps::{LampInputs, RoadLamps, build_lamps};
 use super::material::RoadParams;
 use super::{AHEAD_M, Road, RoadLook, RoadMaterial};
 use crate::landmarks::field::{CityField, FieldParams};
+use crate::traffic::TrafficDirector;
 
 /// Période, en s, au bout de laquelle le temps du shader repart de zéro : 400 π s (~21 min).
 ///
@@ -107,6 +109,14 @@ pub(super) fn follow_focus(
     }
 }
 
+/// Ce que la route lit du reste du monde : le champ de la ville (lumières des immeubles-vitrines) et le trafic (points
+/// lumineux à refléter).
+#[derive(bevy::ecs::system::SystemParam)]
+pub(super) struct ReflectedWorld<'w> {
+    field: Option<Res<'w, CityField>>,
+    traffic: Option<Res<'w, TrafficDirector>>,
+}
+
 /// `CfSet::Present` : remplit le matériau (voiture, temps, pouls, basses, teinte). Le matériau n'est touché que si
 /// quelque chose a changé : Bevy ne re-prépare pas un asset qu'on n'a pas écrit.
 pub(super) fn update_material(
@@ -117,7 +127,7 @@ pub(super) fn update_material(
     focus: Query<&AbsolutePosition, With<StreamFocus>>,
     road: Query<&MeshMaterial3d<RoadMaterial>, With<Road>>,
     mut materials: ResMut<Assets<RoadMaterial>>,
-    field: Option<Res<CityField>>,
+    world: ReflectedWorld,
 ) {
     let (pulse, bass, intensity) = features
         .as_deref()
@@ -135,19 +145,38 @@ pub(super) fn update_material(
         },
     );
     // Le champ de la ville (J7-08) : lumières, zone de glitch et décalque des immeubles-vitrines, en repère rendu.
-    let (field_params, decal) = field.as_deref().map_or((FieldParams::default(), None), |field| {
+    let (field_params, decal) = world.field.as_deref().map_or((FieldParams::default(), None), |field| {
         (field.params(origin.origin()), field.decal_map.clone())
     });
+    // Les lampes que reflète la chaussée mouillée : les feux de la voiture, puis les points lumineux du trafic les plus forts.
+    // Inutile à sec : la route n'est alors pas un miroir, le shader ne les lit pas.
+    let wet = look.wet.max(look.rain) > 0.02;
+    let lamps = match world.traffic.as_deref() {
+        Some(traffic) if wet => build_lamps(&LampInputs {
+            car: car_render,
+            glints: traffic.glints.points(),
+            glint_origin: origin.to_render(traffic.glints.origin()),
+            look: &look,
+        }),
+        None if wet => build_lamps(&LampInputs {
+            car: car_render,
+            glints: &[],
+            glint_origin: car_render,
+            look: &look,
+        }),
+        _ => RoadLamps::default(),
+    };
     for handle in &road {
         if materials
             .get(&handle.0)
-            .is_some_and(|m| m.params == params && m.field == field_params && m.decal == decal)
+            .is_some_and(|m| m.params == params && m.field == field_params && m.decal == decal && m.lamps == lamps)
         {
             continue;
         }
         if let Some(mut material) = materials.get_mut(&handle.0) {
             material.params = params;
             material.field = field_params;
+            material.lamps = lamps;
             material.decal.clone_from(&decal);
         }
     }

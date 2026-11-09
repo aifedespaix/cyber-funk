@@ -70,7 +70,7 @@ use bevy::shader::Shader;
 use cf_render::{CfSet, CullingSet, ScenePalette, ThemeLibrary, WarmupAppExt, WorldEventAppExt, WorldSet};
 
 pub use director::TrafficDirector;
-pub use event::{EventCtx, EventFactory, EventRegistry, Focus, SignLender, TrafficAppExt, TrafficEvent};
+pub use event::{EventCtx, EventFactory, EventRegistry, Focus, PovView, SignLender, TrafficAppExt, TrafficEvent};
 pub use flash::TrafficFlash;
 pub use fleet::{Craft, CraftId, Fleet, FleetStats};
 pub use frame::{TrafficBeat, TrafficDrive, TrafficFrame, TrafficShow};

@@ -11,7 +11,7 @@
 use std::marker::PhantomData;
 
 use bevy::prelude::*;
-use cf_render::{CameraPose, CfSet, ShowRuntime, Subjects};
+use cf_render::{CameraPose, CfSet, DebugTimeline, ShowRuntime, SimClock, Subjects};
 
 use crate::choreo::{NoShow, ShowSide};
 use crate::director::CinemaDirector;
@@ -86,7 +86,25 @@ impl<W: Obstacles + Resource> Plugin for CinemaWorldPlugin<W> {
             .add_message::<ShotOrder>()
             // `CinemaSet` est déjà dans `CfSet::Direct` (voir `CinemaPlugin`) : le redire ferait une arête redondante, que
             // Bevy signale en avertissement à chaque lancement.
-            .add_systems(Update, direct::<W>.in_set(CinemaSet));
+            .add_systems(Update, direct::<W>.in_set(CinemaSet))
+            .add_systems(Update, track_shots.in_set(CinemaSet).after(direct::<W>));
+    }
+}
+
+/// `CfSet::Direct`, après le réalisateur : note le plan à l'antenne sur la timeline de debug (piste « Caméra »), pour
+/// retrouver quelle caméra était en place quand une image est mauvaise. La ressource n'est écrite que quand le plan
+/// change.
+fn track_shots(
+    director: Option<Res<CinemaDirector>>,
+    clock: Option<Res<SimClock>>,
+    timeline: Option<ResMut<DebugTimeline>>,
+) {
+    let (Some(director), Some(clock), Some(mut timeline)) = (director, clock, timeline) else {
+        return;
+    };
+    let shot = director.shot_id();
+    if timeline.current_shot() != shot {
+        timeline.track_shot(clock.sim_s(), shot);
     }
 }
 

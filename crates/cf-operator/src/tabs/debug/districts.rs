@@ -1,5 +1,5 @@
-//! Colonne « Quartiers » : lire l'état du moteur de quartiers et lui donner des ordres de debug (destination,
-//! transition, « Changer de quartier », « Geler »). Les transitions pas encore implémentées sont barrées : le monde les
+//! Colonne « Quartiers » : lire l'état du moteur de quartiers et lui donner des ordres de debug (transition, puis un clic sur
+//! la destination qui lance, « Geler »). Les transitions pas encore implémentées sont barrées : le monde les
 //! joue en dégradé.
 //!
 //! Le monde (`cf-world-neon`) écrit [`DistrictState`] et lit [`DistrictOrder`] ; le panneau ne fait qu'afficher l'un et
@@ -7,7 +7,7 @@
 //! Rien de ce qu'on choisit ici n'est sauvegardé : chaque session repart de l'automatique.
 
 use bevy_egui::egui;
-use cf_render::{DISTRICT_HISTORY, DistrictOrder, DistrictState, GradeLibrary};
+use cf_render::{DISTRICT_HISTORY, DistrictOrder, DistrictPhase, DistrictState, GradeLibrary};
 use cf_show::district::{DistrictId, DistrictKind, TransitionKind};
 
 use super::columns::column_color;
@@ -145,13 +145,6 @@ pub(super) fn draw_district_column(
     draw_status(ui, state);
 
     ui.horizontal_wrapped(|ui| {
-        gestures.force = ui
-            .button("→ Changer de quartier")
-            .on_hover_text(concat!(
-                "Lance tout de suite la transition, sans attendre les règles : la ville change au loin, ",
-                "la couleur quand la voiture y arrive (~30 s à vitesse de croisière). Le limiteur reste actif."
-            ))
-            .clicked();
         if ui
             .selectable_label(state.frozen, "Geler")
             .on_hover_text("Gèle l'automatique des quartiers (les changements demandés ici passent quand même).")
@@ -165,7 +158,24 @@ pub(super) fn draw_district_column(
     gestures.fade_s = fresh_fade(state.fade_s, fade);
 
     ui.spacing_mut().item_spacing = egui::vec2(4.0, 4.0);
-    ui.small("DESTINATION");
+    ui.small("1 · TRANSITION");
+    for transition in TRANSITIONS {
+        let row = Row {
+            detail: fallback_note(transition).unwrap_or(""),
+            selected: pick.transition == transition,
+            strike: !transition.implemented(),
+            ..Row::new(transition.label(), DISTRICT_COLOR)
+        };
+        let response = draw_row(ui, &row);
+        let clicked = response.clicked();
+        if let Some(tip) = transition_tooltip(transition) {
+            response.on_hover_text(tip);
+        }
+        if clicked {
+            pick.transition = transition;
+        }
+    }
+    ui.small("2 · DESTINATION (un clic lance)");
     for kind in DistrictKind::ALL {
         for variant in 0..variant_count(library, kind) {
             let id = DistrictId { kind, variant };
@@ -184,9 +194,16 @@ pub(super) fn draw_district_column(
                 running: !badge.is_empty(),
                 ..Row::new(&label, DISTRICT_COLOR)
             };
-            if draw_row(ui, &row).clicked() {
+            if draw_row(ui, &row)
+                .on_hover_text(concat!(
+                    "Lance la transition tout de suite, sans attendre les règles : la ville change au loin, la couleur ",
+                    "quand la voiture y arrive (~30 s à vitesse de croisière). Le limiteur reste actif."
+                ))
+                .clicked()
+            {
                 pick.kind = kind;
                 pick.variant = variant;
+                gestures.force = true;
             }
         }
     }
@@ -194,38 +211,58 @@ pub(super) fn draw_district_column(
     let count = variant_count(library, pick.kind);
     pick.clamp_variant(count);
 
-    ui.small("TRANSITION");
-    for transition in TRANSITIONS {
-        let row = Row {
-            detail: fallback_note(transition).unwrap_or(""),
-            selected: pick.transition == transition,
-            strike: !transition.implemented(),
-            ..Row::new(transition.label(), DISTRICT_COLOR)
-        };
-        let response = draw_row(ui, &row);
-        let clicked = response.clicked();
-        if let Some(tip) = transition_tooltip(transition) {
-            response.on_hover_text(tip);
-        }
-        if clicked {
-            pick.transition = transition;
-        }
-    }
     gestures
 }
 
-/// Quartier courant, cible, raison et historique.
+/// Vitesse (m/s) sous laquelle on dit que la voiture est à l'arrêt.
+const STOPPED_MPS: f32 = 0.5;
+
+/// Ce que fait le moteur de quartiers, en une phrase : la réponse à « pourquoi rien ne change ? ». `None` hors transition.
+pub(crate) fn phase_text(state: &DistrictState) -> Option<String> {
+    let target = state.target?;
+    let to = district_label(target);
+    Some(match state.phase {
+        DistrictPhase::Idle => return None,
+        DistrictPhase::Approach if state.car_speed_mps < STOPPED_MPS => format!(
+            "⚠ La voiture est à l'arrêt. {to} est posé {:.0} m devant : la ville ne change que quand elle y roule \
+             (lance la musique ou remets la vitesse à Normal). Au bout de 60 s la couleur change quand même.",
+            state.approach_m
+        ),
+        DistrictPhase::Approach => format!(
+            "Approche : {to} commence dans {:.0} m (~{:.0} s). La couleur ne bouge qu'à l'arrivée.",
+            state.approach_m,
+            state.approach_m / state.car_speed_mps.max(STOPPED_MPS)
+        ),
+        DistrictPhase::Held => format!(
+            "{to} est là mais la musique retient le changement ({}).",
+            reason_label(state)
+        ),
+        DistrictPhase::Crossing => format!("Traversée du dégradé vers {to} : {:.0} %.", state.progress * 100.0),
+    })
+}
+
+/// Quartier courant, cible, phase et historique.
 fn draw_status(ui: &mut egui::Ui, state: &DistrictState) {
-    ui.label(format!("Courant : {}", district_label(state.current)));
+    ui.label(egui::RichText::new(format!("Tu es dans : {}", district_label(state.current))).strong());
     if let Some(target) = state.target {
         ui.label(format!(
-            "Vers : {} ({})",
+            "En route vers : {} ({})",
             district_label(target),
             state.transition.label()
         ));
         if state.fallback {
             ui.weak(FALLBACK_NOTE);
         }
+        ui.add(
+            egui::ProgressBar::new(state.progress)
+                .desired_height(10.0)
+                .fill(DISTRICT_COLOR),
+        );
+        if let Some(text) = phase_text(state) {
+            ui.label(egui::RichText::new(text).small());
+        }
+    } else {
+        ui.weak("Aucune transition en cours.");
     }
     ui.weak(format!("Dernière décision : {}", reason_label(state)));
     if state.frozen {

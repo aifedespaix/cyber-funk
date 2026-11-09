@@ -151,6 +151,10 @@ impl Plugin for ActiveEventsPlugin {
     fn build(&self, app: &mut App) {
         app.add_plugins((crate::event_journal::EventJournalPlugin, crate::TimelinePlugin))
             .init_resource::<crate::DebugSandbox>()
+            .init_resource::<crate::ManualDrive>()
+            .init_resource::<crate::WeatherControl>()
+            .init_resource::<crate::SignCatalog>()
+            .add_message::<crate::SignOrder>()
             .init_resource::<crate::DistrictAffinity>()
             .init_resource::<ActiveEvents>()
             .init_resource::<crate::WorldAutomation>()

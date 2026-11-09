@@ -401,3 +401,69 @@ fn en_spectacle_au_plus_un_panneau_sur_quatre_et_demi_annonce_le_dj() {
         );
     });
 }
+
+#[test]
+fn un_panneau_pose_a_la_main_apparait_devant_la_voiture_et_n_est_pas_recycle() {
+    use crate::signs::ads::AdId;
+    let show = SignShow::default();
+    let mut road = SignRoad::default();
+    road.update(&frame(0.0, 0.0, &show), no_bridge);
+    assert!(road.pin(FormatId::Gantry, Some(AdId(2)), Some(3), 0, &frame(0.0, 0.0, &show)));
+    let pinned = road.units.iter().position(|u| u.pinned).unwrap();
+    {
+        let unit = &road.units[pinned];
+        assert_eq!(unit.format, Some(FormatId::Gantry));
+        assert!(unit.z < -100.0, "devant la voiture : {}", unit.z);
+        let state = unit.state.unwrap();
+        assert_eq!((state.ad, state.slogan), (SignAd::Catalogue(AdId(2)), 3));
+    }
+    // La route continue de tourner : l'unité posée n'est jamais reprise tant que la voiture ne l'a pas dépassée.
+    for step in 0..40 {
+        let z = -f64::from(step) * 3.0;
+        road.update(&frame(z, f64::from(step) / 60.0, &show), no_bridge);
+        assert!(road.units[pinned].pinned, "pas recyclé à z = {z}");
+    }
+    // Dépassée de très loin, elle s'éteint puis retourne au pool.
+    for step in 0..400 {
+        let z = -120.0 - f64::from(step) * 8.0;
+        road.update(&frame(z, 2.0 + f64::from(step) / 60.0, &show), no_bridge);
+    }
+    assert!(!road.units[pinned].pinned && road.units[pinned].slot.is_none_or(|k| k < PIN_BASE));
+}
+
+#[test]
+fn le_texte_pose_est_borne_et_deux_poses_alternent_les_cotes() {
+    use crate::signs::ads::{AdId, CATALOGUE};
+    let show = SignShow::default();
+    let mut road = SignRoad::default();
+    let f = frame(0.0, 0.0, &show);
+    assert!(road.pin(FormatId::Holo, Some(AdId(0)), Some(250), 0, &f));
+    assert!(road.pin(FormatId::Holo, Some(AdId(0)), None, 1, &f));
+    let pinned: Vec<_> = road.units.iter().filter(|u| u.pinned).collect();
+    assert_eq!(pinned.len(), 2);
+    assert!(
+        usize::from(pinned[0].state.unwrap().slogan) < CATALOGUE[0].slogans.len(),
+        "texte borné"
+    );
+    assert!((pinned[0].side - pinned[1].side).abs() > 1.0, "un de chaque côté");
+}
+
+#[test]
+fn quand_tout_est_pris_la_pose_recycle_le_panneau_le_plus_en_arriere_mais_jamais_un_prete() {
+    use crate::signs::ads::AdId;
+    let show = SignShow::default();
+    let mut road = SignRoad::default();
+    let f = frame(0.0, 0.0, &show);
+    for serial in 0..POOL as u32 + 3 {
+        assert!(
+            road.pin(FormatId::Neon, Some(AdId(10)), None, serial, &f),
+            "pose {serial}"
+        );
+    }
+    assert_eq!(road.units.iter().filter(|u| u.pinned).count(), POOL);
+    let mut busy = SignRoad::default();
+    for unit in &mut busy.units {
+        unit.leased = true;
+    }
+    assert!(!busy.pin(FormatId::Neon, Some(AdId(10)), None, 0, &f), "tout est prêté");
+}

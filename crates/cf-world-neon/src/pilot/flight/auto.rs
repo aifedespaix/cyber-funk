@@ -22,6 +22,10 @@ pub enum FlightCommand {
     Roll(i8),
     /// Salto : 1 arrière (monte), −1 avant (descend).
     Flip(i8),
+    /// Vrille : −1 à gauche, 1 à droite (jamais décidée par le pilote automatique : ordre manuel).
+    Spin(i8),
+    /// Se poser tout de suite (ordre manuel).
+    Land,
 }
 
 impl FlightCommand {
@@ -53,6 +57,19 @@ impl FlightCommand {
                     },
                     env,
                 );
+            }
+            Self::Spin(direction) => {
+                flight.do_trick(
+                    if direction < 0 {
+                        TrickKind::SpinLeft
+                    } else {
+                        TrickKind::SpinRight
+                    },
+                    env,
+                );
+            }
+            Self::Land => {
+                flight.land_now();
             }
         }
     }

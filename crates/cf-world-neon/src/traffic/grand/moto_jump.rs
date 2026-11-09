@@ -48,7 +48,11 @@ const LANE_M: f64 = 12.0;
 const ALIGN_S: f32 = 1.2;
 /// Roulage après la réception, s (sert à dimensionner les toits).
 const RUN_OUT_S: f32 = 2.5;
-const SCALE: f32 = 1.3;
+/// Échelle de la moto : plus grosse que celles du trafic, pour qu'on la distingue encore à 70 m, au-dessus de la route.
+const SCALE: f32 = 2.1;
+/// Les toits plongent à cette profondeur sous la route, m : comme les gratte-ciel de la ville, ils sortent du brouillard au
+/// lieu de poser leur pied sur la chaussée.
+const SINK_M: f32 = 120.0;
 /// Le passage s'arrête de lui-même au bout de ce temps, s (voiture à l'arrêt).
 const MAX_LIFE_S: f32 = 45.0;
 
@@ -169,21 +173,22 @@ impl MotoJumpEvent {
     pub(crate) fn new(ctx: &mut EventCtx<'_>) -> Self {
         let kind = KINDS[index(ctx.rng, KINDS.len())];
         let (h0, h1) = match kind {
+            // Des toits bas (14 à 34 m) : le saut reste dans le champ de la caméra de poursuite, au lieu de passer au-dessus.
             Kind::Level => {
-                let h = range(ctx.rng, 26.0, 36.0);
+                let h = range(ctx.rng, 16.0, 24.0);
                 (h, h)
             }
-            Kind::Drop => (range(ctx.rng, 38.0, 46.0), range(ctx.rng, 20.0, 26.0)),
-            Kind::Climb => (range(ctx.rng, 20.0, 26.0), range(ctx.rng, 38.0, 46.0)),
+            Kind::Drop => (range(ctx.rng, 28.0, 34.0), range(ctx.rng, 14.0, 20.0)),
+            Kind::Climb => (range(ctx.rng, 14.0, 20.0), range(ctx.rng, 28.0, 34.0)),
             Kind::Pair => {
-                let h = range(ctx.rng, 30.0, 38.0);
+                let h = range(ctx.rng, 20.0, 28.0);
                 (h, h)
             }
         };
         let speed = ctx.frame.speed.max(0.0);
         let vm = (speed * 0.35).max(14.0);
         let closing = speed - vm;
-        let ahead_at_launch = range(ctx.rng, 70.0, 95.0);
+        let ahead_at_launch = range(ctx.rng, 55.0, 75.0);
         let launch_s = if closing > 8.0 {
             ((AHEAD_M as f32 - ahead_at_launch) / closing).clamp(5.0, 10.0)
         } else {
@@ -238,11 +243,13 @@ impl MotoJumpEvent {
         let centre_x = side * (FACE_M + f64::from(WIDTH_M) * 0.5);
         let zc = f64::midpoint(self.z_near, self.z_far);
         let span = (self.z_near - self.z_far) as f32;
+        // Le pavé part de SINK_M sous la route et monte jusqu'à `height` : le toit est à la même hauteur qu'avant, mais on ne
+        // voit plus le pied de l'immeuble contre la chaussée.
         ctx.scene.panels.block(
             PanelKind::Body,
             PanelKind::Body,
-            DVec3::new(centre_x, 0.0, zc),
-            Vec3::new(WIDTH_M, height, span),
+            DVec3::new(centre_x, -f64::from(SINK_M), zc),
+            Vec3::new(WIDTH_M, height + SINK_M, span),
             false,
             self.tint,
             1.0,
@@ -329,14 +336,21 @@ impl TrafficEvent for MotoJumpEvent {
                 0.0
             };
             let tint = rider.tint;
-            let glow = if pose.flight > 0.0 { 1.7 } else { 1.0 };
-            // Traînée de points derrière la moto : trois points qui rétrécissent, sans mur (le mur est au niveau du sol).
-            let behind = craft.velocity * 0.045;
-            for k in 1..=3_u8 {
+            let glow = if pose.flight > 0.0 { 2.4 } else { 1.4 };
+            // Phare : un gros point blanc devant la moto, que la caméra voit venir de loin ; en vol il s'élargit.
+            ctx.glints.add(
+                position + DVec3::new(0.0, 0.5, -f64::from(1.1 * SCALE)),
+                if pose.flight > 0.0 { 7.0 } else { 4.5 },
+                ctx.frame.named(cf_render::SceneColor::Ice),
+                2.2,
+            );
+            // Traînée de points derrière la moto : cinq points qui rétrécissent, sans mur (le mur est au niveau du sol).
+            let behind = craft.velocity * 0.05;
+            for k in 1..=5_u8 {
                 let back = DVec3::from(behind) * f64::from(k);
                 ctx.glints.add(
-                    position - back + DVec3::new(0.0, 0.35, 0.0),
-                    2.4 - 0.5 * f32::from(k),
+                    position - back + DVec3::new(0.0, 0.5, 0.0),
+                    (4.6 - 0.7 * f32::from(k)).max(1.2),
                     tint,
                     glow,
                 );

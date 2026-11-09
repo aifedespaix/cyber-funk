@@ -52,6 +52,8 @@ const KIND_POST: i32 = 3;
 const KIND_RAILS: i32 = 4;
 const KIND_CURTAIN: i32 = 5;
 const KIND_DANCER: i32 = 6;
+const KIND_AURORA: i32 = 7;
+const KIND_BOLT: i32 = 8;
 
 // Altitude de la nappe de brouillard sous la route, en mètres.
 const MIST_Y: f32 = -50.0;
@@ -353,6 +355,30 @@ fn aurora(in: VertexOut) -> vec3<f32> {
     return col * a * edge * (0.9 + pulse * 0.5);
 }
 
+// --- Éclair (additif) ----------------------------------------------------------------------------------------------------
+//
+// Un tronçon du tracé : un ruban dont la largeur est le halo (`size.y`), la longueur déborde de chaque côté du tronçon de
+// `0,35 × demi-largeur`. Le noyau est étroit et blanc, le halo large et teinté. Les débordements de deux tronçons voisins
+// se fondent l'un dans l'autre (un partage de l'unité) pour qu'aucune perle ne se dessine aux coudes.
+fn bolt(in: VertexOut, param: f32, dist: f32) -> vec3<f32> {
+    let half_w = in.size.y * 0.5;
+    let ext = half_w * 0.35;
+    let spine = max(in.size.x * 0.5 - ext, 0.0);
+    let x_m = abs(in.uv.x - 0.5) * in.size.x;
+    let ends = 1.0 - smoothstep(spine - ext, spine + ext, x_m);
+    let y = abs(in.uv.y * 2.0 - 1.0);
+    let core = exp(-(y * y) / 0.0225);
+    let glow = exp(-y * y * 9.0) * 0.30 + exp(-y * y * 40.0) * 0.45;
+    // Une ramification est plus faible que le canal principal.
+    let weight = 1.0 - param * 0.8;
+    // Le noyau tire vers le blanc : la couleur reçue est celle du halo.
+    let white = vec3<f32>(max(in.color.r, max(in.color.g, in.color.b)));
+    let col = mix(in.color, white, 0.65) * core + in.color * glow;
+    // Loin, le brouillard avale le tracé.
+    let fade = 1.0 - smoothstep(320.0, 640.0, dist) * 0.7;
+    return col * ends * weight * fade;
+}
+
 @fragment
 fn fragment(in: VertexOut) -> @location(0) vec4<f32> {
     let kind = i32(floor(in.kind + 0.0001));
@@ -366,7 +392,10 @@ fn fragment(in: VertexOut) -> @location(0) vec4<f32> {
     if kind == KIND_CURTAIN || kind == KIND_DANCER {
         return vec4<f32>(holo(in, kind, dist), 0.0);
     }
-    if kind > KIND_DANCER {
+    if kind == KIND_BOLT {
+        return vec4<f32>(bolt(in, param, dist), 0.0);
+    }
+    if kind == KIND_AURORA {
         return vec4<f32>(aurora(in), 0.0);
     }
 

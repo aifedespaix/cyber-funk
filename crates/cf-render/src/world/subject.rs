@@ -36,6 +36,10 @@ pub enum SubjectKind {
     Landmark,
     /// L'enseigne géante du DJ : `position` = centre des lettres, `size` = largeur totale, `facing` = +z.
     DjSign,
+    /// Les yeux d'un drone qui filme (événement « visite en drone ») : `position` = la caméra du drone, `facing` = son
+    /// regard (unitaire), `velocity` = sa vitesse, `size` = le champ de vision voulu, en degrés. Le plan `drone-pov` en fait
+    /// la caméra elle-même ; le drone, lui, n'a pas d'autre existence que celle de l'événement.
+    Drone,
 }
 
 /// Un sujet filmable, recopié à chaque image.

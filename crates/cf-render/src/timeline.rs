@@ -44,9 +44,33 @@ pub struct TimelineSpan {
     pub end_s: Option<f64>,
 }
 
+/// Un plan de caméra sur la timeline, en secondes depuis le départ de la timeline.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct ShotSpan {
+    /// Identifiant du plan (`"chase"`, `"cockpit"`…).
+    pub id: &'static str,
+    /// Début (≥ 0 : un plan commencé avant le départ y est ramené).
+    pub start_s: f64,
+    /// Fin, `None` tant que le plan est à l'antenne.
+    pub end_s: Option<f64>,
+}
+
+/// Nombre maximal de plans gardés : les plus anciens partent.
+pub const MAX_SHOTS: usize = 256;
+
+/// Un plan en temps de simulation absolu (la timeline n'a d'origine qu'au premier événement).
+#[derive(Debug, Clone, Copy)]
+struct ShotLog {
+    id: &'static str,
+    start_s: f64,
+    end_s: Option<f64>,
+}
+
 /// La timeline.
 #[derive(Resource, Debug, Default)]
 pub struct DebugTimeline {
+    /// Les plans de caméra, du plus ancien au plus récent ; seul le dernier peut être ouvert.
+    shots: Vec<ShotLog>,
     /// Instant de simulation (s) du départ ; `None` tant que rien ne s'est passé.
     origin_s: Option<f64>,
     spans: Vec<TimelineSpan>,
@@ -68,6 +92,62 @@ impl DebugTimeline {
         self.spans.clear();
         self.open.clear();
         self.requests.clear();
+        // Le plan à l'antenne reste affiché : on le garde, rouvert à zéro au prochain suivi.
+        self.shots.clear();
+    }
+
+    /// Suit la caméra : `shot` est le plan à l'antenne (`None` : aucun). Un plan qui change ferme le précédent et ouvre le
+    /// suivant. Sans effet sur l'origine de la timeline (la caméra tourne bien avant le premier événement).
+    pub fn track_shot(&mut self, now_s: f64, shot: Option<&'static str>) {
+        let open = self
+            .shots
+            .last()
+            .filter(|last| last.end_s.is_none())
+            .map(|last| last.id);
+        if open == shot {
+            return;
+        }
+        if let Some(last) = self.shots.last_mut().filter(|last| last.end_s.is_none()) {
+            last.end_s = Some(now_s.max(last.start_s));
+        }
+        if let Some(id) = shot {
+            if self.shots.len() == MAX_SHOTS {
+                self.shots.remove(0);
+            }
+            self.shots.push(ShotLog {
+                id,
+                start_s: now_s,
+                end_s: None,
+            });
+        }
+    }
+
+    /// Le plan à l'antenne.
+    #[must_use]
+    pub fn current_shot(&self) -> Option<&'static str> {
+        self.shots
+            .last()
+            .filter(|last| last.end_s.is_none())
+            .map(|last| last.id)
+    }
+
+    /// Les plans de caméra depuis le départ de la timeline, ramenés à ses secondes (vide tant que rien ne s'est passé).
+    pub fn shot_spans(&self) -> impl Iterator<Item = ShotSpan> + '_ {
+        let origin = self.origin_s;
+        self.shots.iter().filter_map(move |shot| {
+            let origin = origin?;
+            let start = shot.start_s - origin;
+            let end = shot.end_s.map(|end| end - origin);
+            // Un plan fini avant le premier événement n'a pas sa place.
+            if end.is_some_and(|end| end <= 0.0) {
+                return None;
+            }
+            Some(ShotSpan {
+                id: shot.id,
+                start_s: start.max(0.0),
+                end_s: end,
+            })
+        })
     }
 
     /// Inscrit une demande de l'opérateur à l'instant de simulation `now_s`.
@@ -177,6 +257,16 @@ impl DebugTimeline {
                 "  {:7.1} s → {end:<9} {} [{}] {:?} / {:?}",
                 span.start_s, span.event_id, span.label, span.category, span.origin
             );
+        }
+        let shots: Vec<_> = self.shot_spans().collect();
+        if !shots.is_empty() {
+            let _ = writeln!(out, "Caméra :");
+            for shot in shots {
+                let end = shot
+                    .end_s
+                    .map_or_else(|| "à l'antenne".to_owned(), |end| format!("{end:.1} s"));
+                let _ = writeln!(out, "  {:7.1} s → {end:<11} {}", shot.start_s, shot.id);
+            }
         }
         if !self.requests.is_empty() {
             let _ = write!(out, "Demandes :");
@@ -292,6 +382,50 @@ mod tests {
             started_s,
             duration_s: None,
         }
+    }
+
+    #[test]
+    fn the_camera_track_follows_the_shots_without_starting_the_timeline() {
+        let mut timeline = DebugTimeline::default();
+        timeline.track_shot(0.0, Some("chase"));
+        timeline.track_shot(3.0, Some("chase"));
+        timeline.track_shot(5.0, Some("cockpit"));
+        assert_eq!(timeline.current_shot(), Some("cockpit"));
+        assert_eq!(timeline.shot_spans().count(), 0, "pas d'origine : rien à montrer");
+        assert!(timeline.is_empty(), "la caméra seule ne remplit pas la timeline");
+
+        let mut active = ActiveEvents::default();
+        active.begin(event("a", 4.0));
+        timeline.track(4.0, &active);
+        let spans: Vec<_> = timeline.shot_spans().collect();
+        assert_eq!(spans.len(), 2);
+        assert_eq!(spans[0].id, "chase");
+        assert!(spans[0].start_s.abs() < 1e-9, "ramené au départ de la timeline");
+        assert_eq!(spans[0].end_s, Some(1.0));
+        assert_eq!((spans[1].id, spans[1].end_s), ("cockpit", None));
+        assert!((spans[1].start_s - 1.0).abs() < 1e-9);
+        assert!(timeline.report(8.0).contains("cockpit"));
+    }
+
+    #[test]
+    fn a_shot_that_ended_before_the_first_event_is_left_out() {
+        let mut timeline = DebugTimeline::default();
+        timeline.track_shot(0.0, Some("orbit"));
+        timeline.track_shot(2.0, Some("chase"));
+        let mut active = ActiveEvents::default();
+        active.begin(event("a", 6.0));
+        timeline.track(6.0, &active);
+        let ids: Vec<_> = timeline.shot_spans().map(|s| s.id).collect();
+        assert_eq!(ids, ["chase"]);
+    }
+
+    #[test]
+    fn the_shot_buffer_is_capped() {
+        let mut timeline = DebugTimeline::default();
+        for i in 0..(MAX_SHOTS + 10) {
+            timeline.track_shot(i as f64, Some(if i % 2 == 0 { "a" } else { "b" }));
+        }
+        assert!(timeline.shots.len() <= MAX_SHOTS);
     }
 
     #[test]

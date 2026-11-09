@@ -8,6 +8,7 @@ use bevy::reflect::TypePath;
 use bevy::render::render_resource::{AsBindGroup, ShaderType};
 use bevy::shader::{Shader, ShaderRef};
 
+use super::lamps::RoadLamps;
 use crate::landmarks::field::FieldParams;
 
 /// Le shader de la route, embarqué dans le binaire : aucun fichier lu pendant un show (règle 8 de `CLAUDE.md`).
@@ -69,6 +70,9 @@ pub struct RoadMaterial {
     #[texture(2)]
     #[sampler(3)]
     pub decal: Option<Handle<Image>>,
+    /// Les lampes que reflète la chaussée mouillée : feux de la voiture et points lumineux les plus forts autour d'elle.
+    #[uniform(4)]
+    pub lamps: RoadLamps,
 }
 
 impl Material for RoadMaterial {

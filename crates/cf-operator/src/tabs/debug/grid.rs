@@ -1,4 +1,5 @@
-//! La grille de l'onglet Debug : quatre colonnes égales (Panneaux, Immeubles, Voitures, Quartiers) à gauche du dock.
+//! La grille de l'onglet Debug : quatre colonnes égales (Panneaux, Immeubles, Voitures, Quartiers), puis la colonne Caméra
+//! (`camera`) et le dock à droite.
 //!
 //! La grille prend toute la hauteur disponible. Dans chaque colonne, sous un en-tête de hauteur fixe, la hauteur
 //! restante est partagée **2/3 puces, 1/3 « En cours »** (l'en-tête du couloir garde lui aussi sa hauteur), chaque
@@ -126,6 +127,10 @@ fn draw_column(ui: &mut egui::Ui, column: EventCategory, rect: Rect, view: &mut 
                 if column == EventCategory::District {
                     draw_districts(ui, view);
                 } else {
+                    if column == EventCategory::Sign {
+                        super::signs::draw(ui, view.signs, view.state, view.orders);
+                        ui.separator();
+                    }
                     draw_chips(ui, column, view);
                 }
             });

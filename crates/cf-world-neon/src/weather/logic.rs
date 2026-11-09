@@ -70,6 +70,8 @@ pub struct Weather {
     /// Vrai une seule image, quand le tonnerre doit gronder (une averse sur deux, en plein milieu).
     pub thunder: bool,
     enabled: bool,
+    /// Pluie imposée par l'opérateur : `Some(true)` il pleut, `Some(false)` il ne pleut pas, `None` le cycle décide.
+    forced: Option<bool>,
     raining: bool,
     thundered: bool,
     storm_left_s: f32,
@@ -88,6 +90,7 @@ impl Weather {
             wet: 0.0,
             thunder: false,
             enabled: true,
+            forced: None,
             raining: false,
             thundered: false,
             storm_left_s: 8.0,
@@ -100,6 +103,12 @@ impl Weather {
     #[must_use]
     pub fn raining(&self) -> bool {
         self.raining
+    }
+
+    /// Impose la pluie (`Some(true)`), la coupe (`Some(false)`) ou rend la main au cycle (`None`). Imposée, elle ignore le
+    /// niveau du spectacle ; le ciel se charge et se vide aux vitesses habituelles, sans à-coup.
+    pub fn set_forced(&mut self, forced: Option<bool>) {
+        self.forced = forced;
     }
 
     /// Coupe la météo : l'averse en cours s'achève, aucune autre ne vient. Rallumée, la première revient assez vite.
@@ -146,7 +155,9 @@ impl Weather {
             self.thundered = !self.raining || unit(&mut self.rng) < storm_chance;
             self.storm_left_s = span(&mut self.rng, 5.0, 10.0);
         }
-        if !self.enabled {
+        if let Some(on) = self.forced {
+            self.raining = on;
+        } else if !self.enabled {
             self.raining = false;
         }
         if self.raining && !self.thundered && self.rain > 0.9 {
@@ -282,6 +293,21 @@ mod tests {
         assert!(w.rain < 0.01);
         let (max, _) = run(&mut w, 600.0, None);
         assert!(max < 0.01, "plus aucune averse");
+    }
+
+    #[test]
+    fn la_pluie_imposee_ignore_le_niveau_et_la_pluie_coupee_vide_le_ciel() {
+        let mut w = Weather::new(3);
+        w.set_forced(Some(true));
+        // Niveau 0 : en automatique, jamais de pluie. Imposée, le ciel se charge quand même.
+        let (max, _) = run(&mut w, 20.0, Some(0));
+        assert!(max > 0.99, "il pleut en pré-intro : {max}");
+        assert!(w.raining());
+        w.set_forced(Some(false));
+        run(&mut w, 30.0, None);
+        assert!(!w.raining() && w.rain < 0.01, "le ciel s'est vidé");
+        w.set_forced(None);
+        assert!(!w.raining(), "rendre la main ne déclenche pas d'averse sur-le-champ");
     }
 
     #[test]

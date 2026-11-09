@@ -140,12 +140,14 @@ impl<'a> TrafficShow<'a> {
     /// La liste blanche du look contient-elle cet événement ?
     #[must_use]
     pub fn allows(&self, name: EventName) -> bool {
-        // Le saut de moto est une invention de cyber-funk : les looks (alignés sur Sillage par les tests golden) ne le
-        // nomment pas. Il suit la porte des immeubles-vitrines, dont il est un cousin.
-        let slug = if name == EventName::MotoJump {
-            EventName::Landmark.as_str()
-        } else {
-            name.as_str()
+        // Le saut de moto et les deux événements de drones sont des inventions de cyber-funk : les looks (alignés sur
+        // Sillage par les tests golden) ne les nomment pas. Chacun suit la porte d'un cousin : le saut de moto celle des
+        // immeubles-vitrines, la visite en drone celle de la poursuite, l'escadrille celle de la nuée.
+        let slug = match name {
+            EventName::MotoJump => EventName::Landmark.as_str(),
+            EventName::DroneTour => EventName::Chase.as_str(),
+            EventName::DroneFormation => EventName::Swarm.as_str(),
+            _ => name.as_str(),
         };
         self.events.iter().any(|e| e.as_str() == slug)
     }

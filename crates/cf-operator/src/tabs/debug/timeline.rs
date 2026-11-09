@@ -6,14 +6,15 @@
 //! un agent. Les calculs de position sont des fonctions pures, testées sans interface.
 
 use bevy_egui::egui;
-use cf_render::{DebugTimeline, EventCategory, EventJournal, JournalState, TimelineSpan};
+use cf_render::{DebugTimeline, EventCategory, EventJournal, JournalState, ShotSpan, TimelineSpan};
 
 use super::Gesture;
 use super::columns::{column_color, column_title};
 use super::sandbox::SandboxGesture;
+use super::shot_names::{shot_name, shot_title};
 
 /// Hauteur du bandeau (px).
-pub(crate) const TIMELINE_HEIGHT: f32 = 132.0;
+pub(crate) const TIMELINE_HEIGHT: f32 = 150.0;
 
 /// Hauteur de fenêtre à partir de laquelle la timeline s'ajoute au journal.
 pub(crate) const MIN_HEIGHT_FOR_TIMELINE: f32 = 600.0;
@@ -21,6 +22,8 @@ pub(crate) const MIN_HEIGHT_FOR_TIMELINE: f32 = 600.0;
 /// Hauteur d'une piste (px) et largeur de son titre (px).
 const LANE_HEIGHT: f32 = 18.0;
 const LANE_LABEL_WIDTH: f32 = 70.0;
+/// Teinte de la piste « Caméra » (alternée d'un plan à l'autre pour séparer deux plans qui se suivent).
+const CAMERA_COLOR: egui::Color32 = egui::Color32::from_rgb(0xb0, 0x8c, 0xff);
 
 /// Durée minimale affichée (s) : une séquence de deux secondes ne remplit pas toute la largeur d'un coup.
 const MIN_SPAN_S: f64 = 10.0;
@@ -58,6 +61,13 @@ pub(crate) fn span_at(spans: &[TimelineSpan], lane: EventCategory, t_s: f64, pla
         .rev()
         .filter(|span| span.category == lane)
         .find(|span| t_s >= span.start_s && t_s <= span.end_s.unwrap_or(playhead_s).max(span.start_s))
+}
+
+/// Le plan de caméra qui couvre l'instant `t_s` (`playhead_s` ferme celui qui est encore à l'antenne).
+pub(crate) fn shot_at(timeline: &DebugTimeline, t_s: f64, playhead_s: f64) -> Option<ShotSpan> {
+    timeline
+        .shot_spans()
+        .find(|shot| t_s >= shot.start_s && t_s <= shot.end_s.unwrap_or(playhead_s).max(shot.start_s))
 }
 
 /// Le temps affiché en `m:ss.d`.
@@ -121,6 +131,15 @@ pub(crate) fn draw(
         ui.horizontal_wrapped(|ui| {
             ui.strong("Timeline");
             ui.monospace(format!("▶ {} / {}", clock_text(playhead), clock_text(length)));
+            match timeline.current_shot() {
+                Some(id) => {
+                    ui.label(egui::RichText::new(format!("📷 {}", shot_title(id))).color(CAMERA_COLOR))
+                        .on_hover_text(format!("Plan à l'antenne : {id}"));
+                }
+                None => {
+                    ui.weak("📷 aucun plan");
+                }
+            }
             if view.replaying {
                 ui.colored_label(egui::Color32::from_rgb(230, 190, 90), "rejeu en cours");
             }
@@ -157,7 +176,8 @@ pub(crate) fn draw(
 fn draw_tracks(ui: &mut egui::Ui, timeline: &DebugTimeline, length: f64, playhead: f64) {
     let shown = shown_length_s(length.max(playhead));
     let lanes = EventCategory::ALL;
-    let height = LANE_HEIGHT * lanes.len() as f32 + 14.0;
+    let rows = lanes.len() + 1;
+    let height = LANE_HEIGHT * rows as f32 + 14.0;
     let (rect, response) = ui.allocate_exact_size(egui::vec2(ui.available_width(), height), egui::Sense::hover());
     let painter = ui.painter_at(rect);
     let left = rect.left() + LANE_LABEL_WIDTH;
@@ -200,8 +220,37 @@ fn draw_tracks(ui: &mut egui::Ui, timeline: &DebugTimeline, length: f64, playhea
         }
     }
 
+    // Piste « Caméra » : un bloc par plan, du plus ancien au plus récent.
+    let camera_top = rect.top() + LANE_HEIGHT * lanes.len() as f32;
+    let camera_rect = egui::Rect::from_min_size(egui::pos2(left, camera_top), egui::vec2(width, LANE_HEIGHT - 2.0));
+    painter.rect_filled(camera_rect, 2.0, faint.gamma_multiply(0.25));
+    painter.text(
+        egui::pos2(rect.left(), camera_top + LANE_HEIGHT / 2.0 - 1.0),
+        egui::Align2::LEFT_CENTER,
+        "Caméra",
+        egui::FontId::proportional(11.0),
+        text_color,
+    );
+    for (i, shot) in timeline.shot_spans().enumerate() {
+        let end = shot.end_s.unwrap_or(playhead).max(shot.start_s);
+        let (x0, x1) = (x_of(shot.start_s, shown, left, width), x_of(end, shown, left, width));
+        let bar = egui::Rect::from_min_max(
+            egui::pos2(x0, camera_top + 1.0),
+            egui::pos2(x1.max(x0 + 3.0), camera_top + LANE_HEIGHT - 3.0),
+        );
+        let tint = if i % 2 == 0 { 1.0 } else { 0.7 };
+        painter.rect_filled(bar, 3.0, CAMERA_COLOR.gamma_multiply(tint));
+        painter.with_clip_rect(bar).text(
+            bar.left_center() + egui::vec2(3.0, 0.0),
+            egui::Align2::LEFT_CENTER,
+            shot_name(shot.id),
+            egui::FontId::proportional(11.0),
+            egui::Color32::BLACK,
+        );
+    }
+
     // Graduation sous les pistes.
-    let ruler_y = rect.top() + LANE_HEIGHT * lanes.len() as f32 + 2.0;
+    let ruler_y = rect.top() + LANE_HEIGHT * rows as f32 + 2.0;
     let step = tick_step_s(shown, width);
     let mut t = 0.0;
     while t <= shown + 1e-9 {
@@ -231,7 +280,16 @@ fn draw_tracks(ui: &mut egui::Ui, timeline: &DebugTimeline, length: f64, playhea
     if let Some(pointer) = response.hover_pos() {
         let lane = ((pointer.y - rect.top()) / LANE_HEIGHT) as usize;
         let t = f64::from(pointer.x - left) / f64::from(width) * shown;
-        if let Some(lane) = lanes.get(lane)
+        if lane == lanes.len() {
+            if let Some(shot) = shot_at(timeline, t, playhead) {
+                let end = shot.end_s.map_or_else(|| "à l'antenne".to_owned(), clock_text);
+                response.on_hover_ui_at_pointer(|ui| {
+                    ui.strong(shot_title(shot.id));
+                    ui.label(format!("{} → {end}", clock_text(shot.start_s)));
+                    ui.weak(shot.id);
+                });
+            }
+        } else if let Some(lane) = lanes.get(lane)
             && let Some(span) = span_at(timeline.spans(), *lane, t, playhead)
         {
             let end = span.end_s.map_or_else(|| "en cours".to_owned(), clock_text);
@@ -317,6 +375,29 @@ mod tests {
             "{report}"
         );
         assert!(!full_report(&timeline, None, 5.0).contains("refusées"));
+    }
+
+    #[test]
+    fn the_shot_under_the_pointer_is_found_on_the_camera_lane() {
+        use cf_render::ActiveEvents;
+        let mut timeline = DebugTimeline::default();
+        timeline.track_shot(0.0, Some("chase"));
+        timeline.track_shot(5.0, Some("cockpit"));
+        let mut active = ActiveEvents::default();
+        active.begin(cf_render::ActiveEvent {
+            id: cf_render::ActiveId::UNSET,
+            event_id: "x",
+            label: "X".to_owned(),
+            category: EventCategory::Car,
+            origin: EventOrigin::Manual,
+            started_s: 2.0,
+            duration_s: None,
+        });
+        timeline.track(2.0, &active);
+        // Le zéro de la timeline est à 2 s de simulation : « chase » a fini à 3 s, « cockpit » est à l'antenne.
+        assert_eq!(shot_at(&timeline, 1.0, 9.0).map(|s| s.id), Some("chase"));
+        assert_eq!(shot_at(&timeline, 4.0, 9.0).map(|s| s.id), Some("cockpit"));
+        assert_eq!(shot_at(&timeline, 12.0, 9.0), None, "au-delà de la tête de lecture");
     }
 
     #[test]

@@ -210,23 +210,47 @@ la main les événements du monde et à voir ce qui tourne.
   la **recherche** (`/` y place le curseur, `Échap` la vide ; elle cherche dans le nom, l'identifiant et la famille,
   sans tenir compte des majuscules) et **Tout arrêter**. Attention : « Tout arrêter » vide seulement la liste des
   événements en cours ; le monde ne sait pas arrêter un événement en route, chacun se termine de lui-même.
-- **Quatre colonnes** : Panneaux, Immeubles, Voitures, Quartiers. En haut de chaque colonne (deux tiers de la hauteur)
-  les puces de lancement ; en bas (un tiers) « En cours » : nom, pourcentage et secondes restantes (« en cours » quand
-  la durée est inconnue), tag `auto` quand le monde l'a lancé de lui-même, ✕ pour retirer la ligne, **Stop** pour vider
-  la colonne (même remarque : la ligne disparaît, l'événement finit lui-même). Les cascades de la voiture et l'enseigne
-  du DJ apparaissent dans « En cours » (Voitures, Panneaux) sans avoir de puce.
+- **Cinq colonnes** : Panneaux, Immeubles, Voitures, Quartiers, puis **Caméra** (ci-dessous). En haut de chaque
+  colonne d'événements (deux tiers de la hauteur) les puces de lancement ; en bas (un tiers) « En cours » : nom,
+  pourcentage et secondes restantes (« en cours » quand la durée est inconnue), tag `auto` quand le monde l'a lancé de
+  lui-même, ✕ pour retirer la ligne, **Stop** pour vider la colonne (même remarque : la ligne disparaît, l'événement
+  finit lui-même). Les cascades de la voiture et l'enseigne du DJ apparaissent dans « En cours » (Voitures, Panneaux)
+  sans avoir de puce.
 - **Puces** : un clic lance l'événement par le même chemin que le MIDI (le limiteur de flashs reste actif ; au plus 8
   ordres par image). Pendant l'événement la puce se remplit, `×N` s'affiche s'il tourne plusieurs fois. **Clic droit :
   épingler** (★, la puce remonte en tête de sa colonne ; retenu d'une session à l'autre). Les immeubles-vitrines
   s'allument tous pendant n'importe quel immeuble-vitrine : le monde ne dit pas lequel tourne.
-- **Quartiers** (4ᵉ colonne) : destination, variante, transition, durée, **→ Changer de quartier** et **Geler** (voir
-  ci-dessous).
-- **Dock à droite** : **Plans caméra** n'offre que **Plan suivant** (comme `N`) et **Enseigne DJ** (comme `T`) ;
-  choisir un plan précis ou sa transition d'entrée n'est pas encore pilotable. **Voiture** : seul **Ascension** marche
-  (comme `A` : elle part au prochain temps fort, avec un show chargé) ; les autres boutons du pad (monter, descendre,
-  gauche, droite, saltos, tonneaux, stabiliser) sont grisés, pas encore pilotables, et n'ont pas de touche. Plus bas,
-  **Réglages monde** : les curseurs des façades et le choix de la voiture (dirty car ou CyberCar, instantané : les deux
-  sont chargées à l'ouverture), en deux sections repliables retenues d'une session à l'autre.
+- **Panneaux** (1ʳᵉ colonne) : en tête, **Enseigne DJ** (comme `T`), puis les types de panneau rangés par endroit : *sur la
+  route* (portique, potence, portique-caméra), *sur les côtés* (hologramme, néon, projection), *sur les immeubles*
+  (panneau de toit, écran géant). **Un clic pose le panneau** devant la voiture, avec la variation choisie dessous :
+  **Visuel** (la marque ou le dessin) et **Texte**, « Auto » étant ce que la route aurait tiré ; **▶ Relancer** en
+  repose un autre. **Tous les textes** déplie chaque publicité et chacun de ses textes : un clic pose ce texte sur un
+  panneau qui sait l'afficher (le type choisi, sinon le premier qui convient). Le panneau n'est pas recyclé avant que la
+  voiture l'ait dépassé.
+- **Quartiers** (4ᵉ colonne) : en haut, **où tu es** (quartier courant), **vers où tu vas**, une barre d'avancement et une
+  phrase qui dit ce qui se passe (*approche* : le nouveau quartier est posé N m devant et la couleur ne bouge qu'à
+  l'arrivée ; *retenu par la musique* ; *traversée*). **Si la voiture est à l'arrêt, un avertissement le dit** : la ville
+  ne change que quand la voiture roule jusqu'au nouveau quartier (remets la vitesse à Normal et lance la musique).
+  Choisis d'abord la **transition**, puis **un clic sur la destination la lance**. **Geler** et la durée restent.
+- **Caméra** (5ᵉ colonne, sur toute la hauteur) : **Plan suivant** (comme `N`), « À l'antenne : … », **Auto** et tous les
+  plans du réalisateur avec leur nom et leur position (par exemple *Cockpit (DANS la voiture)*). Un clic coupe sur ce
+  plan et le garde ; **Auto** rend la main au réalisateur. La **Timeline** a une piste **Caméra** (un bloc par plan) et
+  affiche le plan à l'antenne dans son en-tête : c'est ainsi qu'on repère la caméra mal placée.
+- **Dock à droite** :
+  - **Voiture** : **Pilotage Auto / Manuel**. Un bouton de conduite passe tout seul en Manuel ; **Auto** rend la main au
+    pilote automatique. *Au sol* : **Gauche / Centrer / Droite** décalent la voie d'un tiers de route, le volant et les
+    roues braquent puis se redressent à l'arrivée (même à l'arrêt, la voiture glisse doucement vers la voie demandée).
+    *Décollage* : **✈ Mode décollage** déploie les roues et monte au premier étage (il devient **⤓ Atterrir**). *En
+    vol* (grisés au sol) : **Monter / Descendre** d'un étage, **Tonneau G/D**, **Vrille G/D** (un tour à plat),
+    **Backflip** (monte d'un étage), **Frontflip** (descend d'un étage). **Ascension** part tout de suite, sans show ni
+    musique (la route doit être libre).
+  - **DJ** : le DJ en cours, **◀ Précédent / Suivant ▶** et la liste « Passer à » lancent une **passation** (la nouvelle
+    voiture double l'ancienne, le portique annonce le nouveau DJ). Il faut un show chargé avec au moins deux DJ, en cours
+    de lecture : sinon la section dit pourquoi.
+  - **Réglages monde** : les curseurs des façades, les graffitis, le choix de la voiture (dirty car ou CyberCar,
+    instantané) et **Météo** : **Pluie** (Auto = suit le niveau du show, **Pluie** = il pleut tout de suite, **Sec**), et
+    des cases pour la brume sous la route, le brouillard bas et les éclairs d'orage (toujours derrière le limiteur de
+    flashs). Rien de tout cela n'est sauvegardé : chaque session repart en automatique.
 
 L'ancienne fenêtre flottante « Debug monde » (`F4`) n'existe plus : son contenu est dans cet onglet.
 
@@ -259,17 +283,17 @@ quand, et ce qui a été refusé (avec la raison) : à coller tel quel dans une 
 visé pendant une transition avec une barre de progression, la raison de la dernière décision de l'automatique (par
 exemple « bloqué : drop imminent ») et les 5 derniers quartiers, du plus récent au plus ancien. Les commandes :
 
-- **Destination**, **Variante**, **Transition** : le quartier à demander. Seul le dégradé existe pour l'instant ; les six
-  autres transitions sont affichées barrées et jouées en dégradé (« (repli : dégradé) »).
+- **1 · Transition** : choisie d'abord. Seul le dégradé existe pour l'instant ; les six autres transitions sont affichées
+  barrées et jouées en dégradé (« (repli : dégradé) »).
 - **Durée** (1 à 10 s) : longueur des prochaines transitions.
-- **→ Changer de quartier** : lance tout de suite la transition vers le quartier choisi, sans attendre les règles de l'automatique
-  (même pendant un drop ou une transition en cours, qu'il remplace). La ville change au loin, au bord de ce qui est
+- **2 · Destination (un clic lance)** : un clic sur un quartier (et sa variante) lance tout de suite la transition, sans
+  attendre les règles de l'automatique (même pendant un drop ou une transition en cours, qu'elle remplace). La ville change au loin, au bord de ce qui est
   construit (~1,2 km devant), et la couleur change quand la voiture y arrive : ~30 s à vitesse de croisière. Le
   limiteur de flashs reste actif.
-- **Geler** : l'automatique ne change plus de quartier ; « Changer de quartier » marche toujours.
+- **Geler** : l'automatique ne change plus de quartier ; un clic sur une destination marche toujours.
 
 L'automatique ne change de quartier qu'avec un show chargé, et compte en temps audio : sans show, ou si l'horloge audio
-n'avance pas (aucune source qui livre du son), il ne change rien ; seul « Changer de quartier » agit. Une transition décidée par
+n'avance pas (aucune source qui livre du son), il ne change rien ; seul un clic sur une destination agit. Une transition décidée par
 l'automatique ne lance jamais sa couleur en pleine section Peak, avec un drop imminent ou juste après un drop : elle
 attend que la musique le permette (au plus 45 s une fois la voiture arrivée).
 
