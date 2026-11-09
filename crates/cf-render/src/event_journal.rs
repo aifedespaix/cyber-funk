@@ -10,8 +10,9 @@
 
 use std::collections::VecDeque;
 
+use bevy::ecs::message::{MessageCursor, Messages};
 use bevy::prelude::*;
-use cf_control::Action;
+use cf_control::{Action, TimedAction, TriggerId};
 
 use crate::CfSet;
 use crate::active_events::EventOrigin;
@@ -74,6 +75,8 @@ impl RefusalReason {
 /// Où en est une demande.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum JournalState {
+    /// Faite pendant la pause : armée, elle part toute seule à la reprise de la simulation.
+    Armed,
     /// Déposée, pas encore prise.
     Pending,
     /// Lancée par le monde.
@@ -131,6 +134,21 @@ impl EventJournal {
             state,
         });
         self.next_seq += 1;
+    }
+
+    /// Passe en attente les demandes armées (la simulation reprend : elles vont être prises).
+    pub fn release_armed(&mut self, at_s: f64) {
+        for entry in &mut self.entries {
+            if entry.state == JournalState::Armed {
+                entry.state = JournalState::Pending;
+                entry.at_s = at_s;
+            }
+        }
+    }
+
+    /// Une demande armée est refusée (file d'armement pleine).
+    pub fn request_armed(&mut self, at_s: f64, event_id: &str) {
+        self.push(at_s, event_id, EventOrigin::Manual, JournalState::Armed);
     }
 
     /// La plus ancienne demande en attente qui vise cet événement.
@@ -204,21 +222,83 @@ impl EventJournal {
     }
 }
 
-/// Inscrit chaque `Action::Trigger` reçu. Tourne en `Input`, donc même en pause : une demande faite pendant la pause
-/// apparaît, puis est marquée « en pause » plutôt que de se perdre en silence.
+/// Nombre de demandes armées pendant une pause, au plus (la file de déclencheurs du chef du spectacle en tient autant).
+pub const ARMED_MAX: usize = 8;
+
+/// Les demandes faites pendant la pause, dans l'ordre. À la reprise, elles partent toutes ensemble : c'est ce qui permet
+/// de composer un plateau (un immeuble, des motos, une poursuite…) à l'arrêt, puis de le lancer d'un coup.
+#[derive(Resource, Debug, Default)]
+pub struct ArmedTriggers {
+    ids: Vec<TriggerId>,
+    /// Déclencheurs que nous venons de réémettre : le prochain passage ne doit pas les journaliser une seconde fois.
+    reemitted: usize,
+}
+
+impl ArmedTriggers {
+    /// Nombre de demandes armées.
+    #[must_use]
+    pub fn len(&self) -> usize {
+        self.ids.len()
+    }
+
+    /// Rien d'armé.
+    #[must_use]
+    pub fn is_empty(&self) -> bool {
+        self.ids.is_empty()
+    }
+
+    /// Abandonne les demandes armées (bouton « Tout nettoyer » pendant la pause).
+    pub fn clear(&mut self) {
+        self.ids.clear();
+    }
+}
+
+/// Inscrit chaque `Action::Trigger` reçu. Tourne en `Input`, donc même en pause. Pendant la pause, personne ne traite les
+/// demandes (le chef du spectacle dort et les messages expirent) : elles sont **armées** et réémises toutes ensemble à la
+/// reprise, au lieu de se perdre en silence.
 pub fn record_requests(
-    mut actions: MessageReader<ControlAction>,
+    mut actions: ResMut<Messages<ControlAction>>,
+    mut cursor: Local<MessageCursor<ControlAction>>,
     clock: Res<SimClock>,
+    time: Res<Time>,
     control: Res<SimControl>,
     mut journal: ResMut<EventJournal>,
+    mut armed: ResMut<ArmedTriggers>,
 ) {
-    for action in actions.read() {
+    let now = clock.sim_s();
+    let mut skip = std::mem::take(&mut armed.reemitted);
+    let mut seen: Vec<TriggerId> = Vec::new();
+    for action in cursor.read(&actions) {
         if let Action::Trigger(id) = &action.action {
-            journal.request(clock.sim_s(), &id.0);
-            if control.paused() {
-                let now = clock.sim_s();
-                journal.refused(now, &id.0, RefusalReason::Paused);
+            if skip > 0 {
+                skip -= 1;
+                continue;
             }
+            seen.push(id.clone());
+        }
+    }
+    for id in seen {
+        if control.paused() {
+            if armed.ids.len() < ARMED_MAX {
+                journal.request_armed(now, &id.0);
+                armed.ids.push(id);
+            } else {
+                journal.request(now, &id.0);
+                journal.refused(now, &id.0, RefusalReason::TooManyParallel);
+            }
+        } else {
+            journal.request(now, &id.0);
+        }
+    }
+    if !control.paused() && !armed.ids.is_empty() {
+        let ids = std::mem::take(&mut armed.ids);
+        armed.reemitted = ids.len();
+        journal.release_armed(now);
+        for id in ids {
+            actions.write(ControlAction(TimedAction {
+                time_s: time.elapsed_secs_f64(),
+                action: Action::Trigger(id),
+            }));
         }
     }
 }
@@ -239,6 +319,7 @@ impl Plugin for EventJournalPlugin {
         // Idempotent : sans contrôles (tests, `--no-operator`), le lecteur de messages a quand même sa file.
         app.add_message::<ControlAction>()
             .init_resource::<EventJournal>()
+            .init_resource::<ArmedTriggers>()
             .add_systems(Update, record_requests.in_set(CfSet::Input))
             .add_systems(Update, expire_unclaimed.in_set(CfSet::Simulate));
     }

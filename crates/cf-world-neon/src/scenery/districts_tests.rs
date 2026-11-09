@@ -208,3 +208,23 @@ fn un_forcage_pendant_l_approche_remplace_la_cible_en_attente() {
     assert_eq!(config.districts().district_at(20), b);
     assert_eq!(config.districts().district_at(30), c);
 }
+
+#[test]
+fn quartier_vide_ne_genere_ni_immeuble_ni_projecteur() {
+    let mut config = SceneryConfig::default();
+    let full: usize = (-40..40).map(|i| Row::generate(i, &config).parts().len()).sum();
+    assert!(full > 0, "la ville normale a des immeubles");
+    assert!(
+        config.set_empty(true),
+        "le changement est signalé (pour re-tirer les tronçons)"
+    );
+    assert!(!config.set_empty(true), "rien ne change la seconde fois");
+    for index in -40..40 {
+        let row = Row::generate(index, &config);
+        assert!(row.parts().is_empty(), "rangée {index}");
+        assert!(row.spots().is_empty(), "rangée {index}");
+    }
+    assert!(config.set_empty(false));
+    let back: usize = (-40..40).map(|i| Row::generate(i, &config).parts().len()).sum();
+    assert_eq!(back, full, "rendre la ville rend exactement la même");
+}

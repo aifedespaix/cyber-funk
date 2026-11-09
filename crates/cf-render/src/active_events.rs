@@ -150,6 +150,7 @@ pub struct ActiveEventsPlugin;
 impl Plugin for ActiveEventsPlugin {
     fn build(&self, app: &mut App) {
         app.add_plugins(crate::event_journal::EventJournalPlugin)
+            .init_resource::<crate::DebugSandbox>()
             .init_resource::<ActiveEvents>()
             .init_resource::<crate::WorldAutomation>()
             .add_systems(Update, expire_active_events.in_set(CfSet::Simulate));

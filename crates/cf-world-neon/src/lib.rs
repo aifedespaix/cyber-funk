@@ -58,6 +58,7 @@ pub mod rng;
 pub mod road;
 pub mod route;
 pub mod run;
+pub mod sandbox;
 pub mod scenery;
 pub mod signs;
 pub mod sky;
@@ -186,6 +187,18 @@ impl Plugin for NeonWorldPlugin {
                 .in_set(cf_render::CfSet::Simulate)
                 .before(cf_render::WorldSet::Chunks)
                 .run_if(resource_changed::<cf_render::GraffitiTuning>),
+        )
+        .add_systems(
+            Update,
+            (
+                sandbox::apply_car_speed.run_if(resource_exists::<PilotSettings>),
+                sandbox::apply_empty
+                    .before(cf_render::WorldSet::Chunks)
+                    .run_if(resource_changed::<cf_render::DebugSandbox>),
+                sandbox::apply_clear,
+            )
+                .in_set(cf_render::CfSet::Simulate)
+                .run_if(resource_exists::<cf_render::DebugSandbox>),
         )
         .add_systems(
             Update,

@@ -384,6 +384,75 @@ fn a_trigger_nobody_recognises_ends_up_unclaimed() {
     );
 }
 
+#[test]
+fn clearing_ends_every_running_event_at_once() {
+    let mut app = traffic_app(true, true);
+    app.add_systems(Update, crate::sandbox::apply_clear.in_set(cf_render::CfSet::Simulate));
+    for i in 0..5 {
+        frame(&mut app, i);
+    }
+    trigger(&mut app, "chase");
+    trigger(&mut app, "storm");
+    let seen = until(&mut app, 5, 6.0, |app| listed(app).len() == 2).expect("les deux événements ne partent pas");
+    app.world_mut()
+        .resource_mut::<cf_render::DebugSandbox>()
+        .request_clear();
+    for i in seen + 1..seen + 4 {
+        frame(&mut app, i);
+    }
+    assert_eq!(app.world().resource::<TrafficDirector>().active_count(), 0);
+    assert!(listed(&app).is_empty(), "{:?}", listed(&app));
+}
+
+#[test]
+fn requests_made_during_a_pause_are_armed_then_all_start_on_resume() {
+    let mut app = traffic_app(true, true);
+    for i in 0..5 {
+        frame(&mut app, i);
+    }
+    app.world_mut().resource_mut::<cf_render::SimControl>().set_paused(true);
+    trigger(&mut app, "chase");
+    trigger(&mut app, "storm");
+    for i in 5..5 + frames(1.0) {
+        frame(&mut app, i);
+    }
+    assert!(listed(&app).is_empty(), "rien ne part pendant la pause");
+    assert_eq!(app.world().resource::<cf_render::ArmedTriggers>().len(), 2);
+    assert!(
+        journal(&app)
+            .iter()
+            .all(|(_, state)| *state == cf_render::JournalState::Armed),
+        "{:?}",
+        journal(&app)
+    );
+
+    app.world_mut()
+        .resource_mut::<cf_render::SimControl>()
+        .set_paused(false);
+    until(&mut app, 5 + frames(1.0), 6.0, |app| listed(app).len() == 2).expect("les deux ne partent pas à la reprise");
+    let lines = journal(&app);
+    assert_eq!(lines.len(), 2, "pas de doublon au réémission : {lines:?}");
+    assert!(
+        lines
+            .iter()
+            .all(|(_, state)| *state == cf_render::JournalState::Started),
+        "{lines:?}"
+    );
+}
+
+#[test]
+fn the_sandbox_speed_becomes_the_pilot_pace() {
+    let mut app = App::new();
+    app.init_resource::<cf_render::DebugSandbox>()
+        .init_resource::<PilotSettings>()
+        .add_systems(Update, crate::sandbox::apply_car_speed);
+    app.world_mut()
+        .resource_mut::<cf_render::DebugSandbox>()
+        .set_car_speed(0.3);
+    app.update();
+    assert!((app.world().resource::<PilotSettings>().speed_scale - 0.3).abs() < 1e-6);
+}
+
 // ---------------------------------------------------------------------------------------------------------------------
 // Immeubles-vitrines.
 

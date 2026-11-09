@@ -9,7 +9,7 @@ use cf_control::TriggerId;
 /// Un ordre reste disponible ce temps (s) si aucun système ne le prend (`ORDER_TTL` de Sillage).
 pub const ORDER_TTL: f32 = 3.0;
 /// Déclencheurs du monde en attente au plus. Au-delà, le plus ancien est oublié (aucune allocation).
-pub const TRIGGER_QUEUE: usize = 4;
+pub const TRIGGER_QUEUE: usize = 8;
 
 /// Les ordres à usage unique (`QueuedAction` de Sillage), chacun pris par un seul système.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -185,16 +185,20 @@ mod tests {
     #[test]
     fn triggers_queue_oldest_first_and_overflow_forgets_the_oldest() {
         let mut orders = Orders::default();
-        for (i, name) in ["a", "b", "c", "d", "e"].into_iter().enumerate() {
+        for (i, name) in ["a", "b", "c", "d", "e", "f", "g", "h", "i"].into_iter().enumerate() {
             orders.give_trigger(TriggerId::new(name));
             // Chaque dépôt vieillit un peu les précédents : l'ordre d'arrivée se lit dans la vie restante.
             orders.tick(0.01 * (i as f32 + 1.0));
         }
-        assert_eq!(orders.trigger_seq(), 5);
+        assert_eq!(orders.trigger_seq(), 9);
         let taken: Vec<String> = std::iter::from_fn(|| orders.take_trigger())
             .map(|id| id.0.to_string())
             .collect();
-        assert_eq!(taken, ["b", "c", "d", "e"], "« a » a été remplacé par « e »");
+        assert_eq!(
+            taken,
+            ["b", "c", "d", "e", "f", "g", "h", "i"],
+            "« a » a été remplacé par « i »"
+        );
     }
 
     #[test]

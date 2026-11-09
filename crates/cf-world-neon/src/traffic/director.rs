@@ -37,7 +37,7 @@ const AIR_AHEAD_M: f64 = 50.0;
 const AIR_BEHIND_M: f64 = 190.0;
 
 /// Combien d'événements forcés attendent au plus leur tour. Au-delà, le plus récent est refusé (et dit).
-const FORCED_QUEUE: usize = 4;
+const FORCED_QUEUE: usize = 8;
 /// Un événement forcé que l'arche voisine empêche attend au plus ce temps (s) avant d'être refusé.
 const FORCED_WAIT_S: f32 = 6.0;
 
@@ -79,6 +79,8 @@ pub struct TrafficDirector {
     forced: Vec<Forced>,
     /// Refus de la dernière image, vidés par [`TrafficDirector::take_refusals`] (tampon réutilisé).
     refusals: Vec<(EventName, RefusalReason)>,
+    /// L'opérateur a demandé de tout nettoyer : traité au début de la prochaine image.
+    clear_requested: bool,
     /// Une cascade de la voiture est en cours : plus d'événements aléatoires.
     held: bool,
     /// Faux en mode manuel : plus de tirage spontané (l'ordre de l'opérateur et les déclencheurs passent).
@@ -120,6 +122,7 @@ impl TrafficDirector {
             uids: 0,
             forced: Vec::with_capacity(FORCED_QUEUE),
             refusals: Vec::with_capacity(FORCED_QUEUE + 2),
+            clear_requested: false,
             held: false,
             spontaneous: true,
             bar: 0,
@@ -130,6 +133,12 @@ impl TrafficDirector {
             clearings_changed: false,
             last_glints: 0,
         }
+    }
+
+    /// Demande de tout nettoyer (bac à sable du Debug) : à la prochaine image, tous les événements finissent net et leurs
+    /// véhicules sont rendus. Les demandes forcées déjà en file ne sont pas touchées (« lancer seul » nettoie puis lance).
+    pub fn request_clear(&mut self) {
+        self.clear_requested = true;
     }
 
     /// Suspend (ou reprend) le tirage des événements aléatoires : une cascade scénarisée a la ville pour elle.
@@ -285,6 +294,9 @@ impl TrafficDirector {
         mut signs: Option<&mut (dyn SignLender + '_)>,
         due: impl FnMut(&Craft) -> bool,
     ) {
+        if std::mem::take(&mut self.clear_requested) {
+            self.shutdown(frame);
+        }
         self.scheduler.track_show(frame, &mut self.rng);
         self.glints.begin(frame.car);
         self.scene.begin(frame.car);

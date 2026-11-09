@@ -40,6 +40,8 @@ pub struct SceneryConfig {
     graffiti: GraffitiLibrary,
     /// Multiples de densité des graffitis muraux et des projecteurs automatiques (réglage F4) : 1 = comme livré, 0 = aucun.
     graffiti_scale: (f32, f32),
+    /// Quartier vide (bac à sable du Debug) : plus aucun immeuble, enseigne ni graffiti, la route seule.
+    empty: bool,
 }
 
 impl Default for SceneryConfig {
@@ -52,6 +54,7 @@ impl Default for SceneryConfig {
             districts_active: false,
             graffiti: GraffitiLibrary::default(),
             graffiti_scale: (1.0, 1.0),
+            empty: false,
         }
     }
 }
@@ -92,6 +95,17 @@ impl SceneryConfig {
         }
         self.graffiti = lib;
         true
+    }
+
+    /// Vide (ou rend) la ville. Renvoie vrai si cela change (à re-tirer comme [`Self::set_quality`]).
+    pub fn set_empty(&mut self, empty: bool) -> bool {
+        std::mem::replace(&mut self.empty, empty) != empty
+    }
+
+    /// La ville est vidée (bac à sable).
+    #[must_use]
+    pub fn is_empty(&self) -> bool {
+        self.empty
     }
 
     /// Règle les densités de graffitis muraux et de projecteurs automatiques (multiples de la densité livrée, 0 : aucun).

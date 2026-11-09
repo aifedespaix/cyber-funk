@@ -101,6 +101,11 @@ impl NeonWorld {
         self.scenery.set_graffiti_scale(wall, holo)
     }
 
+    /// Vide (ou rend) la ville : le quartier vide du bac à sable. Renvoie vrai si cela change (à re-tirer).
+    pub fn set_empty(&mut self, empty: bool) -> bool {
+        self.scenery.set_empty(empty)
+    }
+
     /// Remplace les zones dégagées de la ville. Renvoie vrai si elles changent (à re-tirer comme [`Self::set_quality`]).
     pub fn set_clearings(&mut self, clearings: &[Clearing]) -> bool {
         self.scenery.set_clearings(clearings)

@@ -19,6 +19,7 @@ pub mod palette;
 pub mod postfx;
 pub mod quality;
 pub mod run;
+mod sandbox;
 mod schedule;
 pub mod screens;
 pub mod settings;
@@ -53,7 +54,8 @@ pub use diagnostics::{
 };
 pub use district::{DISTRICT_HISTORY, DistrictOrder, DistrictState};
 pub use event_journal::{
-    EventJournal, EventJournalPlugin, JournalEntry, JournalState, RefusalReason, UNCLAIMED_AFTER_S,
+    ARMED_MAX, ArmedTriggers, EventJournal, EventJournalPlugin, JournalEntry, JournalState, RefusalReason,
+    UNCLAIMED_AFTER_S,
 };
 pub use events_catalog::{WorldEvent, WorldEventAppExt, WorldEventCatalog};
 pub use graffiti_tuning::{GraffitiTuning, GraffitiWords, MAX_GRAFFITI_DENSITY};
@@ -73,6 +75,7 @@ pub use quality::{
     QualityPlugin, levers_for,
 };
 pub use run::{ARM_AT, Phase, RunHandover, RunOrder, RunPhase, RunPlugin, RunSequenced};
+pub use sandbox::{DebugSandbox, SPEED_PRESETS};
 pub use schedule::{CfSet, CorePlugin};
 pub use screens::{ScreenInfo, ScreenList, ScreenOrder, describe_screens};
 pub use settings::{Settings, SettingsPlugin};

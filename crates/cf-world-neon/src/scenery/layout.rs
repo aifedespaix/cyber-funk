@@ -226,6 +226,7 @@ impl Row {
         // La ville s'écarte devant le pied d'une arche.
         let row_z = -(self.index as f64) * SPACING_M;
         if !layer_on
+            || config.is_empty()
             || hash(seed, 1.0) < layer.skip
             || (layer_index == 0 && is_near_bridge(row_z, 12.0))
             || config.cleared(row_z, side)

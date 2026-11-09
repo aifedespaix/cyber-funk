@@ -105,6 +105,8 @@ pub struct StuntDirector {
     dying: bool,
     /// Coupée en route : les angles s'éteignent aussi, au lieu de rester sur un tour complet.
     aborted: bool,
+    /// L'opérateur a demandé de tout nettoyer : la cascade en cours est coupée comme à un changement de niveau.
+    cut: bool,
     wait: f64,
     last_rare: f64,
     history: Vec<StuntKind>,
@@ -152,6 +154,7 @@ impl StuntDirector {
             fade: 1.0,
             dying: false,
             aborted: false,
+            cut: false,
             wait,
             last_rare: f64::NEG_INFINITY,
             history: Vec::with_capacity(HISTORY + 1),
@@ -275,7 +278,7 @@ impl StuntDirector {
 
         self.t += f.dt;
         // Le niveau qui se ferme en route (retour au niveau 0 : la voiture ne vole pas) coupe la cascade comme la musique.
-        if !enabled || !open {
+        if !enabled || !open || self.cut {
             self.dying = true;
             self.aborted = true;
         }
@@ -335,6 +338,11 @@ impl StuntDirector {
                 frame.phase = FlightPhase::Flying;
             }
         }
+    }
+
+    /// Coupe la cascade en cours (bac à sable : « Tout nettoyer »). Sans cascade, ne fait rien.
+    pub fn cut(&mut self) {
+        self.cut = self.run.is_some();
     }
 
     /// Arrêt de force (fin du spectacle, fermeture) : libère les véhicules et rend la ville au trafic.
@@ -555,6 +563,7 @@ impl StuntDirector {
         self.fade = 1.0;
         self.dying = false;
         self.aborted = false;
+        self.cut = false;
         self.kind = kind;
         self.progress = 0.0;
         self.pose = StuntPose {
