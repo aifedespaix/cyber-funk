@@ -236,7 +236,9 @@ pub struct EventJournalPlugin;
 
 impl Plugin for EventJournalPlugin {
     fn build(&self, app: &mut App) {
-        app.init_resource::<EventJournal>()
+        // Idempotent : sans contrôles (tests, `--no-operator`), le lecteur de messages a quand même sa file.
+        app.add_message::<ControlAction>()
+            .init_resource::<EventJournal>()
             .add_systems(Update, record_requests.in_set(CfSet::Input))
             .add_systems(Update, expire_unclaimed.in_set(CfSet::Simulate));
     }
