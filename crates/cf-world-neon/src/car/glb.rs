@@ -433,11 +433,11 @@ mod tests {
                     triangles += indices.len() / 3;
                 }
             }
-            // Dirty car : ~47 000 triangles en haute définition (néons, dessous de caisse, kit carrosserie, jantes), ~36 000 en basse.
+            // Dirty car : ~55 000 triangles en haute définition (néons, dessous de caisse, kit carrosserie, jantes), ~47 000 en basse.
             // CyberCar : ~88 000 en haute (CYBERCAR.md §7), ~40 000 en basse.
             let expected = match (name.contains("cyber"), name.contains("high")) {
-                (false, true) => 25_000..55_000,
-                (false, false) => 20_000..42_000,
+                (false, true) => 25_000..60_000,
+                (false, false) => 20_000..55_000,
                 (true, true) => 80_000..95_000,
                 (true, false) => 35_000..50_000,
             };

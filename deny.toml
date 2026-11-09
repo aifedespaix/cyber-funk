@@ -12,6 +12,10 @@ ignore = [
   { id = "RUSTSEC-2026-0344", reason = "ruzstd imposé par bevy_image 0.20 ; n'ouvre que nos propres assets" },
   # ttf-parser non maintenu : tiré par winit (décorations de fenêtre Wayland), aucune police externe chargée par là.
   { id = "RUSTSEC-2026-0192", reason = "transitive via winit/sctk-adwaita, en attente d'une montée de winit dans Bevy" },
+  # zbus_names / zvariant / zvariant_derive fusionnés dans zbus 6 : tirés par rfd -> ashpd -> zbus 5 (sélecteur de fichiers Linux).
+  { id = "RUSTSEC-2026-0370", reason = "transitive via rfd/ashpd/zbus 5, en attente d'une montée de rfd" },
+  { id = "RUSTSEC-2026-0371", reason = "transitive via rfd/ashpd/zbus 5, en attente d'une montée de rfd" },
+  { id = "RUSTSEC-2026-0372", reason = "transitive via rfd/ashpd/zbus 5, en attente d'une montée de rfd" },
 ]
 
 [licenses]
