@@ -11,6 +11,7 @@ mod stages_tests;
 #[cfg(test)]
 mod tests;
 pub mod timeline;
+pub mod variant;
 
 pub use apply::{RunDriven, RunPlugin, RunStatus};
 pub use machine::{RunOutput, RunSequencer};

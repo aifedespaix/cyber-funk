@@ -10,7 +10,7 @@
 
 use bevy::math::DVec3;
 use bevy::prelude::*;
-use cf_render::{AbsolutePosition, Phase, ScenePalette, WorldLayer};
+use cf_render::{AbsolutePosition, HandoverFeed, HandoverView, Phase, ScenePalette, WorldLayer};
 
 use super::glow::CarPalette;
 use super::handover_motion::HandoverMotion;
@@ -21,7 +21,6 @@ use super::switch::{ActiveCar, CarModels};
 use super::systems::{apply_pose, car_palette, measure};
 use crate::pilot::PilotBrain;
 use crate::run::RunStatus;
-use crate::run::handover::HANDOVER_S;
 
 /// Marque la racine du double de l'ancienne voiture.
 #[derive(Component, Debug, Default, Clone, Copy)]
@@ -82,6 +81,12 @@ pub(super) fn build_double(
     commands.insert_resource(DoubleRoot(root));
 }
 
+fn set_none(feed: &mut HandoverFeed) {
+    if feed.0.is_some() {
+        feed.0 = None;
+    }
+}
+
 /// `CfSet::Simulate`, après le pilote et avant les portes du monde : mène les deux voitures pendant une passation et
 /// rend la réelle au pilote au dépassement.
 #[allow(clippy::too_many_arguments)] // Les paramètres d'un système Bevy : ressources et requêtes.
@@ -91,6 +96,7 @@ pub(super) fn drive_handover(
     scene: Res<ScenePalette>,
     root: Option<Res<DoubleRoot>>,
     mut cars: ResMut<HandoverCars>,
+    mut feed: Option<ResMut<HandoverFeed>>,
     mut brain: ResMut<PilotBrain>,
     mut real: Query<(&mut AbsolutePosition, &CarState), RealCar>,
     mut doubles: Query<(&mut AbsolutePosition, &mut PaletteOverride), DoubleOnly>,
@@ -106,6 +112,9 @@ pub(super) fn drive_handover(
             cars.motion.reset();
             cars.active = false;
         }
+        if let Some(feed) = feed.as_deref_mut() {
+            set_none(feed);
+        }
         return;
     }
     // Au tout début de la passation, le double retient les couleurs de l'ancien DJ (le fondu de thème n'a pas démarré).
@@ -116,14 +125,23 @@ pub(super) fn drive_handover(
     let Ok((mut position, state)) = real.single_mut() else {
         return;
     };
-    let t_s = out.progress * HANDOVER_S;
+    let Some(frame) = out.handover else { return };
     let moved = cars.motion.update(
-        t_s,
+        frame.t_s,
+        &frame.variant,
         &out.double,
         &out.arrival,
         (position.0.x, position.0.z, state.speed_mps),
         time.delta_secs(),
     );
+    // Le réalisateur filme la voiture qui roule seule : son cadrage vient de la variante de cette passation.
+    if let (Some(feed), Some((x, z))) = (feed.as_deref_mut(), moved.double) {
+        feed.0 = Some(HandoverView {
+            lead: DVec3::new(x, 0.0, z),
+            speed_mps: moved.double_speed_mps,
+            framing: frame.variant.framing,
+        });
+    }
     if let Some((x, z)) = moved.double {
         let target = DVec3::new(x, 0.0, z);
         if double_position.0 != target {
@@ -165,10 +183,8 @@ pub(super) fn drive_double_pose(
         };
         let pose = state.motion.update(&input);
         apply_pose(&pose, 0.0, rig, &mut root, &mut transforms);
-        // Le double se désynchronise comme la voiture se synchronise, à l'envers ; le bug de fin de vie (`stages.glitch`)
-        // s'ajoute au glitch du film.
-        let mut look = sync_look(stages.presence, controls.calm);
-        look.glitch = look.glitch.max(stages.glitch);
+        // Le double se désynchronise comme la voiture se synchronise, à l'envers.
+        let look = sync_look(stages.presence, controls.calm);
         let scale = sync_scale(stages.presence, look.glitch, now);
         if root.scale != scale {
             root.scale = scale;

@@ -22,9 +22,6 @@ pub const BRAKE_MPS2: f32 = 4.0;
 /// Vitesse de croisière à laquelle l'arrêt commence (m/s), égale au plafond de fin de démarrage.
 pub const CRUISE_MPS: f32 = 16.0;
 
-/// Vitesse en plus du plafond de croisière pour que la nouvelle voiture rattrape l'ancienne (m/s).
-pub const CATCHUP_BOOST_MPS: f32 = 14.0;
-
 /// Durée de la montée du volume de la musique (s).
 pub const MUSIC_FADE_IN_S: f32 = 4.0;
 /// Durée de la descente du volume de la musique (s).

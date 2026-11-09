@@ -5,6 +5,10 @@
 
 use bevy::prelude::*;
 
+mod framing;
+
+pub use framing::{FRAMING_STYLES, Framing, HandoverFeed, HandoverView};
+
 /// Part de la séquence de démarrage à partir de laquelle le show s'arme (12 s sur 29 s, au début du portique) : avant,
 /// la voiture se forme et roule sans qu'aucun cue ne parte.
 pub const ARM_AT: f32 = 12.0 / 29.0;
@@ -103,7 +107,8 @@ impl Plugin for RunPlugin {
         app.add_message::<RunOrder>()
             .init_resource::<RunPhase>()
             .init_resource::<RunHandover>()
-            .init_resource::<SceneIdle>();
+            .init_resource::<SceneIdle>()
+            .init_resource::<HandoverFeed>();
     }
 }
 

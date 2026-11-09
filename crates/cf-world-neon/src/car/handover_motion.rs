@@ -1,21 +1,31 @@
 //! Le mouvement des deux voitures pendant un changement de DJ : pur, sans Bevy.
 //!
-//! L'ancienne voiture est un double visuel qui prend sa place au moment de l'échange ; la voiture réelle (la nouvelle,
-//! pilotée) est posée derrière et à gauche, puis **menée par la frise** jusqu'au dépassement, parce que le pilote ne
-//! sait pas rattraper une voiture à un instant donné. Au dépassement la frise la rend au pilote, à la vitesse qu'elle a.
+//! L'ancienne voiture est un double visuel qui prend sa place dès le début : elle freine jusqu'à sa vitesse de croisière
+//! seule, puis la nouvelle (la voiture réelle, pilotée) arrive de loin derrière, se range au centre de la route pendant
+//! que l'ancienne se déporte sur le côté, et elles roulent côte à côte avec de petites variations de vitesse. La voiture
+//! réelle est **menée par la frise** jusqu'à ce que l'ancienne ait disparu (le pilote ne sait pas rejoindre une voiture à
+//! un instant donné), puis rendue au pilote à la vitesse qu'elle a.
 //!
-//! Repère : la route va vers −z. « Derrière » est donc +z, la droite est +x.
+//! Repère : la route va vers −z, son axe est `x = 0`. « Derrière » est +z. Les variations de vitesse sont des sinusoïdes
+//! dont on connaît le déplacement exact : aucune dérive numérique, quel que soit le pas de temps.
 
-use crate::run::handover::{ArrivalStages, DoubleStages, HANDOVER_SWAP_S, OVERTAKE_S};
+use crate::run::handover::{ArrivalStages, DoubleStages};
+use crate::run::variant::{HandoverVariant, Wobble};
 
-/// Déport latéral de l'ancienne voiture vers le côté droit de la route (m).
-pub const PULL_RIGHT_M: f64 = 3.5;
+/// Écart latéral supplémentaire de l'ancienne pendant sa désynchronisation (m).
+const FADE_DRIFT_M: f64 = 0.9;
+/// Part de sa vitesse que l'ancienne perd en se désynchronisant.
+const FADE_BRAKE: f32 = 0.3;
+/// Balancement latéral de la nouvelle voiture (m).
+const SWAY_M: f64 = 0.12;
 
 /// Ce que le monde doit poser cette image.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct MotionOut {
     /// Position (x, z) du double de l'ancienne voiture, s'il existe.
     pub double: Option<(f64, f64)>,
+    /// Vitesse du double le long de la route (m/s).
+    pub double_speed_mps: f32,
     /// Position (x, z) et vitesse (m/s) à imposer à la voiture réelle, tant que la frise la mène.
     pub real: Option<(f64, f64, f32)>,
     /// La frise vient de rendre la voiture réelle au pilote (une seule image).
@@ -26,6 +36,7 @@ impl MotionOut {
     /// Rien à poser.
     pub const IDLE: Self = Self {
         double: None,
+        double_speed_mps: 0.0,
         real: None,
         release: false,
     };
@@ -34,16 +45,30 @@ impl MotionOut {
 #[derive(Debug, Clone, Copy, PartialEq)]
 struct Anchor {
     x: f64,
-    z_double: f64,
     speed_mps: f32,
 }
 
-/// Le mouvement de passation : un point d'ancrage pris à l'échange, puis le calcul des deux positions.
+/// Le mouvement de passation : un point d'ancrage pris à la première image, puis le calcul des deux positions.
 #[derive(Debug, Clone, Copy, Default, PartialEq)]
 pub struct HandoverMotion {
     anchor: Option<Anchor>,
+    /// Position le long de la route de l'ancienne, hors variation (m, intégrée).
+    z_base: f64,
     previous_real_z: Option<f64>,
     released: bool,
+}
+
+/// Déplacement (m, vers l'avant) dû à une variation de vitesse sinusoïdale de `speed_mps` : l'intégrale exacte, nulle à
+/// `t = 0`.
+fn wobble_offset(w: &Wobble, speed_mps: f32, t_s: f32) -> f64 {
+    let tau = std::f64::consts::TAU;
+    let (period, phase) = (f64::from(w.period_s), f64::from(w.phase_rad));
+    -f64::from(speed_mps) * f64::from(w.amp) * period / tau * ((tau * f64::from(t_s) / period + phase).cos() - phase.cos())
+}
+
+fn smooth(t: f64) -> f64 {
+    let t = t.clamp(0.0, 1.0);
+    t * t * (3.0 - 2.0 * t)
 }
 
 impl HandoverMotion {
@@ -57,49 +82,59 @@ impl HandoverMotion {
     pub fn update(
         &mut self,
         t_s: f32,
+        variant: &HandoverVariant,
         double: &DoubleStages,
         arrival: &ArrivalStages,
         real: (f64, f64, f32),
         dt_s: f32,
     ) -> MotionOut {
-        if t_s < HANDOVER_SWAP_S {
-            self.reset();
+        let dt = dt_s.max(0.0);
+        if self.anchor.is_none() {
+            self.anchor = Some(Anchor {
+                x: real.0,
+                speed_mps: real.2.max(0.0),
+            });
+            self.z_base = real.1;
+        }
+        let Some(anchor) = self.anchor else {
             return MotionOut::IDLE;
-        }
-        let anchor = *self.anchor.get_or_insert(Anchor {
-            x: real.0,
-            z_double: real.1,
-            speed_mps: real.2.max(0.0),
-        });
-        // L'ancienne roule à sa vitesse d'avant l'échange, puis freine jusqu'à l'arrêt complet.
-        let dz = f64::from(anchor.speed_mps * (1.0 - double.brake) * dt_s.max(0.0));
-        let z_double = self.anchor.map_or(anchor.z_double, |a| a.z_double) - dz;
-        if let Some(a) = &mut self.anchor {
-            a.z_double = z_double;
-        }
-        let double_xz = (anchor.x + PULL_RIGHT_M * f64::from(double.pull_right), z_double);
+        };
+        // Vitesse de base de l'ancienne : elle freine jusqu'à sa vitesse seule, puis perd un peu en disparaissant.
+        let base = anchor.speed_mps + (variant.lone_speed_mps - anchor.speed_mps) * double.slow;
+        let speed = base * (1.0 - FADE_BRAKE * double.fade);
+        self.z_base -= f64::from(speed * dt);
+        let z_old = self.z_base - wobble_offset(&variant.old_wobble, variant.lone_speed_mps, t_s);
+        // Latéral : de sa voie d'origine vers l'axe en freinant, puis sur le côté quand la nouvelle arrive.
+        let to_axis = anchor.x * f64::from(1.0 - double.slow);
+        let aside = f64::from(variant.side) * (f64::from(variant.lane_offset_m) * f64::from(double.lateral));
+        let x_old = to_axis + aside + f64::from(variant.side) * FADE_DRIFT_M * f64::from(double.fade);
+        let double_xz = (x_old, z_old);
 
-        let scripted = t_s < OVERTAKE_S;
-        if !scripted {
+        if !arrival.scripted {
             let release = !self.released;
             self.released = true;
             self.previous_real_z = None;
             return MotionOut {
                 double: Some(double_xz),
+                double_speed_mps: speed,
                 real: None,
                 release,
             };
         }
-        let real_z = z_double + f64::from(arrival.gap_behind_m);
-        let real_x = anchor.x - f64::from(arrival.lateral_m);
-        let speed = match self.previous_real_z {
-            Some(previous) if dt_s > 0.0 => ((previous - real_z) / f64::from(dt_s)) as f32,
+        let z_new = self.z_base + f64::from(arrival.gap_behind_m)
+            - wobble_offset(&variant.new_wobble, variant.lone_speed_mps, t_s);
+        // Elle se met au centre de la route au fur et à mesure qu'elle rejoint l'ancienne ; un léger balancement.
+        let settle = smooth(1.0 - f64::from(arrival.gap_behind_m) / f64::from(variant.gap_m.max(1.0)));
+        let x_new = SWAY_M * (f64::from(t_s) * 0.7).sin() * settle;
+        let speed_new = match self.previous_real_z {
+            Some(previous) if dt > 0.0 => ((previous - z_new) / f64::from(dt)) as f32,
             _ => anchor.speed_mps,
         };
-        self.previous_real_z = Some(real_z);
+        self.previous_real_z = Some(z_new);
         MotionOut {
             double: Some(double_xz),
-            real: Some((real_x, real_z, speed.max(0.0))),
+            double_speed_mps: speed,
+            real: Some((x_new, z_new, speed_new.max(0.0))),
             release: false,
         }
     }
@@ -108,21 +143,25 @@ impl HandoverMotion {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::run::handover::{HANDOVER_S, handover_stages};
+    use crate::run::handover::handover_stages;
 
     const DT: f32 = 1.0 / 60.0;
 
-    /// Rejoue une passation entière : la voiture réelle roule à 16 m/s en x = 1, z = −1000 jusqu'à l'échange.
-    fn replay() -> Vec<(f32, MotionOut)> {
+    fn variant(number: u32) -> HandoverVariant {
+        HandoverVariant::new(number, 1, None)
+    }
+
+    /// Rejoue une passation entière : la voiture réelle roule à 16 m/s en x = 1, z = −1000 jusqu'au début.
+    fn replay(v: &HandoverVariant) -> Vec<(f32, MotionOut)> {
         let mut motion = HandoverMotion::default();
         let mut real = (1.0_f64, -1000.0_f64, 16.0_f32);
         let mut frames = Vec::new();
-        for k in 0..=(HANDOVER_S / DT) as u32 {
+        for k in 0..=(v.duration_s() / DT) as u32 {
             let time = k as f32 * DT;
-            let (_, double, arrival) = handover_stages(time, false);
-            let out = motion.update(time, &double, &arrival, real, DT);
+            let (_, double, arrival) = handover_stages(time, v, false);
+            let out = motion.update(time, v, &double, &arrival, real, DT);
             match out.real {
-                Some((x, z, v)) => real = (x, z, v),
+                Some((x, z, s)) => real = (x, z, s),
                 None => real.1 -= f64::from(real.2 * DT),
             }
             frames.push((time, out));
@@ -131,84 +170,118 @@ mod tests {
     }
 
     #[test]
-    fn nothing_moves_before_the_swap() {
-        let mut motion = HandoverMotion::default();
-        let (_, d, a) = handover_stages(0.2, false);
-        assert_eq!(motion.update(0.2, &d, &a, (0.0, 0.0, 16.0), DT), MotionOut::IDLE);
+    fn the_double_starts_where_the_old_car_was() {
+        let v = variant(0);
+        let frames = replay(&v);
+        let (_, first) = frames[0];
+        let (x, z) = first.double.expect("le double existe dès le début");
+        assert!((x - 1.0).abs() < 1e-6 && (z + 1000.0 - 16.0 * f64::from(DT)).abs() < 0.5, "{x} {z}");
     }
 
     #[test]
-    fn at_the_swap_the_double_sits_where_the_old_car_was_and_the_new_one_is_60_m_behind() {
-        let frames = replay();
-        let (t, first) = frames
-            .iter()
-            .find(|(t, _)| *t >= HANDOVER_SWAP_S)
-            .map(|(t, o)| (*t, *o))
-            .expect("une image à l'échange");
-        let (dx, dz) = first.double.expect("le double existe");
-        // La voiture roule à 16 m/s depuis z = −1000 jusqu'à l'échange (au plus une image de plus).
-        let expected = -1000.0 - 16.0 * f64::from(t);
-        assert!(
-            (dx - 1.0).abs() < 1e-6 && (dz - expected).abs() < 0.5,
-            "{dx} {dz} / {expected}"
-        );
-        let (real_x, real_z, _) = first.real.expect("la réelle est menée");
-        assert!(
-            (real_z - dz - 60.0).abs() < 1e-3 && (real_x - (1.0 - 3.5)).abs() < 1e-6,
-            "{real_x} {real_z}"
-        );
+    fn the_new_car_starts_far_behind_and_ends_abreast() {
+        for number in 0..30 {
+            let v = variant(number);
+            let m = v.marks();
+            let frames = replay(&v);
+            let at = |t: f32| frames.iter().find(|(f, _)| *f >= t).map(|(_, o)| *o).expect("image");
+            let first = at(0.0);
+            let (_, rz, _) = first.real.expect("menée");
+            let (_, dz) = first.double.expect("double");
+            assert!((rz - dz - f64::from(v.gap_m)).abs() < 1.0, "{rz} {dz} {}", v.gap_m);
+            let abreast = at(m.fading);
+            let (rx, rz, _) = abreast.real.expect("menée");
+            let (dx, dz) = abreast.double.expect("double");
+            assert!((rz - dz).abs() < 6.0, "côte à côte à quelques mètres près : {}", rz - dz);
+            assert!(rx.abs() < 0.2 && (dx - f64::from(v.side * v.lane_offset_m)).abs() < 0.2, "{rx} {dx}");
+        }
     }
 
     #[test]
-    fn the_new_car_overtakes_the_old_one_before_the_release() {
-        let frames = replay();
-        let last_scripted = frames.iter().rev().find(|(_, o)| o.real.is_some()).expect("menée");
-        let (_, rz, _) = last_scripted.1.real.expect("menée");
-        let (_, dz) = last_scripted.1.double.expect("double");
-        assert!(
-            rz < dz - 10.0,
-            "la réelle est devant d'au moins 10 m : {rz} contre {dz}"
-        );
-    }
-
-    #[test]
-    fn the_release_happens_exactly_once_and_the_speed_stays_plausible() {
-        let frames = replay();
-        assert_eq!(frames.iter().filter(|(_, o)| o.release).count(), 1);
-        for (t, o) in &frames {
-            if let Some((_, _, v)) = o.real {
-                assert!(v.is_finite() && (0.0..60.0).contains(&v), "{t}: {v}");
+    fn the_old_car_moves_aside_toward_its_own_side_and_never_leaves_the_road() {
+        for number in 0..30 {
+            let v = variant(number);
+            for (_, o) in replay(&v) {
+                let (x, _) = o.double.expect("double");
+                assert!(x.abs() < 6.0, "reste sur la chaussée (demi-largeur 9 m) : {x}");
+                if v.side > 0.0 {
+                    assert!(x > -1.5);
+                } else {
+                    assert!(x < 1.5);
+                }
             }
         }
     }
 
     #[test]
-    fn the_double_never_goes_backwards_and_ends_stopped_on_the_right() {
-        let frames = replay();
-        let mut previous = f64::MAX;
-        for (_, o) in &frames {
-            if let Some((_, z)) = o.double {
-                // La route va vers −z : l'ancienne ne recule jamais.
-                assert!(z <= previous + 1e-9, "{z} après {previous}");
-                previous = z;
+    fn the_release_happens_exactly_once_and_speeds_stay_plausible() {
+        for number in 0..30 {
+            let v = variant(number);
+            let frames = replay(&v);
+            assert_eq!(frames.iter().filter(|(_, o)| o.release).count(), 1, "passation {number}");
+            for (t, o) in &frames {
+                assert!(o.double_speed_mps.is_finite() && (0.0..30.0).contains(&o.double_speed_mps), "{t}");
+                if let Some((x, z, s)) = o.real {
+                    assert!(x.is_finite() && z.is_finite());
+                    // Pas de bond : la nouvelle voiture rattrape vite mais pas plus de ~150 km/h.
+                    assert!(s.is_finite() && (0.0..45.0).contains(&s), "{t}: {s}");
+                }
             }
         }
-        let (_, end) = frames.last().expect("fin");
-        let (x, _) = end.double.expect("double");
-        assert!((x - (1.0 + PULL_RIGHT_M)).abs() < 1e-6, "{x}");
-        let before_end = frames[frames.len() - 2].1.double.expect("double").1;
-        let end_z = end.double.expect("double").1;
-        assert!((before_end - end_z).abs() < 1e-6, "arrêtée à la fin");
+    }
+
+    #[test]
+    fn neither_car_ever_goes_backwards() {
+        let v = variant(4);
+        let mut prev_double = f64::MAX;
+        let mut prev_real = f64::MAX;
+        for (t, o) in replay(&v) {
+            let (_, z) = o.double.expect("double");
+            assert!(z <= prev_double + 1e-6, "{t}: le double recule");
+            prev_double = z;
+            if let Some((_, z, _)) = o.real {
+                assert!(z <= prev_real + 1e-6, "{t}: la réelle recule");
+                prev_real = z;
+            }
+        }
+    }
+
+    #[test]
+    fn the_cars_do_not_ride_in_lockstep_side_by_side() {
+        let v = variant(2);
+        let m = v.marks();
+        let gaps: Vec<f64> = replay(&v)
+            .into_iter()
+            .filter(|(t, o)| *t >= m.abreast && *t <= m.fading && o.real.is_some())
+            .map(|(_, o)| o.real.map_or(0.0, |r| r.1) - o.double.map_or(0.0, |d| d.1))
+            .collect();
+        let (lo, hi) = gaps.iter().fold((f64::MAX, f64::MIN), |(lo, hi), g| (lo.min(*g), hi.max(*g)));
+        assert!(hi - lo > 0.3, "l'écart varie : {lo}..{hi}");
+        assert!(hi - lo < 8.0, "mais elles restent ensemble : {lo}..{hi}");
     }
 
     #[test]
     fn a_zero_time_step_changes_nothing_and_never_divides_by_zero() {
+        let v = variant(1);
         let mut motion = HandoverMotion::default();
-        let (_, d, a) = handover_stages(3.0, false);
-        let first = motion.update(3.0, &d, &a, (0.0, 0.0, 16.0), 0.0);
-        let second = motion.update(3.0, &d, &a, (0.0, 0.0, 16.0), 0.0);
-        let (_, _, v) = second.real.expect("menée");
-        assert!(v.is_finite());
+        let (_, d, a) = handover_stages(3.0, &v, false);
+        let first = motion.update(3.0, &v, &d, &a, (0.0, 0.0, 16.0), 0.0);
+        let second = motion.update(3.0, &v, &d, &a, (0.0, 0.0, 16.0), 0.0);
+        let (_, _, speed) = second.real.expect("menée");
+        assert!(speed.is_finite());
         assert_eq!(first.double, second.double);
+    }
+
+    #[test]
+    fn wobble_offset_is_zero_at_the_start_and_bounded() {
+        let w = Wobble {
+            amp: 0.05,
+            period_s: 6.0,
+            phase_rad: 1.0,
+        };
+        assert!(wobble_offset(&w, 10.0, 0.0).abs() < 1e-12);
+        for k in 0..400 {
+            assert!(wobble_offset(&w, 10.0, k as f32 * 0.1).abs() < 2.0);
+        }
     }
 }

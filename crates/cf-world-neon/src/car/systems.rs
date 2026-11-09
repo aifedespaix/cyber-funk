@@ -519,8 +519,10 @@ pub(super) fn advance_look(
         let high_beams = speed_ratio > HIGH_BEAMS_RATIO;
         let target = if high_beams { HIGH_BEAMS_LEVEL } else { HEADLIGHT_LEVEL };
         // `light_scale` multiplie le niveau après la rampe : la pré-intro règle les phares, la rampe suit la vitesse.
-        let level =
-            state.level.toward(target, dt, HIGH_BEAMS_LEVEL - HEADLIGHT_LEVEL) * controls.light_scale.clamp(0.0, 1.0);
+        // La synchronisation (`sync.rs`) allume les phares en dernier, voiture par voiture.
+        let level = state.level.toward(target, dt, HIGH_BEAMS_LEVEL - HEADLIGHT_LEVEL)
+            * controls.light_scale.clamp(0.0, 1.0)
+            * state.sync.lights;
         let inputs = LightInputs {
             glow,
             pulse,

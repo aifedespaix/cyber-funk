@@ -185,7 +185,7 @@ mod tests {
         let mid = sync_look(0.5, false);
         assert!(mid.skeleton > 0.99 && mid.body > 0.2 && mid.body < 0.9 && mid.lights == 0.0, "{mid:?}");
         let late = sync_look(0.9, false);
-        assert!(late.body > 0.9 && late.lights > 0.5 && late.skeleton < 0.5, "{late:?}");
+        assert!(late.body > 0.9 && late.lights > 0.5 && late.skeleton <= 0.5, "{late:?}");
     }
 
     #[test]

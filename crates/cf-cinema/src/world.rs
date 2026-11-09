@@ -60,6 +60,8 @@ pub struct CinemaWorld {
     pub ring_planet: Option<RingPlanet>,
     /// Dernier astre écrasé contre un immeuble.
     pub last_blast: Option<MeteorBlast>,
+    /// La passation de DJ en cours : la voiture qui roule seule et le cadrage voulu (plan `handover`).
+    pub handover: Option<cf_render::HandoverView>,
 }
 
 impl Default for CinemaWorld {
@@ -85,6 +87,7 @@ impl Default for CinemaWorld {
             show: ShowView::default(),
             ring_planet: None,
             last_blast: None,
+            handover: None,
         }
     }
 }

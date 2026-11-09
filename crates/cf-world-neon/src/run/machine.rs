@@ -2,15 +2,10 @@
 
 use cf_render::{Phase, RunOrder};
 
-use super::handover::{ArrivalStages, DoubleStages, HANDOVER_S, handover_stages};
-use super::timeline::{
-    CATCHUP_BOOST_MPS, CRUISE_MPS, RunStages, START_S, STOP_S, starting_cap, starting_stages, stopping_cap,
-    stopping_stages,
-};
-use crate::intro::{FRONT_WIDTH_M, IntroInput, IntroStages, PreIntro, WindowFront};
-
-/// Portée du front des fenêtres à l'arrêt, quand toutes sont allumées (m).
-const SHUTDOWN_REACH_M: f32 = 950.0;
+use super::handover::{ArrivalStages, DoubleStages, HandoverFrame, handover_stages};
+use super::timeline::{CRUISE_MPS, RunStages, START_S, STOP_S, starting_cap, starting_stages, stopping_cap, stopping_stages};
+use super::variant::HandoverVariant;
+use crate::intro::{IntroInput, IntroStages, PreIntro, WindowFront};
 
 /// Ce que la séquence demande au monde cette image.
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -31,6 +26,8 @@ pub struct RunOutput {
     pub arrival: ArrivalStages,
     /// Rang du DJ visé pendant un changement de DJ.
     pub handover_slot: Option<usize>,
+    /// L'instant et la variante du changement de DJ en cours.
+    pub handover: Option<HandoverFrame>,
 }
 
 /// La machine à états du démarrage et de l'arrêt.
@@ -48,6 +45,11 @@ pub struct RunSequencer {
     slot_count: usize,
     /// DJ visé par la passation en cours.
     target: Option<usize>,
+    /// La variante tirée pour la passation en cours.
+    variant: Option<HandoverVariant>,
+    /// Nombre de passations déjà lancées (graine des variantes) et style de cadrage de la dernière.
+    handovers: u32,
+    last_style: Option<u8>,
     /// L'opérateur demande moins de mouvement : plus de glitch ni de clignotement.
     reduce_motion: bool,
 }
@@ -71,6 +73,9 @@ impl RunSequencer {
             current_slot: 0,
             slot_count: 0,
             target: None,
+            variant: None,
+            handovers: 0,
+            last_style: None,
             reduce_motion: false,
         }
     }
@@ -114,6 +119,10 @@ impl RunSequencer {
                 if let Some(target) = self.handover_target(slot) {
                     self.enter(Phase::Handover);
                     self.target = Some(target);
+                    let variant = HandoverVariant::new(self.handovers, target, self.last_style);
+                    self.handovers = self.handovers.wrapping_add(1);
+                    self.last_style = Some(variant.framing.style);
+                    self.variant = Some(variant);
                 }
             }
             _ => {}
@@ -123,7 +132,7 @@ impl RunSequencer {
             // La voiture, invisible, reste au point de départ : le plan d'attente la filme dès son apparition.
             Phase::Waiting => out(Phase::Waiting, 1.0, RunStages::WAITING, Some(0.0), None),
             Phase::Running => out(Phase::Running, 1.0, RunStages::RUNNING, None, None),
-            Phase::Handover => self.update_handover(dt_s, kick),
+            Phase::Handover => self.update_handover(dt_s),
             Phase::Starting => {
                 self.t_s = (self.t_s + dt_s).min(START_S);
                 let stages = starting_stages(self.t_s, self.reduce_motion);
@@ -149,10 +158,6 @@ impl RunSequencer {
             Phase::Stopping => {
                 self.t_s = (self.t_s + dt_s).min(STOP_S);
                 let stages = stopping_stages(self.t_s);
-                let front = (stages.windows < 1.0).then_some(WindowFront {
-                    ahead_m: SHUTDOWN_REACH_M * stages.windows,
-                    edge_m: FRONT_WIDTH_M,
-                });
                 let progress = self.t_s / STOP_S;
                 if self.t_s >= STOP_S {
                     self.phase = Phase::Waiting;
@@ -163,53 +168,43 @@ impl RunSequencer {
                     progress,
                     stages,
                     Some(stopping_cap(progress * STOP_S, self.brake_from_mps)),
-                    front,
+                    None,
                 )
             }
         }
     }
 
-    fn update_handover(&mut self, dt_s: f32, kick: bool) -> RunOutput {
-        self.t_s = (self.t_s + dt_s).min(HANDOVER_S);
-        let (stages, double, arrival) = handover_stages(self.t_s, self.reduce_motion);
-        // Les fenêtres s'éteignent par un front pendant le repli, puis se rallument comme au démarrage.
-        let front = if stages.build >= 1.0 || stages.collapse > 0.0 {
-            (stages.windows < 1.0).then_some(WindowFront {
-                ahead_m: SHUTDOWN_REACH_M * stages.windows,
-                edge_m: FRONT_WIDTH_M,
-            })
-        } else {
-            let tracker = IntroStages {
-                windows: stages.windows,
-                ..IntroStages::DONE
-            };
-            self.front.front(
-                &tracker,
-                &IntroInput {
-                    level: None,
-                    dt_s,
-                    kick,
-                    energy: 0.0,
-                },
-            )
+    fn update_handover(&mut self, dt_s: f32) -> RunOutput {
+        let Some(variant) = self.variant else {
+            // Impossible : la variante est tirée à l'entrée dans la phase. Repli sûr : rendre la main tout de suite.
+            self.phase = Phase::Running;
+            return out(Phase::Running, 1.0, RunStages::RUNNING, None, None);
         };
-        let progress = self.t_s / HANDOVER_S;
-        let cap = CRUISE_MPS + CATCHUP_BOOST_MPS * arrival.boost;
+        let duration = variant.duration_s();
+        self.t_s = (self.t_s + dt_s).min(duration);
+        let (stages, double, arrival) = handover_stages(self.t_s, &variant, self.reduce_motion);
+        let progress = self.t_s / duration;
+        let frame = HandoverFrame {
+            t_s: self.t_s,
+            variant,
+        };
         let target = self.target;
-        if self.t_s >= HANDOVER_S {
+        if self.t_s >= duration {
             self.phase = Phase::Running;
             self.t_s = 0.0;
             self.target = None;
+            self.variant = None;
         }
         RunOutput {
             phase: Phase::Handover,
             progress,
             stages,
-            speed_cap_mps: Some(cap),
-            front,
+            speed_cap_mps: Some(CRUISE_MPS),
+            front: None,
             double,
             arrival,
             handover_slot: target,
+            handover: Some(frame),
         }
     }
 
@@ -238,6 +233,7 @@ fn out(
         double: DoubleStages::NONE,
         arrival: ArrivalStages::NONE,
         handover_slot: None,
+        handover: None,
     }
 }
 

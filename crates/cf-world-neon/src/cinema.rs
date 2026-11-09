@@ -167,6 +167,7 @@ fn build_cinema_world(
     sheet: Option<Res<cf_render::ShowSheet>>,
     driver: Option<Res<crate::rider::driver::DriverView>>,
     dj_sign: Option<Res<crate::djsign::DjSignSettings>>,
+    handover: Option<Res<cf_render::HandoverFeed>>,
     car: Query<&AbsolutePosition, With<StreamFocus>>,
     mut world: ResMut<CinemaWorld>,
 ) {
@@ -222,6 +223,8 @@ fn build_cinema_world(
     world.show.drop_planned = runtime.is_some_and(|runtime| runtime.director().drop_plan().is_some());
     // L'enseigne du DJ est permise (`show.djSign`) : le plan `dj-sign` ne joue que si elle l'est, et il lui faut en plus le
     // sujet que `NeonWorld` publie quand l'enseigne est posée (J7-02).
+    // La passation de DJ : la voiture qui roule seule et le cadrage tiré pour cette passation (plan `handover`).
+    world.handover = handover.as_deref().and_then(|h| h.0);
     world.show.dj_sign = sheet.is_some_and(|s| s.dj_sign) && dj_sign.is_none_or(|s| s.enabled);
 }
 
