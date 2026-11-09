@@ -36,13 +36,19 @@ pub enum PanelKind {
     Dancer = 6,
     /// Rideau d'aurore.
     Aurora = 7,
+    /// Tronçon d'éclair : un ruban toujours tourné vers la caméra, noyau blanc et halo (le paramètre dit si c'est le canal
+    /// principal, `0`, ou une ramification, plus fine, `0,5`).
+    Bolt = 8,
 }
 
 impl PanelKind {
     /// Le panneau est de la lumière additive (couche « lumière »), sinon un corps opaque (couche « plein »).
     #[must_use]
     pub const fn is_light(self) -> bool {
-        matches!(self, Self::Rails | Self::Curtain | Self::Dancer | Self::Aurora)
+        matches!(
+            self,
+            Self::Rails | Self::Curtain | Self::Dancer | Self::Aurora | Self::Bolt
+        )
     }
 }
 

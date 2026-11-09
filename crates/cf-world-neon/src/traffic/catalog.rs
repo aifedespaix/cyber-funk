@@ -39,6 +39,14 @@ fn describe(name: EventName) -> (&'static str, &'static str) {
             "Saut de moto",
             "Une moto saute par-dessus la route, d'un immeuble à l'autre.",
         ),
+        EventName::DroneTour => (
+            "Visite en drone",
+            "La caméra devient un drone : il tourne autour de la voiture, entre dedans, en ressort.",
+        ),
+        EventName::DroneFormation => (
+            "Escadrille de drones",
+            "Des drones doublent la voiture et dessinent une forme à côté d'elle.",
+        ),
     }
 }
 
@@ -73,7 +81,9 @@ pub const fn category(name: EventName) -> EventCategory {
         | EventName::Toll
         | EventName::Refuel
         | EventName::Tunnel
-        | EventName::MotoJump => EventCategory::Car,
+        | EventName::MotoJump
+        | EventName::DroneTour
+        | EventName::DroneFormation => EventCategory::Car,
     }
 }
 

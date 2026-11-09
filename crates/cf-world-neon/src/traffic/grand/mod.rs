@@ -34,6 +34,8 @@ mod blackout;
 mod city_pulse;
 mod crossroad;
 mod dancer;
+mod drone_formation;
+mod drone_tour;
 mod fireworks;
 pub mod landmark;
 mod moto_jump;
@@ -61,6 +63,8 @@ use blackout::BlackoutEvent;
 use city_pulse::CityPulseEvent;
 use crossroad::CrossRoadEvent;
 use dancer::DancerEvent;
+use drone_formation::DroneFormationEvent;
+use drone_tour::DroneTourEvent;
 use fireworks::FireworksEvent;
 use moto_jump::MotoJumpEvent;
 use race::RaceEvent;
@@ -70,7 +74,7 @@ use tower::TowerEvent;
 use tunnel::TunnelEvent;
 
 /// Les événements du lot B, dans l'ordre de la fiche J7-05.
-pub const GRAND_EVENTS: [EventName; 13] = [
+pub const GRAND_EVENTS: [EventName; 15] = [
     EventName::Landmark,
     EventName::Aurora,
     EventName::Swarm,
@@ -84,6 +88,8 @@ pub const GRAND_EVENTS: [EventName; 13] = [
     EventName::Blackout,
     EventName::CityPulse,
     EventName::MotoJump,
+    EventName::DroneTour,
+    EventName::DroneFormation,
 ];
 
 /// L'immeuble-vitrine de secours quand J7-08 n'a rien inscrit.
@@ -121,6 +127,8 @@ pub fn grand_factories(landmarks: Option<LandmarkFactory>) -> Vec<(EventName, Ev
         (EventName::Blackout, factory(BlackoutEvent::new)),
         (EventName::CityPulse, factory(CityPulseEvent::new)),
         (EventName::MotoJump, factory(MotoJumpEvent::new)),
+        (EventName::DroneTour, factory(DroneTourEvent::new)),
+        (EventName::DroneFormation, factory(DroneFormationEvent::new)),
     ]
 }
 

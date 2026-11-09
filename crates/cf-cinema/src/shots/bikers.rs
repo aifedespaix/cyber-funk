@@ -9,6 +9,12 @@ use crate::subjects::{CamRig, RigRates, ahead_of, find_subject, heading, nearest
 use crate::types::{Cue, CueKind, ShotTier, TransitionKind};
 use crate::world::CinemaFrame;
 
+/// Une moto perchée sur un toit ou en plein saut (événement « saut de moto ») : à ras du sol, la caméra serait dans
+/// l'immeuble, on la filme donc depuis la chaussée, en regardant en l'air.
+fn is_jumper(subject: &Subject) -> bool {
+    subject.position.y > 10.0
+}
+
 fn biker<'a>(frame: &CinemaFrame<'a>) -> Option<&'a Subject> {
     nearest_subject(frame, &[SubjectKind::Bike], 0.0, 240.0, |s| {
         let ahead = ahead_of(frame, s.position);
@@ -51,6 +57,10 @@ impl ShotSpec for Bikers {
     fn opportunity(&self, frame: &CinemaFrame<'_>) -> f32 {
         let Some(target) = biker(frame) else { return 0.0 };
         let distance = target.position.distance(frame.car) as f32;
+        // Un saut de moto est un moment à voir : on y va dès qu'il est dans le champ, bien avant que la moto soit proche.
+        if is_jumper(target) && distance < 140.0 {
+            return 0.9;
+        }
         if distance < 55.0 {
             0.72 + (1.0 - distance / 55.0) * 0.2
         } else {
@@ -100,6 +110,17 @@ impl Shot for BikersShot {
         };
         self.elapsed += frame.dt;
         let dir = heading(target).as_dvec3();
+        if is_jumper(target) {
+            // Depuis la chaussée, une trentaine de mètres derrière la moto : on la voit traverser la route d'un toit à
+            // l'autre, au-dessus de nous. Le point de vue reste hors des immeubles (centre de la route).
+            let goal = DVec3::new(f64::from(self.side * 2.5), 3.0, target.position.z + 34.0);
+            let gaze = target.position + dir * -2.0;
+            let rates = RigRates { pos: 4.0, look: 7.0 };
+            self.rig
+                .track(frame.dt, goal, gaze, 62.0 + self.fov * 0.1, rates, 0.0, Vec3::Y);
+            self.rig.write(out);
+            return self.elapsed < 30.0;
+        }
         // Légèrement en avant de la moto : on la voit venir, ses traînées de lumière derrière elle.
         let mut goal = target.position + dir * f64::from(2.5 - self.elapsed * 0.15);
         goal.x += f64::from(self.side * self.gap);

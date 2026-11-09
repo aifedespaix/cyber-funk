@@ -14,6 +14,7 @@
 //! - **Coût** : une seule entité, quatre sommets, aucun spawn en régime établi. Le matériau est réécrit à chaque image
 //!   (temps, pouls) ; Bevy le re-prépare (un petit buffer d'uniformes), c'est tout.
 
+mod lamps;
 mod look;
 mod material;
 mod systems;
@@ -22,6 +23,7 @@ use bevy::prelude::*;
 use bevy::shader::Shader;
 use cf_render::{CfSet, WarmupAppExt, WorldLayer, WorldSet};
 
+pub use lamps::{CAR_LAMPS, LampInputs, MAX_LAMPS, RoadLamps, build_lamps};
 pub use look::{RoadLook, RoadPalette};
 pub use material::{RoadMaterial, RoadParams};
 pub use systems::{FrameInputs, build_params};

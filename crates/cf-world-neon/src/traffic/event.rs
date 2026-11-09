@@ -34,6 +34,20 @@ pub struct Focus {
     pub size: f32,
 }
 
+/// La caméra d'un événement qui filme lui-même (la visite en drone) : le plan `drone-pov` du réalisateur la prend telle
+/// quelle. Publiée comme sujet `Drone` (voir `TrafficDirector::collect_subjects`).
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct PovView {
+    /// Position de la caméra, absolue, m.
+    pub position: DVec3,
+    /// Direction du regard, unitaire.
+    pub forward: bevy::math::Vec3,
+    /// Vitesse de la caméra, m/s.
+    pub velocity: bevy::math::Vec3,
+    /// Champ de vision voulu, en degrés.
+    pub fov_deg: f32,
+}
+
 /// Les panneaux que le gestionnaire de la route prête aux événements (`SignLender` de `context.ts`) : le vaisseau
 /// publicitaire y prend ses écrans, les place lui-même à chaque image et les rend à sa fin.
 pub trait SignLender: fmt::Debug {
@@ -106,6 +120,12 @@ pub trait TrafficEvent: Send + Sync + fmt::Debug {
 
     /// Le centre et la taille de la structure, si l'événement en a une à filmer.
     fn focus(&self) -> Option<Focus> {
+        None
+    }
+
+    /// La caméra que l'événement impose au réalisateur, s'il en a une (visite en drone) : un sujet `Drone` est publié à
+    /// chaque image tant qu'elle existe.
+    fn pov(&self) -> Option<PovView> {
         None
     }
 

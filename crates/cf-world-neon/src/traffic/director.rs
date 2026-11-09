@@ -262,6 +262,16 @@ impl TrafficDirector {
             });
         });
         for a in &self.active {
+            if let Some(pov) = a.event.pov() {
+                push(Subject {
+                    id: STRUCTURE_ID_BASE + u64::from(a.uid),
+                    kind: SubjectKind::Drone,
+                    position: pov.position,
+                    velocity: pov.velocity,
+                    size: pov.fov_deg,
+                    facing: Some(pov.forward),
+                });
+            }
             if let Some(focus) = a.event.focus() {
                 push(Subject {
                     id: STRUCTURE_ID_BASE + u64::from(a.uid),

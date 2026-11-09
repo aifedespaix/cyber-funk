@@ -29,6 +29,7 @@ mod stunt;
 mod ad;
 mod bikers;
 mod dj_sign;
+mod drone_pov;
 mod impact;
 mod landmark;
 mod meteor;
@@ -39,6 +40,8 @@ mod ringworld;
 
 #[cfg(test)]
 mod tests;
+#[cfg(test)]
+mod tests_drone;
 #[cfg(test)]
 mod tests_flight;
 #[cfg(test)]
@@ -69,6 +72,7 @@ pub use stunt::StuntCam;
 pub use ad::AdGlance;
 pub use bikers::Bikers;
 pub use dj_sign::DjSign;
+pub use drone_pov::DronePov;
 pub use impact::MeteorImpactWatch;
 pub use landmark::LandmarkReveal;
 pub use meteor::MeteorRide;
@@ -122,6 +126,8 @@ pub fn catalog() -> Vec<Box<dyn ShotSpec>> {
         Box::new(MoonPass),
         Box::new(MeteorImpactWatch),
         Box::new(DjSign),
+        // Plan imposé par la visite en drone (événement du monde) : la caméra est le drone.
+        Box::new(DronePov),
         // --- fin du lot C ---
         // Plan imposé par le monde en attente de `Démarrer` : jamais tiré par le montage.
         Box::new(Waiting),

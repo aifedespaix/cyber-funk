@@ -41,6 +41,8 @@ const SCENARIO_SHOTS: &[&str] = &[
     "moon-pass",
     "meteor-impact-watch",
     "dj-sign",
+    // Imposé par la visite en drone du monde ; ses tests vivent dans `tests_drone.rs`.
+    "drone-pov",
     // Imposé par le monde en attente de `Démarrer` ; ses tests vivent dans `waiting.rs`.
     "waiting",
     // Imposé par le monde pendant un changement de DJ ; ses tests vivent dans `handover.rs`.
