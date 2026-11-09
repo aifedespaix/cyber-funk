@@ -127,11 +127,12 @@ pub(crate) struct SignAccess<'w> {
     road: Option<ResMut<'w, SignRoadRes>>,
 }
 
-/// `CfSet::Simulate`, avant `drive_traffic` : prend le plus ancien déclencheur du monde (`Action::Trigger`) et lance
-/// l'événement du trafic qu'il nomme, quelles que soient les portes du look (c'est l'opérateur qui le veut).
+/// `CfSet::Simulate`, avant `drive_traffic` : prend les déclencheurs du monde (`Action::Trigger`) que le trafic reconnaît
+/// et les remet au directeur, qui lance l'événement nommé quelles que soient les portes du look (c'est l'opérateur qui le
+/// veut), sous la seule règle de cohabitation.
 ///
-/// Un identifiant qui n'est pas un événement du trafic (une cascade, par exemple) n'est pas pris : il reste dans la file
-/// pour le système à qui il est destiné. Un seul déclencheur par image : `TrafficDirector::force` ne retient qu'un nom.
+/// Un identifiant qui n'est pas un événement du trafic (une cascade, par exemple) n'est pas pris, et ne bloque pas les
+/// suivants : il reste dans la file pour le système à qui il est destiné.
 ///
 /// Il applique aussi le mode manuel avant le pas du trafic : plus de tirage spontané, les déclencheurs passent.
 pub(crate) fn take_triggers(
@@ -144,16 +145,13 @@ pub(crate) fn take_triggers(
         director.set_spontaneous(spontaneous);
     }
     let Some(mut runtime) = runtime else { return };
-    let wanted = runtime
-        .director()
-        .state()
-        .orders
-        .trigger_pending()
-        .and_then(|id| EventName::from_slug(&id.0));
-    if let Some(name) = wanted
-        && runtime.director_mut().take_trigger().is_some()
-    {
-        director.force(name);
+    let is_traffic = |id: &cf_control::TriggerId| EventName::from_slug(&id.0).is_some();
+    // Tous les déclencheurs du trafic en attente, pas seulement le plus ancien de la file : la file du directeur retient
+    // les demandes forcées et les rend une à une.
+    while let Some(id) = runtime.director_mut().take_trigger_where(is_traffic) {
+        if let Some(name) = EventName::from_slug(&id.0) {
+            director.force(name);
+        }
     }
 }
 
@@ -289,10 +287,13 @@ pub(crate) fn drive_traffic(
 /// au registre des événements en cours, ceux qui ont fini en sortent. `listed` garde l'entrée de chaque événement
 /// (identifiant unique du directeur → entrée), réservée au départ : aucune allocation par image.
 pub(crate) fn publish_traffic_events(
-    director: Res<TrafficDirector>,
+    mut director: ResMut<TrafficDirector>,
     mut automation: Automation,
     mut listed: Local<Vec<(u32, cf_render::ActiveId)>>,
 ) {
+    for (name, reason) in director.take_refusals() {
+        automation.refuse(name.as_str(), reason);
+    }
     if !automation.publishing() {
         return;
     }

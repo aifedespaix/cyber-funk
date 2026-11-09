@@ -10,6 +10,7 @@ pub mod culling;
 mod debuglog;
 pub mod diagnostics;
 pub mod district;
+mod event_journal;
 mod events_catalog;
 mod graffiti_tuning;
 pub mod layers;
@@ -51,6 +52,9 @@ pub use diagnostics::{
     DiagnosticsPlugin, DiagnosticsSnapshot, ExportError, MeasurementSession, PassTiming, RenderScale, SessionRow,
 };
 pub use district::{DISTRICT_HISTORY, DistrictOrder, DistrictState};
+pub use event_journal::{
+    EventJournal, EventJournalPlugin, JournalEntry, JournalState, RefusalReason, UNCLAIMED_AFTER_S,
+};
 pub use events_catalog::{WorldEvent, WorldEventAppExt, WorldEventCatalog};
 pub use graffiti_tuning::{GraffitiTuning, GraffitiWords, MAX_GRAFFITI_DENSITY};
 pub use layers::{

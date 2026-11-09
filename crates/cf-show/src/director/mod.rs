@@ -308,6 +308,14 @@ impl<R: Rng> ShowDirector<R> {
         self.state.orders.take_trigger()
     }
 
+    /// Prend le plus ancien déclencheur que `wanted` reconnaît (les autres restent en file pour leur système).
+    pub fn take_trigger_where(
+        &mut self,
+        wanted: impl Fn(&cf_control::TriggerId) -> bool,
+    ) -> Option<cf_control::TriggerId> {
+        self.state.orders.take_trigger_where(wanted)
+    }
+
     /// Le drop préparé pendant une montée, lisible jusqu'à l'image où il frappe (`ShowState.drop` de Sillage).
     #[must_use]
     pub fn drop_plan(&self) -> Option<&DropPlan> {

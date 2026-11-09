@@ -74,14 +74,9 @@ pub(super) fn take_landmark_triggers(
     let (Some(mut runtime), Some(mut director)) = (runtime, director) else {
         return;
     };
-    let wanted = runtime
-        .director()
-        .state()
-        .orders
-        .trigger_pending()
-        .and_then(|id| kind_of(&id.0));
-    if let Some(kind) = wanted
-        && runtime.director_mut().take_trigger().is_some()
+    let is_landmark = |id: &cf_control::TriggerId| kind_of(&id.0).is_some();
+    if let Some(id) = runtime.director_mut().take_trigger_where(is_landmark)
+        && let Some(kind) = kind_of(&id.0)
     {
         handle.force(kind);
         director.force(EventName::Landmark);

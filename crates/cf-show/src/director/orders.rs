@@ -103,6 +103,21 @@ impl Orders {
         self.triggers[i].take().map(|(id, _)| id)
     }
 
+    /// Le plus ancien déclencheur en attente que `wanted` reconnaît, sans le consommer. Un identifiant inconnu du système
+    /// qui regarde ne bloque donc plus ceux qui le suivent dans la file.
+    #[must_use]
+    pub fn trigger_pending_where(&self, wanted: impl Fn(&TriggerId) -> bool) -> Option<&TriggerId> {
+        self.oldest_trigger_where(&wanted)
+            .and_then(|i| self.triggers[i].as_ref())
+            .map(|(id, _)| id)
+    }
+
+    /// Prend le plus ancien déclencheur que `wanted` reconnaît ; les autres restent pour leur propre système.
+    pub(crate) fn take_trigger_where(&mut self, wanted: impl Fn(&TriggerId) -> bool) -> Option<TriggerId> {
+        let i = self.oldest_trigger_where(&wanted)?;
+        self.triggers[i].take().map(|(id, _)| id)
+    }
+
     /// Fait vieillir les ordres de `dt` secondes ; les expirés disparaissent.
     pub(crate) fn tick(&mut self, dt: f32) {
         for left in &mut self.left {
@@ -118,6 +133,15 @@ impl Orders {
                 }
             }
         }
+    }
+
+    fn oldest_trigger_where(&self, wanted: &impl Fn(&TriggerId) -> bool) -> Option<usize> {
+        self.triggers
+            .iter()
+            .enumerate()
+            .filter_map(|(i, slot)| slot.as_ref().filter(|(id, _)| wanted(id)).map(|(_, left)| (i, *left)))
+            .min_by(|a, b| a.1.total_cmp(&b.1))
+            .map(|(i, _)| i)
     }
 
     /// Le déclencheur déposé le plus tôt (le moins de vie restante : tous partent de `ORDER_TTL`).
@@ -171,6 +195,25 @@ mod tests {
             .map(|id| id.0.to_string())
             .collect();
         assert_eq!(taken, ["b", "c", "d", "e"], "« a » a été remplacé par « e »");
+    }
+
+    #[test]
+    fn an_unknown_trigger_does_not_block_the_ones_behind_it() {
+        let mut orders = Orders::default();
+        orders.give_trigger(TriggerId::new("inconnu"));
+        orders.tick(0.01);
+        orders.give_trigger(TriggerId::new("chase"));
+        let chase = |id: &TriggerId| &*id.0 == "chase";
+        assert_eq!(orders.trigger_pending_where(chase).map(|id| &*id.0), Some("chase"));
+        assert_eq!(
+            orders.take_trigger_where(chase).map(|id| id.0.to_string()),
+            Some("chase".to_owned())
+        );
+        assert_eq!(
+            orders.trigger_pending().map(|id| &*id.0),
+            Some("inconnu"),
+            "il attend son système"
+        );
     }
 
     #[test]

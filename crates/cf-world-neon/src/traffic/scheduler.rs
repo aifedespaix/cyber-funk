@@ -10,6 +10,7 @@ use super::event::EventRegistry;
 use super::frame::TrafficFrame;
 use super::names::{EVENT_COUNT, EventName, MAX_PARALLEL, TITLE_WINDOW_S};
 use crate::pilot::rand::Rand;
+use cf_render::RefusalReason;
 
 /// Mémoire des derniers événements tirés (`history`) : on n'en répète aucun des deux derniers.
 const HISTORY: usize = 6;
@@ -238,8 +239,7 @@ impl Scheduler {
         recent: &[EventName],
         high: f32,
     ) -> bool {
-        let with = |other: EventName| running.iter().any(|r| r.name == other);
-        if !Self::allows(name, frame) || recent.contains(&name) || with(name) {
+        if !Self::allows(name, frame) || recent.contains(&name) || Self::conflict(name, running).is_some() {
             return true;
         }
         if frame.calm && !name.is_calm_ok() {
@@ -247,19 +247,32 @@ impl Scheduler {
         }
         // La voiture vole : l'escorte (au ras de la route), la nuée et le vaisseau publicitaire occupent des hauteurs
         // qui sont les siennes.
-        if name.max_car_altitude().is_some_and(|max| high > max) {
-            return true;
+        name.max_car_altitude().is_some_and(|max| high > max)
+    }
+
+    /// La règle de cohabitation, la seule : ce qui ne peut pas se superposer à ce qui tourne déjà. Le tirage l'applique
+    /// en plus de ses portes ; le forçage de l'opérateur ne s'en affranchit **pas** (il ne contourne que les portes et
+    /// le hasard), sinon deux structures se poseraient au même endroit.
+    #[must_use]
+    pub fn conflict(name: EventName, running: &[Running]) -> Option<RefusalReason> {
+        let with = |other: EventName| running.iter().any(|r| r.name == other);
+        if with(name) {
+            return Some(RefusalReason::AlreadyRunning);
+        }
+        if running.len() >= MAX_PARALLEL {
+            return Some(RefusalReason::TooManyParallel);
         }
         // Une structure ne se pose pas sur une autre ; un seul événement de ciel à la fois.
         if name.is_structure_kind() && running.iter().any(|r| r.structure) {
-            return true;
+            return Some(RefusalReason::StructureBusy);
         }
         if name.is_sky() && running.iter().any(|r| r.name.is_sky()) {
-            return true;
+            return Some(RefusalReason::SkyBusy);
         }
         // Le titre holographique et l'aurore se disputent le haut du ciel.
-        (name == EventName::HoloTitle && with(EventName::Aurora))
-            || (name == EventName::Aurora && with(EventName::HoloTitle))
+        ((name == EventName::HoloTitle && with(EventName::Aurora))
+            || (name == EventName::Aurora && with(EventName::HoloTitle)))
+        .then_some(RefusalReason::SkyClash)
     }
 
     /// Tire un événement parmi ceux que la situation permet, au poids de tirage (`choose`).

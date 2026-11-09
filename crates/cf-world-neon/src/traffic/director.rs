@@ -7,7 +7,7 @@
 
 use bevy::ecs::resource::Resource;
 use bevy::math::Vec3;
-use cf_render::{EventOrigin, Subject, SubjectKind};
+use cf_render::{EventOrigin, RefusalReason, Subject, SubjectKind};
 
 use super::air_lanes::AirLanes;
 use super::event::{EventCtx, EventRegistry, SignLender, TrafficEvent};
@@ -36,6 +36,19 @@ const AIR_MAX_X_M: f64 = 14.0;
 const AIR_AHEAD_M: f64 = 50.0;
 const AIR_BEHIND_M: f64 = 190.0;
 
+/// Combien d'événements forcés attendent au plus leur tour. Au-delà, le plus récent est refusé (et dit).
+const FORCED_QUEUE: usize = 4;
+/// Un événement forcé que l'arche voisine empêche attend au plus ce temps (s) avant d'être refusé.
+const FORCED_WAIT_S: f32 = 6.0;
+
+/// Un événement forcé en attente de son tour.
+#[derive(Debug, Clone, Copy)]
+struct Forced {
+    name: EventName,
+    /// Temps déjà attendu (s).
+    waited_s: f32,
+}
+
 struct ActiveEvent {
     name: EventName,
     event: Box<dyn TrafficEvent>,
@@ -62,8 +75,10 @@ pub struct TrafficDirector {
     rng: Rand,
     active: Vec<ActiveEvent>,
     uids: u32,
-    /// Événement demandé de force (outil de développement) : tiré à l'image suivante.
-    forced: Option<EventName>,
+    /// Événements demandés de force (opérateur, MIDI, outil) : file bornée, un lancement par image.
+    forced: Vec<Forced>,
+    /// Refus de la dernière image, vidés par [`TrafficDirector::take_refusals`] (tampon réutilisé).
+    refusals: Vec<(EventName, RefusalReason)>,
     /// Une cascade de la voiture est en cours : plus d'événements aléatoires.
     held: bool,
     /// Faux en mode manuel : plus de tirage spontané (l'ordre de l'opérateur et les déclencheurs passent).
@@ -103,7 +118,8 @@ impl TrafficDirector {
             rng: Rand::new(seed),
             active: Vec::with_capacity(MAX_PARALLEL + 1),
             uids: 0,
-            forced: None,
+            forced: Vec::with_capacity(FORCED_QUEUE),
+            refusals: Vec::with_capacity(FORCED_QUEUE + 2),
             held: false,
             spontaneous: true,
             bar: 0,
@@ -137,9 +153,25 @@ impl TrafficDirector {
         self.active.iter().map(|a| (a.uid, a.name, a.origin))
     }
 
-    /// Outil de développement : lance cet événement à la prochaine image, quelles que soient les portes.
+    /// Demande ce lancement de force : il passe les portes du look et le hasard, **pas** la règle de cohabitation
+    /// (voir [`Scheduler::conflict`]). La file garde l'ordre des demandes ; pleine, la nouvelle demande est refusée.
     pub fn force(&mut self, name: EventName) {
-        self.forced = Some(name);
+        if self.forced.len() >= FORCED_QUEUE {
+            self.refusals.push((name, RefusalReason::TooManyParallel));
+        } else {
+            self.forced.push(Forced { name, waited_s: 0.0 });
+        }
+    }
+
+    /// Les demandes forcées qui attendent encore leur tour.
+    #[must_use]
+    pub fn forced_waiting(&self) -> usize {
+        self.forced.len()
+    }
+
+    /// Vide les refus de l'image : l'événement et la raison. Le système Bevy les inscrit au journal.
+    pub fn take_refusals(&mut self) -> std::vec::Drain<'_, (EventName, RefusalReason)> {
+        self.refusals.drain(..)
     }
 
     /// Les événements en cours.
@@ -278,12 +310,17 @@ impl TrafficDirector {
             if frame.playing {
                 self.lanes.update(frame.dt, &mut ctx);
             }
-            if frame.playing && !self.held {
+            if self.held {
+                // Une cascade a la ville : les demandes forcées ne se perdent pas en silence, elles sont refusées.
+                for forced in self.forced.drain(..) {
+                    self.refusals.push((forced.name, RefusalReason::Held));
+                }
+            } else if frame.playing {
                 Self::schedule(
                     &mut self.scheduler,
                     &mut self.active,
                     &mut self.uids,
-                    &mut self.forced,
+                    (&mut self.forced, &mut self.refusals),
                     registry,
                     link,
                     (bar_started, self.spontaneous),
@@ -346,7 +383,7 @@ impl TrafficDirector {
         scheduler: &mut Scheduler,
         active: &mut Vec<ActiveEvent>,
         uids: &mut u32,
-        forced: &mut Option<EventName>,
+        (forced, refusals): (&mut Vec<Forced>, &mut Vec<(EventName, RefusalReason)>),
         registry: &mut EventRegistry,
         link: &mut dyn ShowLink,
         (bar_started, spontaneous): (bool, bool),
@@ -364,24 +401,33 @@ impl TrafficDirector {
                 structure: a.event.structure(),
             };
         }
-        // Le forçage (déclencheur, outil) et l'ordre de l'opérateur passent toujours ; le tirage, seulement en automatique.
-        let next = forced
-            .take()
-            .or_else(|| scheduler.ordered(frame, &running[..n], registry, link, ctx.rng))
+        let running = &running[..n];
+        // Le forçage (déclencheur, outil) et l'ordre de l'opérateur passent les portes et le hasard, jamais la règle de
+        // cohabitation : un refus est dit (journal), jamais avalé.
+        let forced_now = Self::next_forced(forced, refusals, running, frame);
+        let next = forced_now
+            .or_else(|| scheduler.ordered(frame, running, registry, link, ctx.rng))
             .map(|name| (name, EventOrigin::Manual))
             .or_else(|| {
                 spontaneous
-                    .then(|| scheduler.drawn(frame, &running[..n], registry, link, bar_started, ctx.rng))
+                    .then(|| scheduler.drawn(frame, running, registry, link, bar_started, ctx.rng))
                     .flatten()
                     .map(|name| (name, EventOrigin::Auto))
             });
         let Some((name, origin)) = next else { return };
-        // Une structure ne se pose pas sur une arche-immeuble : on retente un peu plus tard.
-        if name.is_structure_kind() && is_near_bridge(frame.car.z - BRIDGE_BACK_M, BRIDGE_MARGIN_M) {
+        // Une structure tirée ne se pose pas sur une arche-immeuble : on retente un peu plus tard. (Le forçage a déjà
+        // patienté dans `next_forced`.)
+        if forced_now.is_none()
+            && name.is_structure_kind()
+            && is_near_bridge(frame.car.z - BRIDGE_BACK_M, BRIDGE_MARGIN_M)
+        {
             scheduler.postponed();
             return;
         }
         let Some(event) = registry.create(name, ctx) else {
+            if origin == EventOrigin::Manual {
+                refusals.push((name, RefusalReason::NotBuildable));
+            }
             return;
         };
         scheduler.started(name, frame, link, ctx.rng);
@@ -392,6 +438,40 @@ impl TrafficDirector {
             uid: *uids,
             origin,
         });
+    }
+
+    /// Le prochain événement forcé qui peut partir maintenant, s'il y en a un. Un événement incompatible avec ce qui
+    /// tourne est refusé avec sa raison ; une structure que l'arche voisine gêne patiente (la voiture avance), puis est
+    /// refusée au bout de [`FORCED_WAIT_S`].
+    fn next_forced(
+        forced: &mut Vec<Forced>,
+        refusals: &mut Vec<(EventName, RefusalReason)>,
+        running: &[Running],
+        frame: &TrafficFrame<'_>,
+    ) -> Option<EventName> {
+        let mut i = 0;
+        while i < forced.len() {
+            let Forced { name, waited_s } = forced[i];
+            if let Some(reason) = Scheduler::conflict(name, running) {
+                forced.remove(i);
+                refusals.push((name, reason));
+                continue;
+            }
+            if name.is_structure_kind() && is_near_bridge(frame.car.z - BRIDGE_BACK_M, BRIDGE_MARGIN_M) {
+                let waited_s = waited_s + frame.dt;
+                if waited_s >= FORCED_WAIT_S {
+                    forced.remove(i);
+                    refusals.push((name, RefusalReason::NearBridge));
+                    continue;
+                }
+                forced[i].waited_s = waited_s;
+                i += 1;
+                continue;
+            }
+            forced.remove(i);
+            return Some(name);
+        }
+        None
     }
 
     /// Ce que les événements en cours publient pour la voiture et la ville, une fois leur image calculée.

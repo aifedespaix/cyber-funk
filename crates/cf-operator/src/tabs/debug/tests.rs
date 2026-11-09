@@ -463,6 +463,7 @@ fn the_tab_draws_headless_and_a_frame_without_click_does_nothing() {
                 mode: crate::OperatorMode::Preparation,
                 catalog: Some(&catalog),
                 active: Some(&active),
+                journal: None,
                 manual: Some(false),
                 now_s: 4.0,
                 settings: None,

@@ -280,6 +280,108 @@ fn refused_trigger_is_not_listed_as_active() {
         .trigger_pending()
         .is_some();
     assert!(!pending, "le déclencheur a bien été pris");
+    assert_eq!(
+        journal(&app),
+        [(
+            "chase".to_owned(),
+            cf_render::JournalState::Refused(cf_render::RefusalReason::NotBuildable)
+        )],
+        "le refus doit être dit, pas avalé"
+    );
+}
+
+/// Les lignes du journal : identifiant et état.
+fn journal(app: &App) -> Vec<(String, cf_render::JournalState)> {
+    app.world()
+        .resource::<cf_render::EventJournal>()
+        .iter()
+        .map(|e| (e.event_id.clone(), e.state))
+        .collect()
+}
+
+#[test]
+fn two_compatible_triggers_in_the_same_frame_both_start() {
+    // Avant : le directeur ne retenait qu'un nom forcé, le second écrasait le premier.
+    let mut app = traffic_app(true, true);
+    for i in 0..5 {
+        frame(&mut app, i);
+    }
+    trigger(&mut app, "chase");
+    trigger(&mut app, "storm");
+    until(&mut app, 5, 6.0, |app| listed(app).len() == 2).expect("les deux événements ne partent pas");
+    let mut ids: Vec<_> = listed(&app).iter().map(|e| e.0).collect();
+    ids.sort_unstable();
+    assert_eq!(ids, ["chase", "storm"]);
+}
+
+#[test]
+fn an_unknown_trigger_does_not_block_the_next_one() {
+    // Avant : seul le plus ancien de la file était regardé ; un identifiant inconnu bloquait tout pendant 3 s.
+    let mut app = traffic_app(true, true);
+    for i in 0..5 {
+        frame(&mut app, i);
+    }
+    trigger(&mut app, "n-importe-quoi");
+    trigger(&mut app, "chase");
+    until(&mut app, 5, 1.0, |app| !listed(app).is_empty()).expect("la poursuite est restée derrière l'inconnu");
+}
+
+#[test]
+fn a_forced_structure_is_refused_with_its_reason_while_another_holds_the_road() {
+    let mut app = traffic_app(true, true);
+    for i in 0..5 {
+        frame(&mut app, i);
+    }
+    trigger(&mut app, "landmark:arcade");
+    let seen = until(&mut app, 5, 5.0, |app| !listed(app).is_empty()).expect("l'immeuble ne part pas");
+    trigger(&mut app, "tower");
+    for i in seen + 1..seen + 1 + frames(1.0) {
+        frame(&mut app, i);
+    }
+    assert_eq!(
+        listed(&app),
+        [("landmark", EventCategory::Building, EventOrigin::Manual)],
+        "la tour ne doit pas se superposer à l'immeuble"
+    );
+    let tower = journal(&app).into_iter().find(|(id, _)| id == "tower");
+    assert_eq!(
+        tower.map(|(_, state)| state),
+        Some(cf_render::JournalState::Refused(
+            cf_render::RefusalReason::StructureBusy
+        )),
+        "{:?}",
+        journal(&app)
+    );
+}
+
+#[test]
+fn a_started_trigger_is_journaled_as_started() {
+    let mut app = traffic_app(true, true);
+    for i in 0..5 {
+        frame(&mut app, i);
+    }
+    trigger(&mut app, "chase");
+    until(&mut app, 5, 5.0, |app| !listed(app).is_empty()).expect("la poursuite ne part pas");
+    assert_eq!(journal(&app), [("chase".to_owned(), cf_render::JournalState::Started)]);
+}
+
+#[test]
+fn a_trigger_nobody_recognises_ends_up_unclaimed() {
+    let mut app = traffic_app(true, true);
+    for i in 0..5 {
+        frame(&mut app, i);
+    }
+    trigger(&mut app, "n-importe-quoi");
+    for i in 5..5 + frames(5.0) {
+        frame(&mut app, i);
+    }
+    assert_eq!(
+        journal(&app),
+        [(
+            "n-importe-quoi".to_owned(),
+            cf_render::JournalState::Refused(cf_render::RefusalReason::Unclaimed)
+        )]
+    );
 }
 
 // ---------------------------------------------------------------------------------------------------------------------

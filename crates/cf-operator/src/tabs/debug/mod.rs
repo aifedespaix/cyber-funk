@@ -21,6 +21,7 @@ mod graffiti;
 #[cfg(test)]
 mod graffiti_tests;
 mod grid;
+mod journal;
 mod lane;
 mod pad;
 mod persist;
@@ -40,7 +41,8 @@ use cf_cinema::{CinemaDirector, ShotOrder};
 use cf_control::Action;
 use cf_render::{
     ActiveEvents, ActiveId, CarSelection, DistrictGradeState, DistrictOrder, DistrictState, EventCategory,
-    FacadeTuning, GradeLibrary, GraffitiTuning, GraffitiWords, Settings, SimClock, WorldAutomation, WorldEventCatalog,
+    EventJournal, FacadeTuning, GradeLibrary, GraffitiTuning, GraffitiWords, Settings, SimClock, WorldAutomation,
+    WorldEventCatalog,
 };
 use cf_show::persist::AppSettings;
 
@@ -116,6 +118,8 @@ pub(crate) struct DebugView<'a> {
     pub mode: OperatorMode,
     pub catalog: Option<&'a WorldEventCatalog>,
     pub active: Option<&'a ActiveEvents>,
+    /// Le journal des demandes (bandeau du bas).
+    pub journal: Option<&'a EventJournal>,
     pub manual: Option<bool>,
     /// Temps de simulation (s), celui de `ActiveEvents`.
     pub now_s: f64,
@@ -155,9 +159,20 @@ pub(crate) fn draw(ui: &mut egui::Ui, view: &mut DebugView<'_>) {
         plan.refresh(catalog, filter, pinned);
     }
     ui.separator();
-    let (grid_rect, dock_rect) = split_dock(ui.available_rect_before_wrap(), DOCK_WIDTH, GAP);
+    let mut body = ui.available_rect_before_wrap();
+    // Le bandeau du journal prend le bas ; sur une fenêtre basse, la grille garde toute la place.
+    let journal_rect = (body.height() >= journal::MIN_HEIGHT_FOR_JOURNAL).then(|| {
+        let top = body.bottom() - journal::JOURNAL_HEIGHT;
+        let rect = egui::Rect::from_min_max(egui::pos2(body.left(), top), body.max);
+        body.max.y = top - GAP;
+        rect
+    });
+    let (grid_rect, dock_rect) = split_dock(body, DOCK_WIDTH, GAP);
     grid::draw_grid(ui, grid_rect, view);
     in_rect(ui, dock_rect, |ui| dock::draw_dock(ui, view));
+    if let Some(rect) = journal_rect {
+        in_rect(ui, rect, |ui| journal::draw(ui, view.journal));
+    }
 }
 
 /// Applique les gestes qui touchent l'automatisme, le registre et les réglages de l'interface ; les autres (quartiers,
@@ -275,6 +290,7 @@ pub(crate) fn apply_world_gestures(
 pub(crate) struct DebugParams<'w> {
     state: ResMut<'w, DebugState>,
     catalog: Option<Res<'w, WorldEventCatalog>>,
+    journal: Option<Res<'w, EventJournal>>,
     settings: Option<ResMut<'w, Settings>>,
     district: Option<Res<'w, DistrictState>>,
     grades: Option<Res<'w, DistrictGradeState>>,
@@ -306,6 +322,7 @@ pub(crate) fn show(
     let DebugParams {
         state,
         catalog,
+        journal,
         settings,
         district,
         grades,
@@ -323,6 +340,7 @@ pub(crate) fn show(
             mode,
             catalog: catalog.as_deref(),
             active: shared.active.as_deref(),
+            journal: journal.as_deref(),
             manual: shared.automation.as_deref().map(|a| a.manual),
             now_s: shared.clock.map_or(0.0, SimClock::sim_s),
             settings: settings.as_deref().map(|s| &s.value),

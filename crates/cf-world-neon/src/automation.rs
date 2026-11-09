@@ -17,7 +17,10 @@
 
 use bevy::ecs::system::SystemParam;
 use bevy::prelude::*;
-use cf_render::{ActiveEvent, ActiveEvents, ActiveId, EventCategory, EventOrigin, SimClock, WorldAutomation};
+use cf_render::{
+    ActiveEvent, ActiveEvents, ActiveId, EventCategory, EventJournal, EventOrigin, RefusalReason, SimClock,
+    WorldAutomation,
+};
 
 /// Les directeurs qui lancent des événements d'eux-mêmes et lisent [`WorldAutomation`]. Un directeur ajouté ici doit
 /// avoir ses trois tests dans `automation_tests.rs` (`every_known_director_is_covered` compare les deux listes).
@@ -69,6 +72,7 @@ pub struct Automation<'w, 's> {
     switch: Option<Res<'w, WorldAutomation>>,
     events: Option<ResMut<'w, ActiveEvents>>,
     clock: Option<Res<'w, SimClock>>,
+    journal: Option<ResMut<'w, EventJournal>>,
     tracked: Local<'s, Tracked>,
 }
 
@@ -113,6 +117,9 @@ impl Automation<'_, '_> {
         duration_s: Option<f64>,
     ) -> Option<ActiveId> {
         let started_s = self.clock.as_deref().map_or(0.0, SimClock::sim_s);
+        if let Some(journal) = self.journal.as_deref_mut() {
+            journal.started(started_s, event_id, origin);
+        }
         let events = self.events.as_deref_mut()?;
         Some(events.begin(ActiveEvent {
             id: ActiveId::UNSET,
@@ -123,6 +130,14 @@ impl Automation<'_, '_> {
             started_s,
             duration_s,
         }))
+    }
+
+    /// Dit au journal qu'un événement demandé n'a pas été lancé, et pourquoi.
+    pub fn refuse(&mut self, event_id: &str, reason: RefusalReason) {
+        let at_s = self.clock.as_deref().map_or(0.0, SimClock::sim_s);
+        if let Some(journal) = self.journal.as_deref_mut() {
+            journal.refused(at_s, event_id, reason);
+        }
     }
 
     /// Retire un événement fini (sans effet s'il a déjà expiré ou été retiré par l'interface).

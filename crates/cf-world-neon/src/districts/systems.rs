@@ -50,16 +50,11 @@ pub fn take_district_triggers(
     mut drawn: Local<u64>,
 ) {
     let Some(mut runtime) = runtime else { return };
-    let wanted = runtime
-        .director()
-        .state()
-        .orders
-        .trigger_pending()
-        .and_then(|id| kind_of(&id.0));
-    let Some(kind) = wanted else { return };
-    if runtime.director_mut().take_trigger().is_none() {
+    let is_district = |id: &cf_control::TriggerId| kind_of(&id.0).is_some();
+    let Some(id) = runtime.director_mut().take_trigger_where(is_district) else {
         return;
-    }
+    };
+    let Some(kind) = kind_of(&id.0) else { return };
     *drawn += 1;
     let count = grades.as_deref().map_or(1, |g| g.library().variants(kind)).max(1);
     let last = brain
