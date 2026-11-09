@@ -230,6 +230,31 @@ la main les événements du monde et à voir ce qui tourne.
 
 L'ancienne fenêtre flottante « Debug monde » (`F4`) n'existe plus : son contenu est dans cet onglet.
 
+**Tester un événement seul : le bac à sable.** Sous la barre du haut de l'onglet Debug :
+
+- **🧹 Tout nettoyer** arrête tous les événements en cours, remet la timeline à zéro et passe en mode manuel : rien ne
+  revient tout seul.
+- **Quartier vide** : la route seule, sans immeubles, enseignes ni graffitis.
+- **Voiture** : Arrêt, Rampant (10 %), Lent (30 %), Moitié, Normal, ou le curseur. Seule la voiture ralentit ; les
+  événements gardent leur temps. Un immeuble naît devant la voiture : à l'arrêt, il apparaît mais la voiture ne vient
+  pas à lui (caméra libre, ou vitesse lente).
+- **⏸ Pause** : les événements cliqués pendant la pause sont **armés** (jusqu'à 8) et partent tous ensemble à la reprise.
+- **Maj + clic** sur un événement le lance **seul** (nettoyage, mode manuel, puis l'événement).
+
+**Cohabitation.** Un clic respecte les règles du monde : jamais deux structures en même temps, un seul événement de ciel,
+deux événements au plus, et une structure attend (6 s au plus) si une arche est trop proche. Un événement refusé n'est
+plus perdu : le bandeau **Journal** (en bas) dit pourquoi (« une structure occupe déjà la route », « une arche est trop
+proche », « personne n'a pris la demande »…).
+
+**Événements grisés.** `assets/districts/affinity.ron` dit dans quels quartiers chaque événement a sa place (rien = partout).
+Hors de son quartier, une puce est grisée (`○`) : le tirage automatique ne la choisit pas, mais un clic la force pour juger
+du rendu. Pour l'autoriser dans un quartier, modifier ce fichier (ou le demander à un agent).
+
+**Timeline.** Le bandeau **Timeline** montre la séquence jouée de la seconde 0 à la fin du dernier événement : une piste par
+colonne, une barre colorée nommée par événement (plus claire tant qu'il tourne), une tête de lecture. **↻ Rejouer** nettoie
+puis relance les mêmes demandes aux mêmes instants ; **📋 Copier le rapport** met dans le presse-papiers ce qui a tourné,
+quand, et ce qui a été refusé (avec la raison) : à coller tel quel dans une demande à un agent.
+
 **Quartiers.** La colonne montre le quartier courant et sa variante de couleurs (« Banlieue, variante 2 »), le quartier
 visé pendant une transition avec une barre de progression, la raison de la dernière décision de l'automatique (par
 exemple « bloqué : drop imminent ») et les 5 derniers quartiers, du plus récent au plus ancien. Les commandes :
