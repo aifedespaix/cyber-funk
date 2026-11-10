@@ -204,6 +204,7 @@ pub struct DensityInput {
     pub breathing: bool,
 }
 
+#[allow(clippy::struct_excessive_bools, reason = "quatre bascules d'état indépendantes du creux et de l'épure")]
 /// Calcule `Δ`. Aucune allocation : l'état tient dans des tableaux de taille fixe.
 #[derive(Debug, Clone)]
 pub struct DensityConductor {
