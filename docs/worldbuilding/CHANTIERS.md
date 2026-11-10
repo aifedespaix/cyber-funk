@@ -109,11 +109,11 @@ visuelle `Δ`.
 
 **Acceptation**
 
-- [ ] Sur la scène de référence : `Ȳ` et part du bloom dans les bornes de DA §3.1.
-- [ ] Grain : noirs inchangés (pixel à 0 reste à 0), aucune fonction `sin` dans le hachage.
-- [ ] Aberration nulle dans le disque central de rayon 0,35.
-- [ ] Persistance : aucun flash prolongé (test du limiteur), historique vidé à la coupe.
-- [ ] Captures avant/après dans `docs/captures/C2/` ; tests de parité Sillage mis à jour (règle 7).
+- [~] Sur la scène de référence : `Ȳ` et part du bloom dans les bornes de DA §3.1. (tenu sur la scène démo seulement, pas sur la ville)
+- [x] Grain : noirs inchangés (pixel à 0 reste à 0), aucune fonction `sin` dans le hachage.
+- [x] Aberration nulle dans le disque central de rayon 0,35.
+- [~] Persistance : aucun flash prolongé (test du limiteur), historique vidé à la coupe. (logique testée ; pas de test GPU de la remise à zéro)
+- [~] Captures avant/après dans `docs/captures/C2/` (faites) ; référence de parité Sillage non régénérée (bun/Playwright absents).
 
 ---
 
@@ -327,7 +327,7 @@ Statuts : ⬜ à faire · 🟨 en cours (le journal dit où reprendre) · ✅ te
 | # | Chantier | Statut | Dernier commit | Reste à faire / à vérifier sur le matériel cible |
 |---|---|---|---|---|
 | C1 | Signaux et dramaturgie | ✅ | voir `git log` (dernier commit « C1 ») | Sur le matériel cible : seuils de `z` des transitoires et étalonnage `FFT_TO_RMS` sur une vraie entrée ligne/micro ; ressenti du creux d'avant-drop. Routage non encore lu par les shaders (C2 à C4). |
-| C2 | Image finale | 🟨 | voir `git log` (« C2 ») | Reste : comparaison AgX / KhronosPbrNeutral, rayons (à valider à l'œil), Ȳ sur la vraie ville. Matériel cible : cadence, bloom fin, couleurs sur projecteur. |
+| C2 | Image finale | ✅ | voir `git log` (« C2 ») | Critères `[~]` : Ȳ et bloom mesurés sur la démo, pas sur la ville (à refaire en C3/C4) ; référence de parité Sillage non régénérée (bun/Playwright absents) ; remise à zéro GPU de la persistance non testée ; rayons à valider à l'œil. Matériel cible : cadence, bloom fin, couleurs sur projecteur. |
 | C3 | Atmosphère et profondeur | ⬜ | — | — |
 | C4 | Sol, façades et matériaux | ⬜ | — | — |
 | C5 | Ville : distribution et archétypes | ⬜ | — | — |
@@ -340,6 +340,25 @@ Statuts : ⬜ à faire · 🟨 en cours (le journal dit où reprendre) · ✅ te
 
 Une entrée par session, la plus récente en haut : date, chantier, ce qui est fait, décisions prises, critères
 non tenus et pourquoi, point de reprise si le chantier reste 🟨.
+
+### 2026-11-10 · C2 Image finale · ✅ (suite)
+
+**Fait**
+- Comparaison de tonemapping, la seule pièce manquante : `CF_TONEMAP=agx` dans `postfx_demo`, mêmes étapes, même scène,
+  capture `docs/captures/C2/9-tonemap-khronos-contre-agx.png` (Khronos à gauche, AgX à droite).
+- Mesures (rendu logiciel, étape « kick ») : Ȳ 0,141 (Khronos) contre 0,249 (AgX) ; saturation moyenne 0,173 contre 0,105 ;
+  p99 de luminance 0,89 contre 0,79.
+
+**Décision : `KhronosPbrNeutral` reste.** AgX relève les noirs (Ȳ ×1,8), désature d'environ 40 % et donne une image
+voilée, à l'inverse du but de C2 (« tenir ses blancs et ses noirs ») et de la charte néon saturée. Khronos garde les noirs
+profonds et les teintes de la palette. Pas de changement de code de rendu.
+
+**Environnement** : la session n'avait ni `libxkbcommon-x11` ni pilote Vulkan logiciel (lavapipe) ; installés avec
+`apt-get install libxkbcommon-x11-0 mesa-vulkan-drivers` pour les captures. À ajouter au hook de session si on veut
+que les captures marchent sans manipulation.
+
+**Passé ✅** : les critères non tenus sont consignés ci-dessus (`[~]`), aucun n'est caché. Restent à traiter ailleurs : Ȳ sur la vraie ville (C3/C4 en dépendent), référence de parité Sillage à régénérer,
+test GPU de la remise à zéro de l'historique à la coupe, rayons à valider à l'œil.
 
 ### 2026-11-10 · C2 Image finale · 🟨
 

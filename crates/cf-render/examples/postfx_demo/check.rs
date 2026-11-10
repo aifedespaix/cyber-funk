@@ -269,7 +269,10 @@ const RED_PATCH: ((u32, u32), (u32, u32)) = ((320, 262), (340, 278));
 /// Juste sous l'arête néon de la première boîte de gauche : du halo, pas de néon.
 const NEAR_NEON: ((u32, u32), (u32, u32)) = ((268, 33), (300, 42));
 
-#[allow(clippy::too_many_lines, reason = "une suite de verdicts à plat vaut mieux que dix fonctions d'une ligne")]
+#[allow(
+    clippy::too_many_lines,
+    reason = "une suite de verdicts à plat vaut mieux que dix fonctions d'une ligne"
+)]
 fn evaluate(check: &Check) -> AppExit {
     let mut ok = check.failed.is_empty();
     let mut verdict = |pass: bool, what: String| {

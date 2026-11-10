@@ -25,15 +25,14 @@ mod json;
 
 use std::time::Duration;
 
-use bevy::math::DVec3;
 use bevy::core_pipeline::tonemapping::Tonemapping;
+use bevy::math::DVec3;
 use bevy::prelude::*;
 use bevy::time::TimeUpdateStrategy;
 use bevy::window::{PresentMode, WindowResolution};
 use cf_render::{
-    Compositor,
-    AudioFeatures, BackgroundLayer, CameraPose, CfSet, CorePlugin, CurrentShowFx, LayersPlugin, LensWeather,
-    OverlayLayer, PostFxPlugin, PostFxSettings, ShowFxInput, WorldLayer,
+    AudioFeatures, BackgroundLayer, CameraPose, CfSet, Compositor, CorePlugin, CurrentShowFx, LayersPlugin,
+    LensWeather, OverlayLayer, PostFxPlugin, PostFxSettings, ShowFxInput, WorldLayer,
 };
 use cf_show::drop::DropFxPackage;
 
