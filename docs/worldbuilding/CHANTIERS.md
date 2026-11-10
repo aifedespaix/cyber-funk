@@ -371,6 +371,8 @@ non tenus et pourquoi, point de reprise si le chantier reste 🟨.
 - Tests de parité Sillage : pas de test automatique cassé, mais pas de nouvelle référence régénérée (bun/Playwright absents).
 - Pas de test d'historique vidé à la coupe côté GPU (seulement la logique `Persistence`, testée).
 
+**Tests rouges hors périmètre** (aucun fichier touché par C2) : `cf-operator` shot_names, `cf-world-neon` signs::golden (3), tests `signs` (2) et `sky` (2), et `cf-audio` `player` (`reordering_the_list…`, probablement sans carte son). Non confirmés sur un `main` propre. `cf-render` et `cf-cinema` sont verts, clippy du workspace aussi.
+
 **Reprise** : AgX en capture côte à côte, régénérer la référence Sillage, vérifier la persistance avec un vrai défilement, puis passer ✅.
 
 ### 2026-11-10 · C1 Signaux et dramaturgie · ✅
