@@ -109,22 +109,22 @@ impl Chain {
     }
 
     /// Le signal d'entrée de la route, avant la chaîne.
-    fn input(&mut self, f: &Frame<'_>) -> f32 {
-        let a = f.features;
-        let b = &a.sub_bands;
+    fn input(&mut self, frame: &Frame<'_>) -> f32 {
+        let audio = frame.features;
+        let bands = &audio.sub_bands;
         if let Detector::Flux { z } = self.route.detector {
             let score = match self.route.source {
-                Source::Punch | Source::SubBass => a.z_pb,
-                Source::Transient => a.z_tr,
-                _ => a.hfc_z,
+                Source::Punch | Source::SubBass => audio.z_pb,
+                Source::Transient => audio.z_tr,
+                _ => audio.hfc_z,
             };
             return sat((score - z) / FLUX_SPAN);
         }
         if matches!(self.route.detector, Detector::Spectrum { .. }) {
-            return a.spectrum.iter().sum::<f32>() / a.spectrum.len() as f32;
+            return audio.spectrum.iter().sum::<f32>() / audio.spectrum.len() as f32;
         }
         let band = |rms: f32, chain: &mut Self| {
-            let x = chain.agc.step(rms * rms, f.dt);
+            let x = chain.agc.step(rms * rms, frame.dt);
             let x = match chain.route.curve {
                 Curve::Linear => x,
                 Curve::Pow(g) => curve_pow(x, g),
@@ -137,15 +137,15 @@ impl Chain {
             }
         };
         match self.route.source {
-            Source::SubBass => band(b.sb, self),
-            Source::Punch => band(b.pb, self),
-            Source::LowMid => band(b.lm, self),
-            Source::HighMid => band(b.hm, self),
-            Source::Transient => band(b.tr, self),
-            Source::Slow => sat(a.intensity),
-            Source::Fast => sat(a.flux),
-            Source::Phase => (f.bar_phase * 4.0).rem_euclid(1.0),
-            Source::Bar => f.bar_phase,
+            Source::SubBass => band(bands.sb, self),
+            Source::Punch => band(bands.pb, self),
+            Source::LowMid => band(bands.lm, self),
+            Source::HighMid => band(bands.hm, self),
+            Source::Transient => band(bands.tr, self),
+            Source::Slow => sat(audio.intensity),
+            Source::Fast => sat(audio.flux),
+            Source::Phase => (frame.bar_phase * 4.0).rem_euclid(1.0),
+            Source::Bar => frame.bar_phase,
         }
     }
 

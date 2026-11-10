@@ -125,7 +125,7 @@ fn invalid_matrices_are_refused() {
         Err(RoutingError::Parse(_))
     ));
     let many = RoutingMatrix {
-        routes: vec![RoutingMatrix::default_matrix().routes[0].clone(); MAX_ROUTES + 1],
+        routes: vec![RoutingMatrix::default_matrix().routes[0].clone(); matrix::MAX_ROUTES + 1],
     };
     assert!(matches!(many.validate(), Err(RoutingError::TooMany(_))));
 }

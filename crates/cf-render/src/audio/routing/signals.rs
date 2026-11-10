@@ -59,7 +59,7 @@ impl KickWave {
 #[derive(Resource, Debug, Clone, Copy, PartialEq)]
 pub struct FilteredSignals {
     values: [f32; Target::COUNT],
-    /// Spectre en 32 bandes logarithmiques : One-Euro puis crête (τ_d = 200 ms), 0..1.
+    /// Spectre en 32 bandes logarithmiques : One-Euro puis crête qui retombe en 200 ms, 0..1.
     pub spectrum: [f32; SPECTRUM_BANDS],
     /// Phase du temps vue à l'écran (latence compensée), 0..1.
     pub beat_phase: f32,
