@@ -76,7 +76,7 @@ pub use palette::{
     DistrictGrade, DistrictGradeState, GradeLibrary, PaletteChanged, PaletteDriver, PaletteError, PalettePlugin,
     PaletteRequest, PaletteTiming, PaletteWave, SceneColor, SceneMood, ScenePalette, ThemeLibrary,
 };
-pub use postfx::{CurrentShowFx, LensWeather, PostFxPlugin, PostFxSettings, PostFxState, ShowFxInput};
+pub use postfx::{CurrentShowFx, LensWeather, PostFxPlugin, PostFxSettings, PostFxState, ShotCuts, ShowFxInput};
 pub use quality::{
     BLOOM_FADE_S, MAX_LEVEL, PIXEL_SCALE, Quality, QualityChanged, QualityIdle, QualityLevers, QualityMode,
     QualityPlugin, levers_for,

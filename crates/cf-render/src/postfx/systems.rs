@@ -48,6 +48,7 @@ fn to_vec3(rgb: Rgb) -> Vec3 {
 /// compositeur. Aucune allocation : tout est mis à jour en place.
 #[allow(
     clippy::too_many_arguments,
+    clippy::type_complexity,
     reason = "un système Bevy lit chaque source dans son propre paramètre"
 )]
 pub(super) fn update_postfx(

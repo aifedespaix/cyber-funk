@@ -14,6 +14,11 @@
 //! compositeur) et elle seule, ce qu'une `ExtractResource` globale ne saurait pas faire avec deux compositeurs sur la
 //! même fenêtre.
 
+#![allow(
+    clippy::type_complexity,
+    reason = "requêtes Bevy génériques sur la passe : un alias ne les rendrait pas plus lisibles"
+)]
+
 use std::marker::PhantomData;
 
 use bevy::asset::{Handle, uuid_handle};

@@ -120,6 +120,7 @@ fn direct<W: Obstacles + Resource>(
     mut no_show: Local<NoShow>,
     mut launches: MessageWriter<LaunchMeteor>,
     mut orders: MessageReader<ShotOrder>,
+    cuts: Option<ResMut<cf_render::ShotCuts>>,
 ) {
     let (Some(obstacles), Some(mut director)) = (obstacles, director) else {
         return;
@@ -153,6 +154,12 @@ fn direct<W: Obstacles + Resource>(
     }
     if *pose != next {
         *pose = next;
+    }
+    // Une coupe vide l'historique de persistance du post-process (DA §3.1).
+    if let Some(mut cuts) = cuts
+        && cuts.0 != director.cut_count()
+    {
+        cuts.0 = director.cut_count();
     }
 }
 

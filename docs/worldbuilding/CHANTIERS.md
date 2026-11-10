@@ -327,7 +327,7 @@ Statuts : ⬜ à faire · 🟨 en cours (le journal dit où reprendre) · ✅ te
 | # | Chantier | Statut | Dernier commit | Reste à faire / à vérifier sur le matériel cible |
 |---|---|---|---|---|
 | C1 | Signaux et dramaturgie | ✅ | voir `git log` (dernier commit « C1 ») | Sur le matériel cible : seuils de `z` des transitoires et étalonnage `FFT_TO_RMS` sur une vraie entrée ligne/micro ; ressenti du creux d'avant-drop. Routage non encore lu par les shaders (C2 à C4). |
-| C2 | Image finale | 🟨 | — | en cours |
+| C2 | Image finale | 🟨 | voir `git log` (« C2 ») | Reste : comparaison AgX / KhronosPbrNeutral, rayons (à valider à l'œil), Ȳ sur la vraie ville. Matériel cible : cadence, bloom fin, couleurs sur projecteur. |
 | C3 | Atmosphère et profondeur | ⬜ | — | — |
 | C4 | Sol, façades et matériaux | ⬜ | — | — |
 | C5 | Ville : distribution et archétypes | ⬜ | — | — |
@@ -340,6 +340,38 @@ Statuts : ⬜ à faire · 🟨 en cours (le journal dit où reprendre) · ✅ te
 
 Une entrée par session, la plus récente en haut : date, chantier, ce qui est fait, décisions prises, critères
 non tenus et pourquoi, point de reprise si le chantier reste 🟨.
+
+### 2026-11-10 · C2 Image finale · 🟨
+
+**Fait**
+- Bloom : seuil 1,0, genou 0,5, queue `0,5 + 0,3·brume` (`PostFxSettings::mist`), pulsation inchangée.
+- Étalonnage (`grade.wgsl`) : aberration ciblée (nulle pour r < 0,35, bornée à 0,01, enveloppe `TR` 2/90 ms), halation, rayons
+  en espace écran (palier 0 seul), défilement UV glitché **[L]** (`ShowFx::glitch`, armé seulement si le limiteur accepte le flash).
+- Grain : nouvelle passe `cf_grain` après le tonemapping, `lowbias32` (aucun `sin`), multiplicatif, 24 i/s, 0,06 → 0,03. `node.rs`
+  est devenu générique (`FullscreenPass`) pour servir l'étalonnage et le grain.
+- Persistance : `persist.wgsl` + `persist_node.rs`, deux textures demi-résolution créées à l'ouverture (recréées au redimensionnement),
+  avant le bloom ; vidée à chaque coupe via `ShotCuts` (incrémenté par `cf-cinema`) et quand le palier de qualité la coupe.
+- Outil de mesure `postfx::measure` (Ȳ, part émissive dans la palette, ice, histogramme de teintes, part du bloom), branché dans `postfx_demo`.
+- Captures : `docs/captures/C2/` (8 étapes).
+
+**Mesures (scène démo, rendu logiciel)** : Ȳ = 0,039, bloom = 20 % de Ȳ (≤ 25 %), ice 0,76 % (< 2 %), émissifs dans la palette 20 %
+(la démo a une charte RVB et une ligne ambrée : critère 70 % pour C4, pas jugé ici).
+
+**Décisions / écarts**
+- Écart assumé à Sillage (règle 7) : seuil, genou, grain. La référence three.js (`tools/sillage-golden/postfx`) garde le grain additif ;
+  les écarts de parité attendus ont grossi, non re-mesurés.
+- Halation : 8 prises sur anneau dans le shader d'étalonnage, pas la 2ᵉ étage de la pyramide du bloom (inaccessible dans Bevy).
+- Fraîcheur `E_f` de la persistance : approchée par `heat` (pas de fraîcheur dans `ShowFxInput`).
+- Paliers : rayons au palier 0, halation et persistance jusqu'au 1.
+- La toolchain de la session était en 1.97 ; mise à jour en 1.99 (exigence du dépôt).
+
+**Non fait / non tenu**
+- Comparaison `KhronosPbrNeutral` / `AgX` : non faite, KhronosPbrNeutral reste.
+- Critère « Ȳ sur la scène de référence » : tenu sur la démo seulement ; Ȳ cible 0,06 non testé sur la ville.
+- Tests de parité Sillage : pas de test automatique cassé, mais pas de nouvelle référence régénérée (bun/Playwright absents).
+- Pas de test d'historique vidé à la coupe côté GPU (seulement la logique `Persistence`, testée).
+
+**Reprise** : AgX en capture côte à côte, régénérer la référence Sillage, vérifier la persistance avec un vrai défilement, puis passer ✅.
 
 ### 2026-11-10 · C1 Signaux et dramaturgie · ✅
 

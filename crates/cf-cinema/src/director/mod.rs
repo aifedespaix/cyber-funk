@@ -74,6 +74,8 @@ pub struct CinemaDirector {
     cutter: Cutter,
     rng: CinemaRng,
     last_cut: f64,
+    /// Nombre de coupes franches depuis le début : le post-process vide l'historique de persistance à chaque incrément.
+    cut_count: u64,
     stats: DirectorStats,
     /// Plafond de cadence des coupes, partagé par tous les plans et toutes les transitions.
     limiter: CutLimiter,
@@ -118,6 +120,7 @@ impl CinemaDirector {
             cutter: Cutter::new(CinemaRng::new(seed ^ 0x85eb_ca6b)),
             rng: CinemaRng::new(seed ^ 0x9e37_79b9),
             last_cut: f64::NEG_INFINITY,
+            cut_count: 0,
             stats: DirectorStats::default(),
             limiter: CutLimiter::default(),
             poisoned: false,
@@ -144,6 +147,12 @@ impl CinemaDirector {
             &self.current
         };
         slot.spec.and_then(|i| self.catalog.get(i)).map(|s| s.id())
+    }
+
+    /// Nombre de coupes franches depuis le début (voir `cf_render::ShotCuts`).
+    #[must_use]
+    pub const fn cut_count(&self) -> u64 {
+        self.cut_count
     }
 
     /// Une transition est en cours (son genre).
@@ -360,6 +369,7 @@ impl CinemaDirector {
             .register(index, spec.as_ref(), frame, show, decision.counted);
         if kind == TransitionKind::Cut {
             self.last_cut = frame.time;
+            self.cut_count += 1;
         }
         let seconds = transition_seconds(kind, frame, self.calm);
         tracing::debug!(

@@ -11,8 +11,9 @@ use std::time::Instant;
 use bevy::post_process::bloom::Bloom;
 use bevy::prelude::*;
 use bevy::render::view::screenshot::{Screenshot, ScreenshotCaptured, save_to_disk};
+use cf_render::postfx::measure::{self, PaletteHues};
 use cf_render::postfx::{GradeUniforms, bloom_strength};
-use cf_render::{AudioFeatures, Compositor, CurrentShowFx, PostFxSettings, ShowFxInput};
+use cf_render::{AudioFeatures, Compositor, CurrentShowFx, LensWeather, PostFxSettings, ShowFxInput};
 
 use crate::{CALM, DROP, SIZE, TITLE_GREY};
 
@@ -49,6 +50,8 @@ struct Phase {
     show: Option<ShowFxInput>,
     pulse: f32,
     bloom: bool,
+    /// Vitesse normalisée du monde (0 : à l'arrêt), qui règle la fuite des traînées.
+    speed: f32,
     /// Un drop frappe à l'entrée de l'étape (une image).
     drop: bool,
     /// Le cue change à l'entrée de l'étape.
@@ -62,13 +65,14 @@ const fn phase(name: &'static str, show: Option<ShowFxInput>, when: When) -> Pha
         show,
         pulse: 0.0,
         bloom: true,
+        speed: 0.0,
         drop: false,
         next_cue: false,
         when,
     }
 }
 
-const PHASES: [Phase; 7] = [
+const PHASES: [Phase; 8] = [
     phase("1-neutre", None, When::After(0.5)),
     Phase {
         pulse: 1.0,
@@ -95,6 +99,11 @@ const PHASES: [Phase; 7] = [
     Phase {
         bloom: false,
         ..phase("7-sans-bloom", None, When::After(0.5))
+    },
+    // La route défile à pleine vitesse : les émissifs laissent une traînée qui fuit vers le point de fuite.
+    Phase {
+        speed: 1.0,
+        ..phase("8-persistance", None, When::After(1.0))
     },
 ];
 
@@ -154,6 +163,7 @@ pub(crate) fn run_check(
     time: Res<Time<Real>>,
     mut audio: ResMut<AudioFeatures>,
     mut settings: ResMut<PostFxSettings>,
+    mut weather: ResMut<LensWeather>,
     state: Res<cf_render::PostFxState>,
     compositor: Single<(&GradeUniforms, Option<&Bloom>), With<Compositor>>,
     mut exit: MessageWriter<AppExit>,
@@ -184,6 +194,7 @@ pub(crate) fn run_check(
         audio.0.pulse = phase.pulse;
         audio.0.section = cf_analysis::Section::Peak;
         settings.bloom = phase.bloom;
+        weather.speed_ratio = phase.speed;
         return;
     };
     // Le drop ne frappe que pendant une image (`drop_now`).
@@ -258,6 +269,7 @@ const RED_PATCH: ((u32, u32), (u32, u32)) = ((320, 262), (340, 278));
 /// Juste sous l'arête néon de la première boîte de gauche : du halo, pas de néon.
 const NEAR_NEON: ((u32, u32), (u32, u32)) = ((268, 33), (300, 42));
 
+#[allow(clippy::too_many_lines, reason = "une suite de verdicts à plat vaut mieux que dix fonctions d'une ligne")]
 fn evaluate(check: &Check) -> AppExit {
     let mut ok = check.failed.is_empty();
     let mut verdict = |pass: bool, what: String| {
@@ -356,6 +368,52 @@ fn evaluate(check: &Check) -> AppExit {
         verdict(
             h < halo - 1.0,
             format!("sans bloom : plus de halo près du néon ({halo:.1} → {h:.1})"),
+        );
+    }
+    // Mesures de DA §1.1 et §3.1 sur la capture neutre (le titre 2D est exclu : il n'appartient pas à la scène).
+    let palette = PaletteHues {
+        dominant: 187.0,
+        accent: 280.0,
+    };
+    let scene = Some(((0, 200), (width, height)));
+    let with = measure::measure(&neutral.rgba, width, palette, scene);
+    info!(
+        "mesure neutre : Ȳ = {:.4}, émissifs {:.1} %, dans la palette {:.0} %, ice {:.2} %",
+        with.mean_y,
+        100.0 * with.emissive_share,
+        100.0 * with.emissive_in_palette,
+        100.0 * with.ice_share
+    );
+    info!(
+        "mesure neutre : histogramme de teintes (12 × 30°) {:?}",
+        with.hue_histogram.map(|v| (v * 100.0).round())
+    );
+    if let Some(image) = shot("7-sans-bloom") {
+        let without = measure::measure(&image.rgba, width, palette, scene);
+        let share = measure::bloom_share(&with, &without);
+        info!(
+            "mesure : Ȳ sans bloom = {:.4}, part du bloom = {:.1} %",
+            without.mean_y,
+            100.0 * share
+        );
+        verdict(
+            share <= 0.25,
+            format!("le bloom apporte au plus 25 % de Ȳ ({:.1} %)", 100.0 * share),
+        );
+    }
+    verdict(
+        with.ice_share < 0.02,
+        format!("ice < 2 % de l'image ({:.2} %)", 100.0 * with.ice_share),
+    );
+    if let Some(image) = shot("8-persistance") {
+        let trail = measure::measure(&image.rgba, width, palette, scene);
+        info!(
+            "mesure persistance : Ȳ = {:.4} (neutre {:.4})",
+            trail.mean_y, with.mean_y
+        );
+        verdict(
+            trail.mean_y >= with.mean_y,
+            "la persistance n'assombrit pas l'image".to_string(),
         );
     }
     if ok {

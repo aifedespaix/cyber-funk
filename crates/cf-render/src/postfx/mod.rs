@@ -38,6 +38,7 @@ pub mod finish;
 mod grade;
 mod grain;
 mod lens;
+pub mod measure;
 mod node;
 mod persist_node;
 pub mod persistence;
@@ -187,6 +188,7 @@ impl Plugin for PostFxPlugin {
         persist_node::build_render(app);
         app.init_resource::<PostFxSettings>()
             .init_resource::<LensWeather>()
+            .init_resource::<ShotCuts>()
             .init_resource::<PostFxState>()
             .add_systems(
                 Update,
