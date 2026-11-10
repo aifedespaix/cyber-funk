@@ -1,5 +1,6 @@
 //! Le moteur de routage : applique la matrice aux `AudioFeatures` de l'image et remplit [`FilteredSignals`].
 
+use bevy::prelude::Resource;
 use cf_analysis::AudioFeatures;
 use cf_show::limiter::FlashLimiter;
 
@@ -12,7 +13,7 @@ use super::types::Target;
 const FALLBACK_BPM: f32 = 120.0;
 
 /// Le moteur. Les chaînes sont créées à l'ouverture (ou au changement de matrice, hors du show) : l'image n'alloue pas.
-#[derive(Debug, Clone)]
+#[derive(Resource, Debug, Clone)]
 pub struct RoutingEngine {
     chains: Vec<Chain>,
     limiter: FlashLimiter,
