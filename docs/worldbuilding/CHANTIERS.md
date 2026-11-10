@@ -327,7 +327,7 @@ Statuts : ⬜ à faire · 🟨 en cours (le journal dit où reprendre) · ✅ te
 | # | Chantier | Statut | Dernier commit | Reste à faire / à vérifier sur le matériel cible |
 |---|---|---|---|---|
 | C1 | Signaux et dramaturgie | ✅ | voir `git log` (dernier commit « C1 ») | Sur le matériel cible : seuils de `z` des transitoires et étalonnage `FFT_TO_RMS` sur une vraie entrée ligne/micro ; ressenti du creux d'avant-drop. Routage non encore lu par les shaders (C2 à C4). |
-| C2 | Image finale | ⬜ | — | — |
+| C2 | Image finale | 🟨 | — | en cours |
 | C3 | Atmosphère et profondeur | ⬜ | — | — |
 | C4 | Sol, façades et matériaux | ⬜ | — | — |
 | C5 | Ville : distribution et archétypes | ⬜ | — | — |
