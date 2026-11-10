@@ -5,10 +5,6 @@ use cf_show::limiter::{MAX_FLASHES_PER_SECOND, MIN_FADE};
 
 use super::*;
 
-fn engine() -> RoutingEngine {
-    RoutingEngine::new(&RoutingMatrix::default_matrix())
-}
-
 fn features(f: impl FnOnce(&mut AudioFeatures)) -> AudioFeatures {
     let mut a = AudioFeatures {
         live: true,
