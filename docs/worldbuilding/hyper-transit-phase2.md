@@ -588,6 +588,10 @@ puis collision : capsules du torse et des bras, projection vers l'extérieur
 
 ## 5. Découpage proposé pour les sous-agents
 
+> **Remplacé.** Le découpage qui fait foi est `docs/worldbuilding/CHANTIERS.md` (9 chantiers), qui fusionne ce
+> document avec les phases 1 et 3 et tranche plusieurs points (SSR reporté, pas de lumières groupées ni de VPL,
+> brouillard par fragment, personnages limités aux pilotes). Le tableau ci-dessous est gardé pour mémoire.
+
 | Lot | Contenu | Crate | Dépend de |
 |---|---|---|---|
 | P2-A | Sous-bandes `SB/PB/LM/HM/TR`, HFC, extension d'`AudioFeatures` (§2.1) | `cf-analysis` | — |
