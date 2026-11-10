@@ -357,6 +357,12 @@ profonds et les teintes de la palette. Pas de changement de code de rendu.
 `apt-get install libxkbcommon-x11-0 mesa-vulkan-drivers` pour les captures. À ajouter au hook de session si on veut
 que les captures marchent sans manipulation.
 
+**Tests rouges confirmés antérieurs à C2** : `cf-world-neon` `signs::golden` (3), `tests/signs` (2) et `tests/sky` (2) échouent à
+l'identique sur `361407d` (fin de C1), rejoués ici. Ce sont des écarts de données Sillage (catalogue, slogans) et de décompte
+d'entités du ciel (20 au lieu de 18), pas du post-traitement. `cf-operator` `shot_names` (plan `drone-pov` sans nom français) n'a
+pas été rejoué avant C2 mais C2 ne touche pas `cf-operator`. À traiter dans un chantier dédié, pas ici. Total : 2413 réussis, 8 en échec,
+clippy `-D warnings` vert.
+
 **Passé ✅** : les critères non tenus sont consignés ci-dessus (`[~]`), aucun n'est caché. Restent à traiter ailleurs : Ȳ sur la vraie ville (C3/C4 en dépendent), référence de parité Sillage à régénérer,
 test GPU de la remise à zéro de l'historique à la coupe, rayons à valider à l'œil.
 
