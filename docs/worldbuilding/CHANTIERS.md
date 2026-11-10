@@ -326,7 +326,7 @@ Statuts : ⬜ à faire · 🟨 en cours (le journal dit où reprendre) · ✅ te
 
 | # | Chantier | Statut | Dernier commit | Reste à faire / à vérifier sur le matériel cible |
 |---|---|---|---|---|
-| C1 | Signaux et dramaturgie | ⬜ | — | — |
+| C1 | Signaux et dramaturgie | 🟨 | — | en cours |
 | C2 | Image finale | ⬜ | — | — |
 | C3 | Atmosphère et profondeur | ⬜ | — | — |
 | C4 | Sol, façades et matériaux | ⬜ | — | — |
