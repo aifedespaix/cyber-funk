@@ -26,6 +26,7 @@ mod beat;
 mod beat_analyzer;
 mod events;
 mod features;
+pub mod filters;
 mod offline;
 mod sections;
 mod tempo;
