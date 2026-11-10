@@ -17,7 +17,7 @@ pub(crate) fn phases_json(rows: &[(&'static str, GradeUniforms, f32)]) -> String
              \"sweepColor\": [{}, {}, {}]}}{}",
             g.aberration,
             g.time,
-            g.grain,
+            0.035_f32, // le grain additif de Sillage : la référence three.js ne change pas
             g.lens,
             g.rain_time,
             g.aspect,

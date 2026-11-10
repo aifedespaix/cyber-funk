@@ -18,7 +18,9 @@ pub const BLOOM_STRENGTH: f32 = 0.3;
 /// Surcroît de force au sommet d'un kick (`0.3 + pulse × 0.2` de `PostFX.setPulse`).
 pub const BLOOM_PULSE: f32 = 0.2;
 /// Seuil de luminance du bloom (`threshold` de l'`UnrealBloomPass`) : seules les arêtes et portiques rayonnent.
-pub const BLOOM_THRESHOLD: f32 = 0.85;
+/// Seuil de DA §3.1 (C2) : 1,0, soit le blanc de scène. Les émissifs E1 (fenêtres, marquages) ne rayonnent plus.
+/// Écart assumé à Sillage (0,85) : les références de parité sont mises à jour dans le même commit.
+pub const BLOOM_THRESHOLD: f32 = 1.0;
 /// Diviseur de résolution du bloom par défaut (`bloomDivisor` de Sillage) : 2 (net) ou plus (économe).
 pub const DEFAULT_BLOOM_DIVISOR: u32 = 2;
 /// Intensité de Bevy = `INTENSITY_AT_ZERO + INTENSITY_PER_STRENGTH × force de Sillage`, calée sur la référence :
@@ -27,7 +29,11 @@ const INTENSITY_AT_ZERO: f32 = 0.3;
 const INTENSITY_PER_STRENGTH: f32 = 0.5;
 /// Douceur du genou du seuil. Sillage a un `smoothWidth` de 0,01 (un seuil presque franc) ; un genou trop dur
 /// scintille sur les arêtes fines en mouvement avec la pyramide de Bevy.
-const THRESHOLD_SOFTNESS: f32 = 0.2;
+/// Genou de DA §3.1 (0,2 → 0,5) : plus de scintillement des arêtes fines au passage du seuil.
+const THRESHOLD_SOFTNESS: f32 = 0.5;
+/// Queue du bloom : `q = TAIL_DRY + TAIL_MIST·ρ_brume` (DA §3.1), halo long par temps humide, court par temps sec.
+const TAIL_DRY: f32 = 0.5;
+const TAIL_MIST: f32 = 0.3;
 /// Bornes de la taille du premier niveau du bloom (px).
 const MIN_MIP: u32 = 64;
 const MAX_MIP: u32 = 2048;
@@ -53,6 +59,13 @@ pub fn bloom_intensity(strength: f32) -> f32 {
 
 /// Le `Bloom` de Bevy pour une force de Sillage et une taille de premier niveau. Pondération des fréquences : celle
 /// de `Bloom::NATURAL`, qui donne l'étalement de l'`UnrealBloomPass` sur la référence.
+/// Pondération des basses fréquences du bloom (la queue) pour une densité de brume `mist` (0..1).
+#[must_use]
+pub fn bloom_tail(mist: f32) -> f32 {
+    let mist = if mist.is_finite() { mist.clamp(0.0, 1.0) } else { 0.0 };
+    TAIL_DRY + TAIL_MIST * mist
+}
+
 #[must_use]
 pub fn bloom_settings(strength: f32, max_mip_dimension: u32) -> Bloom {
     Bloom {
@@ -63,6 +76,7 @@ pub fn bloom_settings(strength: f32, max_mip_dimension: u32) -> Bloom {
         },
         composite_mode: BloomCompositeMode::Additive,
         max_mip_dimension,
+        low_frequency_boost: bloom_tail(0.0),
         ..Bloom::NATURAL
     }
 }
@@ -91,8 +105,16 @@ mod tests {
     fn le_bloom_est_additif_et_a_seuil_haut() {
         let bloom = bloom_settings(0.3, 540);
         assert_eq!(bloom.composite_mode, BloomCompositeMode::Additive);
-        assert!((bloom.prefilter.threshold - 0.85).abs() < 1e-6);
+        assert!((bloom.prefilter.threshold - 1.0).abs() < 1e-6);
+        assert!((bloom.prefilter.threshold_softness - 0.5).abs() < 1e-6);
         assert_eq!(bloom.max_mip_dimension, 540);
+    }
+
+    #[test]
+    fn la_queue_s_allonge_avec_la_brume() {
+        assert!((bloom_tail(0.0) - 0.5).abs() < 1e-6);
+        assert!((bloom_tail(1.0) - 0.8).abs() < 1e-6);
+        assert!((bloom_tail(f32::NAN) - 0.5).abs() < 1e-6);
     }
 
     #[test]

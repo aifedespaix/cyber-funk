@@ -18,7 +18,7 @@ struct FullscreenVertexOutput {
 struct Grade {
     aberration: f32,
     time: f32,
-    grain: f32,
+    halation: f32,
     lens: f32,
     rain_time: f32,
     aspect: f32,
@@ -31,6 +31,10 @@ struct Grade {
     flash_color: vec3<f32>,
     blur: f32,
     sweep_color: vec3<f32>,
+    rays: f32,
+    rays_pos: vec2<f32>,
+    glitch: f32,
+    transient: f32,
 };
 
 @group(0) @binding(0) var screen_texture: texture_2d<f32>;
@@ -92,13 +96,47 @@ fn fragment(in: FullscreenVertexOutput) -> @location(0) vec4<f32> {
         wet = max(big.z, small.z * 0.8);
         glint = big.w + small.w * 0.6;
     }
+    // Défilement UV glitché [L] : bandes horizontales décalées. Son amplitude vient du limiteur (ShowFx::glitch).
+    if (grade.glitch > 0.0001) {
+        let band = floor(v_uv.y * 24.0);
+        let on = step(0.72, hh(vec2<f32>(band, floor(grade.time * 24.0)), 3.0));
+        uv.x += (hh(vec2<f32>(band, 1.0), 5.0) - 0.5) * 2.0 * grade.glitch * on;
+    }
     let c = v_uv - 0.5;
-    // Aberration chromatique : elle s'accentue vers les bords et sur les kicks
-    let shift = c * grade.aberration * (0.4 + dot(c, c) * 2.0);
+    // Aberration ciblée (DA §3.1) : A = A0·smoothstep(0.35, 1, r)²·(0.3 + 0.7·smoothstep(0.5, 2, Y))·(1 + 3·env(TR)).
+    // Nulle au centre, forte dans les coins et sur les hautes lumières ; bornée à 0,01.
+    let radius = 2.0 * length(c);
+    let edge = smoothstep(0.35, 1.0, radius);
+    let source_y = dot(screen(uv), LUMA);
+    let highlight = 0.3 + 0.7 * smoothstep(0.5, 2.0, source_y);
+    let amount = min(grade.aberration * edge * edge * highlight * (1.0 + 3.0 * clamp(grade.transient, 0.0, 1.0)), 0.01);
+    let shift = normalize(c + vec2<f32>(1e-6, 0.0)) * amount;
     let r = screen(uv + shift).r;
     let g = screen(uv).g;
     let b = screen(uv - shift).b;
     var col = vec3<f32>(r, g, b);
+    // Halation : frange chaude autour des hautes lumières, C += flou(max(C − 1.5, 0))·(1, 0.35, 0.15)·0.25.
+    if (grade.halation > 0.001) {
+        let step_uv = vec2<f32>(0.004, 0.004 * grade.aspect);
+        var halo = vec3<f32>(0.0);
+        for (var i = 0; i < 8; i++) {
+            let a = f32(i) * 0.785398;
+            halo += max(screen(uv + vec2<f32>(cos(a), sin(a)) * step_uv) - vec3<f32>(1.5), vec3<f32>(0.0));
+        }
+        col += (halo / 8.0) * vec3<f32>(1.0, 0.35, 0.15) * grade.halation;
+    }
+    // Rayons en espace écran : on marche vers la source, on ne garde que les hautes lumières. Coupés aux paliers bas.
+    if (grade.rays > 0.001) {
+        var shafts = vec3<f32>(0.0);
+        var weight = 1.0;
+        let toward = (grade.rays_pos - v_uv) / 10.0;
+        for (var i = 1; i <= 10; i++) {
+            let s = screen(v_uv + toward * f32(i));
+            shafts += max(s - vec3<f32>(1.0), vec3<f32>(0.0)) * weight;
+            weight *= 0.88;
+        }
+        col += shafts * (grade.rays * 0.1);
+    }
     // Bullet-time : flou radial léger (quelques prises vers le centre), plus fort vers les bords.
     if (grade.blur > 0.001) {
         var acc = col;
@@ -127,7 +165,5 @@ fn fragment(in: FullscreenVertexOutput) -> @location(0) vec4<f32> {
     let band = exp(-(across * across));
     col += grade.sweep_color * (grade.sweep * band);
     col += grade.flash_color * grade.flash;
-    let grain = fract(sin(dot(v_uv + fract(grade.time), vec2<f32>(12.9898, 78.233))) * 43758.5453);
-    col += (grain - 0.5) * grade.grain;
     return vec4<f32>(col, 1.0);
 }

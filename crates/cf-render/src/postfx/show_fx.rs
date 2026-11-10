@@ -18,6 +18,8 @@ const SLOW_START: f32 = 0.6;
 const SLOW_FULL: f32 = 0.25;
 /// Pas de temps maximal (s) entre deux images : un trou d'image ne fait pas sauter les fondus.
 const MAX_DT: f32 = 0.25;
+/// Décalage maximal du défilement UV glitché, en UV (1,5 % de la largeur).
+const GLITCH_MAX: f32 = 0.015;
 /// Niveau de qualité adaptative au-delà duquel le flou radial du bullet-time est coupé.
 const BLUR_MAX_QUALITY: u8 = 1;
 
@@ -115,6 +117,8 @@ pub struct ShowFx {
     /// Flou radial du bullet-time : coupé aux basses qualités.
     blur: f32,
     drop_split: f32,
+    /// Enveloppe (0..1) du défilement UV glitché **[L]** : armée seulement quand le limiteur a accepté le flash du drop.
+    drop_glitch: f32,
     grade: f32,
     last_time: Option<f64>,
     last_kick: f64,
@@ -145,6 +149,7 @@ impl ShowFx {
             slow: 0.0,
             blur: 0.0,
             drop_split: 0.0,
+            drop_glitch: 0.0,
             grade: 0.0,
             last_time: None,
             last_kick: f64::NEG_INFINITY,
@@ -176,12 +181,18 @@ impl ShowFx {
         } else {
             self.seen_seq = None;
             self.drop_split = 0.0;
+            self.drop_glitch = 0.0;
         }
         self.limiter.step(dt);
 
         self.sweep_age += dt;
         self.sweep_pos = -0.25 + 1.5 * (self.sweep_age / SWEEP_RUN).min(1.0);
         self.drop_split = (self.drop_split - dt * 2.0).max(0.0);
+        self.drop_glitch = (self.drop_glitch - dt * 4.0).max(0.0);
+        // Flashs coupés ou respiration : le limiteur refuse le flash, donc le glitch ne s'arme pas.
+        if !show.is_some_and(|s| s.flashes && !s.breathing) {
+            self.drop_glitch = 0.0;
+        }
         self.split = show.map_or(0.0, |s| {
             let calmed = if s.breathing {
                 0.05
@@ -236,7 +247,9 @@ impl ShowFx {
                 attack_s: 0.09,
                 decay_s: 0.5,
             };
-            self.limiter.trigger(flash, time);
+            if self.limiter.trigger(flash, time) {
+                self.drop_glitch = 1.0;
+            }
         } else if peak
             && show.fx_flash > 0.0
             && pulse > 0.8
@@ -253,6 +266,12 @@ impl ShowFx {
                 self.last_kick = time;
             }
         }
+    }
+
+    /// Amplitude du défilement UV glitché (UV), bornée par le limiteur : 0 sans flash accepté.
+    #[must_use]
+    pub fn glitch(&self) -> f32 {
+        self.drop_glitch * GLITCH_MAX
     }
 
     /// Lumière ajoutée par le flash, déjà bornée par le limiteur (0 → `MAX_FLASH_PEAK`).

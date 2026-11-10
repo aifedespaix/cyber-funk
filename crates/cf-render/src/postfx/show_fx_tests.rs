@@ -278,3 +278,58 @@ fn les_couleurs_par_defaut_sont_celles_du_theme_velours_en_lineaire() {
     assert!((ice.b - 1.0).abs() < 1e-6);
     assert!((ice.r - 0.791).abs() < 1e-3, "{ice:?}");
 }
+
+/// Le défilement UV glitché est une variation marquée **[L]** : il ne s'arme que si le limiteur accepte le flash.
+#[test]
+fn le_glitch_suit_le_limiteur() {
+    // Flashs permis : le drop arme le glitch, dans sa borne, puis il retombe.
+    let mut fx = ShowFx::default();
+    let mut t = 0.0;
+    run(&mut fx, Some(&show()), 2, &mut t);
+    let mut input = show();
+    input.drop = drop_fx(1.0, 0.5);
+    fx.update(Some(&input), 0.0, false, t, 0);
+    t += DT;
+    assert!(fx.glitch() > 0.0 && fx.glitch() <= 0.015, "{}", fx.glitch());
+    input.drop = None;
+    run(&mut fx, Some(&input), 90, &mut t);
+    assert!(fx.glitch() < 1e-6, "le glitch doit retomber");
+
+    // Flashs coupés, respiration, ou sans spectacle : jamais de glitch.
+    for (flashes, breathing, present) in [(false, false, true), (true, true, true), (true, false, false)] {
+        let mut fx = ShowFx::default();
+        let mut input = show();
+        input.flashes = flashes;
+        input.breathing = breathing;
+        input.drop = drop_fx(1.0, 0.5);
+        let mut t = 0.0;
+        for _ in 0..30 {
+            fx.update(present.then_some(&input), 0.0, false, t, 0);
+            assert_eq!(fx.glitch(), 0.0);
+            t += DT;
+        }
+    }
+}
+
+/// Marteler le drop ne multiplie pas les glitchs : le limiteur refuse les flashs trop rapprochés.
+#[test]
+fn le_glitch_est_limite_en_cadence() {
+    let mut fx = ShowFx::default();
+    let mut input = show();
+    input.drop = drop_fx(1.0, 0.5);
+    let mut t = 0.0;
+    let mut bursts = 0;
+    let mut was = 0.0_f32;
+    for _ in 0..(60 * 2) {
+        fx.update(Some(&input), 0.0, false, t, 0);
+        if fx.glitch() > was + 0.005 {
+            bursts += 1;
+        }
+        was = fx.glitch();
+        t += DT;
+    }
+    assert!(
+        bursts <= 6,
+        "{bursts} glitchs en 2 s : le limiteur (3 par seconde) doit les borner"
+    );
+}

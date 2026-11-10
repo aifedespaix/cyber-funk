@@ -14,6 +14,8 @@
 //! compositeur) et elle seule, ce qu'une `ExtractResource` globale ne saurait pas faire avec deux compositeurs sur la
 //! même fenêtre.
 
+use std::marker::PhantomData;
+
 use bevy::asset::{Handle, uuid_handle};
 use bevy::core_pipeline::tonemapping::tonemapping;
 use bevy::core_pipeline::{Core3d, Core3dSystems, FullscreenShader};
@@ -22,14 +24,15 @@ use bevy::post_process::bloom::bloom;
 use bevy::prelude::*;
 use bevy::render::camera::ExtractedCamera;
 use bevy::render::diagnostic::RecordDiagnostics;
-use bevy::render::extract_component::{ComponentUniforms, DynamicUniformIndex};
+use bevy::render::extract_component::{ComponentUniforms, DynamicUniformIndex, ExtractComponent};
 use bevy::render::render_resource::binding_types::{sampler, texture_2d, uniform_buffer};
+use bevy::render::render_resource::encase::internal::WriteInto;
 use bevy::render::render_resource::{
     AddressMode, BindGroupEntries, BindGroupLayoutDescriptor, BindGroupLayoutEntries, CachedRenderPipelineId,
     Canonical, ColorTargetState, ColorWrites, FilterMode, FragmentState, Operations, PipelineCache,
     RenderPassColorAttachment, RenderPassDescriptor, RenderPipeline, RenderPipelineDescriptor, Sampler,
-    SamplerBindingType, SamplerDescriptor, ShaderStages, Specializer, SpecializerKey, TextureFormat, TextureSampleType,
-    TextureView, Variants,
+    SamplerBindingType, SamplerDescriptor, ShaderStages, ShaderType, Specializer, SpecializerKey, TextureFormat,
+    TextureSampleType, TextureView, Variants,
 };
 use bevy::render::renderer::{RenderContext, RenderDevice, ViewQuery};
 use bevy::render::view::{ExtractedView, PostProcessBindGroupCache, PostProcessBindGroupCacheBuilder, ViewTarget};
@@ -37,53 +40,84 @@ use bevy::render::{Render, RenderApp, RenderStartup, RenderSystems};
 use bevy::shader::Shader;
 
 use super::grade::GradeUniforms;
+use super::grain::GrainUniforms;
 
-/// Le shader d'étalonnage, embarqué dans le binaire (aucun fichier lu pendant un show).
 pub(crate) const GRADE_SHADER: Handle<Shader> = uuid_handle!("0b6f0c55-3c1e-4f0e-9f57-2c9a7e4d1a42");
-/// Source WGSL du shader (`assets/shaders/cf-render/grade.wgsl`).
 pub(crate) const GRADE_SOURCE: &str = include_str!("../../../../assets/shaders/cf-render/grade.wgsl");
-/// Étiquette de la passe, reprise par les diagnostics de rendu (temps GPU par passe).
+pub(crate) const GRAIN_SHADER: Handle<Shader> = uuid_handle!("5d1f2a90-7b4e-4c6a-8e3d-91f0b7a2c5e4");
+pub(crate) const GRAIN_SOURCE: &str = include_str!("../../../../assets/shaders/cf-render/grain.wgsl");
 pub const GRADE_PASS_LABEL: &str = "cf_grade";
+pub const GRAIN_PASS_LABEL: &str = "cf_grain";
 
-/// Enregistre le pipeline et la passe dans le monde de rendu. Sans monde de rendu (tests sans GPU), ne fait rien.
+/// Une passe plein écran « texture + échantillonneur + uniforme » : l'étalonnage et le grain n'en diffèrent que par
+/// leur shader, leurs uniformes et leur place dans la chaîne.
+pub(crate) trait FullscreenPass: Send + Sync + 'static {
+    type Uniform: Component + ExtractComponent<RenderApp> + ShaderType + WriteInto + Clone;
+    const SHADER: Handle<Shader>;
+    const LABEL: &'static str;
+}
+
+pub(crate) struct GradePass;
+impl FullscreenPass for GradePass {
+    type Uniform = GradeUniforms;
+    const SHADER: Handle<Shader> = GRADE_SHADER;
+    const LABEL: &'static str = GRADE_PASS_LABEL;
+}
+
+pub(crate) struct GrainPass;
+impl FullscreenPass for GrainPass {
+    type Uniform = GrainUniforms;
+    const SHADER: Handle<Shader> = GRAIN_SHADER;
+    const LABEL: &'static str = GRAIN_PASS_LABEL;
+}
+
 pub(crate) fn build_render(app: &mut App) {
     let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
         return;
     };
     render_app
-        .add_systems(RenderStartup, init_pipeline)
+        .add_systems(RenderStartup, (init_pipeline::<GradePass>, init_pipeline::<GrainPass>))
         .add_systems(
             Render,
             (
-                prepare_pipelines.in_set(RenderSystems::Prepare),
-                prepare_bind_groups.in_set(RenderSystems::PrepareBindGroups),
+                (prepare_pipelines::<GradePass>, prepare_pipelines::<GrainPass>).in_set(RenderSystems::Prepare),
+                (prepare_bind_groups::<GradePass>, prepare_bind_groups::<GrainPass>)
+                    .in_set(RenderSystems::PrepareBindGroups),
             ),
         )
         .add_systems(
             Core3d,
-            grade_pass
-                .in_set(Core3dSystems::PostProcess)
-                .after(bloom)
-                .before(tonemapping),
+            (
+                // L'étalonnage tourne après le bloom et avant le tonemapping ; le grain, après le tonemapping
+                // (en espace affiché, DA §3.1).
+                run_pass::<GradePass>
+                    .in_set(Core3dSystems::PostProcess)
+                    .after(bloom)
+                    .before(tonemapping),
+                run_pass::<GrainPass>
+                    .in_set(Core3dSystems::PostProcess)
+                    .after(tonemapping),
+            ),
         );
 }
 
 #[derive(Resource)]
-struct GradePipeline {
+struct PassPipeline<P: FullscreenPass> {
     layout: BindGroupLayoutDescriptor,
     sampler: Sampler,
-    variants: Variants<RenderPipeline, GradeSpecializer>,
+    variants: Variants<RenderPipeline, PassSpecializer>,
+    marker: PhantomData<P>,
 }
 
-struct GradeSpecializer;
+struct PassSpecializer;
 
 #[derive(PartialEq, Eq, Hash, Clone, Copy, SpecializerKey)]
-struct GradeKey {
+struct PassKey {
     target_format: TextureFormat,
 }
 
-impl Specializer<RenderPipeline> for GradeSpecializer {
-    type Key = GradeKey;
+impl Specializer<RenderPipeline> for PassSpecializer {
+    type Key = PassKey;
 
     fn specialize(
         &self,
@@ -103,20 +137,24 @@ impl Specializer<RenderPipeline> for GradeSpecializer {
     }
 }
 
-fn init_pipeline(mut commands: Commands, render_device: Res<RenderDevice>, fullscreen: Res<FullscreenShader>) {
+fn init_pipeline<P: FullscreenPass>(
+    mut commands: Commands,
+    render_device: Res<RenderDevice>,
+    fullscreen: Res<FullscreenShader>,
+) {
     let layout = BindGroupLayoutDescriptor::new(
-        "cf_grade_bind_group_layout",
+        P::LABEL,
         &BindGroupLayoutEntries::sequential(
             ShaderStages::FRAGMENT,
             (
                 texture_2d(TextureSampleType::Float { filterable: true }),
                 sampler(SamplerBindingType::Filtering),
-                uniform_buffer::<GradeUniforms>(true),
+                uniform_buffer::<P::Uniform>(true),
             ),
         ),
     );
     let sampler = render_device.create_sampler(&SamplerDescriptor {
-        label: Some("cf_grade_sampler"),
+        label: Some(P::LABEL),
         address_mode_u: AddressMode::ClampToEdge,
         address_mode_v: AddressMode::ClampToEdge,
         mag_filter: FilterMode::Linear,
@@ -124,12 +162,11 @@ fn init_pipeline(mut commands: Commands, render_device: Res<RenderDevice>, fulls
         ..default()
     });
     let descriptor = RenderPipelineDescriptor {
-        label: Some("cf_grade_pipeline".into()),
+        label: Some(P::LABEL.into()),
         layout: vec![layout.clone()],
         vertex: fullscreen.to_vertex_state(),
         fragment: Some(FragmentState {
-            shader: GRADE_SHADER,
-            // Remplacé par le format de la vue à la spécialisation.
+            shader: P::SHADER,
             targets: vec![Some(ColorTargetState {
                 format: TextureFormat::Rgba16Float,
                 blend: None,
@@ -139,65 +176,65 @@ fn init_pipeline(mut commands: Commands, render_device: Res<RenderDevice>, fulls
         }),
         ..default()
     };
-    commands.insert_resource(GradePipeline {
+    commands.insert_resource(PassPipeline::<P> {
         layout,
         sampler,
-        variants: Variants::new(GradeSpecializer, descriptor),
+        variants: Variants::new(PassSpecializer, descriptor),
+        marker: PhantomData,
     });
 }
 
 #[derive(Component)]
-struct GradePipelineId(CachedRenderPipelineId);
+struct PassPipelineId<P: FullscreenPass>(CachedRenderPipelineId, PhantomData<P>);
 
-/// Les groupes de liaison des deux textures principales (la source alterne d'une passe à l'autre).
 #[derive(Component)]
-struct GradeBindGroups(PostProcessBindGroupCache);
+struct PassBindGroups<P: FullscreenPass>(PostProcessBindGroupCache, PhantomData<P>);
 
-fn prepare_pipelines(
+fn prepare_pipelines<P: FullscreenPass>(
     mut commands: Commands,
     pipeline_cache: Res<PipelineCache>,
-    pipeline: Option<ResMut<GradePipeline>>,
-    views: Query<(Entity, &ExtractedView, Has<GradeUniforms>), With<ExtractedCamera>>,
+    pipeline: Option<ResMut<PassPipeline<P>>>,
+    views: Query<(Entity, &ExtractedView, Has<P::Uniform>), With<ExtractedCamera>>,
 ) -> Result<(), BevyError> {
     let Some(mut pipeline) = pipeline else {
         return Ok(());
     };
-    for (entity, view, graded) in &views {
-        if !graded {
-            commands.entity(entity).remove::<GradePipelineId>();
+    for (entity, view, equipped) in &views {
+        if !equipped {
+            commands.entity(entity).remove::<PassPipelineId<P>>();
             continue;
         }
-        let key = GradeKey {
+        let key = PassKey {
             target_format: view.target_format,
         };
         let id = pipeline.variants.specialize(&pipeline_cache, key)?;
-        commands.entity(entity).insert(GradePipelineId(id));
+        commands.entity(entity).insert(PassPipelineId::<P>(id, PhantomData));
     }
     Ok(())
 }
 
-fn prepare_bind_groups(
+fn prepare_bind_groups<P: FullscreenPass>(
     mut commands: Commands,
-    mut views: Query<(Entity, &ViewTarget, Option<&mut GradeBindGroups>, Has<GradeUniforms>)>,
-    pipeline: Option<Res<GradePipeline>>,
+    mut views: Query<(Entity, &ViewTarget, Option<&mut PassBindGroups<P>>, Has<P::Uniform>)>,
+    pipeline: Option<Res<PassPipeline<P>>>,
     pipeline_cache: Res<PipelineCache>,
-    uniforms: Res<ComponentUniforms<GradeUniforms>>,
+    uniforms: Res<ComponentUniforms<P::Uniform>>,
     render_device: Res<RenderDevice>,
 ) {
     let Some(pipeline) = pipeline else { return };
     let Some(binding) = uniforms.uniforms().binding() else {
         return;
     };
-    for (entity, view_target, bind_groups, graded) in &mut views {
-        if !graded {
-            commands.entity(entity).remove::<GradeBindGroups>();
+    for (entity, view_target, bind_groups, equipped) in &mut views {
+        if !equipped {
+            commands.entity(entity).remove::<PassBindGroups<P>>();
             continue;
         }
         let builder = PostProcessBindGroupCacheBuilder::new(|texture: &TextureView| {
             (
                 texture.id(),
                 render_device.create_bind_group(
-                    "cf_grade_bind_group",
+                    P::LABEL,
                     &pipeline_cache.get_bind_group_layout(&pipeline.layout),
                     &BindGroupEntries::sequential((texture, &pipeline.sampler, binding.clone())),
                 ),
@@ -208,33 +245,32 @@ fn prepare_bind_groups(
                 bind_groups.0.update(view_target, builder);
             }
         } else {
-            commands
-                .entity(entity)
-                .insert(GradeBindGroups(builder.generate_bind_groups(view_target)));
+            commands.entity(entity).insert(PassBindGroups::<P>(
+                builder.generate_bind_groups(view_target),
+                PhantomData,
+            ));
         }
     }
 }
 
-/// La passe : un triangle plein écran, de la texture principale courante vers l'autre.
-fn grade_pass(
+fn run_pass<P: FullscreenPass>(
     view: ViewQuery<(
         &ViewTarget,
-        &DynamicUniformIndex<GradeUniforms>,
-        &GradeBindGroups,
-        &GradePipelineId,
+        &DynamicUniformIndex<P::Uniform>,
+        &PassBindGroups<P>,
+        &PassPipelineId<P>,
     )>,
     pipeline_cache: Res<PipelineCache>,
     mut ctx: RenderContext,
 ) {
     let (view_target, uniform_index, bind_groups, pipeline_id) = view.into_inner();
-    // Pipeline pas encore compilé (premières images) : l'image passe sans étalonnage plutôt que de bloquer.
     let Some(pipeline) = pipeline_cache.get_render_pipeline(pipeline_id.0) else {
         return;
     };
     let post_process = view_target.post_process_write();
     let bind_group = bind_groups.0.get_current_bind_group(post_process.source);
     let descriptor = RenderPassDescriptor {
-        label: Some(GRADE_PASS_LABEL),
+        label: Some(P::LABEL),
         color_attachments: &[Some(RenderPassColorAttachment {
             view: post_process.destination,
             depth_slice: None,
@@ -249,7 +285,7 @@ fn grade_pass(
     let diagnostics = ctx.diagnostic_recorder();
     let diagnostics = diagnostics.as_deref();
     let mut pass = ctx.command_encoder().begin_render_pass(&descriptor);
-    let span = diagnostics.pass_span(&mut pass, GRADE_PASS_LABEL);
+    let span = diagnostics.pass_span(&mut pass, P::LABEL);
     pass.set_pipeline(pipeline);
     pass.set_bind_group(0, bind_group, &[uniform_index.index()]);
     pass.draw(0..3, 0..1);

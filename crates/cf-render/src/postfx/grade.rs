@@ -6,7 +6,6 @@ use bevy::render::extract_component::ExtractComponent;
 use bevy::render::render_resource::ShaderType;
 
 /// Grain de pellicule (`uGrain` de Sillage), en lumière linéaire ajoutée crête à crête.
-pub const GRAIN: f32 = 0.035;
 /// Rapport largeur / hauteur tant que la taille de l'image n'est pas connue (`uAspect` de Sillage).
 const DEFAULT_ASPECT: f32 = 1.78;
 
@@ -23,7 +22,8 @@ pub struct GradeUniforms {
     /// Partie fractionnaire de l'horloge (s), pour faire bouiller le grain (`fract(uTime)` de Sillage).
     pub time: f32,
     /// Amplitude du grain (`uGrain`).
-    pub grain: f32,
+    /// Force de la halation (0 : éteinte).
+    pub halation: f32,
     /// Quantité de gouttes sur l'objectif, 0 → 1 (`uLens`).
     pub lens: f32,
     /// Horloge des gouttes (`uRainTime`), s.
@@ -48,6 +48,14 @@ pub struct GradeUniforms {
     pub blur: f32,
     /// Couleur de la vague, linéaire, sans rouge saturé (`uSweepColor`).
     pub sweep_color: Vec3,
+    /// Force des rayons en espace écran (0 : éteints, aux paliers bas).
+    pub rays: f32,
+    /// Source des rayons, en UV (y vers le haut).
+    pub rays_pos: Vec2,
+    /// Amplitude du défilement UV glitché **[L]** (sortie du limiteur).
+    pub glitch: f32,
+    /// Enveloppe du transitoire `TR` (2 ms, 90 ms) pour l'aberration.
+    pub transient: f32,
 }
 
 impl Default for GradeUniforms {
@@ -56,7 +64,7 @@ impl Default for GradeUniforms {
         Self {
             aberration: 0.0,
             time: 0.0,
-            grain: GRAIN,
+            halation: 0.0,
             lens: 0.0,
             rain_time: 0.0,
             aspect: DEFAULT_ASPECT,
@@ -69,6 +77,10 @@ impl Default for GradeUniforms {
             flash_color: Vec3::ZERO,
             blur: 0.0,
             sweep_color: Vec3::ZERO,
+            rays: 0.0,
+            rays_pos: Vec2::new(0.5, 0.55),
+            glitch: 0.0,
+            transient: 0.0,
         }
     }
 }

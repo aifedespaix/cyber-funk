@@ -14,7 +14,8 @@
 //! - **Bloom** : celui de Bevy, réglé d'après l'`UnrealBloomPass` de Sillage ([`bloom`]) ; il respire sur le kick.
 //! - **Étalonnage** (`cf_grade`) : le shader de `postfx-grade.ts` porté en WGSL (`assets/shaders/cf-render/grade.wgsl`) :
 //!   aberration chromatique (séparation RVB), gouttes sur l'objectif, flou radial et désaturation du bullet-time,
-//!   contraste et saturation par chaleur, vignette, lignes de balayage, vague de lumière, flash, grain.
+//!   contraste et saturation par chaleur, vignette, lignes de balayage, vague de lumière, flash, halation, rayons.
+//! - **Persistance** (avant le bloom) et **grain** (après le tonemapping), voir [`persistence`] et [`finish`].
 //! - **Tonemapping** : `Tonemapping::KhronosPbrNeutral`, le même opérateur que le `NeutralToneMapping` de three.js
 //!   (« Khronos PBR Neutral »), exposition 1 comme dans Sillage.
 //!
@@ -33,9 +34,13 @@
 //! - [`PostFxState`] : le seul système du post-process ; il porte les effets du spectacle et leur limiteur.
 
 mod bloom;
+pub mod finish;
 mod grade;
+mod grain;
 mod lens;
 mod node;
+mod persist_node;
+pub mod persistence;
 mod show_fx;
 mod systems;
 
@@ -45,11 +50,13 @@ use bevy::shader::Shader;
 
 pub use bloom::{
     BLOOM_PULSE, BLOOM_STRENGTH, BLOOM_THRESHOLD, DEFAULT_BLOOM_DIVISOR, bloom_intensity, bloom_mip, bloom_settings,
-    bloom_strength,
+    bloom_strength, bloom_tail,
 };
-pub use grade::{GRAIN, GradeUniforms};
+pub use grade::GradeUniforms;
+pub use grain::GrainUniforms;
 pub use lens::Lens;
-pub use node::GRADE_PASS_LABEL;
+pub use node::{GRADE_PASS_LABEL, GRAIN_PASS_LABEL};
+pub use persist_node::{PERSIST_PASS_LABEL, PersistUniforms};
 pub use show_fx::{FlashPalette, ShowFx, ShowFxInput};
 
 use crate::CfSet;
@@ -66,6 +73,8 @@ pub struct PostFxSettings {
     /// Gain du bloom, 0 → 1, appliqué à son intensité. La qualité adaptative l'estompe avant de retirer le bloom (et le
     /// rétablit après l'avoir remis) pour qu'aucun palier ne soit un saut de luminance.
     pub bloom_gain: f32,
+    /// Densité de brume (0..1) : allonge la queue du bloom (DA §3.1).
+    pub mist: f32,
 }
 
 impl Default for PostFxSettings {
@@ -75,11 +84,16 @@ impl Default for PostFxSettings {
             bloom: true,
             bloom_divisor: DEFAULT_BLOOM_DIVISOR,
             bloom_gain: 1.0,
+            mist: 0.0,
         }
     }
 }
 
 /// La météo vue par l'objectif. Écrite par le monde ; au repos, objectif sec.
+/// Compteur de coupes de plan, incrémenté par le réalisateur : chaque incrément vide l'historique de persistance.
+#[derive(Resource, Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub struct ShotCuts(pub u64);
+
 #[derive(Resource, Debug, Clone, Copy, Default, PartialEq)]
 pub struct LensWeather {
     /// Averse, 0 → 1.
@@ -93,11 +107,28 @@ pub struct LensWeather {
 pub struct CurrentShowFx(pub ShowFxInput);
 
 /// État du post-process : effets du spectacle (et leur limiteur), gouttes. Écrit par le seul système du post-process.
-#[derive(Resource, Debug, Clone, Default)]
+#[derive(Resource, Debug, Clone)]
 pub struct PostFxState {
     show_fx: ShowFx,
     lens: Lens,
+    persistence: persistence::Persistence,
+    transient: cf_analysis::filters::AttackRelease,
+    peak_mix: f32,
     last_time: Option<f64>,
+}
+
+impl Default for PostFxState {
+    fn default() -> Self {
+        Self {
+            show_fx: ShowFx::default(),
+            lens: Lens::default(),
+            persistence: persistence::Persistence::default(),
+            // `env(TR ; 2 ms, 90 ms)` de l'aberration ciblée.
+            transient: cf_analysis::filters::AttackRelease::new(0.002, 0.09),
+            peak_mix: 0.0,
+            last_time: None,
+        }
+    }
 }
 
 impl PostFxState {
@@ -131,9 +162,21 @@ impl Plugin for PostFxPlugin {
         app.add_plugins((
             ExtractComponentPlugin::<GradeUniforms>::default(),
             UniformComponentPlugin::<GradeUniforms>::default(),
+            ExtractComponentPlugin::<GrainUniforms>::default(),
+            UniformComponentPlugin::<GrainUniforms>::default(),
+            ExtractComponentPlugin::<PersistUniforms>::default(),
+            UniformComponentPlugin::<PersistUniforms>::default(),
         ));
         if let Some(mut shaders) = app.world_mut().get_resource_mut::<Assets<Shader>>() {
             let shader = Shader::from_wgsl(node::GRADE_SOURCE, "cf-render/grade.wgsl");
+            let persist = Shader::from_wgsl(persist_node::PERSIST_SOURCE, "cf-render/persist.wgsl");
+            if let Err(error) = shaders.insert(persist_node::PERSIST_SHADER.id(), persist) {
+                tracing::error!(%error, "shader de persistance non enregistré");
+            }
+            let grain = Shader::from_wgsl(node::GRAIN_SOURCE, "cf-render/grain.wgsl");
+            if let Err(error) = shaders.insert(node::GRAIN_SHADER.id(), grain) {
+                tracing::error!(%error, "shader de grain non enregistré");
+            }
             if let Err(error) = shaders.insert(node::GRADE_SHADER.id(), shader) {
                 // Impossible avec un identifiant UUID ; si cela arrivait, l'image sortirait sans étalonnage (la passe
                 // attend son pipeline) plutôt que de couper le show.
@@ -141,6 +184,7 @@ impl Plugin for PostFxPlugin {
             }
         }
         node::build_render(app);
+        persist_node::build_render(app);
         app.init_resource::<PostFxSettings>()
             .init_resource::<LensWeather>()
             .init_resource::<PostFxState>()

@@ -7,8 +7,11 @@ use bevy::prelude::*;
 use cf_analysis::Section;
 use cf_show::limiter::Rgb;
 
-use super::bloom::{bloom_intensity, bloom_mip, bloom_settings, bloom_strength};
-use super::{CurrentShowFx, GradeUniforms, LensWeather, PostFxSettings, PostFxState};
+use super::bloom::{bloom_intensity, bloom_mip, bloom_settings, bloom_strength, bloom_tail};
+use super::finish::{HALATION_GAIN, grain_frame, grain_gain};
+use super::{
+    CurrentShowFx, GradeUniforms, GrainUniforms, LensWeather, PersistUniforms, PostFxSettings, PostFxState, ShotCuts,
+};
 use crate::{AudioFeatures, Compositor, LayerTargets};
 
 /// Aberration chromatique au sommet d'un kick (`pulse × 0.006` de `PostFX.setPulse`).
@@ -27,6 +30,8 @@ pub(super) fn equip_compositor(
     for entity in &compositors {
         commands.entity(entity).insert((
             GradeUniforms::default(),
+            GrainUniforms::default(),
+            PersistUniforms::default(),
             // Le `NeutralToneMapping` de Sillage est l'opérateur « Khronos PBR Neutral ».
             Tonemapping::KhronosPbrNeutral,
             // Le ciel en dégradé sombre est le premier à se baguer en 8 bits.
@@ -54,17 +59,40 @@ pub(super) fn update_postfx(
     show: Option<Res<CurrentShowFx>>,
     audio: Option<Res<AudioFeatures>>,
     targets: Option<Res<LayerTargets>>,
-    mut compositors: Query<(Entity, &mut GradeUniforms, Option<&mut Bloom>), With<Compositor>>,
+    cuts: Option<Res<ShotCuts>>,
+    mut compositors: Query<
+        (
+            Entity,
+            &mut GradeUniforms,
+            &mut GrainUniforms,
+            &mut PersistUniforms,
+            Option<&mut Bloom>,
+        ),
+        With<Compositor>,
+    >,
 ) {
     let now = time.elapsed_secs_f64();
     let dt = state.last_time.map_or(0.0, |last| (now - last).max(0.0) as f32);
     state.last_time = Some(now);
 
-    let (pulse, peak) = audio.map_or((0.0, false), |a| (a.pulse, a.section == Section::Peak));
+    let (pulse, peak) = audio
+        .as_ref()
+        .map_or((0.0, false), |a| (a.pulse, a.section == Section::Peak));
     let show = show.as_deref().map(|current| &current.0);
     let state = &mut *state;
     state.show_fx.update(show, pulse, peak, now, settings.quality);
     state.lens.update(weather.rain, weather.speed_ratio, dt);
+    let transient = state.transient.step(audio.as_ref().map_or(0.0, |a| a.transient), dt);
+    state.peak_mix += (f32::from(u8::from(peak)) - state.peak_mix) * (1.0 - (-dt * 2.0).exp());
+    let quality = settings.quality;
+    // Paliers (DA §3.1, règle 5) : rayons au plein seulement, halation et persistance jusqu'au palier 1.
+    let persist = state.persistence.update(
+        cuts.map_or(0, |c| c.0),
+        show.map_or(0.0, |s| s.heat),
+        weather.speed_ratio,
+        dt,
+        quality <= 1,
+    );
 
     let fx = &state.show_fx;
     // Respiration : la séparation RVB tombe à presque rien, même celle du kick.
@@ -82,11 +110,35 @@ pub(super) fn update_postfx(
     };
     let mip = bloom_mip(size.y, settings.bloom_divisor);
 
-    for (entity, mut grade, bloom) in &mut compositors {
+    let mist = if settings.mist.is_finite() {
+        settings.mist.clamp(0.0, 1.0)
+    } else {
+        0.0
+    };
+    let halation = if quality <= 1 { HALATION_GAIN } else { 0.0 };
+    let rays = if quality == 0 { 1.0 } else { 0.0 };
+    for (entity, mut grade, mut grain, mut persistence, bloom) in &mut compositors {
+        *grain = GrainUniforms {
+            gain: grain_gain(state.peak_mix),
+            frame: grain_frame(now),
+            ..*grain
+        };
+        *persistence = PersistUniforms {
+            decay: persist.decay,
+            zeta: persist.zeta,
+            reset: persist.reset,
+            enabled: f32::from(u8::from(persist.enabled)),
+            parity: persistence.parity ^ 1,
+            ..*persistence
+        };
         *grade = GradeUniforms {
             aberration: pulse * KICK_ABERRATION * base + fx.split(),
             // L'horloge longue reste en `f64` ; le shader n'en veut que la partie fractionnaire.
             time: now.fract() as f32,
+            halation,
+            rays,
+            glitch: fx.glitch(),
+            transient,
             lens: state.lens.amount,
             rain_time: state.lens.rain_time as f32,
             aspect: size.x as f32 / size.y as f32,
@@ -105,6 +157,7 @@ pub(super) fn update_postfx(
         match (settings.bloom, bloom) {
             (true, Some(mut bloom)) => {
                 bloom.intensity = bloom_intensity(strength) * gain;
+                bloom.low_frequency_boost = bloom_tail(mist);
                 if bloom.max_mip_dimension != mip {
                     bloom.max_mip_dimension = mip;
                 }
@@ -113,6 +166,7 @@ pub(super) fn update_postfx(
             (true, None) => {
                 let mut bloom = bloom_settings(strength, mip);
                 bloom.intensity *= gain;
+                bloom.low_frequency_boost = bloom_tail(mist);
                 commands.entity(entity).insert(bloom);
             }
             (false, Some(_)) => {
