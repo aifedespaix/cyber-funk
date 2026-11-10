@@ -123,18 +123,19 @@ fn predrop_dips_are_bounded_by_the_limiter() {
         .filter(|s| s.predrop)
         .map(|s| s.delta)
         .fold(f32::MAX, f32::min);
-    assert!(floor >= PREDROP_LEVEL - 0.02 && floor <= PREDROP_LEVEL + 0.2, "{floor}");
+    assert!((PREDROP_LEVEL - 0.02..=PREDROP_LEVEL + 0.2).contains(&floor), "{floor}");
     // Jamais deux creux à moins d'une seconde l'un de l'autre.
     let mut last_end: Option<f64> = None;
     for w in samples.windows(2) {
-        if !w[0].predrop && w[1].predrop {
-            if let Some(end) = last_end {
-                assert!(
-                    w[1].time_s - end >= 1.0,
-                    "deux creux à {:.2} s d'écart",
-                    w[1].time_s - end
-                );
-            }
+        if !w[0].predrop
+            && w[1].predrop
+            && let Some(end) = last_end
+        {
+            assert!(
+                w[1].time_s - end >= 1.0,
+                "deux creux à {:.2} s d'écart",
+                w[1].time_s - end
+            );
         }
         if w[0].predrop && !w[1].predrop {
             last_end = Some(w[1].time_s);
@@ -212,7 +213,7 @@ fn a_bar_of_rest_is_forced_after_64_beats_without_dropping_below_0_4() {
     assert!(start > 64.0 * beat_s, "pas avant 64 temps : {start}");
     assert_eq!(at_count % 16, 0, "elle commence au début d'une phrase");
     assert!(c.state().delta <= 1.0 && count > 0 && t > 0.0);
-    assert!(EPURE_LEVEL < 0.4);
+    const { assert!(EPURE_LEVEL < 0.4) };
 }
 
 #[test]
