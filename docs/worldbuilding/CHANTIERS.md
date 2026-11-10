@@ -78,11 +78,11 @@ visuelle `Δ`.
 
 **Acceptation**
 
-- [ ] Réponse à un échelon identique à 30, 60 et 144 images par seconde (écart < 1 %) pour chaque filtre.
-- [ ] Sinus à 40 Hz et à 100 Hz : `SB` et `PB` les séparent (rapport > 6 dB). Bruit rose : bandes équilibrées.
-- [ ] Aucune allocation dans la boucle d'analyse (test ou compteur existant).
-- [ ] `Δ` sur une piste de démo : instantané `insta` de la courbe, cinq états atteints, pré-drop borné par le limiteur.
-- [ ] Les shaders existants tournent sans changement visible (les anciens champs sont intacts).
+- [x] Réponse à un échelon identique à 30, 60 et 144 images par seconde (écart < 1 %) pour chaque filtre.
+- [x] Sinus à 40 Hz et à 100 Hz : `SB` et `PB` les séparent (rapport > 6 dB). Bruit rose : bandes équilibrées.
+- [x] Aucune allocation dans la boucle d'analyse (test ou compteur existant).
+- [x] `Δ` sur une piste de démo : instantané `insta` de la courbe, cinq états atteints, pré-drop borné par le limiteur.
+- [x] Les shaders existants tournent sans changement visible (les anciens champs sont intacts).
 
 ---
 
@@ -326,7 +326,7 @@ Statuts : ⬜ à faire · 🟨 en cours (le journal dit où reprendre) · ✅ te
 
 | # | Chantier | Statut | Dernier commit | Reste à faire / à vérifier sur le matériel cible |
 |---|---|---|---|---|
-| C1 | Signaux et dramaturgie | 🟨 | — | en cours |
+| C1 | Signaux et dramaturgie | ✅ | voir `git log` (dernier commit « C1 ») | Sur le matériel cible : seuils de `z` des transitoires et étalonnage `FFT_TO_RMS` sur une vraie entrée ligne/micro ; ressenti du creux d'avant-drop. Routage non encore lu par les shaders (C2 à C4). |
 | C2 | Image finale | ⬜ | — | — |
 | C3 | Atmosphère et profondeur | ⬜ | — | — |
 | C4 | Sol, façades et matériaux | ⬜ | — | — |
@@ -341,4 +341,47 @@ Statuts : ⬜ à faire · 🟨 en cours (le journal dit où reprendre) · ✅ te
 Une entrée par session, la plus récente en haut : date, chantier, ce qui est fait, décisions prises, critères
 non tenus et pourquoi, point de reprise si le chantier reste 🟨.
 
-_(vide)_
+### 2026-11-10 · C1 Signaux et dramaturgie · ✅
+
+**Fait**
+- `cf-analysis::filters` : attaque/relâchement, crête avec maintien, One-Euro, borne de pente, ressorts critique et
+  sous-amorti (intégration exacte), Schmitt, zone morte, z-score adaptatif, niveau dB + AGC + courbe.
+- `cf-analysis::subbands` : `SB`/`PB` en biquads (cascade de deux, double précision, RMS sur 1024 échantillons),
+  `LM`/`HM`/`TR` lus dans le spectre en octets déjà calculé pour le détecteur de kicks (aucune FFT de plus), flux
+  z de `PB` et `TR`, HFC z, transitoire, spectre 32 bandes One-Euro. Champs **ajoutés** à `AudioFeatures`.
+- `cf-render::audio::routing` : types `Route`, matrice RON validée (`default_routing.ron`, 22 routes qui reprennent
+  P2 §2.2 et §2.3), chaîne de filtrage par route, `RoutingEngine`, `FilteredSignals`, `KickWave` (âges des 4
+  derniers kicks), `RoutingPlugin` ajouté par `CfAudioPlugin`.
+- `cf-show::density` : `Δ` et ses cinq états, fatigue, respiration imposée, pré-drop **[L]** ; publiée dans
+  `ShowState::density` et `Res<VisualDensity>`.
+
+**Décisions**
+- One-Euro : lissages en `1 − exp(−2π·f·Δt)` au lieu de `1/(1+1/(2π·f·Δt))` (dépendant de la cadence) ; mesuré à
+  moins de 1 % d'écart entre 30, 60 et 144 i/s.
+- Les niveaux de sous-bande sont des RMS linéaires non normalisés ; AGC, courbe et seuil sont par route. Sur une
+  capture, `SB`/`PB` voient le signal avant le gain automatique du micro, `LM`/`HM`/`TR` après : l'AGC par route
+  absorbe l'écart.
+- Onde de kick en **âges** (s) et non en horodatages : un `f32` perd la milliseconde après une heure d'horloge.
+- Plusieurs routes sur une cible : maximum. Routes sous limiteur : un seul `FlashLimiter` (cadence, écart, plafond),
+  chaque route a sa propre pente bornée à `1/MIN_FADE` ; flashs coupés ou respiration : sortie à 0.
+- Pré-drop : la frappe n'est pas prévisible en direct. Le chef offre un creux seulement quand une montée a armé un
+  drop, que l'intensité dépasse 0,7 et que la fin de phrase est à portée (jusqu'à 4 temps si le contraste du
+  climax est insuffisant) ; un seul creux par frappe, par un `FlashLimiter` voie `Sweep` dédié à `Δ`.
+- Fatigue de `Δ` comptée sur la densité voulue (avant plafond), sinon le plafond remettait le compte à zéro.
+- Table de `Δ` : calme 0,35 / groove 0,65 / sommet 1,0 (DA donne des plages par état, pas la table).
+
+**Écarts / non tenu**
+- Pas de test d'allocation propre à `RoutingEngine::update` (aucun `Vec` dans la boucle par construction). La boucle
+  d'analyse est couverte par `tests/no_alloc.rs` existant, qui passe avec les sous-bandes.
+- `KickWave` et `FilteredSignals` ne sont pas encore des uniformes GPU : aucun shader ne les lit avant C2 à C4.
+- `real_drop` n'est toujours pas détecté par l'analyse ; le pré-drop repose sur la montée détectée.
+- Pas de capture : C1 ne change aucun rendu.
+- Tests rouges **hors périmètre**, déjà présents sur `main` d'après leur objet et qu'aucun fichier de ce chantier ne
+  touche : `cf-operator` `shot_names` (plan `drone-pov` sans nom français), `cf-world-neon` `signs::golden` (3 tests
+  de catalogue de Sillage), `cf-world-neon` tests `signs` et `sky`. Non confirmé sur un `main` propre (recompilation
+  trop longue) : à vérifier d'abord par la session suivante.
+
+**Preuves** : 12 tests de filtres, 6 de sous-bandes (sinus 40/100 Hz > 6 dB, bruit rose, transitoires), 8 de
+densité (+ instantané `insta`), 11 de routage ; clippy `-D warnings` du workspace vert.
+
+**Prochaine session** : C2 · Image finale.
