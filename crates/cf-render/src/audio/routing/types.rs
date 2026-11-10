@@ -29,7 +29,10 @@ impl Source {
     /// Vrai pour les cinq bandes : elles passent par le niveau en dB, l'AGC et le seuil.
     #[must_use]
     pub const fn is_band(self) -> bool {
-        matches!(self, Self::SubBass | Self::Punch | Self::LowMid | Self::HighMid | Self::Transient)
+        matches!(
+            self,
+            Self::SubBass | Self::Punch | Self::LowMid | Self::HighMid | Self::Transient
+        )
     }
 }
 

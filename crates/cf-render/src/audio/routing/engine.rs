@@ -23,7 +23,10 @@ impl RoutingEngine {
     /// Moteur pour une matrice validée.
     #[must_use]
     pub fn new(matrix: &RoutingMatrix) -> Self {
-        Self { chains: matrix.routes.iter().map(Chain::new).collect(), limiter: FlashLimiter::new() }
+        Self {
+            chains: matrix.routes.iter().map(Chain::new).collect(),
+            limiter: FlashLimiter::new(),
+        }
     }
 
     /// Nombre de routes.
@@ -58,7 +61,11 @@ impl RoutingEngine {
         (flashes, breathing): (bool, bool),
     ) {
         let dt = if dt.is_finite() { dt.clamp(0.0, 0.25) } else { 0.0 };
-        let period_s = 60.0 / features.bpm.filter(|b| b.is_finite() && *b > 20.0).unwrap_or(FALLBACK_BPM);
+        let period_s = 60.0
+            / features
+                .bpm
+                .filter(|b| b.is_finite() && *b > 20.0)
+                .unwrap_or(FALLBACK_BPM);
         // La phase de mesure couvre 4 temps ; celle du temps en est la partie fractionnaire.
         let bar_phase = visual_phase(features.phase, latency_s, period_s * 4.0);
         out.bar_phase = bar_phase;
@@ -68,7 +75,12 @@ impl RoutingEngine {
         self.limiter.set_policy(flashes, breathing);
         self.limiter.step(dt);
         out.clear_targets();
-        let frame = Frame { features, dt, now, bar_phase };
+        let frame = Frame {
+            features,
+            dt,
+            now,
+            bar_phase,
+        };
         for chain in &mut self.chains {
             let value = chain.step(&frame, &mut self.limiter);
             let target: Target = chain.target();

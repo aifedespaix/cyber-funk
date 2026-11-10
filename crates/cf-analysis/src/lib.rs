@@ -46,10 +46,10 @@ pub use offline::{
     hash_file, spawn_analysis,
 };
 pub use sections::SectionTracker;
+pub use subbands::{SPECTRUM_BANDS, SubBandAnalyzer, SubBandState, SubBands};
 pub use tempo::{
     AudioBeatGrid, BEATS_PER_BAR, BEATS_PER_PHRASE, CATCH_UP_BEATS, EXTERNAL_LOSS_S, TempoArbiter, TempoReading,
 };
-pub use subbands::{SPECTRUM_BANDS, SubBandAnalyzer, SubBandState, SubBands};
 pub use texture::{TextureAnalyzer, TextureState};
 pub use thread::{
     AnalysisConfig, AnalysisControl, AnalysisError, AnalysisOutputs, AnalysisStats, AnalysisStatsSnapshot,

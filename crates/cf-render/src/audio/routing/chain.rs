@@ -62,9 +62,10 @@ pub(super) struct Chain {
 impl Chain {
     pub(super) fn new(route: &Route) -> Self {
         let (attack, release) = match route.smooth {
-            Smooth::AttackRelease { attack_s, release_s } | Smooth::AttackReleaseSpring { attack_s, release_s, .. } => {
-                (attack_s, release_s)
-            }
+            Smooth::AttackRelease { attack_s, release_s }
+            | Smooth::AttackReleaseSpring {
+                attack_s, release_s, ..
+            } => (attack_s, release_s),
             _ => (0.0, 0.0),
         };
         let (f_min, beta) = match route.smooth {
@@ -129,7 +130,11 @@ impl Chain {
                 Curve::Pow(g) => curve_pow(x, g),
             };
             // Étape 4 : Schmitt, sinon zone morte rééchelonnée.
-            if chain.gate.update(x) { dead_zone(x, THETA_OFF) } else { 0.0 }
+            if chain.gate.update(x) {
+                dead_zone(x, THETA_OFF)
+            } else {
+                0.0
+            }
         };
         match self.route.source {
             Source::SubBass => band(b.sb, self),
@@ -164,13 +169,22 @@ impl Chain {
     }
 
     fn lane(&self) -> Channel {
-        if self.route.limiter == LimiterLane::Sweep { Channel::Sweep } else { Channel::Flash }
+        if self.route.limiter == LimiterLane::Sweep {
+            Channel::Sweep
+        } else {
+            Channel::Flash
+        }
     }
 
     /// Une demande de départ au limiteur. Vrai si elle est acceptée.
     fn ask(&self, limiter: &mut FlashLimiter, now: f64) -> bool {
         limiter.trigger(
-            FlashRequest { channel: self.lane(), peak: self.lane().cap(), attack_s: MIN_FADE, decay_s: EVENT_DECAY_S.max(MIN_FADE) },
+            FlashRequest {
+                channel: self.lane(),
+                peak: self.lane().cap(),
+                attack_s: MIN_FADE,
+                decay_s: EVENT_DECAY_S.max(MIN_FADE),
+            },
             now,
         )
     }
@@ -196,7 +210,7 @@ impl Chain {
         } else if !high {
             self.denied = false;
         }
-        let allowed = if self.denied { 0.0 } else { y };
+        let allowed = if self.denied || !limiter.permitted() { 0.0 } else { y };
         self.lane_slew.step(allowed, f.dt)
     }
 
@@ -225,6 +239,10 @@ impl Chain {
             }
         }
         let out = self.pulse.step(0.0, f.dt);
-        if self.route.limiter == LimiterLane::None { out } else { self.lane_slew.step(out, f.dt) }
+        if self.route.limiter == LimiterLane::None {
+            out
+        } else {
+            self.lane_slew.step(if limiter.permitted() { out } else { 0.0 }, f.dt)
+        }
     }
 }

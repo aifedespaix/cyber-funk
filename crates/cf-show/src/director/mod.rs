@@ -73,6 +73,8 @@ use crate::time_scale::TimeScale;
 
 /// Constante de temps (s) de la chaleur (`HEAT_SECONDS` de Sillage).
 const HEAT_SECONDS: f32 = 5.0;
+/// Intensité à partir de laquelle une montée armée peut offrir un creux d'avant-drop : plus bas, la frappe est loin.
+const PREDROP_MIN_INTENSITY: f32 = 0.7;
 /// Les variations de l'après-set commencent quand le dernier cue d'un créneau Auto ou Semi joue depuis ce temps (s).
 /// Dans Sillage, elles partent à la fin du set, soit 45 % d'un set de 180 min après l'entrée du niveau 5.
 pub const VARIATION_AFTER_S: f64 = 4860.0;
@@ -385,7 +387,7 @@ impl<R: Rng> ShowDirector<R> {
         let strike_in_beats = self
             .conductor
             .plan()
-            .filter(|_| audio.live)
+            .filter(|_| audio.live && audio.intensity >= PREDROP_MIN_INTENSITY)
             .map(|_| PHRASE_BEATS as f32 - (audio.beat % f64::from(PHRASE_BEATS)) as f32);
         let input = DensityInput {
             dt: self.frame.dt,

@@ -25,8 +25,8 @@ pub use cf_audio::playlist::{PlayMode, Track};
 pub use config::{AudioConfig, InputBackendChoice, OutputChoice};
 pub use latency::{LatencyLine, MAX_LATENCY_MS};
 pub use routing::{
-    Curve, Detector, FilteredSignals, KICK_NEVER_S, KickWave, LimiterLane, Quantize, Route, RoutingEngine, RoutingError,
-    RoutingMatrix, RoutingPlugin, Slew, Smooth, Source, Target, VisualDensity, visual_phase,
+    Curve, Detector, FilteredSignals, KICK_NEVER_S, KickWave, LimiterLane, Quantize, Route, RoutingEngine,
+    RoutingError, RoutingMatrix, RoutingPlugin, Slew, Smooth, Source, Target, VisualDensity, visual_phase,
 };
 pub use runtime::AudioRuntime;
 pub use types::{

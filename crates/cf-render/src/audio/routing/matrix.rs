@@ -53,7 +53,10 @@ impl RoutingMatrix {
     ///
     /// Jamais pour un binaire sain : le texte est celui du dépôt et son test le valide.
     #[must_use]
-    #[allow(clippy::expect_used, reason = "texte embarqué vérifié par le test `default_matrix_is_valid`")]
+    #[allow(
+        clippy::expect_used,
+        reason = "texte embarqué vérifié par le test `default_matrix_is_valid`"
+    )]
     pub fn default_matrix() -> Self {
         Self::from_ron(DEFAULT_RON).expect("matrice de routage par défaut")
     }
@@ -89,7 +92,11 @@ impl RoutingMatrix {
         }
         for (index, route) in self.routes.iter().enumerate() {
             if let Err(reason) = validate_route(route) {
-                return Err(RoutingError::Invalid { index, target: route.target, reason });
+                return Err(RoutingError::Invalid {
+                    index,
+                    target: route.target,
+                    reason,
+                });
             }
         }
         Ok(())
@@ -131,13 +138,19 @@ fn validate_route(r: &Route) -> Result<(), &'static str> {
                 return Err("lissage : durées hors 0..60 s");
             }
         }
-        Smooth::AttackReleaseSpring { attack_s, release_s, hz, zeta } => {
+        Smooth::AttackReleaseSpring {
+            attack_s,
+            release_s,
+            hz,
+            zeta,
+        } => {
             if !time_ok(attack_s) || !time_ok(release_s) || !spring_ok(hz, zeta) {
                 return Err("lissage : durées ou ressort hors domaine");
             }
         }
         Smooth::OneEuro { f_min, beta } => {
-            if !(f_min.is_finite() && f_min > 0.0 && f_min <= 60.0 && beta.is_finite() && (0.0..=100.0).contains(&beta)) {
+            if !(f_min.is_finite() && f_min > 0.0 && f_min <= 60.0 && beta.is_finite() && (0.0..=100.0).contains(&beta))
+            {
                 return Err("One-Euro : f_min ou β hors domaine");
             }
         }

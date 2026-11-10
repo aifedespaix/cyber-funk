@@ -122,8 +122,16 @@ impl DensityBand {
     #[must_use]
     pub fn of(delta: f32, previous: Self) -> Self {
         let i = previous.index();
-        let low = if i == 0 { f32::NEG_INFINITY } else { Self::EDGES[i - 1] - Self::MARGIN };
-        let high = if i == 4 { f32::INFINITY } else { Self::EDGES[i] + Self::MARGIN };
+        let low = if i == 0 {
+            f32::NEG_INFINITY
+        } else {
+            Self::EDGES[i - 1] - Self::MARGIN
+        };
+        let high = if i == 4 {
+            f32::INFINITY
+        } else {
+            Self::EDGES[i] + Self::MARGIN
+        };
         if (low..high).contains(&delta) {
             return previous;
         }
@@ -140,7 +148,10 @@ impl DensityBand {
 
 /// Ce que le chef du spectacle publie de la densité à chaque image.
 #[derive(Debug, Clone, Copy, PartialEq)]
-#[allow(clippy::struct_excessive_bools, reason = "deux drapeaux d'état indépendants publiés tels quels")]
+#[allow(
+    clippy::struct_excessive_bools,
+    reason = "deux drapeaux d'état indépendants publiés tels quels"
+)]
 pub struct DensityState {
     /// Densité visuelle courante, 0..1.
     pub delta: f32,
@@ -154,7 +165,12 @@ pub struct DensityState {
 
 impl DensityState {
     /// État d'ouverture.
-    pub const NEUTRAL: Self = Self { delta: INITIAL, band: DensityBand::Groove, predrop: false, epure: false };
+    pub const NEUTRAL: Self = Self {
+        delta: INITIAL,
+        band: DensityBand::Groove,
+        predrop: false,
+        epure: false,
+    };
 }
 
 impl Default for DensityState {
@@ -193,6 +209,8 @@ pub struct DensityInput {
 pub struct DensityConductor {
     tuning: DensityTuning,
     state: DensityState,
+    /// Densité voulue, avant plafond de fatigue ou de respiration (celle que lisse la cible).
+    raw: f32,
     /// Temps écoulés au-dessus du seuil de fatigue.
     high_beats: f32,
     /// Temps écoulés sans passage sous le seuil de respiration.
@@ -202,6 +220,8 @@ pub struct DensityConductor {
     strike_left: f32,
     predrop_active: bool,
     predrop_denied: bool,
+    /// Le creux de ce drop armé a déjà eu lieu : un seul par frappe.
+    predrop_used: bool,
     phrase: Option<u32>,
     /// Temps écoulés depuis le début de la mesure en cours, somme de `Δ` sur la mesure, moyennes des 8 dernières.
     bar_beats: f32,
@@ -227,6 +247,7 @@ impl DensityConductor {
         Self {
             tuning,
             state: DensityState::NEUTRAL,
+            raw: INITIAL,
             high_beats: 0.0,
             steady_beats: 0.0,
             epure_pending: false,
@@ -234,6 +255,7 @@ impl DensityConductor {
             strike_left: 0.0,
             predrop_active: false,
             predrop_denied: false,
+            predrop_used: false,
             phrase: None,
             bar_beats: 0.0,
             bar_sum: 0.0,
@@ -268,7 +290,11 @@ impl DensityConductor {
             Section::Groove => self.tuning.table[1],
             Section::Peak => self.tuning.table[2],
         };
-        let intensity = if intensity.is_finite() { intensity.clamp(0.0, 1.0) } else { 0.0 };
+        let intensity = if intensity.is_finite() {
+            intensity.clamp(0.0, 1.0)
+        } else {
+            0.0
+        };
         row * (0.7 + 0.3 * intensity)
     }
 
@@ -288,13 +314,17 @@ impl DensityConductor {
     pub fn predrop_window(&self, intensity: f32) -> f32 {
         let peak = self.target(Section::Peak, intensity);
         let ratio = peak / self.recent_mean().max(0.05);
-        let lack = crate::density::saturate((self.tuning.contrast - ratio) / self.tuning.contrast);
+        let lack = saturate((self.tuning.contrast - ratio) / self.tuning.contrast);
         self.tuning.predrop_beats + (self.tuning.predrop_max_beats - self.tuning.predrop_beats) * lack
     }
 
     /// Avance d'une image.
     pub fn update(&mut self, input: &DensityInput) -> &DensityState {
-        let dt = if input.dt.is_finite() { input.dt.clamp(0.0, 1.0) } else { 0.0 };
+        let dt = if input.dt.is_finite() {
+            input.dt.clamp(0.0, 1.0)
+        } else {
+            0.0
+        };
         let bpm = input.bpm.filter(|b| b.is_finite() && *b > 20.0).unwrap_or(FALLBACK_BPM);
         let beat_s = 60.0 / bpm;
         let beats = dt / beat_s;
@@ -326,7 +356,7 @@ impl DensityConductor {
         // Creux d'avant-drop.
         let window = self.predrop_window(input.intensity);
         let wants_predrop = input.strike_in_beats.is_some_and(|b| b <= window) && !input.drop_now;
-        if wants_predrop && !self.predrop_active && !self.predrop_denied {
+        if wants_predrop && !self.predrop_active && !self.predrop_denied && !self.predrop_used {
             let request = FlashRequest {
                 channel: Channel::Sweep,
                 peak: MAX_SWEEP_PEAK,
@@ -340,12 +370,14 @@ impl DensityConductor {
             }
         }
         if !wants_predrop || !input.flashes || input.breathing {
+            self.predrop_used |= self.predrop_active;
             self.predrop_active = false;
             if !wants_predrop {
                 self.predrop_denied = false;
             }
         }
         if input.drop_now {
+            self.predrop_used = false;
             self.strike_left = t.strike_beats;
         }
 
@@ -357,7 +389,7 @@ impl DensityConductor {
         if self.predrop_active {
             target = PREDROP_LEVEL;
         }
-        let rising = target > self.state.delta;
+        let rising = target > self.raw;
         let tau_beats = if !rising {
             t.fall_beats
         } else if self.strike_left > 0.0 {
@@ -366,7 +398,7 @@ impl DensityConductor {
             t.rise_beats
         };
         self.strike_left = (self.strike_left - beats).max(0.0);
-        let mut delta = self.state.delta;
+        let mut delta = self.raw;
         // Le creux d'avant-drop est une rampe courte (la descente lente de 8 temps le rendrait invisible).
         let ramp = if self.predrop_active || epure {
             1.0 - (-beats / 0.25_f32).exp()
@@ -374,8 +406,10 @@ impl DensityConductor {
             1.0 - (-beats / tau_beats).exp()
         };
         delta += (target - delta) * ramp;
+        self.raw = delta;
 
-        // Fatigue : plafond qui descend après 32 temps au-dessus de 0,8.
+        // Fatigue : plafond qui descend après 32 temps au-dessus de 0,8. Le compte porte sur la densité *voulue*
+        // (avant plafond) : sinon le plafond ferait retomber Δ sous 0,8, remettrait le compte à zéro et se lèverait.
         if delta > FATIGUE_THRESHOLD {
             self.high_beats += beats;
         } else {

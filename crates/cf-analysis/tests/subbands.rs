@@ -84,7 +84,10 @@ fn pink_noise_gives_balanced_bands() {
     let median = sorted[2];
     for (name, l) in ["SB", "PB", "LM", "HM", "TR"].iter().zip(levels) {
         assert!(l > 0.0, "{name} muet");
-        assert!(db(l / median).abs() < 8.0, "{name} = {l} contre médiane {median} : {levels:?}");
+        assert!(
+            db(l / median).abs() < 8.0,
+            "{name} = {l} contre médiane {median} : {levels:?}"
+        );
     }
 }
 
@@ -124,7 +127,13 @@ fn a_hat_makes_a_transient_and_a_steady_tone_does_not() {
 #[test]
 fn spectrum_has_32_bands_and_follows_the_tone() {
     let s = run(300, sine(1000.0, 0.5));
-    let max = s.spectrum.iter().copied().enumerate().max_by(|a, b| a.1.total_cmp(&b.1)).unwrap();
+    let max = s
+        .spectrum
+        .iter()
+        .copied()
+        .enumerate()
+        .max_by(|a, b| a.1.total_cmp(&b.1))
+        .unwrap();
     // 1 kHz tombe à ln(10)/ln(160)·32 ≈ 14,5 : bande 14 ou 15.
     assert!((13..=16).contains(&max.0), "pic en bande {} : {:?}", max.0, s.spectrum);
     assert!(s.spectrum.iter().all(|v| (0.0..=1.0).contains(v)));

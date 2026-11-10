@@ -1,0 +1,126 @@
+---
+source: crates/cf-show/tests/density_scenario.rs
+assertion_line: 89
+expression: text
+---
+mesure   0  Calm  Δ 0.30 [0.29 .. 0.30]  Calm
+mesure   1  Calm  Δ 0.29 [0.28 .. 0.29]  Calm
+mesure   2  Calm  Δ 0.28 [0.28 .. 0.28]  Calm
+mesure   3  Calm  Δ 0.28 [0.28 .. 0.28]  Calm
+mesure   4  Calm  Δ 0.28 [0.27 .. 0.28]  Calm
+mesure   5  Calm  Δ 0.27 [0.27 .. 0.27]  Calm
+mesure   6  Calm  Δ 0.27 [0.27 .. 0.27]  Calm
+mesure   7  Calm  Δ 0.27 [0.27 .. 0.27]  Calm
+mesure   8  Calm  Δ 0.27 [0.27 .. 0.27]  Calm
+mesure   9  Calm  Δ 0.27 [0.27 .. 0.27]  Calm
+mesure  10  Calm  Δ 0.27 [0.27 .. 0.27]  Calm
+mesure  11  Calm  Δ 0.27 [0.27 .. 0.27]  Calm
+mesure  12  Calm  Δ 0.27 [0.27 .. 0.27]  Calm
+mesure  13  Calm  Δ 0.27 [0.27 .. 0.27]  Calm
+mesure  14  Calm  Δ 0.27 [0.27 .. 0.27]  Calm
+mesure  15  Calm  Δ 0.27 [0.27 .. 0.27]  Calm
+mesure  16  Groove  Δ 0.27 [0.27 .. 0.48]  Groove
+mesure  17  Groove  Δ 0.48 [0.48 .. 0.52]  Groove
+mesure  18  Groove  Δ 0.52 [0.52 .. 0.54]  Groove
+mesure  19  Groove  Δ 0.54 [0.54 .. 0.55]  Groove
+mesure  20  Groove  Δ 0.55 [0.55 .. 0.57]  Groove
+mesure  21  Groove  Δ 0.57 [0.57 .. 0.58]  Groove
+mesure  22  Groove  Δ 0.58 [0.58 .. 0.60]  Groove
+mesure  23  Groove  Δ 0.60 [0.16 .. 0.61]  Calm  pré-drop
+mesure  24  Peak  Δ 0.16 [0.15 .. 0.95]  Climax  pré-drop
+mesure  25  Peak  Δ 0.95 [0.95 .. 0.95]  Climax
+mesure  26  Peak  Δ 0.95 [0.95 .. 0.95]  Climax
+mesure  27  Peak  Δ 0.95 [0.95 .. 0.95]  Climax
+mesure  28  Peak  Δ 0.95 [0.95 .. 0.95]  Climax
+mesure  29  Peak  Δ 0.95 [0.95 .. 0.95]  Climax
+mesure  30  Peak  Δ 0.95 [0.95 .. 0.95]  Climax
+mesure  31  Peak  Δ 0.95 [0.95 .. 0.95]  Climax
+mesure  32  Peak  Δ 0.95 [0.95 .. 0.95]  Climax
+mesure  33  Peak  Δ 0.95 [0.93 .. 0.95]  Climax
+mesure  34  Peak  Δ 0.93 [0.89 .. 0.93]  Climax
+mesure  35  Peak  Δ 0.89 [0.86 .. 0.89]  Climax
+mesure  36  Peak  Δ 0.86 [0.82 .. 0.86]  Climax
+mesure  37  Peak  Δ 0.82 [0.78 .. 0.82]  Climax
+mesure  38  Peak  Δ 0.78 [0.74 .. 0.78]  Rise
+mesure  39  Peak  Δ 0.74 [0.71 .. 0.74]  Rise
+mesure  40  Peak  Δ 0.71 [0.70 .. 0.71]  Rise
+mesure  41  Peak  Δ 0.70 [0.70 .. 0.70]  Rise
+mesure  42  Peak  Δ 0.70 [0.70 .. 0.70]  Rise
+mesure  43  Peak  Δ 0.70 [0.70 .. 0.70]  Rise
+mesure  44  Peak  Δ 0.70 [0.12 .. 0.75]  Apnea  épure
+mesure  45  Peak  Δ 0.12 [0.12 .. 0.82]  Climax  épure
+mesure  46  Peak  Δ 0.82 [0.82 .. 0.94]  Climax
+mesure  47  Peak  Δ 0.94 [0.94 .. 0.95]  Climax
+mesure  48  Peak  Δ 0.95 [0.95 .. 0.95]  Climax
+mesure  49  Peak  Δ 0.95 [0.95 .. 0.95]  Climax
+mesure  50  Peak  Δ 0.95 [0.95 .. 0.95]  Climax
+mesure  51  Peak  Δ 0.95 [0.95 .. 0.95]  Climax
+mesure  52  Peak  Δ 0.95 [0.95 .. 0.95]  Climax
+mesure  53  Peak  Δ 0.95 [0.95 .. 0.95]  Climax
+mesure  54  Peak  Δ 0.95 [0.95 .. 0.95]  Climax
+mesure  55  Peak  Δ 0.95 [0.92 .. 0.95]  Climax
+mesure  56  Calm  Δ 0.92 [0.71 .. 0.92]  Rise
+mesure  57  Calm  Δ 0.70 [0.54 .. 0.70]  Groove
+mesure  58  Calm  Δ 0.53 [0.43 .. 0.53]  Groove
+mesure  59  Calm  Δ 0.43 [0.37 .. 0.43]  Groove
+mesure  60  Calm  Δ 0.37 [0.33 .. 0.37]  Groove
+mesure  61  Calm  Δ 0.33 [0.31 .. 0.33]  Calm
+mesure  62  Calm  Δ 0.31 [0.29 .. 0.31]  Calm
+mesure  63  Calm  Δ 0.29 [0.28 .. 0.29]  Calm
+mesure  64  Calm  Δ 0.28 [0.28 .. 0.28]  Calm
+mesure  65  Calm  Δ 0.28 [0.28 .. 0.28]  Calm
+mesure  66  Calm  Δ 0.28 [0.27 .. 0.28]  Calm
+mesure  67  Calm  Δ 0.27 [0.27 .. 0.27]  Calm
+mesure  68  Calm  Δ 0.27 [0.27 .. 0.27]  Calm
+mesure  69  Calm  Δ 0.27 [0.27 .. 0.27]  Calm
+mesure  70  Calm  Δ 0.27 [0.27 .. 0.27]  Calm
+mesure  71  Calm  Δ 0.27 [0.27 .. 0.27]  Calm
+mesure  72  Groove  Δ 0.27 [0.27 .. 0.47]  Groove
+mesure  73  Groove  Δ 0.47 [0.47 .. 0.52]  Groove
+mesure  74  Groove  Δ 0.52 [0.52 .. 0.54]  Groove
+mesure  75  Groove  Δ 0.54 [0.54 .. 0.55]  Groove
+mesure  76  Groove  Δ 0.55 [0.55 .. 0.57]  Groove
+mesure  77  Groove  Δ 0.57 [0.57 .. 0.58]  Groove
+mesure  78  Groove  Δ 0.58 [0.58 .. 0.60]  Groove
+mesure  79  Groove  Δ 0.60 [0.17 .. 0.61]  Calm  pré-drop
+mesure  80  Peak  Δ 0.17 [0.15 .. 0.95]  Climax  pré-drop
+mesure  81  Peak  Δ 0.95 [0.95 .. 0.95]  Climax
+mesure  82  Peak  Δ 0.95 [0.95 .. 0.95]  Climax
+mesure  83  Peak  Δ 0.95 [0.95 .. 0.95]  Climax
+mesure  84  Peak  Δ 0.95 [0.95 .. 0.95]  Climax
+mesure  85  Peak  Δ 0.95 [0.95 .. 0.95]  Climax
+mesure  86  Peak  Δ 0.95 [0.95 .. 0.95]  Climax
+mesure  87  Peak  Δ 0.95 [0.95 .. 0.95]  Climax
+mesure  88  Peak  Δ 0.95 [0.95 .. 0.95]  Climax
+mesure  89  Peak  Δ 0.95 [0.93 .. 0.95]  Climax
+mesure  90  Peak  Δ 0.93 [0.90 .. 0.93]  Climax
+mesure  91  Peak  Δ 0.90 [0.86 .. 0.90]  Climax
+mesure  92  Peak  Δ 0.86 [0.82 .. 0.86]  Climax
+mesure  93  Peak  Δ 0.82 [0.78 .. 0.82]  Climax
+mesure  94  Peak  Δ 0.78 [0.75 .. 0.78]  Rise
+mesure  95  Peak  Δ 0.75 [0.71 .. 0.75]  Rise
+mesure  96  Peak  Δ 0.71 [0.70 .. 0.71]  Rise
+mesure  97  Peak  Δ 0.70 [0.70 .. 0.70]  Rise
+mesure  98  Peak  Δ 0.70 [0.70 .. 0.70]  Rise
+mesure  99  Peak  Δ 0.70 [0.70 .. 0.70]  Rise
+mesure 100  Peak  Δ 0.70 [0.12 .. 0.75]  Apnea  épure
+mesure 101  Peak  Δ 0.12 [0.12 .. 0.79]  Rise  épure
+mesure 102  Peak  Δ 0.80 [0.80 .. 0.93]  Climax
+mesure 103  Peak  Δ 0.93 [0.93 .. 0.95]  Climax
+mesure 104  Peak  Δ 0.95 [0.95 .. 0.95]  Climax
+mesure 105  Peak  Δ 0.95 [0.95 .. 0.95]  Climax
+mesure 106  Peak  Δ 0.95 [0.95 .. 0.95]  Climax
+mesure 107  Peak  Δ 0.95 [0.95 .. 0.95]  Climax
+mesure 108  Peak  Δ 0.95 [0.95 .. 0.95]  Climax
+mesure 109  Peak  Δ 0.95 [0.95 .. 0.95]  Climax
+mesure 110  Peak  Δ 0.95 [0.95 .. 0.95]  Climax
+mesure 111  Peak  Δ 0.95 [0.93 .. 0.95]  Climax
+mesure 112  Calm  Δ 0.93 [0.73 .. 0.93]  Rise
+mesure 113  Calm  Δ 0.73 [0.55 .. 0.73]  Groove
+mesure 114  Calm  Δ 0.55 [0.44 .. 0.55]  Groove
+mesure 115  Calm  Δ 0.44 [0.37 .. 0.44]  Groove
+mesure 116  Calm  Δ 0.37 [0.33 .. 0.37]  Groove
+mesure 117  Calm  Δ 0.33 [0.31 .. 0.33]  Calm
+mesure 118  Calm  Δ 0.31 [0.29 .. 0.31]  Calm
+mesure 119  Calm  Δ 0.29 [0.29 .. 0.29]  Calm
+mesure 120  Calm  Δ 0.29 [0.28 .. 0.29]  Calm

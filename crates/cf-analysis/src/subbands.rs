@@ -75,7 +75,13 @@ pub struct SubBandState {
 impl SubBandState {
     /// État de repos.
     pub const REST: Self = Self {
-        bands: SubBands { sb: 0.0, pb: 0.0, lm: 0.0, hm: 0.0, tr: 0.0 },
+        bands: SubBands {
+            sb: 0.0,
+            pb: 0.0,
+            lm: 0.0,
+            hm: 0.0,
+            tr: 0.0,
+        },
         z_pb: 0.0,
         z_tr: 0.0,
         hfc_z: 0.0,
@@ -106,7 +112,13 @@ impl Biquad {
         let w0 = std::f64::consts::TAU * f0 / sample_rate;
         let a = w0.sin() / (2.0 * q);
         let norm = 1.0 + a;
-        Self { b0: a / norm, a1: -2.0 * w0.cos() / norm, a2: (1.0 - a) / norm, z1: 0.0, z2: 0.0 }
+        Self {
+            b0: a / norm,
+            a1: -2.0 * w0.cos() / norm,
+            a2: (1.0 - a) / norm,
+            z1: 0.0,
+            z2: 0.0,
+        }
     }
 
     /// Forme transposée directe II ; `b = (b0, 0, −b0)`.
@@ -134,7 +146,10 @@ struct TimeBand {
 impl TimeBand {
     fn new(f0: f64, q: f64, sample_rate: f64) -> Self {
         let stage = Biquad::band_pass(f0, q, sample_rate);
-        Self { stages: [stage, stage], energy: [0.0; 2] }
+        Self {
+            stages: [stage, stage],
+            energy: [0.0; 2],
+        }
     }
 
     /// Filtre le pas et renvoie l'amplitude RMS sur les deux derniers pas.

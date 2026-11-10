@@ -25,7 +25,13 @@ impl Plugin for RoutingPlugin {
         app.init_resource::<FilteredSignals>()
             .init_resource::<VisualDensity>()
             .insert_resource(RoutingEngine::new(&RoutingMatrix::default_matrix()))
-            .add_systems(Update, (route_signals, publish_density).chain().in_set(CfSet::Show).after(crate::show::run_show));
+            .add_systems(
+                Update,
+                (route_signals, publish_density)
+                    .chain()
+                    .in_set(CfSet::Show)
+                    .after(crate::show::run_show),
+            );
     }
 }
 

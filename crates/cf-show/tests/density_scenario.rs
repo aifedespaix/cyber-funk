@@ -82,13 +82,23 @@ fn density_curve_snapshot_and_the_five_states() {
             last.section,
             chunk[0].delta,
             last.band,
-            if chunk.iter().any(|s| s.predrop) { "  pré-drop" } else { "" },
+            if chunk.iter().any(|s| s.predrop) {
+                "  pré-drop"
+            } else {
+                ""
+            },
             if chunk.iter().any(|s| s.epure) { "  épure" } else { "" },
         );
     }
     insta::assert_snapshot!(text);
 
-    for band in [DensityBand::Apnea, DensityBand::Calm, DensityBand::Groove, DensityBand::Rise, DensityBand::Climax] {
+    for band in [
+        DensityBand::Apnea,
+        DensityBand::Calm,
+        DensityBand::Groove,
+        DensityBand::Rise,
+        DensityBand::Climax,
+    ] {
         assert!(samples.iter().any(|s| s.band == band), "état jamais atteint : {band:?}");
     }
     assert!(samples.iter().all(|s| (0.0..=1.0).contains(&s.delta)));
@@ -101,17 +111,29 @@ fn predrop_dips_are_bounded_by_the_limiter() {
     // Δ ne varie jamais plus vite qu'une course complète en MIN_FADE.
     let max_step = DT / MIN_FADE + 1e-4;
     for w in samples.windows(2) {
-        assert!((w[1].delta - w[0].delta).abs() <= max_step, "saut de Δ de {} en une image", w[1].delta - w[0].delta);
+        assert!(
+            (w[1].delta - w[0].delta).abs() <= max_step,
+            "saut de Δ de {} en une image",
+            w[1].delta - w[0].delta
+        );
     }
     // Le creux atteint bien le niveau d'avant-drop, jamais en dessous.
-    let floor = samples.iter().filter(|s| s.predrop).map(|s| s.delta).fold(f32::MAX, f32::min);
+    let floor = samples
+        .iter()
+        .filter(|s| s.predrop)
+        .map(|s| s.delta)
+        .fold(f32::MAX, f32::min);
     assert!(floor >= PREDROP_LEVEL - 0.02 && floor <= PREDROP_LEVEL + 0.2, "{floor}");
     // Jamais deux creux à moins d'une seconde l'un de l'autre.
     let mut last_end: Option<f64> = None;
     for w in samples.windows(2) {
         if !w[0].predrop && w[1].predrop {
             if let Some(end) = last_end {
-                assert!(w[1].time_s - end >= 1.0, "deux creux à {:.2} s d'écart", w[1].time_s - end);
+                assert!(
+                    w[1].time_s - end >= 1.0,
+                    "deux creux à {:.2} s d'écart",
+                    w[1].time_s - end
+                );
             }
         }
         if w[0].predrop && !w[1].predrop {
@@ -123,7 +145,10 @@ fn predrop_dips_are_bounded_by_the_limiter() {
 #[test]
 fn no_predrop_when_flashes_are_killed() {
     let samples = club_run(false);
-    assert!(samples.iter().all(|s| !s.predrop), "aucun creux d'avant-drop sans flashs");
+    assert!(
+        samples.iter().all(|s| !s.predrop),
+        "aucun creux d'avant-drop sans flashs"
+    );
 }
 
 #[test]
@@ -133,9 +158,19 @@ fn a_climax_is_worth_what_precedes_it() {
     let bar = (4.0 * 60.0 / f64::from(BPM) / f64::from(DT)).round() as usize;
     // Les drops du morceau de club commencent aux mesures 24 et 80.
     for start in [24_usize, 80] {
-        let before: f32 = samples[(start - 8) * bar..start * bar].iter().map(|s| s.delta).sum::<f32>() / (8 * bar) as f32;
-        let peak = samples[start * bar..(start + 8) * bar].iter().map(|s| s.delta).fold(0.0, f32::max);
-        assert!(peak / before >= 1.6, "drop de la mesure {start} : crête {peak:.2} pour {before:.2} avant");
+        let before: f32 = samples[(start - 8) * bar..start * bar]
+            .iter()
+            .map(|s| s.delta)
+            .sum::<f32>()
+            / (8 * bar) as f32;
+        let peak = samples[start * bar..(start + 8) * bar]
+            .iter()
+            .map(|s| s.delta)
+            .fold(0.0, f32::max);
+        assert!(
+            peak / before >= 1.6,
+            "drop de la mesure {start} : crête {peak:.2} pour {before:.2} avant"
+        );
     }
 }
 
@@ -165,7 +200,10 @@ fn a_bar_of_rest_is_forced_after_64_beats_without_dropping_below_0_4() {
     for i in 0..(200.0 / f64::from(DT)) as u64 {
         t = i as f64 * f64::from(DT);
         count = (t / beat_s) as u32;
-        let state = *c.update(&DensityInput { now: t, ..input(Section::Peak, count) });
+        let state = *c.update(&DensityInput {
+            now: t,
+            ..input(Section::Peak, count)
+        });
         if state.epure && epure_start.is_none() {
             epure_start = Some((t, count));
         }
@@ -184,7 +222,10 @@ fn fatigue_lowers_the_ceiling_after_32_high_beats() {
     for i in 0..(150.0 / f64::from(DT)) as u64 {
         let t = i as f64 * f64::from(DT);
         // L'épure est repoussée en gardant `count` figé (aucune phrase ne commence) : on isole la fatigue.
-        let s = c.update(&DensityInput { now: t, ..input(Section::Peak, 0) });
+        let s = c.update(&DensityInput {
+            now: t,
+            ..input(Section::Peak, 0)
+        });
         if t > 60.0 {
             max_late = max_late.max(s.delta);
         }
@@ -198,7 +239,11 @@ fn breathing_mode_caps_the_density() {
     let mut c = DensityConductor::default();
     let mut max = 0.0_f32;
     for i in 0..600 {
-        let s = c.update(&DensityInput { now: f64::from(i) * f64::from(DT), breathing: true, ..input(Section::Peak, 0) });
+        let s = c.update(&DensityInput {
+            now: f64::from(i) * f64::from(DT),
+            breathing: true,
+            ..input(Section::Peak, 0)
+        });
         max = max.max(s.delta);
     }
     assert!(max <= c.tuning().breathing_cap + 1e-4, "{max}");
@@ -206,7 +251,11 @@ fn breathing_mode_caps_the_density() {
 
 #[test]
 fn bands_have_hysteresis() {
-    assert_eq!(DensityBand::of(0.36, DensityBand::Calm), DensityBand::Calm, "reste dans la marge");
+    assert_eq!(
+        DensityBand::of(0.36, DensityBand::Calm),
+        DensityBand::Calm,
+        "reste dans la marge"
+    );
     assert_eq!(DensityBand::of(0.38, DensityBand::Calm), DensityBand::Groove);
     assert_eq!(DensityBand::of(0.34, DensityBand::Groove), DensityBand::Groove);
     assert_eq!(DensityBand::of(0.32, DensityBand::Groove), DensityBand::Calm);

@@ -18,7 +18,9 @@ pub struct KickWave {
 
 impl Default for KickWave {
     fn default() -> Self {
-        Self { ages: [KICK_NEVER_S; 4] }
+        Self {
+            ages: [KICK_NEVER_S; 4],
+        }
     }
 }
 
@@ -99,7 +101,11 @@ impl FilteredSignals {
 /// est ignorée.
 #[must_use]
 pub fn visual_phase(phase: f32, latency_s: f32, period_s: f32) -> f32 {
-    let shift = if latency_s.is_finite() && period_s > 0.0 { latency_s.max(0.0) / period_s } else { 0.0 };
+    let shift = if latency_s.is_finite() && period_s > 0.0 {
+        latency_s.max(0.0) / period_s
+    } else {
+        0.0
+    };
     let p = if phase.is_finite() { phase } else { 0.0 };
     (p + shift).rem_euclid(1.0)
 }
