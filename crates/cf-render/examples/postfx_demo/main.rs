@@ -26,10 +26,12 @@ mod json;
 use std::time::Duration;
 
 use bevy::math::DVec3;
+use bevy::core_pipeline::tonemapping::Tonemapping;
 use bevy::prelude::*;
 use bevy::time::TimeUpdateStrategy;
 use bevy::window::{PresentMode, WindowResolution};
 use cf_render::{
+    Compositor,
     AudioFeatures, BackgroundLayer, CameraPose, CfSet, CorePlugin, CurrentShowFx, LayersPlugin, LensWeather,
     OverlayLayer, PostFxPlugin, PostFxSettings, ShowFxInput, WorldLayer,
 };
@@ -59,7 +61,8 @@ fn main() {
         ..default()
     })
     .insert_resource(AudioFeatures(cf_analysis::AudioFeatures::NEUTRAL))
-    .add_systems(Startup, spawn_scene);
+    .add_systems(Startup, spawn_scene)
+    .add_systems(Update, tonemap_override);
     if check {
         app.init_resource::<check::Check>()
             .insert_resource(TimeUpdateStrategy::ManualDuration(Duration::from_secs_f64(1.0 / 60.0)))
@@ -263,4 +266,19 @@ fn play(
         speed_ratio: 0.8,
     };
     show.0 = play.show;
+}
+
+/// `CF_TONEMAP=agx` : remplace l'opérateur du compositeur, pour comparer à `KhronosPbrNeutral` à scène égale.
+fn tonemap_override(mut cams: Query<&mut Tonemapping, With<Compositor>>) {
+    let Ok(name) = std::env::var("CF_TONEMAP") else { return };
+    for mut tm in &mut cams {
+        let want = match name.as_str() {
+            "agx" => Tonemapping::AgX,
+            "tmmf" => Tonemapping::TonyMcMapface,
+            _ => continue,
+        };
+        if *tm != want {
+            *tm = want;
+        }
+    }
 }
