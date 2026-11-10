@@ -34,6 +34,10 @@ impl Spring {
         self.v = 0.0;
     }
 
+    #[allow(
+        clippy::many_single_char_names,
+        reason = "noms de P2 §2.2 (j, e, u, w), gardés pour la lecture croisée"
+    )]
     /// Amortissement critique, pulsation `ω = 2π·f_n`.
     pub fn step_critical(&mut self, x: f32, f_n: f32, dt: f32) -> f32 {
         let dt = safe_dt(dt);
@@ -46,6 +50,10 @@ impl Spring {
         self.y
     }
 
+    #[allow(
+        clippy::many_single_char_names,
+        reason = "noms de P2 §2.2 (E, C, S, b, j, w), gardés pour la lecture croisée"
+    )]
     /// Ressort sous-amorti `ressort(x; f_n, ζ)`. `ζ ≥ 1` retombe sur l'amortissement critique.
     pub fn step(&mut self, x: f32, f_n: f32, zeta: f32, dt: f32) -> f32 {
         if zeta >= 0.999 || f_n <= 0.0 {
