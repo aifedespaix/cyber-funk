@@ -215,7 +215,7 @@ fn local_time_s(utc_offset_s: f64) -> f64 {
 }
 
 /// Une image du spectacle : actions reçues + analyse audio ─▶ `ShowState` et faits.
-fn run_show(
+pub(crate) fn run_show(
     mut runtime: ResMut<ShowRuntime>,
     mut current: ResMut<CurrentShow>,
     time: Res<Time<Real>>,

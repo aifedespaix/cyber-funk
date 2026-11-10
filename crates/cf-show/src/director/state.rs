@@ -15,6 +15,7 @@ use std::sync::Arc;
 use super::clock::PendingCue;
 use super::looks::{LookMixer, MACROS, MacroKnob};
 use super::orders::Orders;
+use crate::density::DensityState;
 use crate::drop::ShowLevel;
 use crate::model::{LayerMix, ShowGates, SlotMode, Theme};
 
@@ -139,6 +140,10 @@ pub struct ShowState {
     pub dj_show_seq: u32,
     /// Monte à chaque logo du DJ demandé.
     pub dj_logo_seq: u32,
+
+    // --- Densité ---
+    /// Densité visuelle `Δ` et son état (DA §4.2) : une seule grandeur de rythme visuel que lisent tous les systèmes.
+    pub density: DensityState,
 
     pub(crate) mixer: LookMixer,
 }

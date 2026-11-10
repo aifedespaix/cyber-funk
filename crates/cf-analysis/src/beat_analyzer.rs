@@ -15,6 +15,7 @@ use crate::beat::{BeatDetector, BeatState};
 use crate::events::{AudioEventKind, EventSink};
 use crate::features::AudioFeatures;
 use crate::sections::SectionTracker;
+use crate::subbands::{SubBandAnalyzer, SubBandState};
 use crate::texture::TextureAnalyzer;
 
 /// Durée d'une image de référence de Sillage (s) : le gain du micro compte son temps en images à 60 i/s.
@@ -27,6 +28,7 @@ pub struct BeatAnalyzer {
     detector: BeatDetector,
     sections: SectionTracker,
     texture: TextureAnalyzer,
+    sub_bands: SubBandAnalyzer,
     mic_gain: MicGain,
     /// La source analysée est une capture : le gain automatique s'applique.
     capture: bool,
@@ -53,6 +55,7 @@ impl BeatAnalyzer {
             detector: BeatDetector::new(),
             sections: SectionTracker::new(),
             texture: TextureAnalyzer::new(),
+            sub_bands: SubBandAnalyzer::new(ANALYSIS_SAMPLE_RATE),
             mic_gain: MicGain::new(ANALYSIS_SAMPLE_RATE),
             capture: false,
             auto_gain: true,
@@ -113,6 +116,15 @@ impl BeatAnalyzer {
         out.brightness = texture.brightness;
         out.noisiness = texture.noisiness;
     }
+
+    fn publish_sub_bands(sub: &SubBandState, out: &mut AudioFeatures) {
+        out.sub_bands = sub.bands;
+        out.z_pb = sub.z_pb;
+        out.z_tr = sub.z_tr;
+        out.hfc_z = sub.hfc_z;
+        out.transient = sub.transient;
+        out.spectrum = sub.spectrum;
+    }
 }
 
 impl Default for BeatAnalyzer {
@@ -142,6 +154,7 @@ impl Analyzer for BeatAnalyzer {
         );
         let kick = state.kick;
         self.texture.update(spectrum, ctx.sample_rate, ctx.dt_s);
+        Self::publish_sub_bands(self.sub_bands.update(hop, spectrum, ctx.dt_s), out);
         let changed = self.sections.update(state.loud, f64::from(ctx.dt_s));
         // `state` emprunte le détecteur : on le relit après avoir avancé les sections, qui sont un autre champ.
         let state = *self.detector.state();
@@ -158,6 +171,7 @@ impl Analyzer for BeatAnalyzer {
     fn idle(&mut self, out: &mut AudioFeatures) {
         self.detector.rest();
         self.texture.rest();
+        self.sub_bands.rest();
         let state = *self.detector.state();
         self.publish(&state, out);
     }
@@ -183,6 +197,7 @@ impl Analyzer for BeatAnalyzer {
         self.analyser.reset();
         self.sections.reset();
         self.texture.reset();
+        self.sub_bands.reset();
         self.mic_gain.reset();
     }
 }

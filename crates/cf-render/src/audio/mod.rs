@@ -13,6 +13,7 @@
 mod bridge;
 mod config;
 mod latency;
+mod routing;
 mod runtime;
 mod types;
 
@@ -23,6 +24,10 @@ pub use cf_audio::player::PlayerState;
 pub use cf_audio::playlist::{PlayMode, Track};
 pub use config::{AudioConfig, InputBackendChoice, OutputChoice};
 pub use latency::{LatencyLine, MAX_LATENCY_MS};
+pub use routing::{
+    Curve, Detector, FilteredSignals, KICK_NEVER_S, KickWave, LimiterLane, Quantize, Route, RoutingEngine, RoutingError,
+    RoutingMatrix, RoutingPlugin, Slew, Smooth, Source, Target, VisualDensity, visual_phase,
+};
 pub use runtime::AudioRuntime;
 pub use types::{
     AudioCommand, AudioFeatures, AudioSequenceGain, AudioSource, AudioStatus, Kick, SectionChanged, VisualLatency,
@@ -63,7 +68,8 @@ impl Plugin for CfAudioPlugin {
             .insert_resource(VisualLatency::new(self.config.latency_ms))
             .add_message::<Kick>()
             .add_message::<SectionChanged>()
-            .add_message::<AudioCommand>();
+            .add_message::<AudioCommand>()
+            .add_plugins(RoutingPlugin);
         match AudioRuntime::start(&self.config) {
             Ok(mut runtime) => {
                 runtime.refresh_devices();

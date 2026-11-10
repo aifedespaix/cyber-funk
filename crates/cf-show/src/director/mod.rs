@@ -63,6 +63,7 @@ pub use state::{Handover, HandoverPhase, ShowState};
 use self::clock::{Beats, CueClock};
 use self::looks::LookMixer;
 use self::prepared::Prepared;
+use crate::density::{DensityConductor, DensityInput, DensityState};
 use crate::drop::{DropConductor, DropInput, DropPlan, DropTitles};
 use crate::freshness::Freshness;
 use crate::gates::Variation;
@@ -98,6 +99,7 @@ pub struct ShowDirector<R> {
     prepared: Prepared,
     titles: DropTitles,
     conductor: DropConductor<R>,
+    density: DensityConductor,
     freshness: Freshness,
     variation: Variation<UnitRandom>,
     scale: TimeScale,
@@ -195,6 +197,7 @@ impl<R: Rng + SeedableRng + Send + Sync + 'static> ShowDirector<R> {
             orders: Orders::default(),
             dj_show_seq: 0,
             dj_logo_seq: 0,
+            density: DensityState::NEUTRAL,
             mixer: LookMixer::new(&first.look),
         };
         let mut director = Self {
@@ -202,6 +205,7 @@ impl<R: Rng + SeedableRng + Send + Sync + 'static> ShowDirector<R> {
             prepared,
             titles,
             conductor,
+            density: DensityConductor::default(),
             freshness,
             variation: Variation::new(random),
             scale: TimeScale::default(),
@@ -264,6 +268,7 @@ impl<R: Rng> ShowDirector<R> {
         }
 
         self.run_conductor();
+        self.run_density();
         let beats = Beats {
             downbeat,
             phrase_start,
@@ -371,6 +376,30 @@ impl<R: Rng> ShowDirector<R> {
         let input = drop_input(&self.state, &self.frame, &self.prepared, forced);
         self.conductor.update(&mut self.freshness, &input);
         self.state.drop_now = self.conductor.drop_now();
+    }
+
+    /// Avance la densité visuelle `Δ`. Le creux d'avant-drop n'est offert que lorsqu'une montée a armé un drop (un plan
+    /// est publié) et que la fin de phrase, où tombent les drops, est à portée.
+    fn run_density(&mut self) {
+        let audio = &self.frame.audio;
+        let strike_in_beats = self
+            .conductor
+            .plan()
+            .filter(|_| audio.live)
+            .map(|_| PHRASE_BEATS as f32 - (audio.beat % f64::from(PHRASE_BEATS)) as f32);
+        let input = DensityInput {
+            dt: self.frame.dt,
+            now: self.frame.now,
+            bpm: audio.bpm,
+            section: audio.section,
+            intensity: audio.intensity,
+            count: audio.count,
+            strike_in_beats,
+            drop_now: self.state.drop_now,
+            flashes: self.state.flashes,
+            breathing: self.state.breathing,
+        };
+        self.state.density = *self.density.update(&input);
     }
 }
 

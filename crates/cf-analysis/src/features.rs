@@ -5,6 +5,8 @@
 //! `tempo_source`, `confidence`, `phase`, `bar` et `phrase` sont réécrits côté application par
 //! [`TempoArbiter::publish`](crate::TempoArbiter::publish), qui arbitre entre horloge MIDI, Link, audio et tap.
 
+use crate::subbands::{SPECTRUM_BANDS, SubBands};
+
 /// Section du morceau (`Section` de `sections.ts`).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default, serde::Serialize, serde::Deserialize)]
 pub enum Section {
@@ -94,6 +96,18 @@ pub struct AudioFeatures {
     pub brightness: f32,
     /// Bruit : platitude du spectre, 0 (note tenue) → 1 (souffle, montée de bruit blanc avant un drop).
     pub noisiness: f32,
+    /// Niveaux RMS linéaires des cinq sous-bandes `SB, PB, LM, HM, TR` (P2 §2.1), non normalisés.
+    pub sub_bands: SubBands,
+    /// Score z du flux positif du punch `F_PB` (montée de l'enveloppe de `PB`), borné à -8..16.
+    pub z_pb: f32,
+    /// Score z du flux positif des transitoires `F_TR`, borné à -8..16.
+    pub z_tr: f32,
+    /// Score z du contenu haute fréquence `HFC = Σ k·|X_k|²`, borné à -8..16.
+    pub hfc_z: f32,
+    /// Impulsion après un transitoire HFC (`z > 2`, réfractaire 60 ms), 1 → 0 en 90 ms.
+    pub transient: f32,
+    /// Spectre en 32 bandes logarithmiques de 100 Hz à 16 kHz, 0..1, filtré One-Euro.
+    pub spectrum: [f32; SPECTRUM_BANDS],
 }
 
 impl AudioFeatures {
@@ -124,6 +138,12 @@ impl AudioFeatures {
         hat: 0.0,
         brightness: 0.0,
         noisiness: 0.0,
+        sub_bands: SubBands { sb: 0.0, pb: 0.0, lm: 0.0, hm: 0.0, tr: 0.0 },
+        z_pb: 0.0,
+        z_tr: 0.0,
+        hfc_z: 0.0,
+        transient: 0.0,
+        spectrum: [0.0; SPECTRUM_BANDS],
     };
 
     /// Met les énergies instantanées au repos (signal interrompu) sans toucher au tempo ni à la section : ce sont
@@ -141,6 +161,12 @@ impl AudioFeatures {
         self.hat = 0.0;
         self.brightness = 0.0;
         self.noisiness = 0.0;
+        self.sub_bands = SubBands::default();
+        self.z_pb = 0.0;
+        self.z_tr = 0.0;
+        self.hfc_z = 0.0;
+        self.transient = 0.0;
+        self.spectrum = [0.0; SPECTRUM_BANDS];
     }
 }
 
