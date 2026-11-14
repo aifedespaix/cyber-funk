@@ -385,11 +385,13 @@ fn fragment(in: FacadeVarying) -> @location(0) vec4<f32> {
         // Intensité log-normale par fenêtre, plafonnée sous le seuil du bloom (C4, DA §1.1) : une fenêtre reste au palier
         // E1, quoi que fasse la musique. Bloc à zéro : la fenêtre d'avant.
         let pane_n = (h21(cell + 41.0) + h21(cell + 43.0) + h21(cell + 47.0) - 1.5) * 2.0;
-        col += mix(pane, window_cap(pane * window_gain(pane_n), scene.c_key.w), lit_scene);
         // Traîne de la voiture : la lumière des fenêtres déjà allumées s'attarde là où elle est passée (rien au loin).
+        var trail_pane = vec3<f32>(0.0);
         if !far {
-            col += trail_window_light(in.world, window_color) * lit * mask * (1.0 + 0.45 * wet) * power_left;
+            trail_pane = trail_window_light(in.world, window_color) * lit * mask * (1.0 + 0.45 * wet) * power_left;
         }
+        // Le plafond porte sur toute la lumière de la fenêtre, traîne comprise.
+        col += mix(pane + trail_pane, window_cap(pane * window_gain(pane_n) + trail_pane, scene.c_key.w), lit_scene);
 
         // Caisse claire : sur environ un tiers des tours, une bande de lumière tombe du sommet vers le pied pendant que
         // l'impulsion retombe (le kick, lui, fait monter la vague : les deux se croisent).

@@ -127,6 +127,6 @@ mod tests {
             );
         }
         // Le shader plafonne bien ce qu'il ajoute aux fenêtres.
-        assert!(FACADE_SOURCE.contains("window_cap(pane * window_gain(pane_n), scene.c_key.w)"));
+        assert!(FACADE_SOURCE.contains("window_cap(pane * window_gain(pane_n) + trail_pane, scene.c_key.w)"));
     }
 }

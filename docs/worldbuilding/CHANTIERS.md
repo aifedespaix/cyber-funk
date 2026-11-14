@@ -173,7 +173,7 @@ visuelle `Δ`.
 - [ ] Critère de palette de DA §1.1 sur capture (70 % des émissifs dans la dominante ou l'accent, `ice` < 2 %).
 - [x] Une fenêtre ne dépasse jamais `0,9·θ_b` (test du shader ou de la fonction miroir en Rust).
 - [x] Toujours un seul lot de dessin pour les pavés de la ville. (aucun matériau ni maillage ajouté : un champ d'uniformes de plus)
-- [ ] Captures `docs/captures/C4/` : sec, mouillé, kick, calme contre sommet.
+- [x] Captures `docs/captures/C4/` : sec, mouillé, kick, calme contre sommet.
 
 ---
 
@@ -329,7 +329,7 @@ Statuts : ⬜ à faire · 🟨 en cours (le journal dit où reprendre) · ✅ te
 | C1 | Signaux et dramaturgie | ✅ | voir `git log` (dernier commit « C1 ») | Sur le matériel cible : seuils de `z` des transitoires et étalonnage `FFT_TO_RMS` sur une vraie entrée ligne/micro ; ressenti du creux d'avant-drop. Routage non encore lu par les shaders (C2 à C4). |
 | C2 | Image finale | ✅ | voir `git log` (« C2 ») | Critères `[~]` : Ȳ et bloom mesurés sur la démo, pas sur la ville (à refaire en C3/C4) ; référence de parité Sillage non régénérée (bun/Playwright absents) ; remise à zéro GPU de la persistance non testée ; rayons à valider à l'œil. Matériel cible : cadence, bloom fin, couleurs sur projecteur. |
 | C3 | Atmosphère et profondeur | ✅ | voir `git log` (« C3 ») | Critères `[~]` : séparation des plans à rejuger sur capture après C4 (corps de façade trop clairs aujourd'hui) ; coût GPU aux trois paliers non mesuré. Matériel cible : densité `σ_t·ρ` et luminance de la brume sur projecteur, lisibilité de la coquille de kick, taille des poussières. `FogReach` publié mais pas encore lu par le culling (C7) ; `AtmosphereLook::apnea` pas encore écrit (EV4, C7) ; `SceneLight` (principale, remplissage, contre-jour) publié mais l'ombrage des faces est pour C4. |
-| C4 | Sol, façades et matériaux | 🟨 | voir `git log` (« C4 ») | Fait : relief des façades et fenêtres hiérarchisées. Reste : route (flaques, rugosité, ondes, étirement des reflets, grain, flaque de lumière du sujet), micro-détail et halo des façades, vu-mètre, néons à cœur blanc, fenêtres habitées, critère de palette. Voir le journal. |
+| C4 | Sol, façades et matériaux | 🟨 | voir `git log` (« C4 ») | Fait : relief des façades, fenêtres hiérarchisées et plafonnées, grain, flaque de lumière et ondes de kick de la route. Reste : rugosité réactive, reflet des fenêtres aligné, micro-détail et halo des façades, vu-mètre, néons à cœur blanc, fenêtres habitées, critère de palette. Voir le journal (point de reprise numéroté). |
 | C5 | Ville : distribution et archétypes | ⬜ | — | — |
 | C6 | Ville : habillage | ⬜ | — | — |
 | C7 | Tunnel, événements, LOD et culling | ⬜ | — | — |
@@ -351,6 +351,12 @@ non tenus et pourquoi, point de reprise si le chantier reste 🟨.
   que fasse la musique. Miroir Rust `facade::windows` (constantes comparées au shader par un test).
 - `SceneLight` porte maintenant `Δ` (`c_fill.w`) et le plafond des fenêtres (`c_key.w`, lu de `BLOOM_THRESHOLD`).
 
+**Fait (route, `road.wesl`, même condition)**
+- Grain d'asphalte fondu dans sa moyenne dès qu'une cellule passe sous deux pixels (`fwidth`) : plus de scintillement au loin.
+- Flaque de lumière sous le sujet : `c_key·0,12·exp(−r²/σ²)`, σ = 6 m, centrée sur `scene.source`.
+- Ondes de kick sur l'eau : pente radiale ajoutée à la surface mouillée (14 m/s, 0,9 m, 0,7 s), à plat en respiration ou flashs
+  coupés (`scene.shell.w`). Flaques, rides de pluie, rugosité et étirement des reflets existaient déjà (portage de Sillage).
+
 **Mesures (city_demo, rendu logiciel, sans post-traitement, luminance linéaire) : avant C3 → C3 → C4**
 - Calme : Ȳ 0,073 → 0,075 → **0,061** (cible 0,06 de DA §3.1) ; pixels émissifs (`Y > 0,2`) 10,2 % → 6,8 %.
 - Sommet : Ȳ 0,097 → 0,100 → 0,089 ; l'écart sommet/calme passe de +33 % à +46 %.
@@ -363,16 +369,16 @@ non tenus et pourquoi, point de reprise si le chantier reste 🟨.
 - Albédo du béton 0,18 (milieu de la plage 0,12 à 0,25 de DA §2.2).
 
 **Reste à faire (point de reprise)**
-1. Route (`road.wesl`, `road/`) : flaques `m_p`, rugosité réactive (`Target::Puddles`), ondes de pluie et de kick (`scene.kick_age`
-   est déjà dans le bloc), étirement vertical et aberration de `lamp_reflection` / `facade_reflection`, grain d'asphalte, flaque
-   de lumière sous le sujet (`scene.source`).
+1. Route (`road.wesl`, `road/`) : rugosité réactive (`Target::Puddles`, pas encore dans le bloc), aberration des reflets
+   analytiques, et `facade_reflection` qui dessine encore une fenêtre sur deux (à aligner sur `window_share`, sinon le reflet
+   montre plus de fenêtres que la façade). Pas de miroir Rust ni de test pour `kick_ripples` et la flaque de lumière.
 2. Façades : micro-détail (coulures, joints, effacé par `fwidth`), halo des 4 sockets proches, vu-mètre sur
    `FilteredSignals::spectrum` (à ajouter au bloc ou à `FacadeParams`), chanfrein lumineux de toit sur 1 immeuble sur 3.
 3. Néons et enseignes (`sign.wesl`, arêtes de `facade.wesl`) : profil cœur blanc / halo saturé, paliers E1 à E4, saturation liée à `HM`.
 4. Fenêtres habitées (DA §5, idée 1) avec repli en aplat au loin.
 5. Critère de palette (70 % des émissifs dans la dominante ou l'accent) avec `cf_render::postfx::measure` sur les captures.
-6. Les autres ajouts à la fenêtre (traîne de la voiture, bande de caisse claire, charleston, pouls de la ville) ne passent pas
-   encore par `window_cap` : seul le terme principal est plafonné.
+6. Le plafond couvre la fenêtre et la traîne de la voiture (charleston et pouls de la ville passent par `lit`, donc dedans).
+   La bande de caisse claire et la ceinture lumineuse ne sont pas des fenêtres : à ranger dans les paliers E2 avec les néons (point 3).
 
 ### 2026-11-14 · C3 Atmosphère et profondeur · ✅
 

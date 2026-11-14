@@ -205,6 +205,29 @@ fn rain_ripples(p: vec2<f32>, time: f32, rain: f32) -> vec4<f32> {
     return out;
 }
 
+// Flaque de lumière sous le sujet : rayon (m) et gain.
+const ROAD_POOL_SIGMA_M: f32 = 6.0;
+const ROAD_POOL_GAIN: f32 = 0.12;
+// Ondes de kick sur l'eau : vitesse du front (m/s), épaisseur (m), durée de vie (s), pente maximale.
+const ROAD_KICK_SPEED: f32 = 14.0;
+const ROAD_KICK_WIDTH: f32 = 0.9;
+const ROAD_KICK_LIFE: f32 = 0.7;
+const ROAD_KICK_SLOPE: f32 = 0.05;
+
+// Pente ajoutée à la surface de l'eau par les quatre derniers kicks (âges dans `scene.kick_age`, source `scene.source`).
+// La pente est la dérivée radiale d'une gaussienne : elle s'annule sur la crête et s'éteint avec l'âge.
+fn kick_ripples(p: vec2<f32>) -> vec2<f32> {
+    let to = p - scene.source.xz;
+    let r = max(length(to), 0.001);
+    var slope = 0.0;
+    for (var i = 0; i < 4; i++) {
+        let age = scene.kick_age[i];
+        let x = (r - ROAD_KICK_SPEED * age) / ROAD_KICK_WIDTH;
+        slope += -x * exp(-x * x) * exp(-age / ROAD_KICK_LIFE);
+    }
+    return (to / r) * slope * ROAD_KICK_SLOPE * scene.shell.w * 2.0;
+}
+
 @fragment
 fn fragment(in: VertexOutput) -> @location(0) vec4<f32> {
     let world = in.world_position.xyz;
@@ -223,8 +246,11 @@ fn fragment(in: VertexOutput) -> @location(0) vec4<f32> {
     let glow_color = road.glow.rgb;
     let view_distance = length(view.world_position - world);
 
-    // Asphalte presque noir, grain fin
-    let grain = hash(floor(p * vec2<f32>(9.0, 4.0)));
+    // Asphalte presque noir, grain fin. Avec l'éclairage de scène (C4), le grain se fond dans sa moyenne dès qu'une
+    // cellule passe sous deux pixels : aucun scintillement au loin (DA §2.2). Bloc à zéro : le grain d'avant.
+    let grain_px = max(fwidth(p.x * 9.0), fwidth(p.y * 4.0));
+    let grain_raw = hash(floor(p * vec2<f32>(9.0, 4.0)));
+    let grain = mix(grain_raw, mix(grain_raw, 0.5, smoothstep(0.25, 0.6, grain_px)), scene.fog.w);
     var col = ink * (0.82 + 0.3 * grain);
 
     // Pluie : des flaques irrégulières. Mouillé, l'asphalte s'assombrit et reflète ; sec, il reste mat.
@@ -253,6 +279,11 @@ fn fragment(in: VertexOutput) -> @location(0) vec4<f32> {
     let d = (p - car.xz) / vec2<f32>(2.6, 4.2);
     let glow = exp(-dot(d, d));
     col += mix(road.mint.rgb, glow_color, 0.6) * glow * (0.1 + pulse * 0.2 + energy * 0.1) + glow_color * exp(-dot(d, d) * 1.6) * 0.22;
+
+    // Flaque de lumière sous le sujet (C4, DA §1.2 règle 6) : `c·exp(−r²/σ²)`, σ = 6 m, dans la teinte de la lumière
+    // principale. Elle suit le sujet et lui garde le contraste local le plus fort. Bloc à zéro : rien.
+    let pool_r = (p - scene.source.xz) / ROAD_POOL_SIGMA_M;
+    col += scene.c_key.rgb * ROAD_POOL_GAIN * exp(-dot(pool_r, pool_r)) * scene.fog.w;
 
     // Sol mouillé : les lumières des immeubles-vitrines y laissent un reflet et une lueur.
     col += field_sheen(world, view.world_position) * (0.38 + wet_k * 2.4)
@@ -289,7 +320,9 @@ fn fragment(in: VertexOutput) -> @location(0) vec4<f32> {
         let n1 = vnoise(p * vec2<f32>(2.1, 0.55) + 3.0) - 0.5;
         let n2 = vnoise(p * vec2<f32>(0.9, 0.22) + 11.0) - 0.5;
         let n3 = vnoise(p * vec2<f32>(7.0, 2.6) + 29.0 + vec2<f32>(0.0, time * 0.4)) - 0.5;
-        let slope = vec2<f32>((n1 + 0.5 * n3) * 2.0, (n2 + 0.5 * n3) * 5.0) * sigma + rip.xy * near_k;
+        // Ondes de kick (C4) : chaque kick pousse un anneau sur l'eau depuis le sujet. Bloc à zéro : aucune onde.
+        let slope = vec2<f32>((n1 + 0.5 * n3) * 2.0, (n2 + 0.5 * n3) * 5.0) * sigma
+            + (rip.xy + kick_ripples(p) * scene.fog.w) * near_k;
         let normal = normalize(vec3<f32>(slope.x, 1.0, slope.y));
         let incident = normalize(world - view.world_position);
         let reflected = reflect(incident, normal);

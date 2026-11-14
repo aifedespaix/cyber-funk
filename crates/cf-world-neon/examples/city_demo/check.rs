@@ -62,7 +62,7 @@ const BASE: Scene = Scene {
     settle: SETTLE_FRAMES,
 };
 
-const SCENES: [Scene; 10] = [
+const SCENES: [Scene; 11] = [
     Scene {
         name: "1-depart",
         ..BASE
@@ -122,6 +122,15 @@ const SCENES: [Scene; 10] = [
     Scene {
         name: "10-atmo-coquille",
         kick_age: Some(0.45),
+        ..BASE
+    },
+    // Sol mouillé (C4) : flaques, reflets, et l'anneau d'un kick vieux de 0,35 s sur l'eau.
+    Scene {
+        name: "11-mouille-kick",
+        wet: 1.0,
+        rain: 0.2,
+        time_s: 12.0,
+        kick_age: Some(0.35),
         ..BASE
     },
 ];
