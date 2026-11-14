@@ -51,7 +51,11 @@ const ATMO_SHELL_FLOOR: f32 = 0.5;
 
 // (1 − e^{−u})/u, stable autour de 0 (rayon horizontal).
 fn atmo_slab(u_in: f32) -> f32 {
-    let u = clamp(u_in, -ATMO_U_MAX, ATMO_U_MAX);
+    // Très plongeant : e^{−u} déborderait. Très montant : e^{−u} est nul, il reste 1/u.
+    let u = max(u_in, -ATMO_U_MAX);
+    if u > ATMO_U_MAX {
+        return 1.0 / u;
+    }
     if abs(u) < ATMO_U_SERIES {
         return 1.0 - 0.5 * u;
     }

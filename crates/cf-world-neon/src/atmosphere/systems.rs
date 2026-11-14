@@ -37,7 +37,7 @@ pub struct AtmosphereTuning {
 }
 
 /// Un matériau du monde qui porte le bloc `SceneLight` (`@binding(9)`, `atmosphere.wesl`).
-pub trait SceneLit: bevy::asset::Asset {
+pub trait SceneLit: Asset {
     /// Le bloc du matériau.
     fn scene_light(&self) -> &SceneLightParams;
     /// Remplace le bloc du matériau.
@@ -125,7 +125,7 @@ pub(super) fn update_scene_light(
         color: colors.mood.lerp(colors.ice, 0.4),
     };
     if let Some(field) = field.as_deref() {
-        let lit = field.state.lights.iter().filter(|l| l.color != Vec3::ZERO);
+        let lit = field.state.lights().iter().filter(|l| l.color != Vec3::ZERO);
         for (tube, light) in tubes.iter_mut().skip(1).zip(lit) {
             *tube = Tube {
                 position: light.position,

@@ -33,7 +33,7 @@ fn le_bloc_du_shader_suit_l_ordre_des_uniformes() {
         "dir_key", "c_key", "c_fill", "dir_rim", "c_rim", "fog", "c_fog", "rayleigh", "kick_age", "shell", "source",
         "tube_pos", "tube_col",
     ];
-    let block_end = ATMOSPHERE_WESL.find("@binding(9)").unwrap_or(0);
+    let block_end = ATMOSPHERE_WESL.rfind("@binding(9)").unwrap_or(0);
     let block = &ATMOSPHERE_WESL[..block_end];
     let mut last = 0;
     for field in fields {
@@ -70,7 +70,7 @@ fn tous_les_shaders_du_monde_appellent_l_atmosphere() {
 fn sans_rendu_le_plugin_publie_un_bloc_neutre_et_la_portee_de_la_brume() {
     let mut app = App::new();
     app.add_plugins(MinimalPlugins)
-        .add_plugins(bevy::asset::AssetPlugin::default())
+        .add_plugins(AssetPlugin::default())
         .init_asset::<crate::facade::FacadeMaterial>()
         .add_plugins(AtmospherePlugin);
     app.update();

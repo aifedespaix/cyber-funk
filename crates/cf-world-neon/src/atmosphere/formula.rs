@@ -8,7 +8,8 @@ use bevy::math::Vec3;
 /// En dessous de ce `|u|`, `(1 − e^{−u})/u` est remplacé par son développement `1 − u/2` : la soustraction `1 − e^{−u}`
 /// perd ses chiffres en `f32` quand `u` tend vers 0 (rayon horizontal).
 pub const U_SERIES: f32 = 1.0e-3;
-/// Borne de `|u|` : au-delà, `e^{−u}` déborde un `f32` (rayon très plongeant vu de très haut).
+/// Borne de `|u|` : en dessous de `−U_MAX`, `e^{−u}` déborde un `f32` (rayon très plongeant vu de très haut) ; au-dessus
+/// de `U_MAX`, il est nul.
 pub const U_MAX: f32 = 30.0;
 /// La caméra peut passer sous le sol (nappe sous la route) : la densité n'y croît pas sans fin.
 pub const DEPTH_BELOW_MAX: f32 = 2.0;
@@ -20,8 +21,11 @@ pub const SHELL_FLOOR: f32 = 0.5;
 /// `(1 − e^{−u})/u`, stable autour de 0.
 #[must_use]
 pub fn slab(u: f32) -> f32 {
-    let u = u.clamp(-U_MAX, U_MAX);
-    if u.abs() < U_SERIES {
+    // Très plongeant : `e^{−u}` déborderait. Très montant : `e^{−u}` est nul, il reste `1/u`.
+    let u = u.max(-U_MAX);
+    if u > U_MAX {
+        1.0 / u
+    } else if u.abs() < U_SERIES {
         1.0 - 0.5 * u
     } else {
         (1.0 - (-u).exp()) / u

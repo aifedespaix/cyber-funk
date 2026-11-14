@@ -65,7 +65,7 @@ impl Default for LightTuning {
         Self {
             key_luma: 0.4,
             key_ratio: (8.0, 16.0),
-            rim_luma: 0.22,
+            rim_luma: 0.25,
             fog_luma: (0.05, 0.065),
             fog_mood: 0.35,
             scatter: 0.5,
@@ -321,9 +321,10 @@ mod tests {
         assert!(light.shell.depth.abs() < f32::EPSILON);
     }
 
-    /// DA §1.2, règles 1 et 2, sur la formule : une tour d'horizon sombre finit **sous** la brume qui l'entoure, et les
-    /// plans P3 (20 m), P2 (250 m) et P1 (700 m) d'une même façade sont séparés d'au moins 0,12 en luminance affichée
-    /// (après la courbe de transfert sRGB, celle de l'écran).
+    /// DA §1.2, règles 1 et 2, sur la formule. La ville est faite de corps sombres piqués de fenêtres : c'est la brume
+    /// qui sépare les plans, du plus sombre (proche) au plus clair (lointain). Les corps éteints de P3 (20 m), P2
+    /// (150 m) et P1 (900 m) sont séparés d'au moins 0,12 en luminance affichée (après la courbe de transfert de
+    /// l'écran), et une silhouette d'horizon reste **sous** la brume qui est derrière elle.
     #[test]
     fn les_plans_sont_separes_en_valeur() {
         let light = compose(&LightTuning::default(), &colors(), &input(0.5));
@@ -341,10 +342,9 @@ mod tests {
             luma(formula::aerial(surface, mist, t))
         };
         let display = |l: f32| l.max(0.0).powf(1.0 / 2.2);
-        // Une façade moyennement éclairée (fenêtres allumées moyennées) et une silhouette d'horizon éteinte.
-        let facade = Vec3::new(0.30, 0.22, 0.45);
-        let (p3, p2, p1) = (display(shade(facade, 20.0, 8.0)), display(shade(facade, 250.0, 8.0)), display(shade(facade, 700.0, 8.0)));
-        assert!(p3 - p2 >= 0.12 && p2 - p1 >= 0.12, "P3 {p3}, P2 {p2}, P1 {p1}");
+        let body = Vec3::new(0.004, 0.003, 0.008);
+        let (p3, p2, p1) = (display(shade(body, 20.0, 8.0)), display(shade(body, 150.0, 8.0)), display(shade(body, 900.0, 8.0)));
+        assert!(p2 - p3 >= 0.12 && p1 - p2 >= 0.12, "P3 {p3}, P2 {p2}, P1 {p1}");
         let silhouette = shade(Vec3::new(0.004, 0.003, 0.008), 700.0, 40.0);
         let fog_behind = shade(Vec3::ZERO, 5000.0, 40.0);
         assert!(silhouette < fog_behind, "silhouette {silhouette}, brume {fog_behind}");
