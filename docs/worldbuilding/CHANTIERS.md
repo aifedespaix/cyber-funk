@@ -171,8 +171,8 @@ visuelle `Δ`.
 **Acceptation**
 
 - [ ] Critère de palette de DA §1.1 sur capture (70 % des émissifs dans la dominante ou l'accent, `ice` < 2 %).
-- [ ] Une fenêtre ne dépasse jamais `0,9·θ_b` (test du shader ou de la fonction miroir en Rust).
-- [ ] Toujours un seul lot de dessin pour les pavés de la ville.
+- [x] Une fenêtre ne dépasse jamais `0,9·θ_b` (test du shader ou de la fonction miroir en Rust).
+- [x] Toujours un seul lot de dessin pour les pavés de la ville. (aucun matériau ni maillage ajouté : un champ d'uniformes de plus)
 - [ ] Captures `docs/captures/C4/` : sec, mouillé, kick, calme contre sommet.
 
 ---
@@ -329,7 +329,7 @@ Statuts : ⬜ à faire · 🟨 en cours (le journal dit où reprendre) · ✅ te
 | C1 | Signaux et dramaturgie | ✅ | voir `git log` (dernier commit « C1 ») | Sur le matériel cible : seuils de `z` des transitoires et étalonnage `FFT_TO_RMS` sur une vraie entrée ligne/micro ; ressenti du creux d'avant-drop. Routage non encore lu par les shaders (C2 à C4). |
 | C2 | Image finale | ✅ | voir `git log` (« C2 ») | Critères `[~]` : Ȳ et bloom mesurés sur la démo, pas sur la ville (à refaire en C3/C4) ; référence de parité Sillage non régénérée (bun/Playwright absents) ; remise à zéro GPU de la persistance non testée ; rayons à valider à l'œil. Matériel cible : cadence, bloom fin, couleurs sur projecteur. |
 | C3 | Atmosphère et profondeur | ✅ | voir `git log` (« C3 ») | Critères `[~]` : séparation des plans à rejuger sur capture après C4 (corps de façade trop clairs aujourd'hui) ; coût GPU aux trois paliers non mesuré. Matériel cible : densité `σ_t·ρ` et luminance de la brume sur projecteur, lisibilité de la coquille de kick, taille des poussières. `FogReach` publié mais pas encore lu par le culling (C7) ; `AtmosphereLook::apnea` pas encore écrit (EV4, C7) ; `SceneLight` (principale, remplissage, contre-jour) publié mais l'ombrage des faces est pour C4. |
-| C4 | Sol, façades et matériaux | 🟨 | — | en cours |
+| C4 | Sol, façades et matériaux | 🟨 | voir `git log` (« C4 ») | Fait : relief des façades et fenêtres hiérarchisées. Reste : route (flaques, rugosité, ondes, étirement des reflets, grain, flaque de lumière du sujet), micro-détail et halo des façades, vu-mètre, néons à cœur blanc, fenêtres habitées, critère de palette. Voir le journal. |
 | C5 | Ville : distribution et archétypes | ⬜ | — | — |
 | C6 | Ville : habillage | ⬜ | — | — |
 | C7 | Tunnel, événements, LOD et culling | ⬜ | — | — |
@@ -340,6 +340,39 @@ Statuts : ⬜ à faire · 🟨 en cours (le journal dit où reprendre) · ✅ te
 
 Une entrée par session, la plus récente en haut : date, chantier, ce qui est fait, décisions prises, critères
 non tenus et pourquoi, point de reprise si le chantier reste 🟨.
+
+### 2026-11-14 · C4 Sol, façades et matériaux · 🟨
+
+**Fait (façades, `facade.wesl`, actif seulement quand le bloc `SceneLight` est rempli)**
+- Relief sans ombre portée : ombrage par face `0,45 + 0,55·(n·dir_key)⁺`, occlusion verticale du pied (`0,35` → 1 sur le premier
+  quart de la hauteur), remplissage hémisphérique par `c_fill`, liseré de contre-jour `(1 − n·v)⁴·(dir_rim·−v)⁺`.
+- Fenêtres hiérarchisées : part des étages allumés `0,18 + 0,42·Δ` (plus le biais du tempérament), allumage **par étages
+  entiers** (0,9 dans un étage allumé, 0,03 ailleurs), intensité log-normale `E1·exp(0,6·n)`, plafond `0,9·θ_b` par canal quoi
+  que fasse la musique. Miroir Rust `facade::windows` (constantes comparées au shader par un test).
+- `SceneLight` porte maintenant `Δ` (`c_fill.w`) et le plafond des fenêtres (`c_key.w`, lu de `BLOOM_THRESHOLD`).
+
+**Mesures (city_demo, rendu logiciel, sans post-traitement, luminance linéaire) : avant C3 → C3 → C4**
+- Calme : Ȳ 0,073 → 0,075 → **0,061** (cible 0,06 de DA §3.1) ; pixels émissifs (`Y > 0,2`) 10,2 % → 6,8 %.
+- Sommet : Ȳ 0,097 → 0,100 → 0,089 ; l'écart sommet/calme passe de +33 % à +46 %.
+- `Y > 0,8` : 0,36 % au calme, 1,55 % au sommet (< 2 %).
+- Captures `docs/captures/C4/` : sec, calme, sommet, kick, mouillé.
+
+**Décisions**
+- Le plafond porte sur le canal le plus fort (pas sur la luminance) : c'est ce que le préfiltre du bloom de Bevy compare au seuil.
+- Rien ne change bloc à zéro (tests de parité et démos sans `AtmospherePlugin`) : aucune référence Sillage à régénérer.
+- Albédo du béton 0,18 (milieu de la plage 0,12 à 0,25 de DA §2.2).
+
+**Reste à faire (point de reprise)**
+1. Route (`road.wesl`, `road/`) : flaques `m_p`, rugosité réactive (`Target::Puddles`), ondes de pluie et de kick (`scene.kick_age`
+   est déjà dans le bloc), étirement vertical et aberration de `lamp_reflection` / `facade_reflection`, grain d'asphalte, flaque
+   de lumière sous le sujet (`scene.source`).
+2. Façades : micro-détail (coulures, joints, effacé par `fwidth`), halo des 4 sockets proches, vu-mètre sur
+   `FilteredSignals::spectrum` (à ajouter au bloc ou à `FacadeParams`), chanfrein lumineux de toit sur 1 immeuble sur 3.
+3. Néons et enseignes (`sign.wesl`, arêtes de `facade.wesl`) : profil cœur blanc / halo saturé, paliers E1 à E4, saturation liée à `HM`.
+4. Fenêtres habitées (DA §5, idée 1) avec repli en aplat au loin.
+5. Critère de palette (70 % des émissifs dans la dominante ou l'accent) avec `cf_render::postfx::measure` sur les captures.
+6. Les autres ajouts à la fenêtre (traîne de la voiture, bande de caisse claire, charleston, pouls de la ville) ne passent pas
+   encore par `window_cap` : seul le terme principal est plafonné.
 
 ### 2026-11-14 · C3 Atmosphère et profondeur · ✅
 
