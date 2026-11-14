@@ -254,7 +254,8 @@ fn fragment(in: FacadeVarying) -> @location(0) vec4<f32> {
     let dist = length(in.world - cam);
     // Entièrement dans la brume : pas la peine de calculer fenêtres et ruissellement (les dérivées sont déjà prises).
     if dist > (380.0 - 100.0 * facade.weather.y) * vista() {
-        return vec4<f32>(haze, 1.0);
+        // Avec l'atmosphère (C3), cette silhouette passe par la brume, qui est plus claire qu'elle (DA §1.2, règle 2).
+        return vec4<f32>(atmo_fog(haze, in.world, cam), 1.0);
     }
 
     // Antenne : un trait lumineux dont la pointe bat avec le kick.
@@ -262,7 +263,7 @@ fn fragment(in: FacadeVarying) -> @location(0) vec4<f32> {
         let tip = smoothstep(0.6, 1.0, in.local.y / in.size.y);
         let c = v_c * (0.5 + tip * (2.2 + pulse * 3.0)) * awake;
         let f = smoothstep(120.0 * vista(), 380.0 * vista(), dist);
-        return vec4<f32>(mix(c, haze, f), 1.0);
+        return vec4<f32>(atmo_fog(mix(c, haze, f), in.world, cam), 1.0);
     }
 
     let lambert = max(dot(n, normalize(vec3<f32>(-0.4, 0.8, 0.5))), 0.0);
@@ -417,6 +418,6 @@ fn fragment(in: FacadeVarying) -> @location(0) vec4<f32> {
     }
 
     let fog = smoothstep((90.0 - 30.0 * rain) * vista(), (380.0 - 100.0 * rain) * vista(), dist);
-    // Perspective atmosphérique (C3, `atmosphere.wesl`) ; bloc à zéro : le fondu vers la brume d'avant.
-    return vec4<f32>(atmo_fog(col, mix(col, haze, fog), in.world, view.world_position), 1.0);
+    // Le fondu efface le détail au loin ; la perspective atmosphérique (C3, `atmosphere.wesl`) découpe ce qui reste.
+    return vec4<f32>(atmo_fog(mix(col, haze, fog), in.world, view.world_position), 1.0);
 }

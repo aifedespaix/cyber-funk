@@ -82,10 +82,7 @@ pub fn track_from_path(path: PathBuf, local: bool) -> Track {
         Ok(duration) => (duration, None),
         Err(err) => (None, Some(err.to_string())),
     };
-    let stem = path
-        .file_stem()
-        .map(|s| s.to_string_lossy().into_owned())
-        .unwrap_or_default();
+    let stem = path.file_stem().map_or_default(|s| s.to_string_lossy().into_owned());
     let (artist, title) = parse_track_name(&stem);
     Track {
         title,
@@ -98,9 +95,7 @@ pub fn track_from_path(path: PathBuf, local: bool) -> Track {
 }
 
 fn file_name(path: &Path) -> String {
-    path.file_name()
-        .map(|n| n.to_string_lossy().into_owned())
-        .unwrap_or_default()
+    path.file_name().map_or_default(|n| n.to_string_lossy().into_owned())
 }
 
 /// Comparaison « naturelle », insensible à la casse : les suites de chiffres se comparent comme des nombres. Approche

@@ -142,9 +142,8 @@ impl Plugin for CarPlugin {
         }
         // Sans `PalettePlugin`, le thème de départ de Sillage (« Void Velvet ») : la voiture a besoin de ses couleurs.
         if !app.world().contains_resource::<ScenePalette>() {
-            let velvet = ThemeLibrary::builtin()
-                .map(|library| *library.preset(cf_show::model::PresetTheme::Velvet))
-                .unwrap_or_default();
+            let velvet =
+                ThemeLibrary::builtin().map_or_default(|library| *library.preset(cf_show::model::PresetTheme::Velvet));
             app.insert_resource(velvet);
         }
         // Le conducteur de la dirty car (X-10) : lu avec la voiture, posé sur sa caisse (`rider::driver`).

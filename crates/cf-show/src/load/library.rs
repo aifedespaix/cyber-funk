@@ -94,10 +94,7 @@ impl LookLibrary {
     pub fn insert_file(&mut self, path: &Path, text: &str) -> Result<(), LoadError> {
         let origin = path.display().to_string();
         let look = parse_look(text, &origin)?;
-        let stem = path
-            .file_stem()
-            .map(|s| s.to_string_lossy().into_owned())
-            .unwrap_or_default();
+        let stem = path.file_stem().map_or_default(|s| s.to_string_lossy().into_owned());
         if look.id.as_str() != stem {
             return Err(LoadError::LookIdMismatch {
                 path: path.to_path_buf(),

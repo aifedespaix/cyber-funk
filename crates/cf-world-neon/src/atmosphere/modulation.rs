@@ -16,7 +16,7 @@ pub struct FogTuning {
     pub sigma_rho: f32,
     /// Hauteur d'échelle `H_f`, m.
     pub height_m: f32,
-    /// Ce que l'averse ajoute à la densité (×(1 + rain_gain·pluie)).
+    /// Ce que l'averse ajoute à la densité (×(1 + `rain_gain·pluie`)).
     pub rain_gain: f32,
     /// Ce que l'humidité ajoute à la densité.
     pub wet_gain: f32,
@@ -49,6 +49,7 @@ impl Default for FogTuning {
 }
 
 /// Ce que la brume lit du monde à chaque image.
+#[allow(clippy::struct_excessive_bools)] // Quatre faits indépendants de l'image (drop, apnée, flashs, respiration), pas un état.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct FogInput {
     /// Pas de temps, s.
@@ -139,9 +140,17 @@ impl Default for FogModulation {
 impl FogModulation {
     /// Avance d'une image.
     pub fn step(&mut self, tuning: &FogTuning, input: &FogInput) -> FogState {
-        let dt = if input.dt_s.is_finite() { input.dt_s.max(0.0) } else { 0.0 };
+        let dt = if input.dt_s.is_finite() {
+            input.dt_s.max(0.0)
+        } else {
+            0.0
+        };
         let sat = |x: f32| if x.is_finite() { x.clamp(0.0, 1.0) } else { 0.0 };
-        let beat_s = if input.beat_s.is_finite() { input.beat_s.clamp(0.25, 2.0) } else { 0.5 };
+        let beat_s = if input.beat_s.is_finite() {
+            input.beat_s.clamp(0.25, 2.0)
+        } else {
+            0.5
+        };
 
         // Densité de fond : ρ0 = ρ_look·(0,6 + 0,8·E_s), lissée (jamais un saut).
         let wanted = 0.6 + 0.8 * sat(input.energy_slow);
@@ -149,7 +158,11 @@ impl FogModulation {
 
         // Anisotropie : sur un drop (E_f au-dessus de E_s) les faisceaux tranchent.
         let surge = (sat(input.energy_fast) - sat(input.energy_slow)).max(0.0);
-        let a = if input.breathing { self.aniso.step(0.0, dt) } else { self.aniso.step(sat(surge * 2.0), dt) };
+        let a = if input.breathing {
+            self.aniso.step(0.0, dt)
+        } else {
+            self.aniso.step(sat(surge * 2.0), dt)
+        };
         let g = tuning.g_range.0 + (tuning.g_range.1 - tuning.g_range.0) * a;
 
         // Bouffée de drop [L] : au front montant, une enveloppe que le limiteur accorde ou refuse.
@@ -199,7 +212,14 @@ mod tests {
         let mut now = input.now_s;
         for _ in 0..steps {
             now += f64::from(dt);
-            let s = m.step(&tuning, &FogInput { dt_s: dt, now_s: now, ..input });
+            let s = m.step(
+                &tuning,
+                &FogInput {
+                    dt_s: dt,
+                    now_s: now,
+                    ..input
+                },
+            );
             each(&s, now);
         }
     }
@@ -207,7 +227,13 @@ mod tests {
     #[test]
     fn a_l_ouverture_la_brume_est_celle_du_look() {
         let mut m = FogModulation::default();
-        let s = m.step(&FogTuning::default(), &FogInput { dt_s: 1.0 / 60.0, ..FogInput::default() });
+        let s = m.step(
+            &FogTuning::default(),
+            &FogInput {
+                dt_s: 1.0 / 60.0,
+                ..FogInput::default()
+            },
+        );
         assert!((s.sigma_rho - 0.0037).abs() < 1e-6);
         assert!((s.g - 0.55).abs() < 1e-3);
         assert!((s.reach_m - 1057.3).abs() < 2.0);
@@ -219,11 +245,19 @@ mod tests {
         let mut last = 0.0037_f32;
         let mut peak = 0.0_f32;
         let mut max_rate = 0.0_f32;
-        run(&mut m, FogInput { drop: true, ..FogInput::default() }, 6.0, |s, _| {
-            max_rate = max_rate.max((s.sigma_rho - last).abs() * 60.0 / 0.0037);
-            last = s.sigma_rho;
-            peak = peak.max(s.sigma_rho);
-        });
+        run(
+            &mut m,
+            FogInput {
+                drop: true,
+                ..FogInput::default()
+            },
+            6.0,
+            |s, _| {
+                max_rate = max_rate.max((s.sigma_rho - last).abs() * 60.0 / 0.0037);
+                last = s.sigma_rho;
+                peak = peak.max(s.sigma_rho);
+            },
+        );
         // Pic ×1,8 au plus, atteint en un demi-temps au moins (0,25 s) : pente relative ≤ 0,8 / 0,25 par seconde.
         assert!(peak <= 0.0037 * 1.8 + 1e-6 && peak > 0.0037 * 1.7, "pic = {peak}");
         assert!(max_rate <= 0.8 / 0.25 + 0.05, "pente = {max_rate} /s");
@@ -236,7 +270,16 @@ mod tests {
         let mut m = FogModulation::default();
         let tuning = FogTuning::default();
         let step = |m: &mut FogModulation, drop: bool, now: f64| {
-            m.step(&tuning, &FogInput { dt_s: 1.0 / 60.0, now_s: now, drop, ..FogInput::default() }).sigma_rho
+            m.step(
+                &tuning,
+                &FogInput {
+                    dt_s: 1.0 / 60.0,
+                    now_s: now,
+                    drop,
+                    ..FogInput::default()
+                },
+            )
+            .sigma_rho
         };
         step(&mut m, true, 1.0);
         // Relâché puis redemandé 0,1 s plus tard : la voie est occupée, le limiteur refuse, la courbe reste lisse.
@@ -251,7 +294,14 @@ mod tests {
             let mut m = FogModulation::default();
             let mut peak = 0.0_f32;
             let mut shell = true;
-            let input = FogInput { drop: true, flashes, breathing, energy_fast: 1.0, energy_slow: 0.5, ..FogInput::default() };
+            let input = FogInput {
+                drop: true,
+                flashes,
+                breathing,
+                energy_fast: 1.0,
+                energy_slow: 0.5,
+                ..FogInput::default()
+            };
             run(&mut m, input, 3.0, |s, _| {
                 peak = peak.max(s.sigma_rho);
                 shell = s.shell;
@@ -266,10 +316,18 @@ mod tests {
         let mut m = FogModulation::default();
         let mut last = 0.0037_f32;
         let mut max_jump = 0.0_f32;
-        run(&mut m, FogInput { apnea: true, ..FogInput::default() }, 2.5, |s, _| {
-            max_jump = max_jump.max((s.sigma_rho - last).abs());
-            last = s.sigma_rho;
-        });
+        run(
+            &mut m,
+            FogInput {
+                apnea: true,
+                ..FogInput::default()
+            },
+            2.5,
+            |s, _| {
+                max_jump = max_jump.max((s.sigma_rho - last).abs());
+                last = s.sigma_rho;
+            },
+        );
         assert!((last - 0.0037 * 0.3).abs() < 1e-5, "fin = {last}");
         assert!(max_jump < 0.0037 * 0.7 / 100.0, "saut = {max_jump}");
     }
@@ -283,11 +341,19 @@ mod tests {
             let dt = 1.0 / fps;
             let mut s = None;
             for k in 0..(3.0 * fps) as usize {
-                let input = FogInput { dt_s: dt, now_s: f64::from(k as f32 * dt), energy_slow: 1.0, ..FogInput::default() };
+                let input = FogInput {
+                    dt_s: dt,
+                    now_s: f64::from(k as f32 * dt),
+                    energy_slow: 1.0,
+                    ..FogInput::default()
+                };
                 s = Some(m.step(&tuning, &input));
             }
             out[i] = s.map_or(0.0, |s| s.sigma_rho);
         }
-        assert!((out[0] - out[1]).abs() / out[1] < 0.01 && (out[2] - out[1]).abs() / out[1] < 0.01, "{out:?}");
+        assert!(
+            (out[0] - out[1]).abs() / out[1] < 0.01 && (out[2] - out[1]).abs() / out[1] < 0.01,
+            "{out:?}"
+        );
     }
 }

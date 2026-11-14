@@ -75,8 +75,7 @@ impl ShowSheet {
                             advance: cue.advance,
                             macros: show
                                 .cue_look(cue)
-                                .map(|look| look.macros.into_iter().map(|m| m.name).collect())
-                                .unwrap_or_default(),
+                                .map_or_default(|look| look.macros.into_iter().map(|m| m.name).collect()),
                         })
                         .collect(),
                 })

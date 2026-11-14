@@ -192,8 +192,7 @@ pub(crate) fn apply(gesture: SandboxGesture, targets: &mut Targets<'_, '_, '_>) 
             let requests: Vec<(f64, String)> = targets
                 .timeline
                 .as_deref()
-                .map(|timeline| timeline.requests().to_vec())
-                .unwrap_or_default();
+                .map_or_default(|timeline| timeline.requests().to_vec());
             if requests.is_empty() {
                 return;
             }

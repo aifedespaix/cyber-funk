@@ -242,7 +242,7 @@ impl PrepSession {
         match result {
             Ok(()) => {
                 self.baseline = self.doc.event().clone();
-                let name = self.doc.path().map(|p| p.display().to_string()).unwrap_or_default();
+                let name = self.doc.path().map_or_default(|p| p.display().to_string());
                 self.status = Status::Info(format!("{name} enregistré"));
                 true
             }

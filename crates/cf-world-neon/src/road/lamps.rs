@@ -198,8 +198,7 @@ mod tests {
         // Le plus faible retenu est plus fort que les 24 écartés (éclat 0,1 à 2,4, soit une couleur de 1,2 au plus).
         assert!(powers[powers.len() - 1] > 1.2, "{powers:?}");
         // Aucune lampe n'est derrière, loin sur le côté ou sous le sol.
-        for i in CAR_LAMPS..MAX_LAMPS {
-            let p = lamps.pos[i];
+        for p in lamps.pos.iter().take(MAX_LAMPS).skip(CAR_LAMPS) {
             assert!(p.x.abs() < 75.0 && p.z < -500.0 + 35.0 && p.y > 0.3, "{p:?}");
         }
     }

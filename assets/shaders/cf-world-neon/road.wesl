@@ -337,8 +337,8 @@ fn fragment(in: VertexOutput) -> @location(0) vec4<f32> {
 
     // Brouillard vers l'encre : la route se perd à l'horizon
     let fog = smoothstep(90.0 - 30.0 * rain, 340.0 - 90.0 * rain, view_distance);
-    // Perspective atmosphérique (C3, `atmosphere.wesl`) ; bloc à zéro : le fondu vers l'encre d'avant.
-    col = atmo_fog(col, mix(col, ink, fog), world, view.world_position);
+    // Le fondu efface le détail au loin ; la perspective atmosphérique (C3, `atmosphere.wesl`) s'y ajoute.
+    col = atmo_fog(mix(col, ink, fog), world, view.world_position);
 
     return vec4<f32>(col, 1.0);
 }

@@ -30,8 +30,7 @@ fn row_text(number: usize, screen: &ScreenInfo) -> String {
     // Arrondi au hertz : 59 940 mHz s'affiche 60 Hz, comme dans les réglages du système.
     let rate = screen
         .refresh_mhz
-        .map(|mhz| format!(" · {} Hz", (mhz + 500) / 1000))
-        .unwrap_or_default();
+        .map_or_default(|mhz| format!(" · {} Hz", (mhz + 500) / 1000));
     let primary = if screen.primary { " · principal" } else { "" };
     let projector = if screen.projector { " · projecteur" } else { "" };
     format!(

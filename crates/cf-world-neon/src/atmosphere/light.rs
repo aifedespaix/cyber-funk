@@ -30,7 +30,11 @@ pub fn luma(c: Vec3) -> f32 {
 #[must_use]
 pub fn at_luma(c: Vec3, target: f32) -> Vec3 {
     let l = luma(c);
-    if l > 1.0e-5 { c * (target / l) } else { Vec3::splat(target) }
+    if l > 1.0e-5 {
+        c * (target / l)
+    } else {
+        Vec3::splat(target)
+    }
 }
 
 /// Réglages de l'éclairage de scène (valeurs de départ de DA §1.2, §2.1 et §3.2).
@@ -71,7 +75,7 @@ impl Default for LightTuning {
             scatter: 0.5,
             rayleigh: 0.5,
             key_side: -1.0,
-            tube_gain: 20.0,
+            tube_gain: 4.0,
             shell: Shell {
                 speed: 40.0,
                 sigma: 5.0,
@@ -166,7 +170,11 @@ pub struct LightInput {
 /// Compose l'éclairage de l'image. Pur : mêmes entrées, même sortie.
 #[must_use]
 pub fn compose(tuning: &LightTuning, colors: &LightColors, input: &LightInput) -> SceneLight {
-    let d = if input.density.is_finite() { input.density.clamp(0.0, 1.0) } else { 0.5 };
+    let d = if input.density.is_finite() {
+        input.density.clamp(0.0, 1.0)
+    } else {
+        0.5
+    };
     let ratio = tuning.key_ratio.0 + (tuning.key_ratio.1 - tuning.key_ratio.0) * d;
     let c_key = at_luma(colors.mood.lerp(colors.ice, 0.5), tuning.key_luma);
     let fog_hue = colors.velvet.lerp(colors.mood, tuning.fog_mood);
@@ -265,7 +273,9 @@ pub struct FogReach(pub f32);
 
 impl Default for FogReach {
     fn default() -> Self {
-        Self(super::formula::fog_reach(super::modulation::FogTuning::default().sigma_rho))
+        Self(super::formula::fog_reach(
+            super::modulation::FogTuning::default().sigma_rho,
+        ))
     }
 }
 
@@ -285,7 +295,13 @@ mod tests {
     }
 
     fn input(density: f32) -> LightInput {
-        let fog = FogModulation::default().step(&FogTuning::default(), &FogInput { dt_s: 1.0 / 60.0, ..FogInput::default() });
+        let fog = FogModulation::default().step(
+            &FogTuning::default(),
+            &FogInput {
+                dt_s: 1.0 / 60.0,
+                ..FogInput::default()
+            },
+        );
         LightInput {
             density,
             fog,
@@ -307,7 +323,7 @@ mod tests {
     #[test]
     fn les_positions_du_bloc_sont_relatives_a_l_origine() {
         let light = compose(&LightTuning::default(), &colors(), &input(0.5));
-        let p = light.params(DVec3::new(0.0, 0.0, -40_000.0), 20.0);
+        let p = light.params(DVec3::new(0.0, 0.0, -40_000.0), 4.0);
         assert!((p.source.truncate() - Vec3::new(0.0, 0.5, 0.0)).length() < 1e-4);
         assert!((p.fog.x - 0.0037).abs() < 1e-6 && (p.fog.w - 1.0).abs() < f32::EPSILON);
         assert!((luma(p.rayleigh.truncate()) - 1.0).abs() < 1e-5);
@@ -343,7 +359,11 @@ mod tests {
         };
         let display = |l: f32| l.max(0.0).powf(1.0 / 2.2);
         let body = Vec3::new(0.004, 0.003, 0.008);
-        let (p3, p2, p1) = (display(shade(body, 20.0, 8.0)), display(shade(body, 150.0, 8.0)), display(shade(body, 900.0, 8.0)));
+        let (p3, p2, p1) = (
+            display(shade(body, 20.0, 8.0)),
+            display(shade(body, 150.0, 8.0)),
+            display(shade(body, 900.0, 8.0)),
+        );
         assert!(p2 - p3 >= 0.12 && p1 - p2 >= 0.12, "P3 {p3}, P2 {p2}, P1 {p1}");
         let silhouette = shade(Vec3::new(0.004, 0.003, 0.008), 700.0, 40.0);
         let fog_behind = shade(Vec3::ZERO, 5000.0, 40.0);

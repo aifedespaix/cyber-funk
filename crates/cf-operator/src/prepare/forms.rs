@@ -169,7 +169,7 @@ fn monitor_choice(ui: &mut egui::Ui, touch: &mut Touch, monitor: &mut MonitorSel
 }
 
 fn logo_field(ui: &mut egui::Ui, touch: &mut Touch, logo: &mut Option<AssetPath>) {
-    let mut text = logo.as_ref().map(|p| p.as_str().to_owned()).unwrap_or_default();
+    let mut text = logo.as_ref().map_or_default(|p| p.as_str().to_owned());
     let response = ui.add(
         egui::TextEdit::singleline(&mut text)
             .hint_text("logos/dj.png (sous assets/)")

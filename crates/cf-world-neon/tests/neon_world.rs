@@ -71,8 +71,9 @@ fn tout_ce_que_le_monde_dessine_est_dans_la_couche_monde() {
     let gantry = 3 + cf_world_neon::djsign::MAX_SIGN_CHARS;
     assert_eq!(
         found.len(),
-        2 + 6 + 2 + cf_world_neon::weather::haze::LAYERS.len() + pools + gantry,
-        "la route, le point suivi, les arches, la pluie, la brume, les voiles de brume basse et les pools : {found:?}"
+        // + 1 : les poussières d'ambiance (C3, une entité créée au démarrage).
+        2 + 6 + 2 + 1 + cf_world_neon::weather::haze::LAYERS.len() + pools + gantry,
+        "la route, le point suivi, les arches, la pluie, la brume, les poussières, les voiles de brume basse et les pools : {found:?}"
     );
     for (name, layers) in &found {
         assert_eq!(*layers, world_layers, "{name} n'est pas dans la couche monde");

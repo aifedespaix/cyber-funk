@@ -112,8 +112,7 @@ mod tests {
     fn positions(mesh: &Mesh) -> Vec<[f32; 3]> {
         mesh.attribute(Mesh::ATTRIBUTE_POSITION)
             .and_then(|a| a.as_float3())
-            .map(<[_]>::to_vec)
-            .unwrap_or_default()
+            .map_or_default(<[_]>::to_vec)
     }
 
     #[test]

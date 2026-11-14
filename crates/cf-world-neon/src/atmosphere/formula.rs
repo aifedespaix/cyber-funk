@@ -14,7 +14,7 @@ pub const U_MAX: f32 = 30.0;
 /// La caméra peut passer sous le sol (nappe sous la route) : la densité n'y croît pas sans fin.
 pub const DEPTH_BELOW_MAX: f32 = 2.0;
 /// Rayon minimal d'un tube (m) : la forme close diverge quand le rayon de vue traverse la source.
-pub const TUBE_RADIUS_M: f32 = 0.5;
+pub const TUBE_RADIUS_M: f32 = 1.5;
 /// Part de la brume qui reste au creux de la coquille de kick, toutes ondes confondues.
 pub const SHELL_FLOOR: f32 = 0.5;
 
@@ -182,7 +182,14 @@ mod tests {
     fn la_brume_tient_les_plans_de_la_direction_artistique() {
         // DA §1.2 : 1 − T ≤ 0,2 à 60 m (scène), 0,2 à 0,7 entre 60 et 600 m, 0,7 à 0,95 au-delà de 600 m (horizon).
         let fogged = |d: f32| {
-            1.0 - transmittance(optical_depth(SIGMA_RHO, HEIGHT, 0.0, Vec3::new(0.0, 0.0, 0.0), Vec3::NEG_Z, d))
+            1.0 - transmittance(optical_depth(
+                SIGMA_RHO,
+                HEIGHT,
+                0.0,
+                Vec3::new(0.0, 0.0, 0.0),
+                Vec3::NEG_Z,
+                d,
+            ))
         };
         assert!(fogged(60.0) <= 0.2 + 1e-3, "{}", fogged(60.0));
         assert!((0.2..=0.7).contains(&fogged(200.0)));
@@ -205,7 +212,10 @@ mod tests {
             sum += ds / f64::from(p.distance_squared(light));
         }
         let closed = f64::from(tube(origin, dir, dist, light));
-        assert!((closed - sum).abs() < 0.01 * sum, "forme close {closed}, numérique {sum}");
+        assert!(
+            (closed - sum).abs() < 0.01 * sum,
+            "forme close {closed}, numérique {sum}"
+        );
     }
 
     #[test]

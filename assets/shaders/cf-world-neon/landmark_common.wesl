@@ -113,8 +113,9 @@ fn city_grow(world: vec3<f32>) -> f32 {
 
 fn city_fog(col: vec3<f32>, world: vec3<f32>) -> vec3<f32> {
     let f = smoothstep(90.0 * city_vista(), 380.0 * city_vista(), distance(world, view.world_position));
-    // Perspective atmosphérique (C3, `atmosphere.wesl`, ajouté au bout de chaque rendu) ; bloc à zéro : le fondu d'avant.
-    return atmo_fog(col, mix(col, color(C_INK) + color(C_VIOLET) * 0.05, f), world, view.world_position);
+    // Le fondu efface le détail au loin ; la perspective atmosphérique (C3, `atmosphere.wesl`, ajouté au bout de chaque
+    // rendu) s'y ajoute.
+    return atmo_fog(mix(col, color(C_INK) + color(C_VIOLET) * 0.05, f), world, view.world_position);
 }
 
 fn city_fade(world: vec3<f32>) -> f32 {

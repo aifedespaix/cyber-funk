@@ -98,11 +98,7 @@ impl SettingsTab {
 
     /// Relit la liste des profils sur le disque.
     pub(crate) fn refresh_profiles(&mut self) {
-        self.profiles = self
-            .profiles_dir
-            .as_deref()
-            .map(profiles::list_profiles)
-            .unwrap_or_default();
+        self.profiles = self.profiles_dir.as_deref().map_or_default(profiles::list_profiles);
     }
 }
 

@@ -128,8 +128,7 @@ pub(crate) fn bake_glyphs(
 ) {
     let names = sheet
         .as_deref()
-        .map(|s| s.slots.iter().map(|slot| slot.dj.clone()).collect::<Vec<_>>())
-        .unwrap_or_default();
+        .map_or_default(|s| s.slots.iter().map(|slot| slot.dj.clone()).collect::<Vec<_>>());
     let start = std::time::Instant::now();
     let Some(baked) = bake(&charset(names.iter().map(String::as_str))) else {
         tracing::error!("enseigne du DJ : glyphes non cuits, l'enseigne restera éteinte");

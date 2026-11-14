@@ -8,9 +8,7 @@ use crate::landmarks::frame::{Colors, FlashPolicy};
 
 fn colors() -> Colors {
     // Trois couleurs distinctes suffisent : lime, alarme, menthe.
-    let palette = cf_render::ThemeLibrary::builtin()
-        .map(|l| *l.preset(cf_show::model::PresetTheme::Velvet))
-        .unwrap_or_default();
+    let palette = cf_render::ThemeLibrary::builtin().map_or_default(|l| *l.preset(cf_show::model::PresetTheme::Velvet));
     Colors::of(&palette)
 }
 

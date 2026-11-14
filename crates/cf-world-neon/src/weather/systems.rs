@@ -346,7 +346,7 @@ pub(super) fn update_rain(
         ice: rgb(ice),
         mood: rgb(mood),
     };
-    let field = field.as_deref().map(|f| f.params(origin.origin())).unwrap_or_default();
+    let field = field.as_deref().map_or_default(|f| f.params(origin.origin()));
     write(&mut materials, &rig.material, RainMaterial { params, field });
 }
 

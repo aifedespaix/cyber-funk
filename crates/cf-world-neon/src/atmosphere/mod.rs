@@ -10,9 +10,9 @@
 //! # Ce que ce module ne remplace pas
 //!
 //! Les plans de brume `mist` et `haze` ([`crate::weather`]) restent : ils donnent le détail proche que la formule n'a
-//! pas. Le fondu de distance que chaque shader faisait vers sa teinte de fond, lui, est remplacé : chaque shader appelle
-//! `atmo_fog`, qui rend l'ancien fondu tant que le bloc est à zéro (tests, démos sans ce plugin) et la perspective
-//! atmosphérique sinon. Aucune passe plein écran n'est ajoutée.
+//! pas. Le fondu de distance que chaque shader fait vers sa teinte de fond (presque noire) reste aussi : il efface le
+//! détail au loin et laisse une silhouette. `atmo_fog` s'applique par-dessus : il ne change rien tant que le bloc est à
+//! zéro (tests, démos sans ce plugin), et découpe la silhouette dans la brume sinon. Aucune passe plein écran n'est ajoutée.
 //!
 //! # Qui écrit quoi
 //!
@@ -73,7 +73,10 @@ impl Plugin for AtmospherePlugin {
             .init_resource::<SceneLightUniform>()
             .init_resource::<FogReach>()
             .add_systems(Startup, dust::spawn_dust.run_if(resource_exists::<Assets<Mesh>>))
-            .add_systems(Update, systems::update_scene_light.in_set(CfSet::Simulate).after(WeatherSet))
+            .add_systems(
+                Update,
+                systems::update_scene_light.in_set(CfSet::Simulate).after(WeatherSet),
+            )
             .add_systems(
                 Update,
                 (

@@ -185,12 +185,20 @@ pub(super) fn update_dust(
         if let Some(pose) = pose.as_deref() {
             position.set_if_neq(AbsolutePosition(pose.position));
         }
-        visibility.set_if_neq(if visible { Visibility::Inherited } else { Visibility::Hidden });
+        visibility.set_if_neq(if visible {
+            Visibility::Inherited
+        } else {
+            Visibility::Hidden
+        });
     }
     if !visible {
         return;
     }
-    let speed = focus.single().ok().and_then(|(_, car)| car).map_or(0.0, |c| c.speed_mps);
+    let speed = focus
+        .single()
+        .ok()
+        .and_then(|(_, car)| car)
+        .map_or(0.0, |c| c.speed_mps);
     let f = features.as_deref().map(|f| &f.0);
     let quiet = show_fx.is_some_and(|s| s.0.breathing || !s.0.flashes);
     let wind = tuning.fog.wind_mps * (1.0 + 2.0 * f.map_or(0.0, |f| f.mid.clamp(0.0, 1.0)));

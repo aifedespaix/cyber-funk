@@ -396,9 +396,7 @@ fn la_pagode_a_seize_blocs_dont_le_premier_etage_plonge_sous_le_sol() {
 
 #[test]
 fn la_teinte_et_les_couleurs_viennent_de_la_palette() {
-    let palette = cf_render::ThemeLibrary::builtin()
-        .map(|l| *l.preset(cf_show::model::PresetTheme::Velvet))
-        .unwrap_or_default();
+    let palette = cf_render::ThemeLibrary::builtin().map_or_default(|l| *l.preset(cf_show::model::PresetTheme::Velvet));
     let mut frame = LandmarkFrame::rest();
     frame.colors = Colors::of(&palette);
     let mut rig = Rig::new(LandmarkKind::Aquarium);

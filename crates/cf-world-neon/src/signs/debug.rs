@@ -129,9 +129,11 @@ pub fn build_catalog() -> SignCatalog {
     }
 }
 
-/// `Startup` : publie le catalogue.
-pub fn publish_catalog(mut catalog: ResMut<SignCatalog>) {
-    *catalog = build_catalog();
+/// `Startup` : publie le catalogue. Sans l'interface (démos du monde seul), la ressource n'existe pas : rien à publier.
+pub fn publish_catalog(catalog: Option<ResMut<SignCatalog>>) {
+    if let Some(mut catalog) = catalog {
+        *catalog = build_catalog();
+    }
 }
 
 /// `CfSet::Simulate`, avant la route d'enseignes : pose les panneaux demandés.

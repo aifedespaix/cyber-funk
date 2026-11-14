@@ -23,7 +23,11 @@ fn les_constantes_du_shader_sont_celles_du_miroir_rust() {
         ("ATMO_TUBE_RADIUS_M", formula::TUBE_RADIUS_M),
         ("ATMO_SHELL_FLOOR", formula::SHELL_FLOOR),
     ] {
-        assert!((wesl_const(name) - rust).abs() < 1e-9, "{name} : shader {}, Rust {rust}", wesl_const(name));
+        assert!(
+            (wesl_const(name) - rust).abs() < 1e-9,
+            "{name} : shader {}, Rust {rust}",
+            wesl_const(name)
+        );
     }
 }
 

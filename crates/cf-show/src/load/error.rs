@@ -93,7 +93,7 @@ impl LoadError {
 }
 
 fn field_prefix(field: Option<&str>) -> String {
-    field.map(|f| format!("champ « {f} » : ")).unwrap_or_default()
+    field.map_or_default(|f| format!("champ « {f} » : "))
 }
 
 struct IssueList<'a>(&'a [Issue]);

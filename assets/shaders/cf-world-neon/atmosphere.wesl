@@ -46,7 +46,7 @@ struct SceneLight {
 const ATMO_U_SERIES: f32 = 0.001;
 const ATMO_U_MAX: f32 = 30.0;
 const ATMO_DEPTH_BELOW_MAX: f32 = 2.0;
-const ATMO_TUBE_RADIUS_M: f32 = 0.5;
+const ATMO_TUBE_RADIUS_M: f32 = 1.5;
 const ATMO_SHELL_FLOOR: f32 = 0.5;
 
 // (1 − e^{−u})/u, stable autour de 0 (rayon horizontal).
@@ -127,13 +127,14 @@ fn atmo_apply(col: vec3<f32>, p: vec3<f32>, cam: vec3<f32>) -> vec3<f32> {
     return out;
 }
 
-// Point d'entrée des shaders opaques : `legacy` est la couleur déjà passée par le brouillard d'avant (fondu vers la
-// teinte de fond). Bloc à zéro : `legacy` ressort tel quel.
-fn atmo_fog(col: vec3<f32>, legacy: vec3<f32>, p: vec3<f32>, cam: vec3<f32>) -> vec3<f32> {
+// Point d'entrée des shaders opaques. `col` est la couleur déjà passée par le fondu de distance du shader (vers sa
+// teinte de fond, presque noire) : ce fondu efface le détail au loin et laisse une silhouette, que la brume découpe
+// ensuite (DA §1.2 : « contour seul » à l'horizon, plus sombre que la brume derrière). Bloc à zéro : `col` ressort tel quel.
+fn atmo_fog(col: vec3<f32>, p: vec3<f32>, cam: vec3<f32>) -> vec3<f32> {
     if scene.fog.w <= 0.0 {
-        return legacy;
+        return col;
     }
-    return mix(legacy, atmo_apply(col, p, cam), scene.fog.w);
+    return mix(col, atmo_apply(col, p, cam), scene.fog.w);
 }
 
 // Point d'entrée des shaders additifs (hologrammes, faisceaux) : la lumière émise est seulement atténuée.

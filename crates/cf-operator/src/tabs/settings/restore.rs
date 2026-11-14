@@ -82,7 +82,7 @@ pub(crate) fn readable_event(path: &Path) -> bool {
 /// l'état de l'onglet Réglages. Un fichier qui se lit mais que la validation refuse (look introuvable…) laisse un
 /// événement neuf, avec la raison affichée dans la barre d'état.
 pub(crate) fn init_session(config: Res<PrepConfig>, settings: Option<Res<Settings>>, mut commands: Commands) {
-    let prefs = settings.map(|s| s.value.operator.clone()).unwrap_or_default();
+    let prefs = settings.map_or_default(|s| s.value.operator.clone());
     let profiles = config.profiles_dir.as_deref();
     let cli = config.show_path.as_deref();
     let chosen = match profiles {

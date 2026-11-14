@@ -34,8 +34,7 @@ fn header() -> SessionHeader {
 /// Les lignes du journal dans la copie (après le séparateur `---`).
 fn body(text: &str) -> Vec<&str> {
     text.split_once("---\n")
-        .map(|(_, body)| body.lines().collect())
-        .unwrap_or_default()
+        .map_or_default(|(_, body)| body.lines().collect())
 }
 
 fn sample() -> Vec<LogLine> {

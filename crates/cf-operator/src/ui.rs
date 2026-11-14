@@ -245,7 +245,7 @@ fn live_tab(
         .map(|card| card.name.as_str());
     let stats = LiveStats {
         bpm: features.and_then(|f| f.bpm),
-        section: features.map(|f| f.section).unwrap_or_default(),
+        section: features.map_or_default(|f| f.section),
         fps: shell.diagnostics.as_deref().map(|d| d.fps),
         level: features.map_or(0.0, |f| f.loud),
         live: features.is_some_and(|f| f.live),

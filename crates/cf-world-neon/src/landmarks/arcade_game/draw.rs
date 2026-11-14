@@ -5,8 +5,8 @@ use super::{ArcadeGame, BOSS_HP, Boss, COLS, GRID_H, GRID_H_I32, GRID_W, GRID_W_
 impl ArcadeGame {
     pub(super) fn render(&mut self) {
         self.cells.fill(Px::EMPTY);
-        for x in 0..GRID_W {
-            self.cells[x] = if x % 4 < 3 { Px::GROUND } else { Px::EMPTY };
+        for (x, cell) in self.cells.iter_mut().enumerate().take(GRID_W) {
+            *cell = if x % 4 < 3 { Px::GROUND } else { Px::EMPTY };
         }
         if let Some(boss) = self.boss {
             self.blit_boss(boss);

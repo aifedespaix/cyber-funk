@@ -17,7 +17,7 @@ pub(super) fn io_error(path: &Path, action: &'static str, source: std::io::Error
 
 /// `chemin` + `suffix` (`etat.ron` → `etat.ron.tmp`) : même dossier, donc même volume (le `rename` reste atomique).
 fn with_suffix(path: &Path, suffix: &str) -> PathBuf {
-    let mut name: OsString = path.file_name().map(OsString::from).unwrap_or_default();
+    let mut name: OsString = path.file_name().map_or_default(OsString::from);
     name.push(suffix);
     path.with_file_name(name)
 }

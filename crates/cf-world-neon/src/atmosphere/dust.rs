@@ -209,10 +209,22 @@ pub fn shell_shares(particle_density: f32, calm: bool) -> [f32; 3] {
 
 /// Les uniformes d'une image.
 #[must_use]
-pub fn dust_params(time_s: f64, wind_mps: f32, transient: f32, speed_mps: f32, shares: [f32; 3], twinkle: bool) -> DustParams {
+pub fn dust_params(
+    time_s: f64,
+    wind_mps: f32,
+    transient: f32,
+    speed_mps: f32,
+    shares: [f32; 3],
+    twinkle: bool,
+) -> DustParams {
     let v3 = |a: [f32; 3], w: f32| Vec4::new(a[0], a[1], a[2], w);
     DustParams {
-        frame: Vec4::new((time_s % TIME_WRAP_S) as f32, wind_mps, transient.clamp(0.0, 1.0), speed_mps.max(0.0)),
+        frame: Vec4::new(
+            (time_s % TIME_WRAP_S) as f32,
+            wind_mps,
+            transient.clamp(0.0, 1.0),
+            speed_mps.max(0.0),
+        ),
         density: v3(shares, GAIN),
         inner: v3(INNER_M, if twinkle { 1.0 } else { 0.0 }),
         outer: v3(OUTER_M, 0.0),
@@ -228,12 +240,16 @@ pub struct DustRig {
 }
 
 /// Crée l'entité des poussières, une fois, au démarrage.
-pub(super) fn spawn_dust(mut commands: Commands, mut meshes: ResMut<Assets<Mesh>>, mut materials: ResMut<Assets<DustMaterial>>) {
+pub(super) fn spawn_dust(
+    mut commands: Commands,
+    mut meshes: ResMut<Assets<Mesh>>,
+    mut materials: ResMut<Assets<DustMaterial>>,
+) {
     let material = materials.add(DustMaterial::default());
     commands.spawn((
         Name::new("poussières"),
         Dust,
-        Mesh3d(meshes.add(dust_mesh(&grains(0xd057_c3)))),
+        Mesh3d(meshes.add(dust_mesh(&grains(0x00d0_57c3)))),
         MeshMaterial3d(material.clone()),
         dust_aabb(),
         Visibility::Hidden,
@@ -286,7 +302,14 @@ mod tests {
     #[test]
     fn le_shader_declare_le_bloc_dans_l_ordre_des_uniformes() {
         let mut last = 0;
-        for field in ["frame: vec4", "density: vec4", "inner: vec4", "outer: vec4", "size_min: vec4", "size_max: vec4"] {
+        for field in [
+            "frame: vec4",
+            "density: vec4",
+            "inner: vec4",
+            "outer: vec4",
+            "size_min: vec4",
+            "size_max: vec4",
+        ] {
             let at = DUST_SOURCE.find(field).unwrap_or(0);
             assert!(at > last, "champ `{field}` absent ou hors d'ordre");
             last = at;

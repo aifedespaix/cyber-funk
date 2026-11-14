@@ -172,9 +172,8 @@ impl Plugin for TrafficPlugin {
         }
         // Sans `PalettePlugin`, le thème de départ de Sillage (« Void Velvet ») : les véhicules ont besoin de ses couleurs.
         if !app.world().contains_resource::<ScenePalette>() {
-            let velvet = ThemeLibrary::builtin()
-                .map(|library| *library.preset(cf_show::model::PresetTheme::Velvet))
-                .unwrap_or_default();
+            let velvet =
+                ThemeLibrary::builtin().map_or_default(|library| *library.preset(cf_show::model::PresetTheme::Velvet));
             app.insert_resource(velvet);
         }
         app.configure_sets(

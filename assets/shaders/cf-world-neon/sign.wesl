@@ -361,5 +361,5 @@ fn fragment(in: VertexOutput, @builtin(front_facing) is_front: bool) -> @locatio
     }
     let a = c.a * opacity;
     let lit = c.rgb * k;
-    return vec4<f32>(atmo_fog(lit, lit, world, view.world_position), a);
+    return vec4<f32>(atmo_fog(lit, world, view.world_position), a);
 }

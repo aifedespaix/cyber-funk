@@ -206,10 +206,7 @@ impl Recorder {
         meta.insert("dir".into(), json!(dir.display().to_string()));
         write_json(&dir.join("session.json"), &Value::Object(meta.clone()));
         // Pointeur vers la session la plus récente : l'outil de lecture n'a ainsi rien à chercher.
-        let latest = dir
-            .file_name()
-            .map(|n| n.to_string_lossy().into_owned())
-            .unwrap_or_default();
+        let latest = dir.file_name().map_or_default(|n| n.to_string_lossy().into_owned());
         let _ = fs::write(root.join("LATEST.txt"), latest);
 
         let writer = thread::Builder::new().name("cf-debuglog-writer".into()).spawn({
