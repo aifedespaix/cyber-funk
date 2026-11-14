@@ -11,6 +11,7 @@ use bevy::shader::{Shader, ShaderRef};
 use super::temperament::TEMPER_COUNT;
 use super::trail::TRAIL_POINTS;
 use super::wall::WallCells;
+use crate::atmosphere::SceneLightParams;
 use crate::landmarks::field::FieldParams;
 
 /// Le shader des façades, embarqué dans le binaire : aucun fichier lu pendant un show (règle 8 de `CLAUDE.md`).
@@ -31,6 +32,8 @@ pub(crate) const FACADE_SOURCE: &str = concat!(
     include_str!("../../../../assets/shaders/cf-world-neon/facade_life.wesl"),
     "\n",
     include_str!("../../../../assets/shaders/cf-world-neon/field.wesl"),
+    "\n",
+    include_str!("../../../../assets/shaders/cf-world-neon/atmosphere.wesl"),
     "\n",
     include_str!("../../../../assets/shaders/cf-world-neon/facade_collapse.wesl"),
     "\n",
@@ -117,7 +120,12 @@ pub struct FacadeMaterial {
     /// Où lire chaque motif dans l'atlas mural.
     #[uniform(4)]
     pub wall_cells: WallCells,
+    /// L'éclairage de scène et la brume (C3, `atmosphere.wesl`) ; à zéro, le brouillard d'avant.
+    #[uniform(9)]
+    pub scene: SceneLightParams,
 }
+
+crate::atmosphere::systems::scene_lit!(FacadeMaterial);
 
 impl Material for FacadeMaterial {
     fn vertex_shader() -> ShaderRef {

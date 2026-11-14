@@ -25,7 +25,11 @@ use super::paint::{BAND_Y, DIGIT_SLOT, DIGITS_H, DIGITS_X, DIGITS_Y, FEED, LABEL
 /// Le shader des enseignes, embarqué dans le binaire : aucun fichier lu pendant un show (règle 8 de `CLAUDE.md`).
 pub(crate) const SIGN_SHADER: Handle<Shader> = uuid_handle!("6e2a9b41-3c58-4d17-b0a6-81f4d2c75e93");
 /// Source du shader (`assets/shaders/cf-world-neon/sign.wesl`).
-pub(crate) const SIGN_SOURCE: &str = include_str!("../../../../assets/shaders/cf-world-neon/sign.wesl");
+pub(crate) const SIGN_SOURCE: &str = concat!(
+    include_str!("../../../../assets/shaders/cf-world-neon/sign.wesl"),
+    "\n",
+    include_str!("../../../../assets/shaders/cf-world-neon/atmosphere.wesl")
+);
 /// Chemin logique du shader.
 pub(crate) const SIGN_SHADER_PATH: &str = "cf-world-neon/sign.wesl";
 
@@ -92,7 +96,12 @@ pub struct SignMaterial {
     #[texture(5)]
     #[sampler(6)]
     pub feed: Option<Handle<Image>>,
+    /// L'éclairage de scène et la brume (C3, `atmosphere.wesl`) ; à zéro, rien ne change.
+    #[uniform(9)]
+    pub scene: crate::atmosphere::SceneLightParams,
 }
+
+crate::atmosphere::systems::scene_lit!(SignMaterial);
 
 impl Material for SignMaterial {
     fn vertex_shader() -> ShaderRef {

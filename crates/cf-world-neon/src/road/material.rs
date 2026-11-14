@@ -20,7 +20,9 @@ pub(crate) const ROAD_SOURCE: &str = concat!(
     "\n",
     include_str!("../../../../assets/shaders/cf-world-neon/field.wesl"),
     "\n",
-    include_str!("../../../../assets/shaders/cf-world-neon/glyph.wesl")
+    include_str!("../../../../assets/shaders/cf-world-neon/glyph.wesl"),
+    "\n",
+    include_str!("../../../../assets/shaders/cf-world-neon/atmosphere.wesl")
 );
 /// Chemin logique du shader (messages d'erreur de Bevy, imports).
 pub(crate) const ROAD_SHADER_PATH: &str = "cf-world-neon/road.wesl";
@@ -73,7 +75,12 @@ pub struct RoadMaterial {
     /// Les lampes que reflète la chaussée mouillée : feux de la voiture et points lumineux les plus forts autour d'elle.
     #[uniform(4)]
     pub lamps: RoadLamps,
+    /// L'éclairage de scène et la brume (C3, `atmosphere.wesl`) ; à zéro, le brouillard d'avant.
+    #[uniform(9)]
+    pub scene: crate::atmosphere::SceneLightParams,
 }
+
+crate::atmosphere::systems::scene_lit!(RoadMaterial);
 
 impl Material for RoadMaterial {
     fn fragment_shader() -> ShaderRef {

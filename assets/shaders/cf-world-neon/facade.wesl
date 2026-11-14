@@ -417,5 +417,6 @@ fn fragment(in: FacadeVarying) -> @location(0) vec4<f32> {
     }
 
     let fog = smoothstep((90.0 - 30.0 * rain) * vista(), (380.0 - 100.0 * rain) * vista(), dist);
-    return vec4<f32>(mix(col, haze, fog), 1.0);
+    // Perspective atmosphérique (C3, `atmosphere.wesl`) ; bloc à zéro : le fondu vers la brume d'avant.
+    return vec4<f32>(atmo_fog(col, mix(col, haze, fog), in.world, view.world_position), 1.0);
 }

@@ -135,5 +135,7 @@ fn fragment(in: VertexOut) -> @location(0) vec4<f32> {
     let fog = smoothstep(90.0, 380.0, length(eye));
     let low = sstep(-4.0, MIST_Y + 2.0, in.world.y);
     col = mix(col, vehicle.mist.rgb, low);
-    return vec4<f32>(mix(col, vehicle.ink.rgb + vehicle.haze.rgb * 0.05, fog), 1.0);
+    // Perspective atmosphérique (C3, `atmosphere.wesl`) ; bloc à zéro : le fondu d'avant.
+    let legacy = mix(col, vehicle.ink.rgb + vehicle.haze.rgb * 0.05, fog);
+    return vec4<f32>(atmo_fog(col, legacy, in.world, view.world_position), 1.0);
 }

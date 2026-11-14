@@ -73,6 +73,12 @@ fn main() {
         ..default()
     })
     .insert_resource(AudioFeatures(cf_analysis::AudioFeatures::NEUTRAL));
+    // `CF_ATMO=0` : le brouillard d'avant le chantier C3 (captures « avant »).
+    if std::env::var("CF_ATMO").is_ok_and(|v| v == "0") {
+        let mut tuning = cf_world_neon::AtmosphereTuning::default();
+        tuning.light.amount = 0.0;
+        app.insert_resource(tuning);
+    }
     if check {
         app.init_resource::<check::Check>()
             .insert_resource(TimeUpdateStrategy::ManualDuration(Duration::from_secs_f64(1.0 / 60.0)))

@@ -11,6 +11,7 @@
 // Mélange « alpha prémultiplié » : une sortie à alpha nul s'additionne à la scène (hologramme, projection, néon).
 
 import bevy_pbr::render::forward_io::VertexOutput;
+import bevy_pbr::render::mesh_view_bindings::view;
 
 // Même ordre de champs que `SignParams` (Rust, `ShaderType`).
 struct Sign {
@@ -352,8 +353,13 @@ fn fragment(in: VertexOutput, @builtin(front_facing) is_front: bool) -> @locatio
     }
     let glow = 1.0 + sign.state.y * sign.misc.y;
     let k = opacity * glow;
+    // Perspective atmosphérique (C3, `atmosphere.wesl`) : une enseigne additive est seulement atténuée par la brume, un
+    // caisson opaque la reçoit comme une façade. Bloc à zéro : rien ne change.
+    let world = in.world_position.xyz;
     if additive {
-        return vec4<f32>(c.rgb * k, 0.0);
+        return vec4<f32>(c.rgb * k * atmo_fade(world, view.world_position), 0.0);
     }
-    return vec4<f32>(c.rgb * k, c.a * opacity);
+    let a = c.a * opacity;
+    let lit = c.rgb * k;
+    return vec4<f32>(atmo_fog(lit, lit, world, view.world_position), a);
 }

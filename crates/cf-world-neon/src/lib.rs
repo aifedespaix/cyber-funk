@@ -35,6 +35,7 @@
 //! invisible pour la caméra du monde. Les pièces que les tronçons créent (J5-02) en héritent par le bundle qu'on
 //! déclare à `PieceRegistry::add` : y mettre `WorldLayer`.
 
+pub mod atmosphere;
 pub mod automation;
 #[cfg(test)]
 mod automation_tests;
@@ -70,6 +71,7 @@ pub mod world;
 use bevy::prelude::*;
 use cf_render::WorldPlugin;
 
+pub use atmosphere::{AtmosphereLook, AtmospherePlugin, AtmosphereTuning, FogReach};
 pub use beams::{BeamField, BeamMaterial, Beams, BeamsPlugin};
 pub use car::{Car, CarControls, CarPlugin};
 pub use chase::{ChaseCameraPlugin, ChasePlugin, Runner, RunnerConfig, chase_pose};
@@ -155,6 +157,8 @@ impl Plugin for NeonWorldPlugin {
             DropFxPlugin,
             intro::IntroPlugin,
         ))
+        // Après les plugins du monde : l'atmosphère recopie son bloc dans leurs matériaux.
+        .add_plugins(AtmospherePlugin)
         .init_resource::<RoutePlan>()
         .init_resource::<RoutePlanner>()
         .init_resource::<graffiti::projector::ProjectorState>()

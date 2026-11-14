@@ -10,7 +10,9 @@ use std::time::Instant;
 use bevy::math::DVec3;
 use bevy::prelude::*;
 use bevy::render::view::screenshot::{Screenshot, ScreenshotCaptured, save_to_disk};
+use cf_render::audio::{FilteredSignals, VisualDensity};
 use cf_render::{AbsolutePosition, AudioFeatures, DiagnosticsSnapshot, FloatingOrigin};
+use cf_show::density::DensityState;
 use cf_world_neon::{FacadeLook, RoadLook, Runner};
 
 use crate::SIZE;
@@ -20,6 +22,9 @@ use crate::shots::{Shot, differing_share, luma, worst_diff};
 const WARMUP_S: f64 = 10.0;
 /// Images laissées à une scène pour que l'origine, les transforms, les tronçons et le matériau soient à jour.
 const SETTLE_FRAMES: u32 = 10;
+/// Scènes d'atmosphère : assez long pour que la densité de la brume (constante de temps de 1,5 s) ait rejoint l'énergie
+/// de la scène.
+const ATMO_SETTLE_FRAMES: u32 = 240;
 
 #[derive(Clone, Copy)]
 struct Scene {
@@ -32,6 +37,13 @@ struct Scene {
     wet: f32,
     rain: f32,
     build: f32,
+    /// Énergie lente de l'analyse (densité de la brume) et densité visuelle `Δ` (C3).
+    intensity: f32,
+    density: f32,
+    /// Âge (s) du dernier kick, pour la coquille de vide de la brume (C3).
+    kick_age: Option<f32>,
+    /// Images laissées à la scène avant la capture.
+    settle: u32,
 }
 
 const BASE: Scene = Scene {
@@ -44,9 +56,13 @@ const BASE: Scene = Scene {
     wet: 0.0,
     rain: 0.0,
     build: 1.0,
+    intensity: 0.7,
+    density: 0.65,
+    kick_age: None,
+    settle: SETTLE_FRAMES,
 };
 
-const SCENES: [Scene; 7] = [
+const SCENES: [Scene; 10] = [
     Scene {
         name: "1-depart",
         ..BASE
@@ -85,6 +101,27 @@ const SCENES: [Scene; 7] = [
         name: "7-seuil-via-km30",
         via_z: Some(-30_000.0),
         car_z: -14_000.0,
+        ..BASE
+    },
+    // Atmosphère (C3) : calme, sommet, et la coquille de vide d'un kick vieux de 0,45 s (front à 18 m du sujet).
+    Scene {
+        name: "8-atmo-calme",
+        intensity: 0.2,
+        density: 0.35,
+        settle: ATMO_SETTLE_FRAMES,
+        ..BASE
+    },
+    Scene {
+        name: "9-atmo-sommet",
+        intensity: 1.0,
+        density: 1.0,
+        settle: ATMO_SETTLE_FRAMES,
+        pulse: 0.6,
+        ..BASE
+    },
+    Scene {
+        name: "10-atmo-coquille",
+        kick_age: Some(0.45),
         ..BASE
     },
 ];
@@ -153,7 +190,17 @@ pub(crate) fn run_check(
             audio.0.high = 0.4;
             audio.0.mid = 0.3;
             audio.0.beat = scene.beat;
-            audio.0.intensity = 0.7;
+            audio.0.intensity = scene.intensity;
+            commands.insert_resource(VisualDensity(DensityState {
+                delta: scene.density,
+                ..DensityState::NEUTRAL
+            }));
+            let mut signals = FilteredSignals::default();
+            if let Some(age) = scene.kick_age {
+                signals.kick_wave.push();
+                signals.kick_wave.age(age);
+            }
+            commands.insert_resource(signals);
             road.wet = scene.wet;
             road.rain = scene.rain;
             facade.build = scene.build;
@@ -161,7 +208,7 @@ pub(crate) fn run_check(
             road.clock_s = Some(scene.time_s);
             check.stage = Stage::Settle(0);
         }
-        Stage::Settle(frames) if frames < SETTLE_FRAMES => check.stage = Stage::Settle(frames + 1),
+        Stage::Settle(frames) if frames < scene.settle => check.stage = Stage::Settle(frames + 1),
         Stage::Settle(_) => {
             if scene.via_z.is_some() && check.via_done && car.0.z.to_bits() != scene.car_z.to_bits() {
                 car.0.z = scene.car_z;

@@ -14,7 +14,11 @@ use cf_render::ScenePalette;
 use cf_render::palette::{LinearRgb, SceneColor};
 
 const VEHICLE_SHADER: Handle<Shader> = uuid_handle!("5c9a1e47-3b82-4d06-a7f1-8e2d6b04c391");
-const VEHICLE_SOURCE: &str = include_str!("../../../../../assets/shaders/cf-world-neon/traffic_vehicle.wesl");
+const VEHICLE_SOURCE: &str = concat!(
+    include_str!("../../../../../assets/shaders/cf-world-neon/traffic_vehicle.wesl"),
+    "\n",
+    include_str!("../../../../../assets/shaders/cf-world-neon/atmosphere.wesl")
+);
 const VEHICLE_PATH: &str = "cf-world-neon/traffic_vehicle.wesl";
 const TRAIL_SHADER: Handle<Shader> = uuid_handle!("e1d47b92-6a05-4c38-9f2e-b3a8c7d15f60");
 const TRAIL_SOURCE: &str = include_str!("../../../../../assets/shaders/cf-world-neon/traffic_trail.wesl");
@@ -112,7 +116,12 @@ pub struct VehicleMaterial {
     /// Uniformes envoyés au shader.
     #[uniform(0)]
     pub params: VehicleParams,
+    /// L'éclairage de scène et la brume (C3, `atmosphere.wesl`) ; à zéro, le brouillard d'avant.
+    #[uniform(9)]
+    pub scene: crate::atmosphere::SceneLightParams,
 }
+
+crate::atmosphere::systems::scene_lit!(VehicleMaterial);
 
 impl Material for VehicleMaterial {
     fn vertex_shader() -> ShaderRef {

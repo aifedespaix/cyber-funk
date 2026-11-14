@@ -67,9 +67,14 @@ pub struct LandmarkMaterial {
     #[texture(1)]
     #[sampler(2)]
     pub map: Option<Handle<Image>>,
+    /// L'éclairage de scène et la brume (C3, `atmosphere.wesl`) ; à zéro, le brouillard d'avant.
+    #[uniform(9)]
+    pub scene: crate::atmosphere::SceneLightParams,
     /// Le rendu (clé du pipeline).
     pub look: Look,
 }
+
+crate::atmosphere::systems::scene_lit!(LandmarkMaterial);
 
 impl LandmarkMaterial {
     /// Un matériau de ce rendu, sans texture, aux uniformes nuls.
@@ -78,6 +83,7 @@ impl LandmarkMaterial {
         Self {
             params: LandmarkParams::default(),
             map,
+            scene: crate::atmosphere::SceneLightParams::default(),
             look,
         }
     }
@@ -156,7 +162,8 @@ fn rank(look: Look) -> usize {
     Look::ALL.iter().position(|l| *l == look).unwrap_or(0)
 }
 
-/// Les morceaux de texte d'un rendu, dans l'ordre : le socle d'abord (les `import` doivent venir en tête).
+/// Les morceaux de texte d'un rendu, dans l'ordre : le socle d'abord (les `import` doivent venir en tête), l'atmosphère
+/// (`atmosphere.wesl`, que `city_fog` appelle) en dernier.
 #[must_use]
 pub fn pieces(look: Look) -> Vec<&'static str> {
     let tail: &[&'static str] = match look {
@@ -187,7 +194,10 @@ pub fn pieces(look: Look) -> Vec<&'static str> {
         Look::RadioWaves => &[RADIO_WAVES],
         Look::PagodaBlocks => &[PAGODA_BLOCKS],
     };
-    std::iter::once(COMMON).chain(tail.iter().copied()).collect()
+    std::iter::once(COMMON)
+        .chain(tail.iter().copied())
+        .chain(std::iter::once(crate::atmosphere::ATMOSPHERE_WESL))
+        .collect()
 }
 
 /// Le nom logique d'un shader (messages d'erreur de Bevy).
