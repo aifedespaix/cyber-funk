@@ -15,9 +15,9 @@
 struct SceneLight {
     // xyz : direction vers la lumière principale (le côté de rue dominant), w : rapport principale/remplissage.
     dir_key: vec4<f32>,
-    // rgb : lumière principale.
+    // rgb : lumière principale, w : plafond d'émissif d'une fenêtre (0,9·θ_b).
     c_key: vec4<f32>,
-    // rgb : remplissage (la brume éclairée).
+    // rgb : remplissage (la brume éclairée), w : densité visuelle Δ.
     c_fill: vec4<f32>,
     // xyz : direction vers le contre-jour (l'axe de la route).
     dir_rim: vec4<f32>,

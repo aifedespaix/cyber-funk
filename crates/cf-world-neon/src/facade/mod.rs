@@ -16,6 +16,7 @@ mod systems;
 mod temperament;
 mod trail;
 mod wall;
+pub mod windows;
 
 #[cfg(test)]
 mod life_tests;

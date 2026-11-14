@@ -87,6 +87,33 @@ const FLOOR_HEIGHT: f32 = 2.4;
 const BAY_WIDTH: f32 = 1.3;
 // Altitude de la nappe de brouillard sous la route, en mètres.
 const MIST_Y: f32 = -50.0;
+// Albédo du béton (DA §2.2) : la part des lumières de scène que le corps d'une tour renvoie.
+const FACADE_ALBEDO: f32 = 0.18;
+// Fenêtres hiérarchisées (C4) : part des étages allumés au calme, ce que `Δ` y ajoute, et chance d'une fenêtre d'être
+// allumée dans un étage allumé ou éteint. Miroir Rust : `facade/windows.rs`.
+const WINDOW_SHARE_CALM: f32 = 0.18;
+const WINDOW_SHARE_DELTA: f32 = 0.42;
+const WINDOW_ON_FLOOR: f32 = 0.9;
+const WINDOW_OFF_FLOOR: f32 = 0.03;
+// Intensité log-normale d'une fenêtre : palier E1 et écart-type du logarithme.
+const WINDOW_E1: f32 = 0.8;
+const WINDOW_SIGMA: f32 = 0.6;
+
+// Part des étages allumés : 0,18 + 0,42·Δ, décalée par le tempérament de l'immeuble.
+fn window_share(delta: f32, bias: f32) -> f32 {
+    return clamp(WINDOW_SHARE_CALM + WINDOW_SHARE_DELTA * clamp(delta, 0.0, 1.0) + bias, 0.02, 0.95);
+}
+
+// Gain log-normal d'une fenêtre, `n` gaussien (somme de trois hachages, bornée à ±3).
+fn window_gain(n: f32) -> f32 {
+    return WINDOW_E1 * exp(WINDOW_SIGMA * clamp(n, -3.0, 3.0));
+}
+
+// Plafond d'une fenêtre : aucun canal ne dépasse `cap` (0,9·θ_b), la teinte est gardée.
+fn window_cap(c: vec3<f32>, cap: f32) -> vec3<f32> {
+    let top = max(c.r, max(c.g, c.b));
+    return c * min(1.0, cap / max(top, 0.0001));
+}
 
 // `smoothstep(edge0, edge1, x)` de GLSL accepte edge0 > edge1 ; WGSL l'interdit. 1 - smoothstep(e1, e0, x) donne la même
 // courbe.
@@ -270,6 +297,19 @@ fn fragment(in: FacadeVarying) -> @location(0) vec4<f32> {
     var col = ink * 0.9 + ice * (0.014 + 0.04 * lambert) + v_c * 0.012;
     // Pluie : la façade s'assombrit, devient brillante, et l'eau ruisselle en traînées verticales.
     col *= 1.0 - 0.25 * wet;
+    // Relief sans calcul d'ombre (C4, DA §2.1), sur le bloc `SceneLight` : ombrage par face du côté de la rue dominant,
+    // pied des tours plongé dans le noir, remplissage par la brume, liseré de contre-jour sur les arêtes. Bloc à zéro :
+    // rien ne change.
+    let lit_scene = scene.fog.w;
+    if lit_scene > 0.0 {
+        let shade = 0.45 + 0.55 * max(dot(n, scene.dir_key.xyz), 0.0);
+        let ao = mix(0.35, 1.0, smoothstep(0.0, 0.25 * max(in.size.y + in.info.w, 1.0), h));
+        let fill = scene.c_fill.rgb * (0.5 + 0.5 * n.y) * FACADE_ALBEDO;
+        let to_eye = normalize(cam - in.world);
+        let grazing = 1.0 - max(dot(n, to_eye), 0.0);
+        let rim = grazing * grazing * grazing * grazing * max(dot(scene.dir_rim.xyz, -to_eye), 0.0);
+        col = mix(col, (col * shade + fill) * ao + scene.c_rim.rgb * rim * FACADE_ALBEDO, lit_scene);
+    }
 
     let roof = in.normal_l.y > 0.5;
     if !roof && in.normal_l.y > -0.5 {
@@ -285,11 +325,16 @@ fn fragment(in: FacadeVarying) -> @location(0) vec4<f32> {
         let cell = vec2<f32>(floor(uu), floor_id);
         let window_rnd = h21(cell + vec2<f32>(seed * 0.37 + face * 3.1, seed * 0.11));
         let lit_chance = 0.5 + high * 0.25 + noisy * 0.12 + 0.2 * h21(vec2<f32>(seed * 0.29, floor_id)) + temper_a.y;
-        var lit = step(window_rnd, lit_chance) * (1.0 - dead);
+        // Fenêtres hiérarchisées (C4, DA §1.1) : la part allumée suit la densité visuelle `Δ` (0,18 au calme, 0,6 au sommet),
+        // et les fenêtres s'allument par étages entiers, pas en confettis. Bloc à zéro : la loi d'avant.
+        let floor_on = step(h21(vec2<f32>(floor_id * 1.37 + 5.0, seed * 0.53 + face)), window_share(scene.c_fill.w, temper_a.y));
+        let grouped = mix(WINDOW_OFF_FLOOR, WINDOW_ON_FLOOR, floor_on) + high * 0.05;
+        var lit = step(window_rnd, mix(lit_chance, grouped, lit_scene)) * (1.0 - dead);
         if far {
             // Plages de lumière sur de larges blocs de façade : rien ne scintille quand les fenêtres deviennent sous-pixel.
             let zone = vec2<f32>(floor(uu / 7.0), floor(vv / 6.0));
-            lit = (0.2 + 0.8 * step(h21(zone + vec2<f32>(seed * 0.37 + face * 3.1, seed * 0.11)), lit_chance)) * (1.0 - dead);
+            let zone_chance = mix(lit_chance, window_share(scene.c_fill.w, temper_a.y), lit_scene);
+            lit = (0.2 + 0.8 * step(h21(zone + vec2<f32>(seed * 0.37 + face * 3.1, seed * 0.11)), zone_chance)) * (1.0 - dead);
         }
         // Quelques fenêtres clignotent en rythme avec les médiums.
         let blink = select(step(0.93, h21(cell + 9.7 + seed * 0.13)), 0.0, far);
@@ -336,7 +381,11 @@ fn fragment(in: FacadeVarying) -> @location(0) vec4<f32> {
         }
         // Règle 7 : le gain de mouvement ne s'ajoute qu'à la base stable (0,55), jamais au pouls brut du kick contenu dans
         // `glow` ; sans mouvement (`motion` = 1) le terme est exactement nul et le rendu d'avant est inchangé.
-        col += window_color * lit * mask * (glow + 0.55 * (motion - 1.0)) * (1.0 + 0.45 * wet) * power_left;
+        let pane = window_color * lit * mask * (glow + 0.55 * (motion - 1.0)) * (1.0 + 0.45 * wet) * power_left;
+        // Intensité log-normale par fenêtre, plafonnée sous le seuil du bloom (C4, DA §1.1) : une fenêtre reste au palier
+        // E1, quoi que fasse la musique. Bloc à zéro : la fenêtre d'avant.
+        let pane_n = (h21(cell + 41.0) + h21(cell + 43.0) + h21(cell + 47.0) - 1.5) * 2.0;
+        col += mix(pane, window_cap(pane * window_gain(pane_n), scene.c_key.w), lit_scene);
         // Traîne de la voiture : la lumière des fenêtres déjà allumées s'attarde là où elle est passée (rien au loin).
         if !far {
             col += trail_window_light(in.world, window_color) * lit * mask * (1.0 + 0.45 * wet) * power_left;

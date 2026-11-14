@@ -62,6 +62,8 @@ pub struct LightTuning {
     pub shell: Shell,
     /// Part d'atmosphère, 0..1 (0 : le brouillard d'avant, fondu vers la teinte de fond).
     pub amount: f32,
+    /// Plafond d'émissif d'une fenêtre : `0,9·θ_b`, `θ_b` étant le seuil du bloom (1,0 depuis C2).
+    pub window_cap: f32,
 }
 
 impl Default for LightTuning {
@@ -83,6 +85,7 @@ impl Default for LightTuning {
                 depth: 0.5,
             },
             amount: 1.0,
+            window_cap: crate::facade::windows::CAP_SHARE * cf_render::postfx::BLOOM_THRESHOLD,
         }
     }
 }
@@ -150,6 +153,10 @@ pub struct SceneLight {
     pub tubes: [Tube; TUBES],
     /// Part d'atmosphère, 0..1.
     pub amount: f32,
+    /// Densité visuelle `Δ`, 0..1 (part des fenêtres allumées, C4).
+    pub density: f32,
+    /// Plafond d'émissif d'une fenêtre : `0,9·θ_b` (C4).
+    pub window_cap: f32,
 }
 
 /// Ce que [`compose`] lit en plus des couleurs.
@@ -201,6 +208,8 @@ pub fn compose(tuning: &LightTuning, colors: &LightColors, input: &LightInput) -
         ground_y: 0.0,
         tubes: input.tubes,
         amount: tuning.amount,
+        density: d,
+        window_cap: tuning.window_cap,
     }
 }
 
@@ -210,9 +219,9 @@ pub fn compose(tuning: &LightTuning, colors: &LightColors, input: &LightInput) -
 pub struct SceneLightParams {
     /// `xyz` : direction vers la lumière principale, `w` : rapport principale / remplissage.
     pub dir_key: Vec4,
-    /// Lumière principale.
+    /// `xyz` : lumière principale, `w` : plafond d'émissif d'une fenêtre (`0,9·θ_b`).
     pub c_key: Vec4,
-    /// Remplissage.
+    /// `xyz` : remplissage, `w` : densité visuelle `Δ`.
     pub c_fill: Vec4,
     /// Direction vers le contre-jour.
     pub dir_rim: Vec4,
@@ -243,8 +252,8 @@ impl SceneLight {
         let rel = |p: DVec3| (p - origin).as_vec3();
         let mut out = SceneLightParams {
             dir_key: self.dir_key.extend(self.key_ratio),
-            c_key: self.c_key.extend(0.0),
-            c_fill: self.c_fill.extend(0.0),
+            c_key: self.c_key.extend(self.window_cap),
+            c_fill: self.c_fill.extend(self.density),
             dir_rim: self.dir_rim.extend(0.0),
             c_rim: self.c_rim.extend(0.0),
             fog: Vec4::new(self.fog.sigma_rho, self.fog.height_m, self.fog.g, self.amount),
