@@ -357,6 +357,13 @@ non tenus et pourquoi, point de reprise si le chantier reste 🟨.
 - Ondes de kick sur l'eau : pente radiale ajoutée à la surface mouillée (14 m/s, 0,9 m, 0,7 s), à plat en respiration ou flashs
   coupés (`scene.shell.w`). Flaques, rides de pluie, rugosité et étirement des reflets existaient déjà (portage de Sillage).
 
+**Fait (néons et reflets)**
+- Tubes néon des arêtes verticales et des bordures de toit : profil `cœur·mix(c, glace, cœur²) + c·exp(−d/4r)·0,35`, palier E2
+  (`1,5·θ_b` au repos, `3·θ_b` au plus avec le pouls et les basses). Le blanc est la glace de la palette, pas un blanc pur.
+  Miroir Rust et test `le_blanc_d_un_tube_ne_couvre_que_le_coeur`.
+- `facade_reflection` (route) suit la hiérarchie des fenêtres (`0,18 + 0,42·Δ`, étages entiers) : le reflet ne montre plus
+  davantage de fenêtres que la façade.
+
 **Mesures (city_demo, rendu logiciel, sans post-traitement, luminance linéaire) : avant C3 → C3 → C4**
 - Calme : Ȳ 0,073 → 0,075 → **0,061** (cible 0,06 de DA §3.1) ; pixels émissifs (`Y > 0,2`) 10,2 % → 6,8 %.
 - Sommet : Ȳ 0,097 → 0,100 → 0,089 ; l'écart sommet/calme passe de +33 % à +46 %.
@@ -370,11 +377,12 @@ non tenus et pourquoi, point de reprise si le chantier reste 🟨.
 
 **Reste à faire (point de reprise)**
 1. Route (`road.wesl`, `road/`) : rugosité réactive (`Target::Puddles`, pas encore dans le bloc), aberration des reflets
-   analytiques, et `facade_reflection` qui dessine encore une fenêtre sur deux (à aligner sur `window_share`, sinon le reflet
-   montre plus de fenêtres que la façade). Pas de miroir Rust ni de test pour `kick_ripples` et la flaque de lumière.
+   analytiques. Pas de miroir Rust ni de test pour `kick_ripples` et la flaque de lumière. Les constantes de la part
+   allumée sont recopiées en dur dans `facade_reflection` (0,18 ; 0,42 ; 0,03 ; 0,9) : à tenir alignées avec `facade.wesl`.
 2. Façades : micro-détail (coulures, joints, effacé par `fwidth`), halo des 4 sockets proches, vu-mètre sur
    `FilteredSignals::spectrum` (à ajouter au bloc ou à `FacadeParams`), chanfrein lumineux de toit sur 1 immeuble sur 3.
-3. Néons et enseignes (`sign.wesl`, arêtes de `facade.wesl`) : profil cœur blanc / halo saturé, paliers E1 à E4, saturation liée à `HM`.
+3. Enseignes (`sign.wesl`) : profil cœur blanc / halo saturé comme les arêtes (fait pour `facade.wesl`), paliers E1 à E4,
+   saturation liée à `HM` ; ranger la bande de caisse claire et la ceinture lumineuse dans le palier E2.
 4. Fenêtres habitées (DA §5, idée 1) avec repli en aplat au loin.
 5. Critère de palette (70 % des émissifs dans la dominante ou l'accent) avec `cf_render::postfx::measure` sur les captures.
 6. Le plafond couvre la fenêtre et la traîne de la voiture (charleston et pouls de la ville passent par `lit`, donc dedans).

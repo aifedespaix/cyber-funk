@@ -161,7 +161,12 @@ fn facade_reflection(p: vec3<f32>, r: vec3<f32>) -> vec3<f32> {
         let cell = vec2<f32>(h.z / 1.3, h.y / 2.4);
         let id = floor(cell);
         let f = fract(cell);
-        let lit = step(h21(id + vec2<f32>(side * 9.0, 3.0)), 0.5);
+        // Avec l'éclairage de scène (C4), le reflet suit la hiérarchie des façades : part des étages allumés
+        // `0,18 + 0,42·Δ`, fenêtres allumées par étages entiers (mêmes constantes que `facade.wesl`). Bloc à zéro : une
+        // fenêtre sur deux, comme avant.
+        let share = 0.18 + 0.42 * clamp(scene.c_fill.w, 0.0, 1.0);
+        let floor_on = step(h21(vec2<f32>(id.y * 1.37 + 5.0, side * 9.0)), share);
+        let lit = step(h21(id + vec2<f32>(side * 9.0, 3.0)), mix(0.5, mix(0.03, 0.9, floor_on), scene.fog.w));
         let pane = smoothstep(0.1, 0.22, f.x) * (1.0 - smoothstep(0.78, 0.9, f.x))
             * smoothstep(0.15, 0.3, f.y) * (1.0 - smoothstep(0.7, 0.85, f.y));
         let tone = h21(id + 57.0);

@@ -51,6 +51,20 @@ pub fn window_cap(color: Vec3, cap: f32) -> Vec3 {
     color * (cap / top.max(1.0e-4)).min(1.0)
 }
 
+/// Palier E2 d'un tube néon au repos, en `θ_b`.
+pub const NEON_E2: f32 = 1.5;
+/// Part du halo d'un tube.
+pub const NEON_HALO: f32 = 0.35;
+
+/// Profil d'un tube néon à la distance `d` de son axe (rayon `r`) : le cœur vire au blanc, le halo reste saturé
+/// (DA §2.2). Miroir de `neon_tube` de `facade.wesl`.
+#[must_use]
+pub fn neon_tube(color: Vec3, white: Vec3, d: f32, r: f32) -> Vec3 {
+    let t = ((d - 0.5 * r) / (0.5 * r)).clamp(0.0, 1.0);
+    let core = 1.0 - t * t * (3.0 - 2.0 * t);
+    color.lerp(white, core * core) * core + color * (-d / (4.0 * r)).exp() * NEON_HALO
+}
+
 #[cfg(test)]
 mod tests {
     use proptest::prelude::*;
@@ -81,6 +95,23 @@ mod tests {
             let c = Vec3::new(r, g, b) * k;
             let out = window_cap(c, 0.9);
             prop_assert!((out.x * c.y - out.y * c.x).abs() < 1e-3 && (out.y * c.z - out.z * c.y).abs() < 1e-3);
+        }
+    }
+
+    #[test]
+    fn le_blanc_d_un_tube_ne_couvre_que_le_coeur() {
+        let (c, white, r) = (Vec3::new(0.0, 0.8, 1.0), Vec3::ONE, 0.07);
+        // Sur l'axe : le blanc, plus le halo.
+        let axis = neon_tube(c, white, 0.0, r);
+        assert!(axis.x > 0.9, "{axis:?}");
+        // Hors du cœur (d ≥ r) : la teinte pure, sans rouge, qui s'éteint avec la distance.
+        let (near, far) = (neon_tube(c, white, r, r), neon_tube(c, white, 6.0 * r, r));
+        assert!(near.x.abs() < 1e-6 && far.x.abs() < 1e-6);
+        assert!(near.z > far.z && far.z > 0.0 && near.z <= NEON_HALO);
+        // Palier E2 : de 1,5·θ_b au repos à 3·θ_b au plus (pouls 1, basses 1), jamais un palier de plus.
+        assert!((NEON_E2 + 1.0 + 0.5 - 3.0).abs() < 1e-6);
+        for (name, rust) in [("NEON_E2", NEON_E2), ("NEON_HALO", NEON_HALO)] {
+            assert!((wesl_const(name) - rust).abs() < 1e-9, "{name}");
         }
     }
 

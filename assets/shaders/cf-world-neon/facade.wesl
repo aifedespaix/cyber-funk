@@ -99,6 +99,19 @@ const WINDOW_OFF_FLOOR: f32 = 0.03;
 const WINDOW_E1: f32 = 0.8;
 const WINDOW_SIGMA: f32 = 0.6;
 
+// Tubes néon (C4, DA §2.2) : rayon des arêtes et des bordures de toit (m), palier E2 au repos (en θ_b), part du halo.
+const NEON_EDGE_RADIUS: f32 = 0.07;
+const NEON_ROOF_RADIUS: f32 = 0.17;
+const NEON_E2: f32 = 1.5;
+const NEON_HALO: f32 = 0.35;
+
+// Profil d'un tube à la distance `d` de son axe : `cœur = 1 − smoothstep(r/2, r, d)`, le cœur vire au blanc (la glace de
+// la palette), le halo reste saturé et s'éteint en `exp(−d/4r)`. Le blanc ne couvre que le cœur.
+fn neon_tube(c: vec3<f32>, white: vec3<f32>, d: f32, r: f32) -> vec3<f32> {
+    let core = 1.0 - smoothstep(0.5 * r, r, d);
+    return mix(c, white, core * core) * core + c * exp(-d / (4.0 * r)) * NEON_HALO;
+}
+
 // Part des étages allumés : 0,18 + 0,42·Δ, décalée par le tempérament de l'immeuble.
 fn window_share(delta: f32, bias: f32) -> f32 {
     return clamp(WINDOW_SHARE_CALM + WINDOW_SHARE_DELTA * clamp(delta, 0.0, 1.0) + bias, 0.02, 0.95);
@@ -433,13 +446,19 @@ fn fragment(in: FacadeVarying) -> @location(0) vec4<f32> {
         let edge = sstep(0.14, 0.0, min(abs(u - width * 0.5), abs(u + width * 0.5)));
         let trimmed = step(0.45, fract(seed * 0.0531));
         if !far {
-            col += v_c * edge * trimmed * (0.7 + pulse * 1.0 + bass * 0.4);
+            // Tube néon (C4, DA §2.2) : cœur qui vire à la glace, halo saturé, palier E2 (1,5 à 3·θ_b). Bloc à zéro : le
+            // trait d'avant.
+            let edge_d = min(abs(u - width * 0.5), abs(u + width * 0.5));
+            let tube = neon_tube(v_c, ice, edge_d, NEON_EDGE_RADIUS) * (NEON_E2 + pulse * 1.0 + bass * 0.5);
+            col += mix(v_c * edge * (0.7 + pulse * 1.0 + bass * 0.4), tube, lit_scene) * trimmed;
         }
     } else if roof {
         // Toit : bordure néon et lueur sourde.
         let half_size = in.size.xz * 0.5;
         let rim = sstep(0.35, 0.0, min(half_size.x - abs(in.local.x), half_size.y - abs(in.local.z)));
-        col += v_c * rim * (0.7 + pulse * 1.3 + noisy * 0.8);
+        let rim_d = min(half_size.x - abs(in.local.x), half_size.y - abs(in.local.z));
+        let rim_tube = neon_tube(v_c, ice, rim_d, NEON_ROOF_RADIUS) * (NEON_E2 + pulse * 1.0 + noisy * 0.5);
+        col += mix(v_c * rim * (0.7 + pulse * 1.3 + noisy * 0.8), rim_tube, scene.fog.w);
     } else {
         // Dessous (tablier des arches) : rampes lumineuses transversales.
         let ramp = sstep(0.05, 0.0, abs(fract(in.local.z / 6.0) - 0.5) - 0.42);
