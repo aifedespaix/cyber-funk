@@ -140,10 +140,10 @@ visuelle `Δ`.
 
 **Acceptation**
 
-- [ ] Test de formule : `T` analytique contre intégration numérique (écart < 1 %), limite `u → 0` stable.
-- [ ] Sur capture : luminance moyenne des plans P1, P2, P3 séparée d'au moins 0,12 ; P1 plus sombre que la brume.
-- [ ] Aucune passe plein écran ajoutée ; coût mesuré avant/après aux trois paliers.
-- [ ] Captures `docs/captures/C3/` : calme, sommet, coquille de kick.
+- [x] Test de formule : `T` analytique contre intégration numérique (écart < 1 %), limite `u → 0` stable.
+- [~] Sur capture : luminance moyenne des plans P1, P2, P3 séparée d'au moins 0,12 ; P1 plus sombre que la brume. (tenu sur la formule, pas sur la capture : les corps de façade actuels sont trop clairs, voir le journal ; à rejuger après C4)
+- [~] Aucune passe plein écran ajoutée (tenu, testé) ; coût mesuré avant/après aux trois paliers (non mesuré : rendu logiciel).
+- [x] Captures `docs/captures/C3/` : calme, sommet, coquille de kick.
 
 ---
 
@@ -328,7 +328,7 @@ Statuts : ⬜ à faire · 🟨 en cours (le journal dit où reprendre) · ✅ te
 |---|---|---|---|---|
 | C1 | Signaux et dramaturgie | ✅ | voir `git log` (dernier commit « C1 ») | Sur le matériel cible : seuils de `z` des transitoires et étalonnage `FFT_TO_RMS` sur une vraie entrée ligne/micro ; ressenti du creux d'avant-drop. Routage non encore lu par les shaders (C2 à C4). |
 | C2 | Image finale | ✅ | voir `git log` (« C2 ») | Critères `[~]` : Ȳ et bloom mesurés sur la démo, pas sur la ville (à refaire en C3/C4) ; référence de parité Sillage non régénérée (bun/Playwright absents) ; remise à zéro GPU de la persistance non testée ; rayons à valider à l'œil. Matériel cible : cadence, bloom fin, couleurs sur projecteur. |
-| C3 | Atmosphère et profondeur | 🟨 | — | en cours |
+| C3 | Atmosphère et profondeur | ✅ | voir `git log` (« C3 ») | Critères `[~]` : séparation des plans à rejuger sur capture après C4 (corps de façade trop clairs aujourd'hui) ; coût GPU aux trois paliers non mesuré. Matériel cible : densité `σ_t·ρ` et luminance de la brume sur projecteur, lisibilité de la coquille de kick, taille des poussières. `FogReach` publié mais pas encore lu par le culling (C7) ; `AtmosphereLook::apnea` pas encore écrit (EV4, C7) ; `SceneLight` (principale, remplissage, contre-jour) publié mais l'ombrage des faces est pour C4. |
 | C4 | Sol, façades et matériaux | ⬜ | — | — |
 | C5 | Ville : distribution et archétypes | ⬜ | — | — |
 | C6 | Ville : habillage | ⬜ | — | — |
@@ -340,6 +340,71 @@ Statuts : ⬜ à faire · 🟨 en cours (le journal dit où reprendre) · ✅ te
 
 Une entrée par session, la plus récente en haut : date, chantier, ce qui est fait, décisions prises, critères
 non tenus et pourquoi, point de reprise si le chantier reste 🟨.
+
+### 2026-11-14 · C3 Atmosphère et profondeur · ✅
+
+**Fait**
+- `cf-world-neon::atmosphere` (nouveau module, `AtmospherePlugin` ajouté par `NeonWorldPlugin`) :
+  - `formula` : épaisseur optique analytique, phase de Henyey-Greenstein, tube en forme close, coquille de kick, `d_brume`,
+    perspective atmosphérique. Miroir Rust de `atmosphere.wesl`, un test compare les constantes des deux textes.
+  - `modulation` : densité `ρ0 = ρ_look·(0,6 + 0,8·E_s)` lissée, anisotropie 0,55 → 0,85, bouffée de drop **[L]**, apnée en une
+    mesure, vent, pluie et humidité. État de taille fixe.
+  - `light` : bloc `SceneLight` (principale, remplissage, contre-jour, brume, Rayleigh, 4 kicks, 4 tubes), composé depuis la
+    palette, la teinte d'ambiance et `Δ` ; rapport principale/remplissage 8:1 → 16:1.
+  - `dust` : trois coquilles (200/800/1500, 100/300/500, 0/100/0 selon `QualityLevers::particle_density`), un maillage, un
+    draw call, tout au vertex shader, `Aabb` explicite.
+- `atmosphere.wesl` ajouté au bout des shaders de façade, route, enseigne, véhicule de trafic et repères (`@binding(9)`),
+  appelé par `atmo_fog` / `atmo_fade`. Aucune passe plein écran, aucune texture lue.
+- `FogReach` (distance utile de la brume, `T < 2 %`) publié pour le culling de C7 ; `AtmosphereLook::apnea` pour EV4.
+- `city_demo` : trois scènes d'atmosphère, `CF_ATMO=0` pour la capture « avant ».
+
+**Décisions / écarts**
+- Le fondu de distance de chaque shader (vers sa teinte de fond, presque noire) est **gardé** : il efface le détail au loin et
+  laisse la silhouette, que la brume découpe ensuite. Bloc à zéro (tests, démos sans le plugin) : rendu d'avant, à l'identique,
+  donc aucune référence de parité Sillage à régénérer.
+- Phase de Henyey-Greenstein **ramenée à un pic de 1** : la forme brute a un pic ×11 entre `g = 0,55` et `0,85`, moduler `g` par
+  le son aurait été un flash. Monter `g` resserre le lobe sans relever son sommet.
+- Bouffée de drop : enveloppe d'un `FlashLimiter` (voie `Sweep`) propre à la brume, pas un ADSR libre ; pic ×1,8, montée en un
+  demi-temps au moins. Coquille de kick et scintillement coupés en respiration ou flashs coupés.
+- Scintillement des poussières lointaines : 3 Hz fondu (jamais de saut) au lieu des 8 Hz de DA §3.2 (règle 7 et test des motifs ≤ 3 Hz).
+- `(1 − e^{−u})/u` : développement `1 − u/2` sous `|u| < 10⁻³`, `1/u` au-delà de 30, `u` borné à −30 (pas de débordement).
+- Le contre-jour est dans l'axe de la route et s'ajoute à ce que la brume diffuse : c'est lui qui éclaircit le point de fuite.
+- Tubes proches : le sujet et les trois premières lumières des immeubles-vitrines (`CityField`), rayon minimal 1,5 m, gain 4
+  (à 20 et 0,5 m le sujet délavait toute la rue : vu sur capture, corrigé).
+- `σ_t·ρ_look = 0,0037 /m` : `1 − T` = 0,2 à 60 m, 0,89 à 600 m (plans de DA §1.2).
+- Hors périmètre, corrigés au passage : `signs::debug::publish_catalog` exigeait `SignCatalog` (absent des démos du monde seul,
+  `city_demo` plantait au démarrage) ; lints clippy apparus avec Rust 1.100 (`map_or_default`, boucles indexées) dans
+  `cf-audio`, `cf-debuglog`, `cf-show`, `cf-render`, `cf-operator`, `cf-world-neon`.
+
+**Mesures (city_demo, rendu logiciel, sans post-traitement), luminance linéaire avant → après**
+- Départ : image 0,073 → 0,076 ; bande médiane 0,121 → 0,131 ; autour du point de fuite 0,189 → 0,197.
+- Calme 0,075, sommet 0,100, pluie 0,112.
+- L'effet est réel mais discret, et la séparation des plans de 0,12 **n'est pas atteinte à l'image** : les corps de façade
+  proches sont à 0,16 de luminance (gris bleuté), au-dessus de la brume (0,05 à 0,07). Tant que C4 n'a pas assombri les corps et
+  hiérarchisé les fenêtres, la brume ne peut pas inverser l'ordre des valeurs. La séparation est tenue sur la formule (test
+  `les_plans_sont_separes_en_valeur`, corps éteints à 20, 150 et 900 m, silhouette d'horizon sous la brume).
+
+**Non fait / non tenu**
+- Coût avant/après aux trois paliers : non mesuré (le rendu logiciel ne donne pas un temps GPU utilisable).
+- La route, les panneaux de trafic (`traffic_panel.wesl`), les faisceaux et les hologrammes de graffiti n'appellent pas tous
+  l'atmosphère : seuls façade, route, enseigne, véhicule et repères sont branchés (liste de la fiche).
+- `KickWave` : sans `RoutingPlugin` (démos), les âges restent à 60 s ; la coquille n'a été vue que sur la scène forcée.
+- Le vent de la brume ne déplace que les poussières (la formule analytique n'a pas de bruit 3D : arbitrage du plan).
+
+**Tests rouges, tous antérieurs à C3** (mêmes que le journal de C2) : `cf-operator` `shot_names`, `cf-world-neon`
+`signs::golden` (3) et `tests/sky` (2), `cf-audio` `player` (pas de carte son). `tests/signs` est vert. Clippy `-D warnings`
+du workspace vert sous Rust 1.100.
+
+**Environnement** : captures avec `apt-get install libxkbcommon-x11-0 mesa-vulkan-drivers` et
+`VK_ICD_FILENAMES=/usr/share/vulkan/icd.d/lvp_icd.json`. **Disque** : `cargo test -p cf-world-neon` écrit ~14 Go de binaires
+de test dans `target/debug/build/cf-world-neon/` ; les dossiers périmés s'y accumulent (256 variantes, 20 Go) et saturent la
+session. Les supprimer entre deux passes (`find target/debug/build/cf-world-neon -maxdepth 1 -mmin +15 -exec rm -rf {} +`).
+
+**Preuves** : 27 tests (`atmosphere::`), dont `proptest` de la transmittance contre intégration numérique, tube contre
+intégration numérique, bornes de la phase et de la coquille, limiteur de la bouffée, indépendance à la cadence ; captures
+`docs/captures/C3/` (avant, après, calme, sommet, coquille de kick, pluie).
+
+**Prochaine session** : C4 · Sol, façades et matériaux (commencer par assombrir les corps de façade, voir les mesures).
 
 ### 2026-11-10 · C2 Image finale · ✅ (suite)
 
