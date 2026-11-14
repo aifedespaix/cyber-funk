@@ -279,8 +279,8 @@ impl SceneLight {
             source: rel(self.source).extend((self.ground_y - origin.y) as f32),
             ..SceneLightParams::default()
         };
-        for (i, quad) in self.spectrum.chunks_exact(4).enumerate() {
-            out.spectrum[i] = Vec4::new(quad[0], quad[1], quad[2], quad[3]);
+        for (slot, quad) in out.spectrum.iter_mut().zip(self.spectrum.as_chunks::<4>().0) {
+            *slot = Vec4::from_array(*quad);
         }
         for (i, tube) in self.tubes.iter().enumerate() {
             out.tube_pos[i] = rel(tube.position).extend(0.0);

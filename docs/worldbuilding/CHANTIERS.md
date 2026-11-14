@@ -170,7 +170,7 @@ visuelle `Δ`.
 
 **Acceptation**
 
-- [ ] Critère de palette de DA §1.1 sur capture (70 % des émissifs dans la dominante ou l'accent, `ice` < 2 %).
+- [~] Critère de palette de DA §1.1 sur capture (70 % des émissifs dans la dominante ou l'accent, `ice` < 2 %). (tenu : 93 %, 93 %, 74 % ; teintes prises aux pics de l'histogramme, sans post-traitement)
 - [x] Une fenêtre ne dépasse jamais `0,9·θ_b` (test du shader ou de la fonction miroir en Rust).
 - [x] Toujours un seul lot de dessin pour les pavés de la ville. (aucun matériau ni maillage ajouté : un champ d'uniformes de plus)
 - [x] Captures `docs/captures/C4/` : sec, mouillé, kick, calme contre sommet.
@@ -329,7 +329,7 @@ Statuts : ⬜ à faire · 🟨 en cours (le journal dit où reprendre) · ✅ te
 | C1 | Signaux et dramaturgie | ✅ | voir `git log` (dernier commit « C1 ») | Sur le matériel cible : seuils de `z` des transitoires et étalonnage `FFT_TO_RMS` sur une vraie entrée ligne/micro ; ressenti du creux d'avant-drop. Routage non encore lu par les shaders (C2 à C4). |
 | C2 | Image finale | ✅ | voir `git log` (« C2 ») | Critères `[~]` : Ȳ et bloom mesurés sur la démo, pas sur la ville (à refaire en C3/C4) ; référence de parité Sillage non régénérée (bun/Playwright absents) ; remise à zéro GPU de la persistance non testée ; rayons à valider à l'œil. Matériel cible : cadence, bloom fin, couleurs sur projecteur. |
 | C3 | Atmosphère et profondeur | ✅ | voir `git log` (« C3 ») | Critères `[~]` : séparation des plans à rejuger sur capture après C4 (corps de façade trop clairs aujourd'hui) ; coût GPU aux trois paliers non mesuré. Matériel cible : densité `σ_t·ρ` et luminance de la brume sur projecteur, lisibilité de la coquille de kick, taille des poussières. `FogReach` publié mais pas encore lu par le culling (C7) ; `AtmosphereLook::apnea` pas encore écrit (EV4, C7) ; `SceneLight` (principale, remplissage, contre-jour) publié mais l'ombrage des faces est pour C4. |
-| C4 | Sol, façades et matériaux | 🟨 | voir `git log` (« C4 ») | Fait : relief des façades, fenêtres hiérarchisées et plafonnées, grain, flaque de lumière et ondes de kick de la route. Reste : rugosité réactive, reflet des fenêtres aligné, micro-détail et halo des façades, vu-mètre, néons à cœur blanc, fenêtres habitées, critère de palette. Voir le journal (point de reprise numéroté). |
+| C4 | Sol, façades et matériaux | 🟨 | voir `git log` (« C4 ») | Fait : relief des façades, fenêtres hiérarchisées et plafonnées, vu-mètre, micro-détail, néons d'arête à cœur blanc, grain, flaque de lumière, ondes de kick et reflet des fenêtres de la route. Reste : fenêtres habitées, halo des sockets, profil néon des enseignes, rugosité réactive ; vu-mètre à juger à l'œil. Voir le journal (point de reprise numéroté). |
 | C5 | Ville : distribution et archétypes | ⬜ | — | — |
 | C6 | Ville : habillage | ⬜ | — | — |
 | C7 | Tunnel, événements, LOD et culling | ⬜ | — | — |
@@ -364,6 +364,15 @@ non tenus et pourquoi, point de reprise si le chantier reste 🟨.
 - `facade_reflection` (route) suit la hiérarchie des fenêtres (`0,18 + 0,42·Δ`, étages entiers) : le reflet ne montre plus
   davantage de fenêtres que la façade.
 
+**Fait (vu-mètre, micro-détail, palette)**
+- Façades égaliseur : une tour sur huit, chaque travée lit une bande du spectre lissé (`SceneLight::spectrum`, 32 bandes
+  ajoutées au bloc) et s'allume jusqu'à son niveau, `lit = step(j/N_ét, S(f_i))`. À plat en respiration ou flashs coupés
+  (côté Rust, testé) ; la fenêtre reste plafonnée à `0,9·θ_b`. Miroir Rust `meter_lit`.
+- Micro-détail du béton : coulures verticales et joints de banche tous les 3 m, effacés par `fwidth`.
+- Critère de palette, mesuré sur capture (émissifs `Y > 0,2` teintés, fenêtres de ±25° autour des deux pics de teinte) :
+  calme 93 %, sommet 93 %, mouillé 74 % (≥ 70 %) ; `Y > 0,8` : 0,41 %, 1,59 %, 0,38 % (< 2 %). Limite : les deux teintes sont
+  les pics de l'histogramme (204° et 350°), pas les rôles de `ScenePalette`, et le ciel (soleil, planètes) est dans la mesure.
+
 **Mesures (city_demo, rendu logiciel, sans post-traitement, luminance linéaire) : avant C3 → C3 → C4**
 - Calme : Ȳ 0,073 → 0,075 → **0,061** (cible 0,06 de DA §3.1) ; pixels émissifs (`Y > 0,2`) 10,2 % → 6,8 %.
 - Sommet : Ȳ 0,097 → 0,100 → 0,089 ; l'écart sommet/calme passe de +33 % à +46 %.
@@ -379,12 +388,14 @@ non tenus et pourquoi, point de reprise si le chantier reste 🟨.
 1. Route (`road.wesl`, `road/`) : rugosité réactive (`Target::Puddles`, pas encore dans le bloc), aberration des reflets
    analytiques. Pas de miroir Rust ni de test pour `kick_ripples` et la flaque de lumière. Les constantes de la part
    allumée sont recopiées en dur dans `facade_reflection` (0,18 ; 0,42 ; 0,03 ; 0,9) : à tenir alignées avec `facade.wesl`.
-2. Façades : micro-détail (coulures, joints, effacé par `fwidth`), halo des 4 sockets proches, vu-mètre sur
-   `FilteredSignals::spectrum` (à ajouter au bloc ou à `FacadeParams`), chanfrein lumineux de toit sur 1 immeuble sur 3.
+2. Façades : halo des 4 sockets proches (`L_halo`, P2 §1.2), chanfrein lumineux de toit sur 1 immeuble sur 3. Le vu-mètre et le
+   micro-détail sont écrits et compilent, mais **pas jugés à l'œil** : aucune tour égaliseur n'est identifiable sur les captures
+   de `city_demo` (cadrage, 1 tour sur 8) ; à vérifier sur une vue qui en montre une, avec un vrai spectre.
 3. Enseignes (`sign.wesl`) : profil cœur blanc / halo saturé comme les arêtes (fait pour `facade.wesl`), paliers E1 à E4,
    saturation liée à `HM` ; ranger la bande de caisse claire et la ceinture lumineuse dans le palier E2.
 4. Fenêtres habitées (DA §5, idée 1) avec repli en aplat au loin.
-5. Critère de palette (70 % des émissifs dans la dominante ou l'accent) avec `cf_render::postfx::measure` sur les captures.
+5. Critère de palette : tenu sur capture par un script (voir plus haut) ; à refaire avec `cf_render::postfx::measure` et les
+   rôles de la palette, post-traitement compris.
 6. Le plafond couvre la fenêtre et la traîne de la voiture (charleston et pouls de la ville passent par `lit`, donc dedans).
    La bande de caisse claire et la ceinture lumineuse ne sont pas des fenêtres : à ranger dans les paliers E2 avec les néons (point 3).
 
