@@ -329,7 +329,7 @@ Statuts : ⬜ à faire · 🟨 en cours (le journal dit où reprendre) · ✅ te
 | C1 | Signaux et dramaturgie | ✅ | voir `git log` (dernier commit « C1 ») | Sur le matériel cible : seuils de `z` des transitoires et étalonnage `FFT_TO_RMS` sur une vraie entrée ligne/micro ; ressenti du creux d'avant-drop. Routage non encore lu par les shaders (C2 à C4). |
 | C2 | Image finale | ✅ | voir `git log` (« C2 ») | Critères `[~]` : Ȳ et bloom mesurés sur la démo, pas sur la ville (à refaire en C3/C4) ; référence de parité Sillage non régénérée (bun/Playwright absents) ; remise à zéro GPU de la persistance non testée ; rayons à valider à l'œil. Matériel cible : cadence, bloom fin, couleurs sur projecteur. |
 | C3 | Atmosphère et profondeur | ✅ | voir `git log` (« C3 ») | Critères `[~]` : séparation des plans à rejuger sur capture après C4 (corps de façade trop clairs aujourd'hui) ; coût GPU aux trois paliers non mesuré. Matériel cible : densité `σ_t·ρ` et luminance de la brume sur projecteur, lisibilité de la coquille de kick, taille des poussières. `FogReach` publié mais pas encore lu par le culling (C7) ; `AtmosphereLook::apnea` pas encore écrit (EV4, C7) ; `SceneLight` (principale, remplissage, contre-jour) publié mais l'ombrage des faces est pour C4. |
-| C4 | Sol, façades et matériaux | ⬜ | — | — |
+| C4 | Sol, façades et matériaux | 🟨 | — | en cours |
 | C5 | Ville : distribution et archétypes | ⬜ | — | — |
 | C6 | Ville : habillage | ⬜ | — | — |
 | C7 | Tunnel, événements, LOD et culling | ⬜ | — | — |
@@ -386,7 +386,7 @@ non tenus et pourquoi, point de reprise si le chantier reste 🟨.
 
 **Non fait / non tenu**
 - Coût avant/après aux trois paliers : non mesuré (le rendu logiciel ne donne pas un temps GPU utilisable).
-- La route, les panneaux de trafic (`traffic_panel.wesl`), les faisceaux et les hologrammes de graffiti n'appellent pas tous
+- Les panneaux de trafic (`traffic_panel.wesl`), les faisceaux et les hologrammes de graffiti n'appellent pas
   l'atmosphère : seuls façade, route, enseigne, véhicule et repères sont branchés (liste de la fiche).
 - `KickWave` : sans `RoutingPlugin` (démos), les âges restent à 60 s ; la coquille n'a été vue que sur la scène forcée.
 - Le vent de la brume ne déplace que les poussières (la formule analytique n'a pas de bruit 3D : arbitrage du plan).
