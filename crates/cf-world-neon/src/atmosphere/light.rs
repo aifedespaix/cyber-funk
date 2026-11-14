@@ -10,6 +10,7 @@
 use bevy::ecs::resource::Resource;
 use bevy::math::{DVec3, Vec3, Vec4};
 use bevy::render::render_resource::ShaderType;
+use cf_analysis::SPECTRUM_BANDS;
 
 use super::formula::Shell;
 use super::modulation::FogState;
@@ -155,6 +156,8 @@ pub struct SceneLight {
     pub amount: f32,
     /// Densité visuelle `Δ`, 0..1 (part des fenêtres allumées, C4).
     pub density: f32,
+    /// Spectre lissé en 32 bandes, 0..1 (façades égaliseur, C4) ; à plat quand rien ne doit pulser.
+    pub spectrum: [f32; SPECTRUM_BANDS],
     /// Plafond d'émissif d'une fenêtre : `0,9·θ_b` (C4).
     pub window_cap: f32,
 }
@@ -172,6 +175,8 @@ pub struct LightInput {
     pub source: DVec3,
     /// Les tubes proches.
     pub tubes: [Tube; TUBES],
+    /// Spectre lissé en 32 bandes, 0..1.
+    pub spectrum: [f32; SPECTRUM_BANDS],
 }
 
 /// Compose l'éclairage de l'image. Pur : mêmes entrées, même sortie.
@@ -209,6 +214,14 @@ pub fn compose(tuning: &LightTuning, colors: &LightColors, input: &LightInput) -
         tubes: input.tubes,
         amount: tuning.amount,
         density: d,
+        // Respiration ou flashs coupés (`fog.shell` faux) : le vu-mètre des façades reste à plat (règle 7).
+        spectrum: if input.fog.shell {
+            input
+                .spectrum
+                .map(|v| if v.is_finite() { v.clamp(0.0, 1.0) } else { 0.0 })
+        } else {
+            [0.0; SPECTRUM_BANDS]
+        },
         window_cap: tuning.window_cap,
     }
 }
@@ -243,6 +256,8 @@ pub struct SceneLightParams {
     pub tube_pos: [Vec4; TUBES],
     /// Couleur des tubes, déjà multipliée par l'intensité et par `σ_s·ρ`.
     pub tube_col: [Vec4; TUBES],
+    /// Spectre lissé, 32 bandes, quatre par `Vec4` (façades égaliseur, C4).
+    pub spectrum: [Vec4; SPECTRUM_BANDS / 4],
 }
 
 impl SceneLight {
@@ -264,6 +279,9 @@ impl SceneLight {
             source: rel(self.source).extend((self.ground_y - origin.y) as f32),
             ..SceneLightParams::default()
         };
+        for (i, quad) in self.spectrum.chunks_exact(4).enumerate() {
+            out.spectrum[i] = Vec4::new(quad[0], quad[1], quad[2], quad[3]);
+        }
         for (i, tube) in self.tubes.iter().enumerate() {
             out.tube_pos[i] = rel(tube.position).extend(0.0);
             out.tube_col[i] = (tube.color * tube_gain * self.fog.sigma_rho).extend(0.0);
@@ -317,6 +335,7 @@ mod tests {
             kick_ages: [60.0; 4],
             source: DVec3::new(0.0, 0.5, -40_000.0),
             tubes: [Tube::default(); TUBES],
+            spectrum: [0.7; SPECTRUM_BANDS],
         }
     }
 
@@ -344,6 +363,14 @@ mod tests {
         i.fog.shell = false;
         let light = compose(&LightTuning::default(), &colors(), &i);
         assert!(light.shell.depth.abs() < f32::EPSILON);
+        // Et le vu-mètre des façades est à plat ; hors respiration il passe tel quel dans le bloc.
+        assert!(light.spectrum.iter().all(|v| v.abs() < f32::EPSILON));
+        let live = compose(&LightTuning::default(), &colors(), &input(0.5)).params(DVec3::ZERO, 4.0);
+        assert!(
+            live.spectrum
+                .iter()
+                .all(|q| (q.x - 0.7).abs() < 1e-6 && (q.w - 0.7).abs() < 1e-6)
+        );
     }
 
     /// DA §1.2, règles 1 et 2, sur la formule. La ville est faite de corps sombres piqués de fenêtres : c'est la brume

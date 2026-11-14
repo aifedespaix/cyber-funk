@@ -39,6 +39,8 @@ struct SceneLight {
     tube_pos: array<vec4<f32>, 4>,
     // rgb : couleur déjà multipliée par l'intensité et par σ_s·ρ.
     tube_col: array<vec4<f32>, 4>,
+    // Spectre lissé en 32 bandes logarithmiques, 0..1, quatre bandes par vec4 (façades égaliseur, C4). À plat en respiration.
+    spectrum: array<vec4<f32>, 8>,
 }
 
 @group(constants::MATERIAL_BIND_GROUP) @binding(9) var<uniform> scene: SceneLight;
@@ -48,6 +50,14 @@ const ATMO_U_MAX: f32 = 30.0;
 const ATMO_DEPTH_BELOW_MAX: f32 = 2.0;
 const ATMO_TUBE_RADIUS_M: f32 = 1.5;
 const ATMO_SHELL_FLOOR: f32 = 0.5;
+
+// Le spectre à la position `band` (0..32), interpolé entre deux bandes voisines.
+fn scene_spectrum(band: f32) -> f32 {
+    let b = clamp(band, 0.0, 31.0);
+    let i = u32(floor(b));
+    let j = min(i + 1u, 31u);
+    return mix(scene.spectrum[i / 4u][i % 4u], scene.spectrum[j / 4u][j % 4u], fract(b));
+}
 
 // (1 − e^{−u})/u, stable autour de 0 (rayon horizontal).
 fn atmo_slab(u_in: f32) -> f32 {

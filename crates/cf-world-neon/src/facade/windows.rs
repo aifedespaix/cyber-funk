@@ -51,6 +51,19 @@ pub fn window_cap(color: Vec3, cap: f32) -> Vec3 {
     color * (cap / top.max(1.0e-4)).min(1.0)
 }
 
+/// Part des tours qui sont des façades égaliseur.
+pub const METER_SHARE: f32 = 0.125;
+/// Largeur du fondu au sommet d'une colonne du vu-mètre, en part de la hauteur.
+pub const METER_SOFT: f32 = 0.02;
+
+/// Vu-mètre : une fenêtre est allumée si son étage (0 au pied, 1 au sommet) est sous le niveau de sa bande
+/// (`lit = step(j/N_ét, S(f_i))`, P1). Miroir de `meter_lit` de `facade.wesl`.
+#[must_use]
+pub fn meter_lit(floor_level: f32, level: f32) -> f32 {
+    let t = ((floor_level - (level - METER_SOFT)) / (2.0 * METER_SOFT)).clamp(0.0, 1.0);
+    1.0 - t * t * (3.0 - 2.0 * t)
+}
+
 /// Palier E2 d'un tube néon au repos, en `θ_b`.
 pub const NEON_E2: f32 = 1.5;
 /// Part du halo d'un tube.
@@ -111,6 +124,22 @@ mod tests {
         // Palier E2 : de 1,5·θ_b au repos à 3·θ_b au plus (pouls 1, basses 1), jamais un palier de plus.
         assert!((NEON_E2 + 1.0 + 0.5 - 3.0).abs() < 1e-6);
         for (name, rust) in [("NEON_E2", NEON_E2), ("NEON_HALO", NEON_HALO)] {
+            assert!((wesl_const(name) - rust).abs() < 1e-9, "{name}");
+        }
+    }
+
+    #[test]
+    fn le_vu_metre_allume_une_colonne_jusqu_a_son_niveau() {
+        // Silence : rien au-dessus du pied. Plein niveau : toute la colonne. Entre les deux : monotone en hauteur.
+        assert!(meter_lit(0.1, 0.0) < 1e-6 && (meter_lit(0.9, 1.0) - 1.0).abs() < 1e-6);
+        assert!((meter_lit(0.2, 0.5) - 1.0).abs() < 1e-6 && meter_lit(0.8, 0.5) < 1e-6);
+        let mut last = 1.0_f32;
+        for k in 0..=100 {
+            let v = meter_lit(k as f32 / 100.0, 0.5);
+            assert!(v <= last + 1e-6 && (0.0..=1.0).contains(&v));
+            last = v;
+        }
+        for (name, rust) in [("METER_SHARE", METER_SHARE), ("METER_SOFT", METER_SOFT)] {
             assert!((wesl_const(name) - rust).abs() < 1e-9, "{name}");
         }
     }

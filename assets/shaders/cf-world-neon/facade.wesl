@@ -99,6 +99,17 @@ const WINDOW_OFF_FLOOR: f32 = 0.03;
 const WINDOW_E1: f32 = 0.8;
 const WINDOW_SIGMA: f32 = 0.6;
 
+// Joints de banche du béton : un tous les 3 m.
+const FACADE_JOINT_M: f32 = 3.0;
+// Façades égaliseur : part des tours, et largeur du fondu au sommet d'une colonne (en part de la hauteur).
+const METER_SHARE: f32 = 0.125;
+const METER_SOFT: f32 = 0.02;
+
+// Une fenêtre du vu-mètre est allumée si son étage (0 au pied, 1 au sommet) est sous le niveau de sa bande.
+fn meter_lit(floor_level: f32, level: f32) -> f32 {
+    return 1.0 - smoothstep(level - METER_SOFT, level + METER_SOFT, floor_level);
+}
+
 // Tubes néon (C4, DA §2.2) : rayon des arêtes et des bordures de toit (m), palier E2 au repos (en θ_b), part du halo.
 const NEON_EDGE_RADIUS: f32 = 0.07;
 const NEON_ROOF_RADIUS: f32 = 0.17;
@@ -321,7 +332,13 @@ fn fragment(in: FacadeVarying) -> @location(0) vec4<f32> {
         let to_eye = normalize(cam - in.world);
         let grazing = 1.0 - max(dot(n, to_eye), 0.0);
         let rim = grazing * grazing * grazing * grazing * max(dot(scene.dir_rim.xyz, -to_eye), 0.0);
-        col = mix(col, (col * shade + fill) * ao + scene.c_rim.rgb * rim * FACADE_ALBEDO, lit_scene);
+        // Micro-détail du béton (DA §2.2) : coulures verticales et joints de banche tous les 3 m, effacés par `fwidth`
+        // dès que la cellule devient petite à l'écran (aucun scintillement au loin).
+        let detail = (1.0 - smoothstep(0.08, 0.3, px)) * select(1.0, 0.0, far);
+        let streaks = 0.8 + 0.4 * vnoise(vec2<f32>(u * 2.2 + seed, h * 0.16));
+        let joint = 1.0 - 0.3 * sstep(0.03, 0.0, abs(fract(h / FACADE_JOINT_M) - 0.5) - 0.47);
+        let body = col * mix(1.0, streaks * joint, detail);
+        col = mix(col, (body * shade + fill) * ao + scene.c_rim.rgb * rim * FACADE_ALBEDO, lit_scene);
     }
 
     let roof = in.normal_l.y > 0.5;
@@ -348,6 +365,17 @@ fn fragment(in: FacadeVarying) -> @location(0) vec4<f32> {
             let zone = vec2<f32>(floor(uu / 7.0), floor(vv / 6.0));
             let zone_chance = mix(lit_chance, window_share(scene.c_fill.w, temper_a.y), lit_scene);
             lit = (0.2 + 0.8 * step(h21(zone + vec2<f32>(seed * 0.37 + face * 3.1, seed * 0.11)), zone_chance)) * (1.0 - dead);
+        }
+        // Façade égaliseur (C4, P1 « maths de structure » 4) : sur une tour sur huit, chaque travée est une bande du
+        // spectre lissé et s'allume jusqu'à la hauteur de son niveau, `lit = step(j/N_ét, S(f_i))`. Le spectre retombe
+        // en 200 ms et reste à plat en respiration (côté Rust) ; la fenêtre reste plafonnée comme les autres.
+        let is_meter = step(h21(vec2<f32>(seed * 0.71, 91.0)), METER_SHARE) * lit_scene;
+        if is_meter > 0.0 && !far {
+            let bays = max(floor(width / BAY_WIDTH), 1.0);
+            let bay = clamp(floor(u / BAY_WIDTH + bays * 0.5), 0.0, bays - 1.0);
+            let level = scene_spectrum((bay + 0.5) / bays * 32.0);
+            let floor_level = (floor_id + 0.5) * FLOOR_HEIGHT / max(in.size.y + in.info.w, FLOOR_HEIGHT);
+            lit = mix(lit, meter_lit(floor_level, level) * (1.0 - dead), is_meter);
         }
         // Quelques fenêtres clignotent en rythme avec les médiums.
         let blink = select(step(0.93, h21(cell + 9.7 + seed * 0.13)), 0.0, far);

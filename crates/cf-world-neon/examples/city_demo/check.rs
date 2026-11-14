@@ -205,6 +205,10 @@ pub(crate) fn run_check(
                 ..DensityState::NEUTRAL
             }));
             let mut signals = FilteredSignals::default();
+            // Un spectre en pente (graves forts, aigus faibles), pour les façades égaliseur (C4).
+            for (i, band) in signals.spectrum.iter_mut().enumerate() {
+                *band = scene.intensity * (1.0 - 0.6 * i as f32 / 31.0);
+            }
             if let Some(age) = scene.kick_age {
                 signals.kick_wave.push();
                 signals.kick_wave.age(age);

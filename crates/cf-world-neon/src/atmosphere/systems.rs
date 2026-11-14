@@ -139,9 +139,12 @@ pub(super) fn update_scene_light(
         &LightInput {
             density: density.map_or(0.5, |d| d.0.delta),
             fog,
-            kick_ages: signals.map_or([60.0; 4], |s| s.kick_wave.ages()),
+            kick_ages: signals.as_deref().map_or([60.0; 4], |s| s.kick_wave.ages()),
             source,
             tubes,
+            spectrum: signals
+                .as_deref()
+                .map_or([0.0; cf_analysis::SPECTRUM_BANDS], |s| s.spectrum),
         },
     );
     uniform.set_if_neq(SceneLightUniform(light.params(origin.origin(), tuning.light.tube_gain)));

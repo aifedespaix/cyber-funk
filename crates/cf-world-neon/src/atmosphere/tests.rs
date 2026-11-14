@@ -35,7 +35,7 @@ fn les_constantes_du_shader_sont_celles_du_miroir_rust() {
 fn le_bloc_du_shader_suit_l_ordre_des_uniformes() {
     let fields = [
         "dir_key", "c_key", "c_fill", "dir_rim", "c_rim", "fog", "c_fog", "rayleigh", "kick_age", "shell", "source",
-        "tube_pos", "tube_col",
+        "tube_pos", "tube_col", "spectrum",
     ];
     let block_end = ATMOSPHERE_WESL.rfind("@binding(9)").unwrap_or(0);
     let block = &ATMOSPHERE_WESL[..block_end];
