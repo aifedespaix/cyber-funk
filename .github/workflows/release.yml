@@ -5,6 +5,10 @@ name: Release
 # l'outil de mise à jour automatique exige. Le patch est injecté au build, il n'est pas écrit dans le dépôt.
 # Changer MAJEUR.MINEUR = modifier `version` dans Cargo.toml et packager.json (ex. 0.2.0).
 #
+# Garde-fous : rien n'est publié si la CI (`ci.yml`, appelée ici) est rouge, ni si le binaire de release échoue à son
+# autocontrôle (`--self-check` : tous les systèmes Bevy s'initialisent). Les paquets se construisent en parallèle de
+# la CI, seule la publication l'attend.
+#
 # Mise à jour automatique (J9-06) : les paquets applicables par l'application (.exe, .AppImage, .app.tar.gz) sont signés
 # avec la clé privée du secret `UPDATER_PRIVATE_KEY` ; `latest.json` les décrit. Voir docs/distribution.md.
 
@@ -58,6 +62,10 @@ jobs:
             echo "::error::secret UPDATER_PRIVATE_KEY absent (Settings, Secrets and variables, Actions). Voir docs/distribution.md"; exit 1
           fi
 
+  # Les contrôles de la CI (fmt, clippy, tests, deny, builds) : la publication en dépend.
+  ci:
+    uses: ./.github/workflows/ci.yml
+
   package:
     needs: checks
     strategy:
@@ -91,11 +99,17 @@ jobs:
           cargo update --workspace
       - name: Dépendances système (Linux)
         if: runner.os == 'Linux'
-        run: sudo apt-get update -qq && sudo apt-get install -y -qq libasound2-dev libudev-dev libxkbcommon-dev libwayland-dev pkg-config libfuse2
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq libasound2-dev libudev-dev libxkbcommon-dev libwayland-dev pkg-config libfuse2 xvfb mesa-vulkan-drivers libxkbcommon-x11-0
       - name: Installer cargo-packager
         run: cargo install cargo-packager --locked --version "$CARGO_PACKAGER_VERSION"
       - name: Compiler le binaire
         run: cargo build --release --locked -p cyber-funk
+      # Le binaire qui part chez les utilisateurs, assemblé comme pour un show : un conflit d'accès entre paramètres
+      # d'un système (panique B0002 au lancement) arrête la release ici. Linux seulement : Xvfb et le rendu logiciel
+      # (lavapipe) y remplacent l'écran et la carte graphique, et les systèmes sont les mêmes sur les trois OS.
+      - name: Autocontrôle du binaire (Linux)
+        if: runner.os == 'Linux'
+        run: xvfb-run -a target/release/cyber-funk --self-check --assets-dir assets --null-audio-output --no-midi
       - name: Créer les paquets
         run: cargo packager --release --formats ${{ matrix.formats }}
       - name: Archive du .app pour la mise à jour (macOS)
@@ -131,7 +145,7 @@ jobs:
           if-no-files-found: error
 
   release:
-    needs: [checks, package]
+    needs: [checks, ci, package]
     runs-on: ubuntu-latest
     permissions:
       contents: write

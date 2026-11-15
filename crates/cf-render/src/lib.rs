@@ -24,6 +24,7 @@ pub mod run;
 mod sandbox;
 mod schedule;
 pub mod screens;
+pub mod selfcheck;
 pub mod settings;
 pub mod show;
 mod sign_debug;
@@ -88,6 +89,7 @@ pub use run::{
 pub use sandbox::{DebugSandbox, SPEED_PRESETS};
 pub use schedule::{CfSet, CorePlugin};
 pub use screens::{ScreenInfo, ScreenList, ScreenOrder, describe_screens};
+pub use selfcheck::{ScheduleReport, check_schedules};
 pub use settings::{Settings, SettingsPlugin};
 pub use show::{
     CurrentShow, SheetCue, SheetSlot, ShowControls, ShowEventMessage, ShowPlugin, ShowRuntime, ShowSheet, StartSlot,

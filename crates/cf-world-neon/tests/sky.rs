@@ -63,8 +63,8 @@ fn tout_le_ciel_est_dans_la_couche_arriere_plan() {
         .iter(app.world())
         .map(|(_, l, m)| (l.clone(), m.is_some()))
         .collect();
-    // Dôme, étoiles, deux aurores, sept astres, deux anneaux, cinq traits.
-    assert_eq!(parts.len(), 1 + 1 + 2 + 7 + 2 + POOL);
+    // Dôme, étoiles, deux aurores, sept astres, deux anneaux, les corps en orbite (Lune, géante), cinq traits.
+    assert_eq!(parts.len(), 1 + 1 + 2 + 7 + 2 + ORBITERS.len() + POOL);
     for (layers, has_mesh) in parts {
         assert_eq!(layers, Layer::Background.render_layers());
         assert!(has_mesh);
@@ -78,7 +78,8 @@ fn le_ciel_reste_a_l_infini_quand_la_camera_voyage_a_400_km() {
     let snapshot = |app: &mut App| -> Vec<(Entity, Vec3)> {
         let mut query = app
             .world_mut()
-            .query_filtered::<(Entity, &Transform), (With<SkyPart>, Without<SkyStreak>)>();
+            // Les corps en orbite bougent par construction (voir `la_lune_et_la_geante_se_deplacent_sur_leur_orbite`).
+            .query_filtered::<(Entity, &Transform), (With<SkyPart>, Without<SkyStreak>, Without<SkyOrbiter>)>();
         let mut out: Vec<_> = query.iter(app.world()).map(|(e, t)| (e, t.translation)).collect();
         out.sort_by_key(|(e, _)| *e);
         out

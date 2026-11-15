@@ -1,12 +1,15 @@
 name: CI
 
+# Sur une PR : ce workflow tourne seul. Sur `main` : il est appelé par `release.yml` (job `ci`), qui ne publie rien tant
+# qu'il n'est pas vert. Il ne se déclenche donc plus lui-même sur un push : les tests ne tournent qu'une fois, et une
+# release ne peut plus sortir avec un test rouge.
 on:
-  push:
-    branches: [main]
   pull_request:
+  workflow_call:
 
 concurrency:
-  group: ci-${{ github.ref }}
+  # `github.workflow` vaut le nom de l'appelant (« Release ») quand ce workflow est appelé : pas de groupe partagé.
+  group: ci-${{ github.workflow }}-${{ github.ref }}
   # Sur main on n'annule jamais : un build Windows coupé ne sauvegarde pas son cache, et le suivant repart de zéro.
   cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
 
@@ -17,21 +20,10 @@ env:
   # Pas d'infos de débogage en CI : les PDB de MSVC sont très lourds à écrire sous Windows.
   CARGO_PROFILE_DEV_DEBUG: 0
 
+# Caches (Swatinem/rust-cache) : seule `main` les écrit, les PR les relisent. Un cache écrit par une PR n'est visible
+# que d'elle et ronge le quota de 10 Go, jusqu'à évincer ceux de `main`.
 jobs:
-  # Tant que le workspace Cargo n'existe pas (avant la tâche J0-01), la CI se contente de le signaler.
-  detect:
-    runs-on: ubuntu-latest
-    outputs:
-      rust: ${{ steps.check.outputs.rust }}
-    steps:
-      - uses: actions/checkout@v7
-      - id: check
-        run: |
-          if [ -f Cargo.toml ]; then echo "rust=true" >> "$GITHUB_OUTPUT"; else echo "rust=false" >> "$GITHUB_OUTPUT"; echo "::notice::Pas encore de Cargo.toml : checks Rust ignorés."; fi
-
   fmt:
-    needs: detect
-    if: needs.detect.outputs.rust == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
@@ -41,8 +33,6 @@ jobs:
       - run: cargo fmt --all --check
 
   clippy:
-    needs: detect
-    if: needs.detect.outputs.rust == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
@@ -52,6 +42,8 @@ jobs:
       - name: Dépendances système (audio, udev, fenêtrage)
         run: sudo apt-get update -qq && sudo apt-get install -y -qq libasound2-dev libudev-dev libxkbcommon-dev libwayland-dev
       - uses: Swatinem/rust-cache@v2
+        with:
+          save-if: ${{ github.ref == 'refs/heads/main' }}
       - run: cargo clippy --workspace --all-targets --all-features --locked
       - name: Garde d'architecture (logique métier sans Bevy)
         run: |
@@ -62,8 +54,6 @@ jobs:
           done
 
   test:
-    needs: detect
-    if: needs.detect.outputs.rust == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
@@ -71,23 +61,26 @@ jobs:
       - name: Dépendances système (audio, udev, fenêtrage)
         run: sudo apt-get update -qq && sudo apt-get install -y -qq libasound2-dev libudev-dev libxkbcommon-dev libwayland-dev
       - uses: Swatinem/rust-cache@v2
+        with:
+          save-if: ${{ github.ref == 'refs/heads/main' }}
+          # Sans cela un test rouge empêche d'écrire le cache : chaque run suivant recompile Bevy (20 min) tant que
+          # le test n'est pas réparé.
+          cache-on-failure: true
       - uses: taiki-e/install-action@v2
         with:
           tool: cargo-nextest
-      - run: cargo nextest run --workspace --all-features --locked --no-tests=pass
+      # `--no-fail-fast` : tous les tests rouges d'un coup, pas un par run.
+      - run: cargo nextest run --workspace --all-features --locked --no-tests=pass --no-fail-fast
       - run: cargo test --workspace --doc --locked
 
   deny:
-    needs: detect
-    if: needs.detect.outputs.rust == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
       - uses: EmbarkStudios/cargo-deny-action@v2
 
   build:
-    needs: [detect, clippy]
-    if: needs.detect.outputs.rust == 'true'
+    needs: clippy
     strategy:
       fail-fast: false
       matrix:

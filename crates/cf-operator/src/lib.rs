@@ -14,6 +14,8 @@ mod prepare;
 mod preview;
 mod quit;
 mod run_state;
+#[cfg(test)]
+mod selfcheck_tests;
 mod services;
 mod shell;
 mod tabs;

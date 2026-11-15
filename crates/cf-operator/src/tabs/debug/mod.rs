@@ -259,7 +259,6 @@ pub(crate) struct DebugParams<'w> {
     current_show: Option<Res<'w, CurrentShow>>,
     run_phase: Option<Res<'w, RunPhase>>,
     run_handover: Option<Res<'w, RunHandover>>,
-    runs: MessageWriter<'w, RunOrder>,
     director: Option<Res<'w, CinemaDirector>>,
     shots: MessageWriter<'w, ShotOrder>,
 }
@@ -280,6 +279,9 @@ pub(crate) fn show(
     shared: Shared<'_, '_>,
     mode: OperatorMode,
     orders: &mut Vec<Action>,
+    // L'écrivain du cockpit, prêté : un second `MessageWriter<RunOrder>` dans `DebugParams` ferait deux accès
+    // exclusifs à la même ressource dans `main_panel` (erreur B0002 de Bevy, panique à l'initialisation du système).
+    runs: &mut MessageWriter<RunOrder>,
 ) {
     let DebugParams {
         state,
@@ -306,7 +308,6 @@ pub(crate) fn show(
         current_show,
         run_phase,
         run_handover,
-        runs,
         director,
         shots,
     } = params;

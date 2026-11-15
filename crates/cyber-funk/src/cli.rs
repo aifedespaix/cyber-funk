@@ -143,6 +143,11 @@ pub struct Cli {
     /// Fichier CSV du test d'endurance.
     #[arg(long, value_name = "FICHIER", default_value = "soak.csv", requires = "soak")]
     pub soak_csv: PathBuf,
+
+    /// Autocontrôle : assemble l'application comme pour un show, initialise tous ses systèmes sans ouvrir de fenêtre
+    /// ni jouer une image, puis sort (code 0 si tout est sain). La release le lance sur le binaire avant de publier.
+    #[arg(long, conflicts_with = "soak")]
+    pub self_check: bool,
 }
 
 #[cfg(test)]

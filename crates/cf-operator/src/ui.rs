@@ -193,6 +193,7 @@ pub(crate) fn main_panel(
                         shared,
                         OperatorMode::of(&cockpit.run),
                         &mut cockpit.orders.0,
+                        &mut cockpit.run_orders,
                     );
                 }
                 DebugView::Stats => stats::show(&mut root, &mut shell, &mut stats, features.as_deref()),

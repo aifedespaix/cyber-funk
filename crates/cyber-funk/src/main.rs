@@ -9,6 +9,7 @@ mod icon;
 mod logging;
 mod preload;
 mod projector;
+mod selfcheck;
 mod show_setup;
 mod soak;
 mod update;
@@ -83,6 +84,9 @@ fn main() -> anyhow::Result<ExitCode> {
         // Le journal en direct de l'onglet Statistiques : la même poignée que celle que remplit l'enregistreur. Sans
         // enregistreur (disque refusé), la ressource manque et l'onglet dit « Journal indisponible ».
         .insert_resource(cf_operator::OperatorLog(recorder.log_buffer()));
+    }
+    if cli.self_check {
+        return Ok(selfcheck::run(&mut app));
     }
     let exit = app.run();
     tracing::info!(?exit, "cyber-funk s'arrête");
@@ -167,6 +171,12 @@ fn build_app(
         CinemaPlugin::default(),
         // Le monde seul, puis la voiture et son pilote, puis le branchement sur le réalisateur (qui remplace la caméra
         // de poursuite provisoire : un seul écrivain de `CameraPose`).
+        // Avant le monde, qui sinon cuit les graffitis depuis `assets/` du dossier de travail : une application
+        // installée n'y trouve rien (aucun graffiti en release).
+        cf_world_neon::graffiti::GraffitiPlugin {
+            force: false,
+            assets_dir: cli.assets_dir.clone(),
+        },
         NeonWorldPlugin::embedded(),
         // La voiture se lit dans le dossier des ressources résolu, pas dans `assets/` du dossier de travail.
         CarPlugin {

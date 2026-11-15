@@ -41,6 +41,20 @@ La licence de la CyberCar (`assets/models/car/`) est inconnue (voir `assets/READ
 Publier = relire la release brouillon sur GitHub, puis cliquer sur « Publish ». Ne le faire qu'après avoir noté la
 licence du modèle dans `assets/README.md`.
 
+## Garde-fous avant publication
+
+Une release n'est publiée que si deux contrôles passent (`.github/workflows/release.yml`) :
+
+- **la CI** (`ci.yml`, appelée par la release) : fmt, clippy, tests, `cargo deny`, builds des trois OS. Les paquets se
+  construisent en parallèle, seule la publication attend. Un test rouge = pas de release.
+- **l'autocontrôle du binaire** : `cyber-funk --self-check` assemble l'application comme pour un show, initialise tous
+  les systèmes de tous les ordonnancements sans jouer d'image, et sort en erreur au premier conflit d'accès (panique
+  B0002 de Bevy, qui sinon n'apparaît qu'au lancement chez l'utilisateur). Lancé sur le binaire Linux sous Xvfb.
+
+En local : `cargo run -p cyber-funk -- --self-check --null-audio-output --no-midi`. Le même contrôle existe en test
+(`cf_render::check_schedules`, utilisé par `cf-operator`) : tout plugin qui ajoute des systèmes hors `Update` (passe
+egui, ordonnancements à fenêtre) gagne à avoir le sien.
+
 ## Tester sur un tag (à faire par le propriétaire)
 
 Ce test n'a pas pu être exécuté depuis la session de développement (pas de tag poussé, pas de machine Windows ni

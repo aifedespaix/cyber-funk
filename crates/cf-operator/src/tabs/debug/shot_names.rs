@@ -5,7 +5,7 @@
 //! elle aide (dans la voiture, au sol, en l'air). Un identifiant inconnu s'affiche tel quel.
 
 /// Nom et position d'un plan : `(id, nom, où)`.
-const SHOTS: [(&str, &str, &str); 37] = [
+const SHOTS: [(&str, &str, &str); 38] = [
     ("ad-glance", "Coup d'œil à une pub", "ciel"),
     ("ascension-cam", "Ascension", "ciel"),
     ("barrel", "Tonneau", "autour de la voiture"),
@@ -19,6 +19,7 @@ const SHOTS: [(&str, &str, &str); 37] = [
     ("dj-sign", "Enseigne DJ", "route"),
     ("dodge-pass", "Esquive", "autour de la voiture"),
     ("dolly-zoom", "Travelling compensé", "derrière la voiture"),
+    ("drone-pov", "Vue du drone", "ciel"),
     ("dutch", "Plan penché", "autour de la voiture"),
     ("flyby", "Survol", "autour de la voiture"),
     ("fpv-dive", "FPV piqué", "ciel"),
