@@ -4,7 +4,7 @@ use cf_render::{Phase, RunOrder};
 
 use super::handover::{ArrivalStages, DoubleStages, HandoverFrame, handover_stages};
 use super::timeline::{
-    CRUISE_MPS, RunStages, START_S, STOP_S, starting_cap, starting_stages, stopping_cap, stopping_stages,
+    CRUISE_MPS, RunStages, START_S, STOP_S, starting_speed, starting_stages, stopping_speed, stopping_stages,
 };
 use super::variant::HandoverVariant;
 use crate::intro::{IntroInput, IntroStages, PreIntro, WindowFront};
@@ -20,6 +20,10 @@ pub struct RunOutput {
     pub stages: RunStages,
     /// Plafond de vitesse (m/s) imposé à la voiture, s'il y en a un.
     pub speed_cap_mps: Option<f32>,
+    /// Vitesse imposée (m/s) par l'ouverture ou la clôture : la voiture la suit quelle que soit la musique.
+    pub speed_forced_mps: Option<f32>,
+    /// Secondes écoulées dans la phase.
+    pub t_s: f32,
     /// Front des fenêtres allumées.
     pub front: Option<WindowFront>,
     /// L'ancienne voiture pendant un changement de DJ (double visuel).
@@ -40,7 +44,7 @@ pub struct RunSequencer {
     front: PreIntro,
     /// Vitesse réelle de la voiture (m/s), lue par le monde avant chaque image.
     speed_mps: f32,
-    /// Vitesse à laquelle l'arrêt a commencé.
+    /// Vitesse à laquelle la clôture a commencé : la voiture accélère depuis celle-ci.
     brake_from_mps: f32,
     /// Rang du DJ actuel et nombre de DJs de la liste, lus dans le show par le monde.
     current_slot: usize,
@@ -152,26 +156,30 @@ impl RunSequencer {
                     },
                 );
                 let progress = self.t_s / START_S;
+                let t_s = self.t_s;
                 if self.t_s >= START_S {
                     self.phase = Phase::Running;
                 }
-                out(Phase::Starting, progress, stages, Some(starting_cap(&stages)), front)
+                RunOutput {
+                    speed_forced_mps: Some(starting_speed(t_s)),
+                    t_s,
+                    ..out(Phase::Starting, progress, stages, None, front)
+                }
             }
             Phase::Stopping => {
                 self.t_s = (self.t_s + dt_s).min(STOP_S);
                 let stages = stopping_stages(self.t_s);
                 let progress = self.t_s / STOP_S;
+                let t_s = self.t_s;
                 if self.t_s >= STOP_S {
                     self.phase = Phase::Waiting;
                     self.t_s = 0.0;
                 }
-                out(
-                    Phase::Stopping,
-                    progress,
-                    stages,
-                    Some(stopping_cap(progress * STOP_S, self.brake_from_mps)),
-                    None,
-                )
+                RunOutput {
+                    speed_forced_mps: Some(stopping_speed(t_s, self.brake_from_mps)),
+                    t_s,
+                    ..out(Phase::Stopping, progress, stages, None, None)
+                }
             }
         }
     }
@@ -199,6 +207,8 @@ impl RunSequencer {
             progress,
             stages,
             speed_cap_mps: Some(CRUISE_MPS),
+            speed_forced_mps: None,
+            t_s: frame.t_s,
             front: None,
             double,
             arrival,
@@ -228,6 +238,8 @@ fn out(
         progress,
         stages,
         speed_cap_mps,
+        speed_forced_mps: None,
+        t_s: 0.0,
         front,
         double: DoubleStages::NONE,
         arrival: ArrivalStages::NONE,
@@ -240,7 +252,7 @@ fn out(
 mod tests {
     use super::*;
     use crate::run::handover::{DoubleStages, HANDOVER_MAX_S};
-    use crate::run::timeline::brake_rate;
+    use crate::run::timeline::{CameraPlan, FAREWELL_BOOST_MPS, GONE_S};
 
     const DT: f32 = 1.0 / 60.0;
 
@@ -285,7 +297,7 @@ mod tests {
     }
 
     #[test]
-    fn starting_ends_in_running_after_18s() {
+    fn starting_ends_in_running_after_its_duration() {
         let mut seq = RunSequencer::new();
         seq.update(Some(RunOrder::Start), DT, false);
         run_for(&mut seq, START_S - 0.5);
@@ -296,7 +308,7 @@ mod tests {
     }
 
     #[test]
-    fn stopping_ends_in_waiting_after_9s() {
+    fn stopping_ends_in_waiting_after_its_duration() {
         let mut seq = RunSequencer::new();
         seq.update(Some(RunOrder::Start), 100.0, false);
         seq.update(Some(RunOrder::Stop), DT, false);
@@ -313,7 +325,7 @@ mod tests {
         let w = RunStages::WAITING;
         assert!((w.road - 0.25).abs() < f32::EPSILON && (w.sky - 0.3).abs() < f32::EPSILON);
         assert!(w.build == 0.0 && w.windows == 0.0 && w.lights == 0.0 && w.car_presence == 0.0 && w.music == 0.0);
-        assert!(w.camera_waiting);
+        assert_eq!(w.camera, CameraPlan::Waiting);
     }
 
     #[test]
@@ -344,7 +356,6 @@ mod tests {
             s.windows,
             s.sky,
             s.sign,
-            s.drive,
             s.collapse,
             s.car_presence,
             s.music,
@@ -391,43 +402,45 @@ mod tests {
     }
 
     #[test]
-    fn braking_never_exceeds_the_comfort_deceleration() {
-        for from in [16.0_f32, 40.0] {
+    fn the_car_stands_still_while_it_lights_up_then_launches() {
+        let mut seq = RunSequencer::new();
+        let first = seq.update(Some(RunOrder::Start), 0.0, false);
+        assert_eq!(first.speed_forced_mps, Some(0.0), "à l'arrêt, hors champ");
+        let later = run_for(&mut seq, 8.0);
+        assert!(later.speed_forced_mps.is_some_and(|v| v > 20.0), "{later:?}");
+        assert!(later.speed_cap_mps.is_none(), "la vitesse est écrite, pas plafonnée");
+    }
+
+    #[test]
+    fn the_farewell_accelerates_from_the_real_speed_then_stops_out_of_sight() {
+        for from in [16.0_f32, 40.0, 60.0] {
             let mut seq = RunSequencer::new();
             seq.update(Some(RunOrder::Start), 100.0, false);
             seq.update(None, 100.0, false);
             seq.set_speed(from);
-            seq.update(Some(RunOrder::Stop), 0.0, false);
-            let limit = brake_rate(from);
-            let (mut prev, mut stopped_at): (Option<f32>, Option<f32>) = (None, None);
-            for k in 0..(STOP_S * 60.0) as u32 {
-                let cap = seq.update(None, DT, false).speed_cap_mps.unwrap_or(0.0);
-                if let Some(p) = prev {
-                    assert!((p - cap) / DT <= limit + 0.01, "{from}: {p} -> {cap}");
-                }
-                if cap == 0.0 && stopped_at.is_none() {
-                    stopped_at = Some(k as f32 * DT);
-                }
-                prev = Some(cap);
-            }
+            let first = seq.update(Some(RunOrder::Stop), 0.0, false);
             assert!(
-                stopped_at.is_some_and(|t| t <= 4.6),
-                "{from} m/s doit être arrêtée en ~4,5 s : {stopped_at:?}"
+                (first.speed_forced_mps.unwrap_or(0.0) - from).abs() < 0.01,
+                "aucun à-coup au départ : {first:?}"
             );
+            let mut prev = from;
+            let mut t = 0.0;
+            while t < GONE_S - 0.1 {
+                let o = seq.update(None, DT, false);
+                let v = o.speed_forced_mps.unwrap_or(0.0);
+                assert!(
+                    v >= prev - 1e-4,
+                    "elle ne freine jamais tant qu'on la voit : {prev} -> {v}"
+                );
+                assert!(o.stages.car_presence > 0.0);
+                prev = v;
+                t += DT;
+            }
+            assert!(prev >= from + FAREWELL_BOOST_MPS - 0.5, "{from} -> {prev}");
+            let gone = run_for(&mut seq, 0.5);
+            assert_eq!(gone.speed_forced_mps, Some(0.0), "disparue, elle s'arrête");
+            assert_eq!(gone.stages.car_presence, 0.0);
         }
-    }
-
-    #[test]
-    fn the_stop_starts_from_the_real_speed_not_from_cruise() {
-        let mut seq = RunSequencer::new();
-        seq.update(Some(RunOrder::Start), 100.0, false);
-        seq.update(None, 100.0, false);
-        seq.set_speed(40.0);
-        let first = seq.update(Some(RunOrder::Stop), 0.0, false);
-        assert!(
-            (first.speed_cap_mps.unwrap_or(0.0) - 40.0).abs() < 0.01,
-            "pas de coup de frein au départ"
-        );
     }
 
     // --- Changement de DJ ---

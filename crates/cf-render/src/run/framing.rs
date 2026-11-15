@@ -57,3 +57,33 @@ pub struct HandoverView {
 /// `CinemaWorld`.
 #[derive(Resource, Debug, Default, Clone, Copy, PartialEq)]
 pub struct HandoverFeed(pub Option<HandoverView>);
+
+/// La séquence scénarisée en cours : la caméra y suit un découpage écrit, pas le montage automatique.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Staging {
+    /// L'ouverture : la voiture entre dans le champ, passe sous le portique, le quartier se lève.
+    Opening,
+    /// La clôture : la voiture file vers l'horizon, le quartier rentre sous terre, la route reste.
+    Closing,
+}
+
+/// Ce que le réalisateur voit d'une séquence scénarisée (plans `opening` et `closing`). `None` hors séquence.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct StagingView {
+    /// La séquence jouée.
+    pub kind: Staging,
+    /// Secondes écoulées depuis son début.
+    pub t_s: f32,
+    /// Durée totale de la séquence (s).
+    pub duration_s: f32,
+    /// Secondes écoulées depuis que le quartier a commencé à se lever (négatif avant) : la grue de l'ouverture s'y cale.
+    pub city_s: f32,
+    /// Position du portique sur la route (milieu de la travée, au sol), s'il est posé.
+    pub gantry: Option<DVec3>,
+    /// La voiture est visible (présence non nulle) : la clôture ne la regarde plus une fois disparue.
+    pub car_visible: bool,
+}
+
+/// La séquence scénarisée vue par le réalisateur. Écrite par le monde seul, lue pour composer `CinemaWorld`.
+#[derive(Resource, Debug, Default, Clone, Copy, PartialEq)]
+pub struct StagingFeed(pub Option<StagingView>);

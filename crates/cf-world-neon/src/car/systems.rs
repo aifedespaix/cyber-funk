@@ -44,10 +44,10 @@ pub struct CarControls {
     pub lit: Option<LinearRgba>,
     /// Part des phares allumée, 0 à 1 (`setLightLevel` de Sillage) : la pré-intro les allume avant le départ. 1 : normal.
     pub light_scale: f32,
-    /// Présence de la voiture, 0 (absente, invisible) à 1 (synchronisée) : au démarrage elle se synchronise (squelette,
-    /// glitch, couleurs, lumières) et se désynchronise à l'arrêt (voir `sync.rs`). 1 : normal.
+    /// Présence de la voiture, 0 (absente, invisible) à 1 (pleinement là) : taille, couleurs puis lumières (voir
+    /// `sync.rs`). La mise en scène la fait toujours changer hors champ ou au loin. 1 : normal.
     pub presence: f32,
-    /// Mode calme : pas de glitch dans la synchronisation.
+    /// Mode calme (« réduire les animations »).
     pub calm: bool,
     /// Progression du déploiement du mode volant, 0 (au sol) à 1 (en vol) : bascule les roues et allume leurs répulseurs
     /// (voir `hover.rs`). Écrite par le pilote (`hover_amount`).
@@ -519,7 +519,7 @@ pub(super) fn advance_look(
         let high_beams = speed_ratio > HIGH_BEAMS_RATIO;
         let target = if high_beams { HIGH_BEAMS_LEVEL } else { HEADLIGHT_LEVEL };
         // `light_scale` multiplie le niveau après la rampe : la pré-intro règle les phares, la rampe suit la vitesse.
-        // La synchronisation (`sync.rs`) allume les phares en dernier, voiture par voiture.
+        // La présence (`sync.rs`) allume les phares en dernier, voiture par voiture.
         let level = state.level.toward(target, dt, HIGH_BEAMS_LEVEL - HEADLIGHT_LEVEL)
             * controls.light_scale.clamp(0.0, 1.0)
             * state.sync.lights;
@@ -688,7 +688,7 @@ const PAINT_ROUGHNESS: f32 = 0.32;
 fn apply_paint(rig: &CarRig, look: &Look, wet: f32, body: f32, paint: &mut Assets<CarPaintMaterial>) {
     let Some(handle) = &rig.materials.paint else { return };
     let (hue, sat, val) = paint_scales(look.palette.violet);
-    // Carrosserie pas encore synchronisée : noire, sans liseré (`body` = 0) ; elle reprend sa teinte par paliers.
+    // Carrosserie pas encore là : noire, sans liseré (`body` = 0) ; elle reprend sa teinte en fondu.
     let val = val * body;
     let rim = Vec4::new(look.glow.red, look.glow.green, look.glow.blue, 1.0);
     let rim_b = Vec4::new(look.secondary.red, look.secondary.green, look.secondary.blue, 1.0);

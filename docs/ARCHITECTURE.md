@@ -364,12 +364,23 @@ l'intensité ») au lieu de repartir de zéro.
 - **Contrat** (`cf-render::run`) : `RunOrder::{Start, Stop}` (message de l'opérateur) et `RunPhase` (`Waiting | Starting |
   Running | Stopping` + avancement), écrite par le monde seul. Sans séquenceur la phase reste `Running` : exemples, outils
   et tests ne changent pas. `RunSequenced` indique à l'opérateur qu'un monde pilote la séquence.
-- **Séquenceur** (`cf-world-neon::run`) : machine pure `RunSequencer` + frise `timeline.rs` (toutes les durées : 29 s au
-  démarrage, 9 s à l'arrêt). `drive_run` applique les étapes aux cibles de la pré-intro (route, façades, ciel, enseigne,
+- **Séquenceur** (`cf-world-neon::run`) : machine pure `RunSequencer` + frise `timeline.rs` (toutes les durées : 30 s
+  d'ouverture, 20 s de clôture). `drive_run` applique les étapes aux cibles de la pré-intro (route, façades, ciel, enseigne,
   phares, vitesse), à `FacadeLook.collapse` (chute désynchronisée des tours, `facade_collapse.wesl`), à
-  `CarControls.presence` (synchronisation de la voiture, §2.9), au plan d'attente (`cf-cinema` `waiting`, imposé par `ShotOrder`) et au gain
-  audio (`AudioSequenceGain`). La pré-intro de niveau 0 s'efface devant lui.
-- **Show armé** : `run_show` ne tourne qu'à partir du point d'armement du démarrage (`ARM_AT`) et pendant l'arrêt.
+  `CarControls.presence` (présence de la voiture, §2.9), à la vitesse de la voiture (`PilotSettings.speed_forced_mps` :
+  écrite par la frise, quelle que soit la musique), aux plans scénarisés de `cf-cinema` (`waiting`, `opening`, `closing`,
+  imposés par `ShotOrder`, qui lisent la séquence dans `StagingFeed`) et au gain audio (`AudioSequenceGain`). La pré-intro de niveau 0 s'efface devant lui.
+- **Show armé** : `run_show` ne tourne qu'une fois l'ouverture terminée (`RunPhase::show_armed`) : aucun cue ne part
+  tant que le quartier n'est pas entièrement levé. De même le monde ne lance rien de lui-même hors de `Running`
+  (`RunPhase::settled`, lu par `Automation::may_spawn`) : ni événement, ni trafic aérien de fond, ni astre, ni
+  projecteur de tour pendant l'ouverture, la clôture ou une passation.
+- **Mise en scène** (voir la frise en tête de `run/timeline.rs`) : rien n'« apparaît » à l'image, tout est provoqué.
+  *Ouverture* : la caméra attend au ras de la route, **devant** la voiture hors champ ; la voiture s'allume derrière
+  elle, entre dans l'image par l'arrière et file vers l'horizon ; la caméra décolle, la rattrape, passe avec elle sous
+  le portique du DJ ; à cet instant le quartier se lève et la caméra monte en grue pour le regarder naître, puis
+  redescend derrière la voiture ; le show commence. *Clôture* (le miroir) : la voiture met les gaz et s'éteint au
+  point de fuite, le quartier rentre sous terre, la caméra glisse sur la route nue et se pose exactement sur le plan
+  d'attente. Un seul plan-séquence pour chacune (`shots/opening.rs`, `shots/closing.rs`).
 - **Annonce du DJ** : jamais en texte plein écran, seulement dans la simulation (enseigne néon, panneaux du monde).
 - Règles : la voiture n'est jamais créée ni masquée (pipelines chauds, règle 8) ; les tours rétrécissent autour de leur
   base enfouie (`-BASE_DEPTH_M`) ; aucun flash propre à la séquence (règle 7).
@@ -377,7 +388,7 @@ l'intensité ») au lieu de repartir de zéro.
 
 ### 2.9 Introduction et changement de DJ en 3D
 
-Le démarrage dure 29 s (voiture qui se synchronise, route, passage sous le portique du nom du DJ, quartier qui se matérialise) ; un changement de DJ dure 40 à 52 s selon la variante tirée. Spécification de la refonte : `docs/superpowers/specs/2026-11-09-synchronisation-passation-design.md`. Spécification : `docs/superpowers/specs/2026-11-08-changement-dj-intro-portique-design.md`.
+L'ouverture dure 30 s (voiture qui entre dans l'image, passage sous le portique du nom du DJ, quartier qui se lève : §2.8) ; un changement de DJ dure 40 à 52 s selon la variante tirée. Spécification de la refonte : `docs/superpowers/specs/2026-11-09-synchronisation-passation-design.md`. Spécification : `docs/superpowers/specs/2026-11-08-changement-dj-intro-portique-design.md`.
 
 - **Contrat** (`cf-render::run`) : `RunOrder::Handover { slot: Option<usize> }` (`None` = DJ suivant), `Phase::Handover`, `RunHandover` (DJ visé, publié par le monde), `StartSlot` (DJ par lequel repart `Démarrer`, consommé par le reset du show).
 - **Séquenceur** (`cf-world-neon::run`) : `handover_stages` (frise de la passation, pilotée par une `HandoverVariant` tirée à chaque passation : `variant.rs`) ; la passation n'est acceptée que depuis `Running`, avec au moins deux DJs et une cible différente de l'actuel.
@@ -385,10 +396,10 @@ Le démarrage dure 29 s (voiture qui se synchronise, route, passage sous le port
 - **Portique** (`gantry`) : portail métallique avec le nom du DJ en néon géant (machine à lettres de `djsign`), posé 160 m devant la voiture ; enterré et invisible hors séquence.
 - **Palettes** (`cf-show::model::palettes`) : dix palettes assorties attribuées automatiquement aux DJs sans thème (jamais la même deux fois de suite) ; l'opérateur peut en choisir une à la main.
 - **Opérateur** : un clic sur un DJ pendant le show lance la passation vers lui ; à l'arrêt il désigne le DJ de départ ; ignoré pendant une séquence. Le bouton « DJ suivant » est grisé au dernier DJ.
-- **Synchronisation de la voiture** (`car::sync`) : la voiture n'est plus écrasée puis regonflée ; elle a déjà sa forme et se synchronise (Matrice / Animus). `CarControls.presence` 0 → 1 déroule : squelette lumineux (calque `LightKind::Skeleton` : arêtes, lignes de balayage, bandes qui glissent), carrosserie noire qui reprend sa couleur par paliers, puis néons et phares. L'extinction est le film à l'envers. Le double de l'ancienne voiture se désynchronise de la même façon. Mode calme : pas de glitch.
+- **Présence de la voiture** (`car::sync`) : plus de calque « squelette », de lignes de balayage ni de glitch. `CarControls.presence` 0 → 1 déroule : la voiture grandit depuis un point (échelle uniforme : vue de loin, elle approche), la carrosserie sort du noir en fondu, puis néons et phares montent. L'extinction est le film à l'envers. La mise en scène fait toujours changer la présence hors champ ou au loin (derrière la caméra à l'ouverture, au point de fuite à la clôture, loin derrière à la passation). Le double de l'ancienne voiture s'en va de la même façon.
 - **Décor au repos** (`cf_render::SceneIdle`) : tant que le quartier n'est pas là (attente, fin de l'arrêt, début du démarrage, passation une fois le quartier replié), plus de brouillard, de panneaux publicitaires, de projecteurs ni d'événements.
 - **Lumières des tours** : les fenêtres s'allument avec leur tour (shader des façades), plus de front global.
-- **Passation** : la voiture ralentit, les tours buguent plus longtemps puis s'enfoncent ; elle roule seule ; la caméra (`handover`, 5 styles tirés) passe devant et voit arriver la nouvelle voiture de 110 à 170 m derrière ; elle se range au centre, l'ancienne se déporte sur son côté ; côte à côte avec des variations de vitesse organiques ; l'ancienne se désynchronise ; le portique annonce le nouveau DJ.
+- **Passation** : la voiture ralentit, les tours buguent plus longtemps puis s'enfoncent ; elle roule seule ; la caméra (`handover`, 5 styles tirés) passe devant et voit arriver la nouvelle voiture de 110 à 170 m derrière ; elle se range au centre, l'ancienne se déporte sur son côté ; côte à côte avec des variations de vitesse organiques ; l'ancienne décroche et s'éteint ; le portique annonce le nouveau DJ, filmé par le plan d'ouverture (portique puis grue sur le quartier qui revient).
 - Garde-fous : aucun flash (le glitch est géométrique, règle 7) ; les bases des tours restent à `-BASE_DEPTH_M` pendant le repli ; endurance : `cf-world-neon/tests/handover_soak.rs`.
 ## 3. Plan d'action
 

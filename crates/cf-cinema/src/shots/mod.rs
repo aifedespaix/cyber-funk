@@ -10,8 +10,10 @@ mod car_follow;
 mod car_motion;
 mod car_orbit;
 mod chase;
+mod closing;
 mod dolly_zoom;
 mod handover;
+mod opening;
 mod push_in;
 mod ride_along;
 mod waiting;
@@ -52,8 +54,10 @@ pub use car_follow::{Bumper, Cockpit, SideTrack, Wheel};
 pub use car_motion::{Crane, Dutch, SkyTilt, Vertigo};
 pub use car_orbit::{GodView, Orbit, Spiral, TopDown};
 pub use chase::Chase;
+pub use closing::Closing;
 pub use dolly_zoom::DollyZoom;
 pub use handover::Handover;
+pub use opening::Opening;
 pub use push_in::PushIn;
 pub use ride_along::RideAlong;
 pub use waiting::Waiting;
@@ -133,5 +137,8 @@ pub fn catalog() -> Vec<Box<dyn ShotSpec>> {
         Box::new(Waiting),
         // Plan imposé par le monde pendant le changement de DJ : jamais tiré par le montage.
         Box::new(Handover),
+        // Plans-séquences imposés par le monde pendant l'ouverture et la clôture du show : jamais tirés par le montage.
+        Box::new(Opening),
+        Box::new(Closing),
     ]
 }

@@ -15,9 +15,16 @@
 //! La voiture réelle (pilotée, porteuse du `StreamFocus`) devient la **nouvelle** voiture ; l'ancienne est un double
 //! visuel, qui prend sa place dès le début et reste fidèle à son DJ.
 
-use super::timeline::RunStages;
+use super::timeline::{CameraPlan, RunStages};
 use super::variant::HandoverVariant;
 use crate::intro::ramp;
+
+/// Avance sur le portique à laquelle la caméra reprend le plan d'ouverture (s) : le temps de se placer derrière la
+/// voiture avant que le nom s'allume.
+pub const OPENING_LEAD_S: f32 = 1.5;
+
+/// Délai entre le début du portique et le retour du quartier (s).
+pub const REBUILD_AFTER_GANTRY_S: f32 = 5.0;
 
 /// Plafond de durée d'une passation (s), toutes variantes confondues.
 pub const HANDOVER_MAX_S: f32 = 52.0;
@@ -88,7 +95,11 @@ pub fn handover_stages(t_s: f32, v: &HandoverVariant, reduce_motion: bool) -> (R
         road: 1.0,
         // Phares et néons suivent la synchronisation de chaque voiture (`car/sync.rs`).
         lights: 1.0,
-        build: if hidden { ramp(t_s, m.gantry + 5.0, m.end) } else { 1.0 },
+        build: if hidden {
+            ramp(t_s, m.gantry + REBUILD_AFTER_GANTRY_S, m.end)
+        } else {
+            1.0
+        },
         // Les fenêtres s'éteignent et s'allument avec leur tour (shader des façades).
         windows: 1.0,
         sky: 1.0,
@@ -97,7 +108,6 @@ pub fn handover_stages(t_s: f32, v: &HandoverVariant, reduce_motion: bool) -> (R
         } else {
             1.0 - ramp(t_s, 0.0, 1.5)
         },
-        drive: 1.0,
         collapse: if hidden { 0.0 } else { fold * fold * (2.0 - fold) },
         // La réelle est absente jusqu'à l'arrivée, puis se synchronise comme au démarrage.
         car_presence: ramp(t_s, m.arrival + 0.3, m.arrival + 5.8),
@@ -112,8 +122,14 @@ pub fn handover_stages(t_s: f32, v: &HandoverVariant, reduce_motion: bool) -> (R
         } else {
             1.0 - ramp(t_s, m.gantry + 0.5, m.gantry + 3.5)
         }),
-        camera_waiting: false,
-        camera_handover: t_s >= m.camera && t_s < m.gone + 1.0,
+        camera: if t_s >= m.camera && t_s < m.gone + 1.0 {
+            CameraPlan::Handover
+        } else if t_s >= m.gantry - OPENING_LEAD_S {
+            // La présentation du nouveau DJ reprend la grammaire de l'ouverture : portique, puis la grue sur la ville.
+            CameraPlan::Opening
+        } else {
+            CameraPlan::Free
+        },
     };
     let double = DoubleStages {
         presence: 1.0 - ramp(t_s, m.fading, m.gone),

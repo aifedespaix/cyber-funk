@@ -148,6 +148,11 @@ pub struct Cli {
     /// ni jouer une image, puis sort (code 0 si tout est sain). La release le lance sur le binaire avant de publier.
     #[arg(long, conflicts_with = "soak")]
     pub self_check: bool,
+
+    /// Répétition filmée (développement) : joue seule attente, démarrage, show et arrêt à pas de temps fixe, écrit
+    /// des captures du projecteur dans ce dossier, puis ferme l'application.
+    #[arg(long, value_name = "DOSSIER", conflicts_with = "soak", hide = true)]
+    pub rehearse: Option<PathBuf>,
 }
 
 #[cfg(test)]

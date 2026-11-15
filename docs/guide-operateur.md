@@ -81,8 +81,11 @@ le journal de session, dans tous les onglets (sauf pendant la saisie d'un texte)
 - **À gauche, les DJ** : un clic sur un DJ passe la scène à ce DJ (son thème et son nom prennent la place). La pastille
   de couleur est la couleur du thème du DJ, suivie de son logo s'il en a un. **+ Nouveau DJ** ouvre l'onglet DJs.
 - **Au centre**, l'état du show, les statistiques de base (tempo, section, images par seconde, niveau, source) et le gros
-  bouton **Démarrer / Arrêter**. Pour l'instant il bascule l'état affiché ; la séquence 3D de départ et d'arrêt vient
-  ensuite.
+  bouton **Démarrer / Arrêter**. **Démarrer** joue l'ouverture (30 s) : la voiture entre dans l'image par l'arrière,
+  passe sous le portique au nom du DJ, le quartier se lève autour d'elle ; le show (cues, événements) ne commence
+  qu'une fois le quartier en place. **Arrêter** joue la clôture (20 s) : la voiture file vers l'horizon et s'y éteint,
+  le quartier rentre sous terre, la caméra revient se poser sur la route vide. Pendant ces séquences le bouton est
+  ignoré.
 - **À droite, l'audio** : source (musique interne ou micro) avec le choix de la sortie ou de l'entrée juste à côté, l'interrupteur **MIDI**, puis la **playlist** : titre en cours,
   précédent / suivant, liste défilante avec la durée de chaque titre, durée totale et restante estimée, réordonner,
   ajouter des fichiers, retirer. Les titres illisibles sont signalés ⚠.
@@ -399,7 +402,7 @@ RESPIRATION.
 
 Passation de DJ : armez le suivant (J) si l'ordre prévu change, puis G au moment où il prend les platines.
 
-**Passation jouée en 3D.** Dans la vue Live, le bouton **DJ suivant ▶** lance la séquence complète (environ 45 s, jamais deux fois la même) : l'ancienne voiture ralentit pendant que les immeubles buguent de plus en plus puis s'enfoncent sous la route ; elle roule seule sur la route nue, la caméra passe devant elle et on voit arriver au loin la voiture du DJ suivant, qui se synchronise en roulant ; elle se range au centre pendant que l'ancienne se déporte sur le côté, puis l'ancienne se désynchronise (squelette, glitch, couleurs et lumières qui s'éteignent) ; enfin le portique affiche le nom du nouveau DJ et le quartier se reconstruit à ses couleurs. Côté, vitesse, point d'arrivée, variations de vitesse et cadrage de la caméra changent à chaque passation. Cliquer sur un DJ de la liste fait la même chose vers lui. Pendant une séquence (démarrage, arrêt ou passation) ces commandes sont grisées ou ignorées. Le bouton est grisé au dernier DJ. À l'arrêt, un clic sur un DJ le désigne comme celui par lequel repartira **Démarrer** ; en désigner le premier repart du premier.
+**Passation jouée en 3D.** Dans la vue Live, le bouton **DJ suivant ▶** lance la séquence complète (environ 45 s, jamais deux fois la même) : l'ancienne voiture ralentit pendant que les immeubles buguent de plus en plus puis s'enfoncent sous la route ; elle roule seule sur la route nue, la caméra passe devant elle et on voit arriver au loin la voiture du DJ suivant, qui se synchronise en roulant ; elle se range au centre pendant que l'ancienne se déporte sur le côté, puis l'ancienne décroche (ses lumières puis ses couleurs s'éteignent, elle s'éloigne) ; enfin le portique affiche le nom du nouveau DJ et le quartier se reconstruit à ses couleurs. Côté, vitesse, point d'arrivée, variations de vitesse et cadrage de la caméra changent à chaque passation. Cliquer sur un DJ de la liste fait la même chose vers lui. Pendant une séquence (démarrage, arrêt ou passation) ces commandes sont grisées ou ignorées. Le bouton est grisé au dernier DJ. À l'arrêt, un clic sur un DJ le désigne comme celui par lequel repartira **Démarrer** ; en désigner le premier repart du premier.
 
 ## 6. En cas de pépin
 

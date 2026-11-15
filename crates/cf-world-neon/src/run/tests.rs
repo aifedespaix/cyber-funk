@@ -66,7 +66,7 @@ fn stop_order_returns_to_waiting() {
     app.world_mut().write_message(RunOrder::Stop);
     run_seconds(&mut app, 2.0);
     assert_eq!(phase(&app), Phase::Stopping);
-    run_seconds(&mut app, 8.0);
+    run_seconds(&mut app, 19.0);
     assert_eq!(phase(&app), Phase::Waiting);
 }
 
@@ -87,18 +87,19 @@ fn camera_orders_follow_the_sequence() {
     assert_eq!(app.world().resource::<Seen>().0, vec![ShotOrder::Hold("waiting")]);
     app.world_mut().write_message(RunOrder::Start);
     run_seconds(&mut app, 31.0);
+    let blend = |id| ShotOrder::HoldWith(id, TransitionKind::Blend);
     assert_eq!(
         app.world().resource::<Seen>().0,
-        vec![ShotOrder::Hold("waiting"), ShotOrder::Release],
-        "relâchée dès que la voiture est apparue, une seule fois"
+        vec![ShotOrder::Hold("waiting"), blend("opening"), ShotOrder::Release],
+        "l'ouverture est un plan écrit de bout en bout, relâché une seule fois, quand le show commence"
     );
     app.world_mut().write_message(RunOrder::Stop);
-    run_seconds(&mut app, 10.0);
+    run_seconds(&mut app, 21.0);
     assert_eq!(
-        app.world().resource::<Seen>().0.last(),
-        Some(&ShotOrder::HoldWith("waiting", TransitionKind::Blend))
+        app.world().resource::<Seen>().0[3..],
+        [ShotOrder::HoldWith("closing", TransitionKind::Swoop), blend("waiting")],
+        "la clôture est écrite elle aussi, puis se pose sur l'attente"
     );
-    assert_eq!(app.world().resource::<Seen>().0.len(), 3);
 }
 
 #[test]
@@ -133,7 +134,7 @@ fn music_follows_the_sequence_and_pauses_at_the_end_of_stopping() {
     app.world_mut().write_message(RunOrder::Stop);
     run_seconds(&mut app, 4.0);
     assert!(gain(&app) < 1.0 && gain(&app) > 0.0, "la musique descend");
-    run_seconds(&mut app, 6.0);
+    run_seconds(&mut app, 17.0);
     assert_eq!(gain(&app), 0.0);
     assert_eq!(app.world().resource::<Commands>().0, vec![AudioCommand::DemoPause]);
 }
@@ -244,7 +245,12 @@ fn the_camera_holds_the_handover_shot_from_the_swap_to_the_overtake_then_lets_th
     run_seconds(&mut app, 36.0);
     assert_eq!(
         app.world().resource::<Seen>().0,
-        vec![ShotOrder::Hold("handover"), ShotOrder::Release],
-        "tenu devant la voiture seule jusqu'à sa disparition, une seule fois"
+        vec![
+            ShotOrder::Hold("handover"),
+            ShotOrder::HoldWith("opening", TransitionKind::Blend)
+        ],
+        "tenu devant la voiture seule jusqu'à sa disparition, puis le plan d'ouverture présente le nouveau DJ"
     );
+    run_seconds(&mut app, 20.0);
+    assert_eq!(app.world().resource::<Seen>().0.last(), Some(&ShotOrder::Release));
 }

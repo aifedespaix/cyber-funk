@@ -41,6 +41,9 @@ pub struct PilotSettings {
     pub dance: Option<DanceStyle>,
     /// Plafond de vitesse (m/s), posé par la pré-intro du niveau 0 ; `None` : pas de plafond.
     pub speed_cap_mps: Option<f64>,
+    /// Vitesse imposée (m/s) par une séquence scénarisée (ouverture, clôture) : la voiture la rejoint quelle que soit
+    /// la musique, pour que la caméra et le décor tombent juste. `None` : la musique mène.
+    pub speed_forced_mps: Option<f64>,
     /// Multiple de l'allure, 0..=1 (bac à sable du Debug : 0 arrête la voiture, 1 la laisse comme la musique la mène).
     /// Seule la voiture ralentit : les événements, eux, gardent leur propre temps.
     pub speed_scale: f64,
@@ -60,6 +63,7 @@ impl Default for PilotSettings {
         Self {
             dance: None,
             speed_cap_mps: None,
+            speed_forced_mps: None,
             speed_scale: 1.0,
             calm: false,
             seed: 0x0511_1A6E,
@@ -240,7 +244,16 @@ impl Pilot {
         // Le monde ralentit avec le temps du spectacle (ralenti, arrêt sur image).
         let dt = t.dt * show.map_or(1.0, |s| s.time_scale);
 
-        self.advance_speed(&paced, playing, (t.settings.speed_cap_mps, t.settings.speed_scale), dt);
+        self.advance_speed(
+            &paced,
+            playing,
+            (
+                t.settings.speed_cap_mps,
+                t.settings.speed_forced_mps,
+                t.settings.speed_scale,
+            ),
+            dt,
+        );
         self.car_z -= self.speed * SCROLL * dt;
 
         let beat = self.dance_clock.update(dt, b.bpm, b.kick, playing);
@@ -269,11 +282,19 @@ impl Pilot {
 
     /// Inertie : on prend de la vitesse mollement, on freine plus vite, on roule sur son erreur quand la musique s'arrête.
     /// Pré-intro (niveau 0) : la voiture roule lentement, plafonnée, même avant que la musique ne soit là.
-    fn advance_speed(&mut self, paced: &PaceState, playing: bool, (cap, scale): (Option<f64>, f64), dt: f64) {
-        let target = match cap {
-            Some(cap) => (if playing { paced.speed } else { cap }).min(cap),
-            None if playing => paced.speed,
-            None => 0.0,
+    fn advance_speed(
+        &mut self,
+        paced: &PaceState,
+        playing: bool,
+        (cap, forced, scale): (Option<f64>, Option<f64>, f64),
+        dt: f64,
+    ) {
+        let target = match (forced, cap) {
+            // Séquence scénarisée : la vitesse écrite, musique ou pas.
+            (Some(forced), _) => forced.max(0.0),
+            (None, Some(cap)) => (if playing { paced.speed } else { cap }).min(cap),
+            (None, None) if playing => paced.speed,
+            (None, None) => 0.0,
         } * scale.clamp(0.0, 1.0);
         let rate = if target >= self.speed {
             ACCEL_RATE + paced.surge * 3.0

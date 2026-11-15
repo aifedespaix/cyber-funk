@@ -7,11 +7,7 @@ use bevy::prelude::*;
 
 mod framing;
 
-pub use framing::{FRAMING_STYLES, Framing, HandoverFeed, HandoverView};
-
-/// Part de la séquence de démarrage à partir de laquelle le show s'arme (12 s sur 29 s, au début du portique) : avant,
-/// la voiture se forme et roule sans qu'aucun cue ne parte.
-pub const ARM_AT: f32 = 12.0 / 29.0;
+pub use framing::{FRAMING_STYLES, Framing, HandoverFeed, HandoverView, Staging, StagingFeed, StagingView};
 
 /// Ordre de l'opérateur au monde.
 #[derive(Message, Debug, Clone, Copy, PartialEq, Eq)]
@@ -77,14 +73,21 @@ impl Default for RunPhase {
 }
 
 impl RunPhase {
-    /// Le chef du spectacle a-t-il le droit de jouer ?
+    /// Le chef du spectacle a-t-il le droit de jouer ? Pas avant la fin de l'ouverture : aucun cue ne part tant que
+    /// le quartier n'est pas entièrement levé.
     #[must_use]
     pub fn show_armed(&self) -> bool {
         match self.phase {
             Phase::Running | Phase::Stopping | Phase::Handover => true,
-            Phase::Starting => self.progress >= ARM_AT,
-            Phase::Waiting => false,
+            Phase::Starting | Phase::Waiting => false,
         }
+    }
+
+    /// Le quartier est-il établi ? Faux pendant toute séquence (ouverture, clôture, passation) : le monde n'y lance
+    /// aucun événement de lui-même, le décor est en train d'apparaître ou de disparaître.
+    #[must_use]
+    pub fn settled(&self) -> bool {
+        self.phase == Phase::Running
     }
 }
 
@@ -92,6 +95,12 @@ impl RunPhase {
 #[must_use]
 pub fn show_armed(phase: Option<Res<RunPhase>>) -> bool {
     phase.is_none_or(|p| p.show_armed())
+}
+
+/// Le monde peut-il lancer un événement de lui-même ? Vrai sans séquenceur, sinon seulement quartier établi.
+#[must_use]
+pub fn scene_settled(phase: Option<&RunPhase>) -> bool {
+    phase.is_none_or(RunPhase::settled)
 }
 
 /// Enregistre le contrat (idempotent : l'opérateur et le monde peuvent tous deux l'ajouter).
@@ -108,7 +117,8 @@ impl Plugin for RunPlugin {
             .init_resource::<RunPhase>()
             .init_resource::<RunHandover>()
             .init_resource::<SceneIdle>()
-            .init_resource::<HandoverFeed>();
+            .init_resource::<HandoverFeed>()
+            .init_resource::<StagingFeed>();
     }
 }
 
@@ -138,10 +148,20 @@ mod tests {
     }
 
     #[test]
-    fn show_armed_in_starting_only_after_arm_point() {
-        assert!(!at(Phase::Starting, ARM_AT - 0.01).show_armed());
-        assert!(at(Phase::Starting, ARM_AT).show_armed());
+    fn show_never_armed_during_the_opening() {
+        assert!(!at(Phase::Starting, 0.0).show_armed());
+        assert!(!at(Phase::Starting, 0.999).show_armed());
+        assert!(at(Phase::Running, 1.0).show_armed());
         assert!(at(Phase::Stopping, 0.2).show_armed());
+    }
+
+    #[test]
+    fn the_scene_is_settled_only_while_running() {
+        assert!(at(Phase::Running, 1.0).settled());
+        for phase in [Phase::Waiting, Phase::Starting, Phase::Stopping, Phase::Handover] {
+            assert!(!at(phase, 0.5).settled(), "{phase:?}");
+        }
+        assert!(scene_settled(None), "sans séquenceur, rien ne change");
     }
 
     #[test]

@@ -156,6 +156,7 @@ pub(super) fn step_meteors(
     show_fx: Option<Res<CurrentShowFx>>,
     textures: Option<Res<PlanetTextures>>,
     world: Option<Res<NeonWorld>>,
+    phase: Option<Res<cf_render::RunPhase>>,
     car: Query<&AbsolutePosition, With<StreamFocus>>,
     mut launches: MessageReader<LaunchMeteor>,
     mut meteors: ResMut<Meteors>,
@@ -169,17 +170,30 @@ pub(super) fn step_meteors(
     for _ in launches.read() {
         meteors.launch(car.0, calm, texture_count);
     }
+    // Pendant une séquence (attente, ouverture, clôture, passation) il n'y a pas de ville à percuter : aucun astre ne
+    // part. Ceux déjà en vol finissent leur course.
+    let quiet = ShowGate {
+        meteor_rate: 0.0,
+        meteor_shower: false,
+        breathing: true,
+        drop_now: false,
+    };
+    let settled = cf_render::scene_settled(phase.as_deref());
     let input = FieldInput {
         dt_s: time.delta_secs(),
         now_s: now,
         anchor: car.0,
         calm,
-        show: show.map(|s| ShowGate {
-            meteor_rate: s.0.gates().meteor_rate,
-            meteor_shower: s.0.gates().meteor_shower,
-            breathing: s.0.breathing,
-            drop_now: s.0.drop_now,
-        }),
+        show: if settled {
+            show.map(|s| ShowGate {
+                meteor_rate: s.0.gates().meteor_rate,
+                meteor_shower: s.0.gates().meteor_shower,
+                breathing: s.0.breathing,
+                drop_now: s.0.drop_now,
+            })
+        } else {
+            Some(quiet)
+        },
         textures: texture_count,
     };
     let policy = show_fx.map(|s| (s.0.flashes, s.0.breathing));

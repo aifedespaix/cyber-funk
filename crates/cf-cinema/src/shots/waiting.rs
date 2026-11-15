@@ -1,8 +1,9 @@
-//! Le plan d'attente : avant `Démarrer`, la caméra reste bas sur la route, face à l'horizon, avec une dérive lente en
-//! boucle. Rien ne bouge d'autre : la voiture n'est pas là, aucune musique ne joue.
+//! Le plan d'attente : avant `Démarrer`, la caméra est posée au ras de la route, face à l'horizon, **devant**
+//! l'emplacement de la voiture. La voiture est donc hors champ, derrière elle : à l'ouverture elle entrera dans l'image
+//! par l'arrière, sans jamais « apparaître » (plan `opening`). Une dérive très lente, en boucle, garde l'image vivante.
 //!
 //! Ce plan n'est jamais tiré par le montage automatique (`available` est faux) : le monde l'impose avec
-//! `ShotOrder::Hold("waiting")` en attente, et le relâche quand la voiture apparaît.
+//! `ShotOrder::Hold("waiting")` en attente. La clôture (plan `closing`) vient se poser exactement sur cette pose.
 
 use bevy::math::{DVec3, Vec3};
 use cf_render::CameraPose;
@@ -15,16 +16,18 @@ use crate::world::CinemaFrame;
 
 /// Période de la dérive (s) : la pose en `t` et en `t + PERIOD_S` est la même, la boucle est sans raccord.
 pub const PERIOD_S: f32 = 60.0;
-/// Dérive latérale maximale (m).
-pub const SWAY_X_M: f32 = 6.0;
+/// Dérive latérale maximale (m) : au ras du sol, quelques décimètres suffisent à faire glisser les lignes.
+pub const SWAY_X_M: f32 = 0.5;
 /// Dérive verticale maximale (m).
-pub const BOB_Y_M: f32 = 0.4;
+pub const BOB_Y_M: f32 = 0.08;
 /// Dérive d'avance maximale (m).
-pub const SWAY_Z_M: f32 = 3.0;
-/// Hauteur de l'œil au-dessus de la route (m).
-pub const EYE_HEIGHT_M: f64 = 1.1;
-/// Recul de la caméra derrière l'emplacement de départ de la voiture (m).
-pub const BEHIND_M: f64 = 14.0;
+pub const SWAY_Z_M: f32 = 1.2;
+/// Hauteur de l'œil au-dessus de la route (m) : au ras de l'asphalte, la voiture passera à hauteur de regard.
+pub const EYE_HEIGHT_M: f64 = 0.62;
+/// Avance de la caméra devant l'emplacement de départ de la voiture (m) : la voiture, derrière, est hors champ.
+pub const AHEAD_M: f64 = 46.0;
+/// Écart latéral de la caméra par rapport à la trajectoire de la voiture (m) : elle passera tout près, sans la heurter.
+pub const SIDE_M: f64 = 2.4;
 /// Distance du point visé, vers l'horizon (m).
 pub const LOOK_AHEAD_M: f64 = 140.0;
 /// Hauteur du point visé au-dessus de la route (m) : l'horizon, un peu relevé.
@@ -33,6 +36,16 @@ pub const LOOK_UP_M: f64 = 7.0;
 pub const BREATH_RAD: f32 = 0.012;
 /// Focale (°).
 pub const FOV_DEG: f32 = 52.0;
+
+/// La pose de repos autour de l'emplacement `anchor` de la voiture : `(position, point visé)`. C'est la pose commune
+/// à l'attente, au début de l'ouverture et à la fin de la clôture : les trois se raccordent sans saut.
+#[must_use]
+pub fn rest(anchor: DVec3) -> (DVec3, DVec3) {
+    let eye = anchor + DVec3::new(SIDE_M, EYE_HEIGHT_M, -AHEAD_M);
+    // Le regard converge vers le point de fuite de la route, pas vers le bas-côté.
+    let target = anchor + DVec3::new(0.0, LOOK_UP_M, -AHEAD_M - LOOK_AHEAD_M);
+    (eye, target)
+}
 
 /// La fiche du plan d'attente.
 #[derive(Debug, Clone, Copy, Default)]
@@ -73,6 +86,11 @@ impl ShotSpec for Waiting {
         TransitionKind::Cut
     }
 
+    /// La caméra est loin devant la voiture : les bornes ordinaires du réalisateur ne s'appliquent pas.
+    fn wide_view(&self) -> bool {
+        true
+    }
+
     /// Jamais tiré par le montage automatique : seul le monde l'impose.
     fn available(&self, _frame: &CinemaFrame<'_>) -> bool {
         false
@@ -102,11 +120,10 @@ pub fn drift(anchor: DVec3, t_s: f32) -> (DVec3, DVec3) {
         f64::from(BOB_Y_M * (2.0 * phase).sin()),
         f64::from(SWAY_Z_M * (phase + 1.1).sin()),
     );
-    let eye = anchor + DVec3::new(0.0, EYE_HEIGHT_M, BEHIND_M) + sway;
+    let (rest_eye, rest_target) = rest(anchor);
     // L'angle respire : le point visé glisse latéralement, sans jamais dépasser ~1° de visée.
     let breath = f64::from(BREATH_RAD * (phase * 2.0 + 0.7).sin()) * LOOK_AHEAD_M;
-    let target = anchor + DVec3::new(breath, LOOK_UP_M, -LOOK_AHEAD_M);
-    (eye, target)
+    (rest_eye + sway, rest_target + DVec3::new(breath, 0.0, 0.0))
 }
 
 impl Shot for WaitingShot {
@@ -130,8 +147,13 @@ mod tests {
     fn waiting_pose_is_low_over_road_looking_at_the_horizon() {
         for k in 0..600 {
             let (eye, target) = drift(ANCHOR, k as f32 * 0.1);
-            assert!(eye.y - ANCHOR.y < 4.0 && eye.y - ANCHOR.y > 0.5, "{eye:?}");
+            assert!(eye.y - ANCHOR.y < 4.0 && eye.y - ANCHOR.y > 0.4, "{eye:?}");
             assert!(target.z < eye.z, "le regard va vers la route, l'horizon devant");
+            assert!(eye.z < ANCHOR.z - 30.0, "la voiture est derrière la caméra, hors champ");
+            assert!(
+                (eye.x - ANCHOR.x).abs() > 1.5,
+                "la voiture passera à côté, pas à travers"
+            );
         }
     }
 
@@ -145,7 +167,7 @@ mod tests {
     #[test]
     fn waiting_amplitudes_bounded() {
         let mut max = DVec3::ZERO;
-        let rest = ANCHOR + DVec3::new(0.0, EYE_HEIGHT_M, BEHIND_M);
+        let (rest, _) = rest(ANCHOR);
         for k in 0..6000 {
             let (eye, _) = drift(ANCHOR, k as f32 * 0.01);
             max = max.max((eye - rest).abs());
@@ -157,7 +179,7 @@ mod tests {
 
     #[test]
     fn view_angle_breathes_under_one_degree() {
-        let rest = (ANCHOR + DVec3::new(0.0, LOOK_UP_M, -LOOK_AHEAD_M)).x;
+        let rest = rest(ANCHOR).1.x;
         for k in 0..6000 {
             let (_, target) = drift(ANCHOR, k as f32 * 0.01);
             let angle = ((target.x - rest) / LOOK_AHEAD_M).atan().to_degrees();

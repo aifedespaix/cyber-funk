@@ -5,9 +5,8 @@
 // matériau Rust : `params.x` choisit le motif. Aucune vraie lumière : des volumes additifs, comme dans Sillage, que le
 // bloom fait rayonner (les valeurs dépassent 1 en lumière linéaire).
 //
-// Les maillages des lumières portent les quatre attributs (position, normale, UV, couleur). Le calque squelette, lui,
-// réutilise les maillages du modèle de la voiture, qui n'ont pas de couleur de sommet (ni toujours d'UV) : ces deux
-// entrées sont donc conditionnelles (`VERTEX_UVS_A`, `VERTEX_COLORS`, posés par Bevy d'après le maillage). Les exiger
+// Les maillages des lumières portent les quatre attributs (position, normale, UV, couleur). Un maillage sans couleur de
+// sommet (ni UV) reste accepté : ces deux entrées sont conditionnelles (`VERTEX_UVS_A`, `VERTEX_COLORS`, posés par Bevy d'après le maillage). Les exiger
 // sans condition fait refuser le pipeline par wgpu, et l'application s'arrête.
 
 import bevy_pbr::render::{
@@ -17,8 +16,7 @@ import bevy_pbr::render::{
 };
 
 // `color` : teinte (rgb, lumière linéaire) ; `color.w` : opacité (`uK`).
-// `params.x` : motif, `params.y` : écart des deux lobes de la flaque (`uSplit`), `params.z` : force du glitch du squelette
-// (0 à 1), `params.w` : horloge du squelette (s).
+// `params.x` : motif, `params.y` : écart des deux lobes de la flaque (`uSplit`).
 struct Light {
     color: vec4<f32>,
     params: vec4<f32>,
@@ -32,7 +30,6 @@ const KIND_HALO: f32 = 2.0;
 const KIND_GLOW: f32 = 3.0;
 const KIND_SMOKE: f32 = 4.0;
 const KIND_RIBBON: f32 = 5.0;
-const KIND_SKELETON: f32 = 6.0;
 
 struct Vertex {
     @builtin(instance_index) instance_index: u32,
@@ -53,10 +50,6 @@ struct VertexOut {
     @location(4) world_pos: vec3<f32>,
 }
 
-fn sk_hash(p: vec2<f32>) -> f32 {
-    return fract(sin(dot(p, vec2<f32>(127.1, 311.7))) * 43758.5453);
-}
-
 @vertex
 fn vertex(v: Vertex) -> VertexOut {
     var out: VertexOut;
@@ -71,21 +64,11 @@ fn vertex(v: Vertex) -> VertexOut {
         world_position = vec4<f32>(center + right * (v.position.x * size.x) + up * (v.position.y * size.y), 1.0);
     }
     let world_normal = mesh_functions::mesh_normal_local_to_world(v.normal, v.instance_index);
-    if light.params.x == KIND_SKELETON {
-        // Le calque est gonflé de 1,2 cm le long de la normale : il se pose sur la tôle sans z-fighting. Le glitch décale
-        // des bandes de 7 cm de haut, sur le côté, à 14 Hz (géométrique : la luminance ne bouge pas).
-        world_position = vec4<f32>(world_position.xyz + normalize(world_normal) * 0.012, 1.0);
-        let band = floor(world_position.y * 14.0);
-        let tick = floor(light.params.w * 14.0);
-        let r = sk_hash(vec2<f32>(band, tick));
-        let slide = step(1.0 - 0.45 * light.params.z, r) * (r - 0.5) * 1.4 * light.params.z;
-        world_position.x += slide;
-    }
     out.world_pos = world_position.xyz;
     out.position = position_world_to_clip(world_position.xyz);
     out.world_normal = world_normal;
     out.view_dir = view.world_position - world_position.xyz;
-    // Sans l'attribut : UV nul et blanc opaque. Seul le squelette est dans ce cas, et il ne lit ni l'un ni l'autre.
+    // Sans l'attribut : UV nul et blanc opaque.
     out.uv = vec2<f32>(0.0);
     out.color = vec4<f32>(1.0);
 @if(VERTEX_UVS_A)
@@ -142,21 +125,6 @@ fn fragment(in: VertexOut) -> @location(0) vec4<f32> {
         let d = length(in.uv - vec2<f32>(0.5)) * 2.0;
         let soft = pow(max(1.0 - smoothstep(0.0, 1.0, d), 0.0), 1.5);
         return additive(in.color.rgb, in.color.a * soft);
-    }
-    if kind == KIND_SKELETON {
-        // Mode squelette : silhouette (Fresnel), arêtes (la normale change d'un pixel au suivant), lignes de balayage à
-        // hauteur du monde et un front lumineux qui monte. Des blocs d'écran tombent au hasard quand le glitch est fort.
-        let n = normalize(in.world_normal);
-        let rim = pow(1.0 - abs(dot(n, normalize(in.view_dir))), 2.0);
-        let edge = clamp(length(fwidth(n)) * 9.0, 0.0, 1.0);
-        let band = abs(fract(in.world_pos.y * 26.0) - 0.5);
-        let line = 1.0 - smoothstep(0.0, 0.14, band);
-        let reach = (fract(light.params.w * 0.45) * 2.6 - in.world_pos.y) * 5.0;
-        let front = exp(-reach * reach);
-        let block = sk_hash(floor(in.position.xy / 9.0) + vec2<f32>(floor(light.params.w * 12.0), 3.0));
-        let keep = 1.0 - step(1.0 - 0.3 * light.params.z, block);
-        let strength = (0.25 * rim + 0.9 * edge + 0.35 * line + 1.6 * front) * keep;
-        return additive(light.color.rgb, strength * k);
     }
     // KIND_RIBBON : la traînée. La couleur du sommet porte déjà l'opacité (lumière additive).
     return additive(in.color.rgb * light.color.rgb, 1.0);

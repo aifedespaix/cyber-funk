@@ -113,6 +113,7 @@ Rust : dernier stable (`rust-toolchain.toml`), édition 2024.
 cargo run -p cyber-funk                     # lancer l'app (fenêtres projecteur + opérateur)
 cargo run -p cyber-funk -- --show assets/shows/demo.ron
 cargo run -p cyber-funk --features dev      # rechargement à chaud, liaison dynamique de Bevy
+cargo run -p cyber-funk -- --rehearse captures/   # répétition filmée : ouverture, show, clôture, une capture par seconde
 
 cargo fmt --all                             # format
 cargo clippy --workspace --all-targets --all-features -- -D warnings

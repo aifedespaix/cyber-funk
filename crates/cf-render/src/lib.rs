@@ -83,8 +83,8 @@ pub use quality::{
     QualityPlugin, levers_for,
 };
 pub use run::{
-    ARM_AT, FRAMING_STYLES, Framing, HandoverFeed, HandoverView, Phase, RunHandover, RunOrder, RunPhase, RunPlugin,
-    RunSequenced, SceneIdle,
+    FRAMING_STYLES, Framing, HandoverFeed, HandoverView, Phase, RunHandover, RunOrder, RunPhase, RunPlugin,
+    RunSequenced, SceneIdle, Staging, StagingFeed, StagingView, scene_settled,
 };
 pub use sandbox::{DebugSandbox, SPEED_PRESETS};
 pub use schedule::{CfSet, CorePlugin};

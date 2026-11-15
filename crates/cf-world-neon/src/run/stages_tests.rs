@@ -1,7 +1,10 @@
-//! La frise de l'intro (voiture, portique, quartier) et de la passation de DJ : valeurs de la spec.
+//! La frise de l'ouverture (voiture, portique, quartier), de la clôture et de la passation de DJ.
 
 use super::handover::{ArrivalStages, DoubleStages, HANDOVER_MAX_S, handover_stages};
-use super::timeline::{GANTRY_END_S, GANTRY_START_S, RunStages, START_S, starting_stages, stopping_stages};
+use super::timeline::{
+    BUILD_END_S, BUILD_START_S, CameraPlan, FADE_START_S, FOLDED_S, GANTRY_END_S, GANTRY_RISE_S, GANTRY_START_S,
+    GONE_S, LAUNCH_S, OPENING_MPS, RunStages, START_S, STOP_S, starting_speed, starting_stages, stopping_stages,
+};
 use super::variant::HandoverVariant;
 
 const DT: f32 = 1.0 / 60.0;
@@ -18,7 +21,6 @@ fn all_unit(s: &RunStages) -> bool {
         s.windows,
         s.sky,
         s.sign,
-        s.drive,
         s.collapse,
         s.car_presence,
         s.music,
@@ -30,9 +32,11 @@ fn all_unit(s: &RunStages) -> bool {
 }
 
 #[test]
-fn the_intro_lasts_29_seconds_with_the_gantry_between_12_and_17() {
-    assert!((START_S - 29.0).abs() < f32::EPSILON);
-    assert!((GANTRY_START_S - 12.0).abs() < f32::EPSILON && (GANTRY_END_S - 17.0).abs() < f32::EPSILON);
+fn the_opening_is_ordered_car_then_gantry_then_district_then_show() {
+    const { assert!(LAUNCH_S < GANTRY_RISE_S && GANTRY_RISE_S < GANTRY_START_S) };
+    const { assert!(GANTRY_START_S < BUILD_START_S && BUILD_START_S < GANTRY_END_S) };
+    // Le quartier est en place avant le premier cue.
+    const { assert!(BUILD_END_S < START_S) };
 }
 
 #[test]
@@ -42,14 +46,55 @@ fn at_the_start_the_car_is_absent_and_the_district_too() {
 }
 
 #[test]
-fn the_car_is_there_before_the_gantry_and_the_district_comes_after_it() {
+fn the_car_is_fully_there_before_it_moves_so_it_never_appears_on_screen() {
+    // Elle prend sa taille et sa couleur à l'arrêt, derrière la caméra ; elle ne démarre qu'ensuite.
+    assert!(starting_stages(LAUNCH_S, false).car_presence >= 0.999);
+    assert_eq!(starting_speed(LAUNCH_S), 0.0);
+    assert!((starting_speed(GANTRY_START_S) - OPENING_MPS).abs() < 1e-3);
+}
+
+#[test]
+fn the_gantry_reaches_the_car_when_the_district_starts() {
+    // Le portique est posé 160 m devant la voiture à `GANTRY_RISE_S` : à la vitesse d'ouverture elle y passe au moment
+    // où le quartier commence à se lever (à une seconde près).
+    let pass = GANTRY_RISE_S + 160.0 / OPENING_MPS;
+    assert!((pass - BUILD_START_S).abs() < 1.0, "passage à {pass} s");
+    // Et le portique est encore debout à ce moment-là (il ne redescend que dans le dernier cinquième de son étape).
+    assert!(starting_stages(pass + 1.0, false).gantry < 0.8);
+}
+
+#[test]
+fn the_district_comes_after_the_gantry_and_is_complete_before_the_show() {
     let before = starting_stages(GANTRY_START_S, false);
     assert!(before.car_presence >= 0.999 && before.build == 0.0);
-    let mid = starting_stages(GANTRY_START_S.midpoint(GANTRY_END_S), false);
-    assert!(mid.gantry > 0.4 && mid.build == 0.0);
-    let after = starting_stages(GANTRY_END_S + 1.0, false);
-    assert!(after.build > 0.0, "le quartier commence après le portique");
-    assert!(starting_stages(START_S, false).build >= 0.999);
+    assert!(starting_stages(BUILD_START_S, false).build <= 0.0);
+    assert!(starting_stages(BUILD_START_S + 2.0, false).build > 0.0);
+    assert!(starting_stages(BUILD_END_S, false).build >= 0.999);
+    assert!(
+        starting_stages(START_S, false).gantry >= 0.999,
+        "le portique est rentré"
+    );
+}
+
+#[test]
+fn the_camera_is_scripted_through_the_whole_opening_and_closing() {
+    for k in 0..=(START_S as u32) {
+        assert_eq!(starting_stages(k as f32, false).camera, CameraPlan::Opening);
+    }
+    for k in 0..=(STOP_S as u32) {
+        assert_eq!(stopping_stages(k as f32).camera, CameraPlan::Closing);
+    }
+}
+
+#[test]
+fn at_the_close_the_car_leaves_before_the_district_is_gone_and_everything_returns_to_waiting() {
+    const { assert!(FADE_START_S < GONE_S && GONE_S < FOLDED_S && FOLDED_S < STOP_S) };
+    assert!(stopping_stages(FADE_START_S).car_presence >= 0.999);
+    assert_eq!(stopping_stages(GONE_S).car_presence, 0.0);
+    let end = stopping_stages(STOP_S);
+    let wait = RunStages::WAITING;
+    assert!((end.road - wait.road).abs() < 1e-6 && (end.sky - wait.sky).abs() < 1e-6);
+    assert!(end.build <= wait.build && end.collapse == 0.0 && end.sign == 0.0 && end.music == 0.0);
 }
 
 #[test]
@@ -78,9 +123,9 @@ fn the_name_glitch_decays_and_reduced_motion_removes_it() {
 
 #[test]
 fn stopping_has_no_gantry_and_no_glitch() {
-    for k in 0..=90 {
+    for k in 0..=(STOP_S as u32 * 10) {
         let s = stopping_stages(k as f32 / 10.0);
-        assert!(s.gantry == 0.0 && s.name_glitch == 0.0 && !s.camera_handover);
+        assert!(s.gantry == 0.0 && s.name_glitch == 0.0 && s.camera == CameraPlan::Closing);
     }
 }
 
@@ -156,10 +201,14 @@ fn the_new_car_synchronises_while_it_catches_up_and_the_old_one_desynchronises_o
 fn the_camera_goes_in_front_of_the_lone_car_then_lets_go_after_it_is_gone() {
     let v = variant(0);
     let m = v.marks();
-    assert!(!handover_stages(0.5, &v, false).0.camera_handover);
-    assert!(handover_stages(m.camera + 0.5, &v, false).0.camera_handover);
-    assert!(handover_stages(m.fading, &v, false).0.camera_handover);
-    assert!(!handover_stages(m.gone + 1.5, &v, false).0.camera_handover);
+    let camera = |t: f32| handover_stages(t, &v, false).0.camera;
+    assert_eq!(camera(0.5), CameraPlan::Free);
+    assert_eq!(camera(m.camera + 0.5), CameraPlan::Handover);
+    assert_eq!(camera(m.fading), CameraPlan::Handover);
+    assert_ne!(camera(m.gone + 1.1), CameraPlan::Handover);
+    // La présentation du nouveau DJ reprend le plan d'ouverture : portique puis grue sur la ville qui se relève.
+    assert_eq!(camera(m.gantry), CameraPlan::Opening);
+    assert_eq!(camera(m.end - 0.1), CameraPlan::Opening);
 }
 
 #[test]

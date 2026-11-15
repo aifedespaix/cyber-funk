@@ -70,6 +70,7 @@ pub struct Tracked {
 #[derive(SystemParam)]
 pub struct Automation<'w, 's> {
     switch: Option<Res<'w, WorldAutomation>>,
+    phase: Option<Res<'w, cf_render::RunPhase>>,
     events: Option<ResMut<'w, ActiveEvents>>,
     clock: Option<Res<'w, SimClock>>,
     journal: Option<ResMut<'w, EventJournal>>,
@@ -95,10 +96,19 @@ impl Automation<'_, '_> {
         }
     }
 
+    /// Le quartier est-il établi (ni ouverture, ni clôture, ni passation en cours) ? Vrai sans séquenceur. La vie de fond
+    /// qui n'a de sens qu'avec une ville autour (trafic aérien) attend qu'il le soit.
+    #[must_use]
+    pub fn settled(&self) -> bool {
+        cf_render::scene_settled(self.phase.as_deref())
+    }
+
     /// Le monde peut-il lancer un événement de lui-même ?
     #[must_use]
     pub fn may_spawn(&self) -> bool {
-        may_spawn(self.switch.as_deref())
+        // Pendant une séquence (ouverture, clôture, passation) le quartier apparaît ou disparaît : aucun événement
+        // spontané tant qu'il n'est pas établi.
+        may_spawn(self.switch.as_deref()) && cf_render::scene_settled(self.phase.as_deref())
     }
 
     /// Le registre est là : les directeurs n'ont à suivre leurs événements que dans ce cas.

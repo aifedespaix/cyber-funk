@@ -52,9 +52,6 @@ pub enum LightKind {
     Smoke = 4,
     /// Bande de la traînée : la couleur du sommet porte l'opacité.
     Ribbon = 5,
-    /// Calque squelette de la synchronisation : lignes de balayage, arêtes et silhouette d'un maillage, bandes qui
-    /// glissent (voir `sync.rs`).
-    Skeleton = 6,
 }
 
 /// Les uniformes du shader des lumières : tout en `Vec4`, la disposition mémoire ne dépend d'aucune règle d'alignement.
@@ -62,8 +59,7 @@ pub enum LightKind {
 pub struct LightParams {
     /// `rgb` : teinte (lumière linéaire, au-delà de 1 le bloom s'en empare) ; `w` : opacité (`uK`).
     pub color: Vec4,
-    /// `x` : motif ([`LightKind`]), `y` : écart des lobes de la flaque (`uSplit`), `z` : force du glitch du squelette
-    /// (0 à 1), `w` : horloge du squelette (s).
+    /// `x` : motif ([`LightKind`]), `y` : écart des lobes de la flaque (`uSplit`).
     pub params: Vec4,
 }
 
@@ -88,13 +84,6 @@ impl CarLightMaterial {
             },
             depth_bias,
         }
-    }
-
-    /// Le calque squelette : teinte, opacité, force du glitch (0 à 1) et horloge (s).
-    pub fn set_skeleton(&mut self, color: bevy::color::LinearRgba, k: f32, glitch: f32, time_s: f32) {
-        self.params.color = Vec4::new(color.red, color.green, color.blue, k);
-        self.params.params.z = glitch;
-        self.params.params.w = time_s;
     }
 
     /// Teinte et opacité de l'image.
@@ -179,9 +168,9 @@ pub type CarPaintMaterial = ExtendedMaterial<StandardMaterial, CarPaintExt>;
 mod tests {
     use super::LIGHT_SOURCE;
 
-    /// Le calque squelette pose ce shader sur les maillages du modèle de la voiture, qui n'ont pas de couleur de sommet
-    /// (ni toujours d'UV). Une entrée de sommet exigée sans condition fait refuser le pipeline par wgpu (« Location[5]
-    /// … is not provided ») : l'application s'arrêtait à la préchauffe, donc au démarrage.
+    /// Un maillage sans couleur de sommet (ni UV) peut recevoir ce shader. Une entrée de sommet exigée sans condition
+    /// fait refuser le pipeline par wgpu (« Location[5] … is not provided ») : l'application s'arrêtait à la
+    /// préchauffe, donc au démarrage.
     #[test]
     fn le_shader_des_lumieres_n_exige_ni_uv_ni_couleur_de_sommet() {
         let start = LIGHT_SOURCE.find("struct Vertex {").expect("la structure des sommets");

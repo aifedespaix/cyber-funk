@@ -85,6 +85,8 @@ pub struct TrafficDirector {
     held: bool,
     /// Faux en mode manuel : plus de tirage spontané (l'ordre de l'opérateur et les déclencheurs passent).
     spontaneous: bool,
+    /// Le trafic de fond naît (faux pendant une séquence : le quartier apparaît ou disparaît).
+    background: bool,
     /// Mesure en cours sur l'horloge de danse (quatre temps) : un événement part au début d'une mesure.
     bar: i64,
     flyby: bool,
@@ -125,6 +127,7 @@ impl TrafficDirector {
             clear_requested: false,
             held: false,
             spontaneous: true,
+            background: true,
             bar: 0,
             flyby: false,
             claims: Vec::with_capacity(8),
@@ -154,6 +157,17 @@ impl TrafficDirector {
     /// Mode manuel (`false`) : plus de tirage spontané ; `force` et l'ordre « événement au hasard » passent.
     pub fn set_spontaneous(&mut self, on: bool) {
         self.spontaneous = on;
+    }
+
+    /// Coupe (`false`) ou rend les naissances du trafic de fond. Les véhicules déjà en vol finissent leur trajet.
+    pub fn set_background(&mut self, on: bool) {
+        self.background = on;
+    }
+
+    /// Le trafic de fond naît.
+    #[must_use]
+    pub fn background(&self) -> bool {
+        self.background
     }
 
     /// Le tirage spontané est permis.
@@ -334,7 +348,7 @@ impl TrafficDirector {
                     None => None,
                 },
             };
-            if frame.playing {
+            if frame.playing && self.background {
                 self.lanes.update(frame.dt, &mut ctx);
             }
             if self.held {

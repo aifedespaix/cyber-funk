@@ -9,6 +9,7 @@ mod icon;
 mod logging;
 mod preload;
 mod projector;
+mod rehearse;
 mod selfcheck;
 mod show_setup;
 mod soak;
@@ -207,6 +208,10 @@ fn build_app(
             hours,
             csv: cli.soak_csv.clone(),
         });
+    }
+
+    if let Some(dir) = cli.rehearse.clone() {
+        app.add_plugins(rehearse::RehearsePlugin { dir });
     }
 
     if cli.no_operator {

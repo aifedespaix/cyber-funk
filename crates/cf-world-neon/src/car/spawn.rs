@@ -203,27 +203,6 @@ impl Built {
     }
 }
 
-/// Une pièce du calque squelette de la synchronisation : même maillage que la pièce, matériau additif partagé.
-fn spawn_skeleton_piece(
-    commands: &mut Commands,
-    node: &str,
-    mesh: Handle<Mesh>,
-    material: &Handle<CarLightMaterial>,
-    parent: Entity,
-) -> Entity {
-    commands
-        .spawn((
-            Name::new(format!("{node} · squelette")),
-            Mesh3d(mesh),
-            MeshMaterial3d(material.clone()),
-            Transform::IDENTITY,
-            Visibility::default(),
-            WorldLayer,
-            ChildOf(parent),
-        ))
-        .id()
-}
-
 /// Pose la voiture sous `root` : retourne le [`CarRig`] à poser sur l'entité racine.
 ///
 /// `model` est consommé : ses maillages et images passent dans les `Assets`, sans copie.
@@ -268,9 +247,6 @@ pub fn spawn_car(
         mesh: assets.meshes.add(super::shapes::ground_quad()),
         material: pad_material.clone(),
     };
-    // Le calque squelette de la synchronisation : un seul matériau pour la voiture, une pièce par maillage visible.
-    let skeleton = assets.lights.add(CarLightMaterial::new(LightKind::Skeleton, 0.0));
-    let mut skeleton_parts: Vec<Entity> = Vec::new();
     let mut tucks: Vec<Tuck> = Vec::new();
     let mut tucked: Vec<usize> = Vec::new();
     let mut stack: Vec<(usize, Entity)> = Vec::new();
@@ -310,13 +286,6 @@ pub fn spawn_car(
                 ChildOf(entity),
             ));
             built[material].insert_into(&mut piece);
-            skeleton_parts.push(spawn_skeleton_piece(
-                commands,
-                &node.name,
-                meshes[mesh].clone(),
-                &skeleton,
-                entity,
-            ));
         }
         stack.extend(node.children.iter().map(|&c| (c, entity)));
     }
@@ -360,7 +329,5 @@ pub fn spawn_car(
         materials: handles,
         signals,
         lights,
-        skeleton,
-        skeleton_parts,
     }
 }

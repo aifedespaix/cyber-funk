@@ -146,6 +146,11 @@ pub(crate) fn take_triggers(
     if director.spontaneous() != spontaneous {
         director.set_spontaneous(spontaneous);
     }
+    // Le trafic aérien de fond n'arrive qu'une fois le quartier établi : pas de véhicules dans un ciel sans ville.
+    let background = automation.settled();
+    if director.background() != background {
+        director.set_background(background);
+    }
     let Some(mut runtime) = runtime else { return };
     let is_traffic = |id: &cf_control::TriggerId| EventName::from_slug(&id.0).is_some();
     // Tous les déclencheurs du trafic en attente, pas seulement le plus ancien de la file : la file du directeur retient

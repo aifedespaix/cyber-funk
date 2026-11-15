@@ -3,7 +3,8 @@
 //! ```text
 //! RunOrder ─▶ RunSequencer ─▶ RunOutput ─┬▶ RunPhase / RunStatus  (l'opérateur et les autres systèmes du monde le lisent)
 //!                                        ├▶ RoadLook.draw, FacadeLook.build, SkyLook.reveal, DjSignIntro
-//!                                        ├▶ CarControls.light_scale, PilotSettings.speed_cap_mps
+//!                                        ├▶ CarControls (présence, phares), PilotSettings (vitesse imposée ou plafonnée)
+//!                                        ├▶ ShotOrder (plans `waiting`, `opening`, `closing`, `handover`) et StagingFeed
 //!                                        └▶ front des fenêtres (comme la pré-intro)
 //! ```
 //!
@@ -15,10 +16,11 @@ use bevy::prelude::*;
 use cf_cinema::{ShotOrder, TransitionKind};
 use cf_render::{
     AudioCommand, AudioFeatures, AudioSequenceGain, CfSet, ControlAction, CurrentShow, Phase, RunHandover, RunOrder,
-    RunPhase, SceneIdle, ShowSheet, SimControl,
+    RunPhase, SceneIdle, ShowSheet, SimControl, Staging, StagingFeed, StagingView,
 };
 
 use super::machine::{RunOutput, RunSequencer};
+use super::timeline::{CameraPlan, START_S, STOP_S, city_seconds};
 use crate::car::rig::CarState;
 use crate::intro::{self, Owned, Targets, set};
 
@@ -43,6 +45,7 @@ impl Plugin for RunPlugin {
             .add_message::<AudioCommand>()
             .add_message::<ControlAction>()
             .init_resource::<AudioSequenceGain>()
+            .init_resource::<StagingFeed>()
             .insert_resource(RunDriven)
             .insert_resource(cf_render::RunSequenced)
             .insert_resource(Sequencer(sequencer))
@@ -74,6 +77,8 @@ struct ShowLinks<'w> {
     control: MessageWriter<'w, ControlAction>,
     handover: Option<ResMut<'w, RunHandover>>,
     idle: Option<ResMut<'w, SceneIdle>>,
+    staging: ResMut<'w, StagingFeed>,
+    gantry: Option<Res<'w, crate::gantry::GantryState>>,
 }
 
 /// `CfSet::Simulate` : lit l'ordre de l'opérateur, avance la séquence et l'applique au monde.
@@ -94,7 +99,6 @@ fn drive_run(
     mut status: ResMut<RunStatus>,
     mut targets: Targets,
     mut owned: Local<Owned>,
-    mut silenced: Local<Option<bool>>,
 ) {
     let order = orders.read().last().copied();
     let before = sequencer.0.phase();
@@ -147,14 +151,16 @@ fn drive_run(
     if before == Phase::Stopping && sequencer.0.phase() == Phase::Waiting {
         audio.write(AudioCommand::DemoPause);
     }
-    let wanted = if out.stages.camera_handover {
-        Some(HANDOVER_SHOT)
-    } else if out.stages.camera_waiting {
-        Some(WAITING_SHOT)
-    } else {
-        None
+    let wanted = match out.stages.camera {
+        CameraPlan::Free => None,
+        CameraPlan::Waiting => Some(WAITING_SHOT),
+        CameraPlan::Opening => Some(OPENING_SHOT),
+        CameraPlan::Closing => Some(CLOSING_SHOT),
+        CameraPlan::Handover => Some(HANDOVER_SHOT),
     };
     direct_camera(wanted, &mut camera_held, &mut shots);
+    let gantry = links.gantry.as_deref().and_then(crate::gantry::GantryState::placed);
+    set(&mut links.staging.0, staging_view(&out, gantry));
     set(&mut *phase, published);
     set(&mut status.0, out);
     // Le décor est au repos tant que le quartier n'est pas là : attente, fin de l'arrêt, début du démarrage, passation
@@ -171,7 +177,6 @@ fn drive_run(
     owned.engaged = in_charge;
     let calm = links.settings.as_deref().is_some_and(|s| s.calm);
     apply(&out, &mut targets, &mut owned, calm);
-    gate_spontaneous(&mut targets, out.phase, &mut silenced);
 }
 
 /// Pose les étapes sur les cibles ; une cible absente est ignorée (exemples, tests).
@@ -188,8 +193,10 @@ fn apply(out: &RunOutput, targets: &mut Targets, owned: &mut Owned, calm: bool) 
         set(&mut k.reveal, s.sky);
     }
     if let Some(d) = targets.sign.as_deref_mut() {
-        // Le nom du DJ est annoncé par le portique (`gantry/`), plus par l'enseigne sur immeuble de la pré-intro.
-        set(&mut d.0, None);
+        // Le nom du DJ est annoncé par le portique (`gantry/`). L'enseigne sur immeuble, elle, n'existe qu'avec son
+        // immeuble : éteinte tant que le quartier n'est pas debout (sinon son nom flotte dans un ciel sans ville).
+        let standing = s.build >= 1.0 && s.collapse <= 0.0;
+        set(&mut d.0, if standing { None } else { Some(0.0) });
     }
     if let Some(c) = targets.controls.as_deref_mut() {
         set(&mut c.light_scale, s.lights);
@@ -198,47 +205,76 @@ fn apply(out: &RunOutput, targets: &mut Targets, owned: &mut Owned, calm: bool) 
     }
     if let Some(p) = targets.pilot.as_deref_mut() {
         set(&mut p.speed_cap_mps, out.speed_cap_mps.map(f64::from));
+        set(&mut p.speed_forced_mps, out.speed_forced_mps.map(f64::from));
     }
     if let Some(t) = targets.traffic.as_deref_mut() {
         intro::apply_front(&mut t.scene.fx.power, out.front, owned);
     }
 }
 
-/// En attente et pendant la construction, la circulation ne tire rien ; on la rend telle qu'on l'a trouvée ensuite
-/// (le mode manuel de l'opérateur l'avait peut-être déjà coupée).
-fn gate_spontaneous(targets: &mut Targets, phase: Phase, silenced: &mut Option<bool>) {
-    let Some(t) = targets.traffic.as_deref_mut() else {
-        return;
-    };
-    let quiet = matches!(phase, Phase::Waiting | Phase::Starting | Phase::Handover);
-    match (quiet, *silenced) {
-        (true, None) => {
-            *silenced = Some(t.spontaneous());
-            t.set_spontaneous(false);
-        }
-        (false, Some(previous)) => {
-            t.set_spontaneous(previous);
-            *silenced = None;
-        }
-        _ => {}
+/// La séquence scénarisée vue par le réalisateur : l'ouverture (et la présentation du nouveau DJ d'une passation, qui
+/// en reprend la fin), la clôture. `gantry` : où le portique est posé (x, z), s'il l'est.
+#[must_use]
+fn staging_view(out: &RunOutput, gantry: Option<(f64, f64)>) -> Option<StagingView> {
+    let gantry = gantry.map(|(x, z)| bevy::math::DVec3::new(x, 0.0, z));
+    let car_visible = out.stages.car_presence > 0.0;
+    match out.phase {
+        Phase::Starting => Some(StagingView {
+            kind: Staging::Opening,
+            t_s: out.t_s,
+            duration_s: START_S,
+            city_s: city_seconds(out.t_s),
+            gantry,
+            car_visible,
+        }),
+        Phase::Stopping => Some(StagingView {
+            kind: Staging::Closing,
+            t_s: out.t_s,
+            duration_s: STOP_S,
+            city_s: 0.0,
+            gantry: None,
+            car_visible,
+        }),
+        Phase::Handover => out.handover.map(|frame| {
+            let marks = frame.variant.marks();
+            StagingView {
+                kind: Staging::Opening,
+                t_s: frame.t_s,
+                duration_s: marks.end,
+                city_s: frame.t_s - (marks.gantry + super::handover::REBUILD_AFTER_GANTRY_S),
+                gantry,
+                car_visible,
+            }
+        }),
+        Phase::Waiting | Phase::Running => None,
     }
 }
 
-/// Le plan voulu tient la caméra : l'attente avant la voiture, la passation entre l'échange et le dépassement. Sans plan
-/// voulu, le montage reprend. Au retour à l'attente (arrêt), le plan revient en fondu et non en coupe.
+/// Le plan voulu tient la caméra : l'attente, l'ouverture, la clôture, la passation. Sans plan voulu, le montage
+/// reprend. Les plans scénarisés s'enchaînent en fondu de mouvement (ils se raccordent sur la même pose) ; seul le tout
+/// premier plan du lancement, et la passation, entrent comme leur fiche le veut.
 fn direct_camera(wanted: Option<&'static str>, held: &mut CameraHold, shots: &mut MessageWriter<ShotOrder>) {
     match (wanted, *held) {
-        // Le retour à l'attente, après un autre plan, se fait en fondu.
-        (Some(id), CameraHold::Free) if id == WAITING_SHOT => {
+        (Some(id), CameraHold::Unset) => {
+            shots.write(ShotOrder::Hold(id));
+            *held = CameraHold::On(id);
+        }
+        // La passation passe devant la voiture : une coupe franche, pas un survol.
+        (Some(id), CameraHold::Free) if id == HANDOVER_SHOT => {
+            shots.write(ShotOrder::Hold(id));
+            *held = CameraHold::On(id);
+        }
+        // La clôture quitte un plan quelconque du show : elle revient derrière la voiture par le haut, sans la traverser.
+        (Some(id), CameraHold::Free) if id == CLOSING_SHOT => {
+            shots.write(ShotOrder::HoldWith(id, TransitionKind::Swoop));
+            *held = CameraHold::On(id);
+        }
+        (Some(id), CameraHold::Free) => {
             shots.write(ShotOrder::HoldWith(id, TransitionKind::Blend));
             *held = CameraHold::On(id);
         }
-        (Some(id), CameraHold::Unset | CameraHold::Free) => {
-            shots.write(ShotOrder::Hold(id));
-            *held = CameraHold::On(id);
-        }
         (Some(id), CameraHold::On(current)) if current != id => {
-            shots.write(ShotOrder::Hold(id));
+            shots.write(ShotOrder::HoldWith(id, TransitionKind::Blend));
             *held = CameraHold::On(id);
         }
         (None, CameraHold::On(_)) => {
@@ -263,6 +299,10 @@ enum CameraHold {
 
 /// Identifiant du plan d'attente dans le catalogue du réalisateur.
 const WAITING_SHOT: &str = "waiting";
+/// Identifiant du plan-séquence de l'ouverture.
+const OPENING_SHOT: &str = "opening";
+/// Identifiant du plan-séquence de la clôture.
+const CLOSING_SHOT: &str = "closing";
 /// Identifiant du plan de passation de DJ.
 const HANDOVER_SHOT: &str = "handover";
 
@@ -288,11 +328,11 @@ mod tests {
     fn it_wakes_with_the_first_tower_at_the_start_and_sleeps_with_the_last_one_at_the_stop() {
         assert!(scene_is_idle(Phase::Starting, starting_stages(0.0, false).build));
         assert!(
-            scene_is_idle(Phase::Starting, starting_stages(15.0, false).build),
-            "route nue sous le portique"
+            scene_is_idle(Phase::Starting, starting_stages(12.0, false).build),
+            "route nue avant le portique"
         );
         assert!(!scene_is_idle(Phase::Starting, starting_stages(22.0, false).build));
         assert!(!scene_is_idle(Phase::Stopping, stopping_stages(3.0).build));
-        assert!(scene_is_idle(Phase::Stopping, stopping_stages(7.0).build));
+        assert!(scene_is_idle(Phase::Stopping, stopping_stages(13.0).build));
     }
 }

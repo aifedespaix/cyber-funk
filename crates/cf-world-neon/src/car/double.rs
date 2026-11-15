@@ -17,7 +17,7 @@ use super::handover_motion::HandoverMotion;
 use super::rig::{Car, CarRig, CarState};
 use super::spawn::{CarAssets, spawn_car};
 use super::switch::{ActiveCar, CarModels};
-use super::sync::{apply_look, sync_look, sync_scale};
+use super::sync::{sync_look, sync_scale};
 use super::systems::{apply_pose, car_palette, measure};
 use crate::pilot::PilotBrain;
 use crate::run::RunStatus;
@@ -157,19 +157,15 @@ pub(super) fn drive_handover(
     }
 }
 
-/// `CfSet::Simulate`, après `drive_car` : pose les roues et la caisse du double, et son échelle (extinction « télé »,
-/// bégaiement géométrique).
+/// `CfSet::Simulate`, après `drive_car` : pose les roues et la caisse du double, et sa présence (voir `sync.rs`).
 pub(super) fn drive_double_pose(
     time: Res<Time>,
     status: Res<RunStatus>,
     controls: Res<super::systems::CarControls>,
-    mut lights: ResMut<Assets<super::materials::CarLightMaterial>>,
-    mut visibility: Query<&mut Visibility>,
     mut doubles: Query<(&AbsolutePosition, &CarRig, &mut CarState, &mut Transform), With<DoubleCar>>,
     mut transforms: Query<&mut Transform, Without<DoubleCar>>,
 ) {
     let dt = time.delta_secs();
-    let now = time.elapsed_secs_f64();
     let stages = status.0.double;
     for (position, rig, mut state, mut root) in &mut doubles {
         measure(&mut state, position.0, dt);
@@ -183,12 +179,11 @@ pub(super) fn drive_double_pose(
         };
         let pose = state.motion.update(&input);
         apply_pose(&pose, 0.0, rig, &mut root, &mut transforms);
-        // Le double se désynchronise comme la voiture se synchronise, à l'envers.
-        let look = sync_look(stages.presence, controls.calm);
-        let scale = sync_scale(stages.presence, look.glitch, now);
+        // Le double s'en va comme la voiture arrive, à l'envers : lumières, couleur, puis il rapetisse au loin.
+        let scale = sync_scale(stages.presence);
         if root.scale != scale {
             root.scale = scale;
         }
-        apply_look(rig, &mut state, look, time.elapsed_secs(), &mut lights, &mut visibility);
+        state.sync = sync_look(stages.presence, controls.calm);
     }
 }

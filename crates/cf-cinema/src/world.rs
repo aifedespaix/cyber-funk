@@ -62,6 +62,8 @@ pub struct CinemaWorld {
     pub last_blast: Option<MeteorBlast>,
     /// La passation de DJ en cours : la voiture qui roule seule et le cadrage voulu (plan `handover`).
     pub handover: Option<cf_render::HandoverView>,
+    /// La séquence scénarisée en cours (ouverture, clôture) : plans `opening` et `closing`.
+    pub staging: Option<cf_render::StagingView>,
 }
 
 impl Default for CinemaWorld {
@@ -88,6 +90,7 @@ impl Default for CinemaWorld {
             ring_planet: None,
             last_blast: None,
             handover: None,
+            staging: None,
         }
     }
 }

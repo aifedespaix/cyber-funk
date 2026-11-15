@@ -47,6 +47,9 @@ const SCENARIO_SHOTS: &[&str] = &[
     "waiting",
     // Imposé par le monde pendant un changement de DJ ; ses tests vivent dans `handover.rs`.
     "handover",
+    // Imposés par le monde pendant l'ouverture et la clôture ; leurs tests vivent dans `opening.rs` et `closing.rs`.
+    "opening",
+    "closing",
 ];
 
 /// Trente secondes simulées, à la cadence de la soirée de test.

@@ -170,6 +170,7 @@ fn build_cinema_world(
     driver: Option<Res<crate::rider::driver::DriverView>>,
     dj_sign: Option<Res<crate::djsign::DjSignSettings>>,
     handover: Option<Res<cf_render::HandoverFeed>>,
+    staging: Option<Res<cf_render::StagingFeed>>,
     car: Query<&AbsolutePosition, With<StreamFocus>>,
     mut world: ResMut<CinemaWorld>,
 ) {
@@ -227,6 +228,8 @@ fn build_cinema_world(
     // sujet que `NeonWorld` publie quand l'enseigne est posée (J7-02).
     // La passation de DJ : la voiture qui roule seule et le cadrage tiré pour cette passation (plan `handover`).
     world.handover = handover.as_deref().and_then(|h| h.0);
+    // L'ouverture et la clôture : la séquence que suivent les plans `opening` et `closing`.
+    world.staging = staging.as_deref().and_then(|s| s.0);
     world.show.dj_sign = sheet.is_some_and(|s| s.dj_sign) && dj_sign.is_none_or(|s| s.enabled);
 }
 
