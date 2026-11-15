@@ -174,3 +174,29 @@ impl MaterialExtension for CarPaintExt {
 
 /// Le matériau de la carrosserie.
 pub type CarPaintMaterial = ExtendedMaterial<StandardMaterial, CarPaintExt>;
+
+#[cfg(test)]
+mod tests {
+    use super::LIGHT_SOURCE;
+
+    /// Le calque squelette pose ce shader sur les maillages du modèle de la voiture, qui n'ont pas de couleur de sommet
+    /// (ni toujours d'UV). Une entrée de sommet exigée sans condition fait refuser le pipeline par wgpu (« Location[5]
+    /// … is not provided ») : l'application s'arrêtait à la préchauffe, donc au démarrage.
+    #[test]
+    fn le_shader_des_lumieres_n_exige_ni_uv_ni_couleur_de_sommet() {
+        let start = LIGHT_SOURCE.find("struct Vertex {").expect("la structure des sommets");
+        let end = start + LIGHT_SOURCE[start..].find('}').expect("la fin de la structure");
+        let lines: Vec<&str> = LIGHT_SOURCE[start..end].lines().map(str::trim).collect();
+        for (input, define) in [
+            ("@location(2)", "@if(VERTEX_UVS_A)"),
+            ("@location(5)", "@if(VERTEX_COLORS)"),
+        ] {
+            let declared = lines.iter().filter(|line| line.starts_with(input)).count();
+            let guarded = lines
+                .windows(2)
+                .filter(|pair| pair[0] == define && pair[1].starts_with(input))
+                .count();
+            assert_eq!((declared, guarded), (1, 1), "{input} doit être sous {define}");
+        }
+    }
+}

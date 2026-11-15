@@ -5,7 +5,10 @@
 // matériau Rust : `params.x` choisit le motif. Aucune vraie lumière : des volumes additifs, comme dans Sillage, que le
 // bloom fait rayonner (les valeurs dépassent 1 en lumière linéaire).
 //
-// Tous les maillages portent les quatre attributs (position, normale, UV, couleur) : leur disposition ne change pas.
+// Les maillages des lumières portent les quatre attributs (position, normale, UV, couleur). Le calque squelette, lui,
+// réutilise les maillages du modèle de la voiture, qui n'ont pas de couleur de sommet (ni toujours d'UV) : ces deux
+// entrées sont donc conditionnelles (`VERTEX_UVS_A`, `VERTEX_COLORS`, posés par Bevy d'après le maillage). Les exiger
+// sans condition fait refuser le pipeline par wgpu, et l'application s'arrête.
 
 import bevy_pbr::render::{
     mesh_functions,
@@ -35,7 +38,9 @@ struct Vertex {
     @builtin(instance_index) instance_index: u32,
     @location(0) position: vec3<f32>,
     @location(1) normal: vec3<f32>,
+    @if(VERTEX_UVS_A)
     @location(2) uv: vec2<f32>,
+    @if(VERTEX_COLORS)
     @location(5) color: vec4<f32>,
 }
 
@@ -80,7 +85,12 @@ fn vertex(v: Vertex) -> VertexOut {
     out.position = position_world_to_clip(world_position.xyz);
     out.world_normal = world_normal;
     out.view_dir = view.world_position - world_position.xyz;
+    // Sans l'attribut : UV nul et blanc opaque. Seul le squelette est dans ce cas, et il ne lit ni l'un ni l'autre.
+    out.uv = vec2<f32>(0.0);
+    out.color = vec4<f32>(1.0);
+@if(VERTEX_UVS_A)
     out.uv = v.uv;
+@if(VERTEX_COLORS)
     out.color = v.color;
     return out;
 }
