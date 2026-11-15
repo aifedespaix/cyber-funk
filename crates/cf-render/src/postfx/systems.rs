@@ -8,7 +8,7 @@ use cf_analysis::Section;
 use cf_show::limiter::Rgb;
 
 use super::bloom::{bloom_intensity, bloom_mip, bloom_settings, bloom_strength, bloom_tail};
-use super::finish::{HALATION_GAIN, grain_frame, grain_gain};
+use super::finish::{grain_frame, grain_gain};
 use super::{
     CurrentShowFx, GradeUniforms, GrainUniforms, LensWeather, PersistUniforms, PostFxSettings, PostFxState, ShotCuts,
 };
@@ -92,7 +92,8 @@ pub(super) fn update_postfx(
         show.map_or(0.0, |s| s.heat),
         weather.speed_ratio,
         dt,
-        quality <= 1,
+        // Coupée : la traînée vers le point de fuite recopie les émissifs (voiture, panneaux) en doublons décalés.
+        false,
     );
 
     let fx = &state.show_fx;
@@ -116,7 +117,8 @@ pub(super) fn update_postfx(
     } else {
         0.0
     };
-    let halation = if quality <= 1 { HALATION_GAIN } else { 0.0 };
+    // Coupée : ses 8 échantillons en anneau dessinent 8 copies décalées des hautes lumières (effet de duplication).
+    let halation = 0.0;
     let rays = if quality == 0 { 1.0 } else { 0.0 };
     for (entity, mut grade, mut grain, mut persistence, bloom) in &mut compositors {
         *grain = GrainUniforms {
