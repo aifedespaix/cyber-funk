@@ -5,7 +5,7 @@
 //! elle aide (dans la voiture, au sol, en l'air). Un identifiant inconnu s'affiche tel quel.
 
 /// Nom et position d'un plan : `(id, nom, où)`.
-const SHOTS: [(&str, &str, &str); 38] = [
+const SHOTS: [(&str, &str, &str); 40] = [
     ("ad-glance", "Coup d'œil à une pub", "ciel"),
     ("ascension-cam", "Ascension", "ciel"),
     ("barrel", "Tonneau", "autour de la voiture"),
@@ -14,6 +14,7 @@ const SHOTS: [(&str, &str, &str); 38] = [
     ("bumper", "Pare-chocs", "sur la voiture"),
     ("chase", "Poursuite", "derrière la voiture"),
     ("city-wide", "Ville large", "ciel"),
+    ("closing", "Clôture", "ciel"),
     ("cockpit", "Cockpit", "DANS la voiture"),
     ("crane", "Grue", "autour de la voiture"),
     ("dj-sign", "Enseigne DJ", "route"),
@@ -29,6 +30,7 @@ const SHOTS: [(&str, &str, &str); 38] = [
     ("meteor-impact-watch", "Impact de météore", "ciel"),
     ("meteor-ride", "Chevauchée de météore", "ciel"),
     ("moon-pass", "Passage devant la lune", "ciel"),
+    ("opening", "Ouverture", "ciel"),
     ("orbit", "Orbite", "autour de la voiture"),
     ("pursuit", "Filature", "derrière la voiture"),
     ("push-in", "Travelling avant", "derrière la voiture"),
