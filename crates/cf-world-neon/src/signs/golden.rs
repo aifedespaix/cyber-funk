@@ -1,6 +1,6 @@
 //! Les données de référence de Sillage (`tests/golden/signs.json`, produites par
-//! `tools/sillage-golden/signs/index.ts`) et les tests qui y comparent le portage : jeu de cartes, slogans, annonces
-//! du DJ, icônes, catalogue.
+//! `tools/sillage-golden/signs/index.ts`) et les tests qui y comparent le portage : jeu de cartes, tirage des slogans,
+//! annonces du DJ, catalogue. Les textes des slogans ont été réécrits depuis : ils ne sont plus comparés.
 
 #![allow(
     clippy::panic,
@@ -14,10 +14,9 @@ use std::sync::OnceLock;
 
 use serde_json::Value;
 
-use super::ads::{AdId, CATALOGUE, CATALOGUE_LEN};
+use super::ads::{Ad, AdId, CATALOGUE, CATALOGUE_LEN};
 use super::formats::{FormatId, format_at};
-use super::icons::icon_for;
-use super::show_signs::{LiveRole, SignShow, SlotNames, is_short, live_ad, live_allowed, slogan_index, tidy};
+use super::show_signs::{LiveRole, SignShow, SlotNames, live_ad, live_allowed, slogan_index, tidy};
 
 fn golden() -> &'static Value {
     static GOLDEN: OnceLock<Value> = OnceLock::new();
@@ -63,28 +62,50 @@ fn le_catalogue_correspond_a_celui_de_sillage() {
     for (i, row) in ads.iter().enumerate() {
         let ad = AdId(i as u8).ad();
         assert_eq!(row["accent"].as_str(), Some(ad.accent.name()), "pub {i}");
-        assert_eq!(row["slogans"].as_u64(), Some(ad.slogans.len() as u64), "pub {i}");
+        // Les slogans ont été réécrits depuis le portage (ton, français, nombre) : seuls le visuel et la couleur
+        // restent ceux de Sillage. Le catalogue doit seulement ne laisser aucune publicité muette.
+        assert!(!ad.slogans.is_empty(), "pub {i}");
         assert_eq!(row["kind"].as_str(), Some(ad.kind.name()), "pub {i}");
     }
 }
 
+/// Des slogans sans contenu : le tirage hors spectacle ne lit que leur nombre.
+const PLACEHOLDERS: [&str; 64] = ["X"; 64];
+
+/// Le tirage du slogan de départ reste celui de Sillage. Les textes du catalogue ont changé depuis le portage : la
+/// comparaison se fait donc sur une publicité qui a le nombre de slogans de Sillage, hors spectacle (en spectacle le
+/// tirage dépend de la longueur des textes, qui ne sont plus les mêmes).
 #[test]
-fn les_slogans_de_depart_sont_ceux_de_sillage() {
+fn le_tirage_du_slogan_de_depart_est_celui_de_sillage() {
     let formats = formats_in_order();
+    let ads = rows("ads");
     for row in rows("slogans") {
         let r = row.as_array().unwrap_or_else(|| panic!("ligne"));
         let (ad, format, k) = (number(&r[0]) as usize, formats[number(&r[1]) as usize], number(&r[2]));
-        let ad = &CATALOGUE[ad];
+        let count = number(&ads[ad]["slogans"]) as usize;
+        let sillage = Ad {
+            slogans: &PLACEHOLDERS[..count],
+            ..CATALOGUE[ad]
+        };
         assert_eq!(
-            slogan_index(ad, k, format, false) as i64,
+            slogan_index(&sillage, k, format, false) as i64,
             number(&r[3]),
             "sans spectacle {r:?}"
         );
-        assert_eq!(
-            slogan_index(ad, k, format, true) as i64,
-            number(&r[4]),
-            "en spectacle {r:?}"
-        );
+    }
+}
+
+/// Sur le vrai catalogue, le slogan tiré existe toujours, avec ou sans spectacle.
+#[test]
+fn le_slogan_de_depart_existe_toujours() {
+    for ad in &CATALOGUE {
+        for format in formats_in_order() {
+            for k in 0..200 {
+                for show in [false, true] {
+                    assert!(slogan_index(ad, k, format, show) < ad.slogans.len(), "{ad:?} k={k}");
+                }
+            }
+        }
     }
 }
 
@@ -157,20 +178,6 @@ fn le_panneau_du_dj_est_celui_de_sillage() {
         for (i, text) in expected.iter().enumerate() {
             assert_eq!(&ad.slogan(i, names), text, "{row}");
         }
-    }
-}
-
-#[test]
-fn les_icones_et_les_slogans_courts_sont_ceux_de_sillage() {
-    for row in rows("icons") {
-        let ad = &CATALOGUE[number(&row["ad"]) as usize];
-        let text = ad.slogans[number(&row["slogan"]) as usize];
-        assert_eq!(
-            icon_for(ad.kind, text).map(super::icons::IconId::name),
-            row["icon"].as_str(),
-            "{row}"
-        );
-        assert_eq!(is_short(text), row["short"].as_bool().unwrap_or_default(), "{text}");
     }
 }
 
