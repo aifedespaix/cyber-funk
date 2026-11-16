@@ -65,6 +65,10 @@ pub struct LightTuning {
     pub amount: f32,
     /// Plafond d'émissif d'une fenêtre : `0,9·θ_b`, `θ_b` étant le seuil du bloom (1,0 depuis C2).
     pub window_cap: f32,
+    /// Gain du halo qu'un tube proche pose sur les murs (C4, `wall_halo` de `facade_light.wesl`).
+    pub halo_gain: f32,
+    /// Énergie lente sous laquelle le morceau est « calme » (P2 §1.1 : `calme = 1 − sat(E_s/0,25)`).
+    pub calm_energy: f32,
 }
 
 impl Default for LightTuning {
@@ -87,6 +91,8 @@ impl Default for LightTuning {
             },
             amount: 1.0,
             window_cap: crate::facade::windows::CAP_SHARE * cf_render::postfx::BLOOM_THRESHOLD,
+            halo_gain: 8.0,
+            calm_energy: 0.25,
         }
     }
 }
@@ -160,6 +166,23 @@ pub struct SceneLight {
     pub spectrum: [f32; SPECTRUM_BANDS],
     /// Plafond d'émissif d'une fenêtre : `0,9·θ_b` (C4).
     pub window_cap: f32,
+    /// Les signaux des surfaces (C4).
+    pub surface: Surface,
+    /// Gain du halo des tubes sur les murs.
+    pub halo_gain: f32,
+}
+
+/// Ce que les surfaces lisent du son et de la qualité (C4, `SceneLight::surface` de `atmosphere.wesl`).
+#[derive(Debug, Clone, Copy, PartialEq, Default)]
+pub struct Surface {
+    /// Frémissement des flaques, 0..1 (`Target::Puddles` : le kick élargit les reflets pendant 180 ms).
+    pub puddles: f32,
+    /// Saturation des néons, 0..1 (`Target::NeonSaturation`, haut-médium).
+    pub neon_saturation: f32,
+    /// Énergie lente du morceau, 0..1 : sous `LightTuning::calm_energy`, les flaques deviennent un miroir net.
+    pub energy_slow: f32,
+    /// Détail des surfaces, 0..1 (qualité adaptative) : fenêtres habitées, aberration des reflets.
+    pub detail: f32,
 }
 
 /// Ce que [`compose`] lit en plus des couleurs.
@@ -177,6 +200,8 @@ pub struct LightInput {
     pub tubes: [Tube; TUBES],
     /// Spectre lissé en 32 bandes, 0..1.
     pub spectrum: [f32; SPECTRUM_BANDS],
+    /// Les signaux des surfaces, bruts : [`compose`] les borne et les met à plat quand rien ne doit pulser.
+    pub surface: Surface,
 }
 
 /// Compose l'éclairage de l'image. Pur : mêmes entrées, même sortie.
@@ -223,6 +248,35 @@ pub fn compose(tuning: &LightTuning, colors: &LightColors, input: &LightInput) -
             [0.0; SPECTRUM_BANDS]
         },
         window_cap: tuning.window_cap,
+        surface: Surface {
+            // Respiration ou flashs coupés : ni frémissement ni saturation qui suit la musique (règle 7).
+            puddles: if input.fog.shell {
+                unit(input.surface.puddles)
+            } else {
+                0.0
+            },
+            neon_saturation: if input.fog.shell {
+                unit(input.surface.neon_saturation)
+            } else {
+                0.0
+            },
+            energy_slow: unit(input.surface.energy_slow),
+            detail: unit(input.surface.detail),
+        },
+        halo_gain: tuning.halo_gain,
+    }
+}
+
+/// Borne un signal à 0..1 ; une valeur non finie vaut 0.
+fn unit(v: f32) -> f32 {
+    if v.is_finite() { v.clamp(0.0, 1.0) } else { 0.0 }
+}
+
+impl SceneLight {
+    /// Le calme du morceau, 0..1 : `1 − sat(E_s / seuil)` (P2 §1.1).
+    #[must_use]
+    pub fn calm(&self, calm_energy: f32) -> f32 {
+        1.0 - (self.surface.energy_slow / calm_energy.max(1.0e-3)).clamp(0.0, 1.0)
     }
 }
 
@@ -258,12 +312,14 @@ pub struct SceneLightParams {
     pub tube_col: [Vec4; TUBES],
     /// Spectre lissé, 32 bandes, quatre par `Vec4` (façades égaliseur, C4).
     pub spectrum: [Vec4; SPECTRUM_BANDS / 4],
+    /// Surfaces (C4) : `x` frémissement des flaques, `y` saturation des néons, `z` calme, `w` détail.
+    pub surface: Vec4,
 }
 
 impl SceneLight {
     /// Le bloc d'uniformes, en positions relatives à `origin` (l'origine flottante). `tube_gain` vient du réglage.
     #[must_use]
-    pub fn params(&self, origin: DVec3, tube_gain: f32) -> SceneLightParams {
+    pub fn params(&self, origin: DVec3, tube_gain: f32, calm_energy: f32) -> SceneLightParams {
         let rel = |p: DVec3| (p - origin).as_vec3();
         let mut out = SceneLightParams {
             dir_key: self.dir_key.extend(self.key_ratio),
@@ -277,14 +333,24 @@ impl SceneLight {
             kick_age: Vec4::from_array(self.kick_ages),
             shell: Vec4::new(self.shell.speed, self.shell.sigma, self.shell.tau, self.shell.depth),
             source: rel(self.source).extend((self.ground_y - origin.y) as f32),
+            surface: Vec4::new(
+                self.surface.puddles,
+                self.surface.neon_saturation,
+                self.calm(calm_energy),
+                self.surface.detail,
+            ),
             ..SceneLightParams::default()
         };
         for (slot, quad) in out.spectrum.iter_mut().zip(self.spectrum.as_chunks::<4>().0) {
             *slot = Vec4::from_array(*quad);
         }
         for (i, tube) in self.tubes.iter().enumerate() {
-            out.tube_pos[i] = rel(tube.position).extend(0.0);
-            out.tube_col[i] = (tube.color * tube_gain * self.fog.sigma_rho).extend(0.0);
+            // La couleur du bloc est déjà multipliée par `tube_gain·σ_s·ρ` (la brume) : `w` ramène le halo des murs à
+            // `couleur·halo_gain`, quelle que soit la densité de la brume.
+            let scale = tube_gain * self.fog.sigma_rho;
+            let halo = if scale > 1.0e-9 { self.halo_gain / scale } else { 0.0 };
+            out.tube_pos[i] = rel(tube.position).extend(halo);
+            out.tube_col[i] = (tube.color * scale).extend(0.0);
         }
         out
     }
@@ -307,102 +373,5 @@ impl Default for FogReach {
 }
 
 #[cfg(test)]
-mod tests {
-    use super::super::formula;
-    use super::super::modulation::{FogInput, FogModulation, FogTuning};
-    use super::*;
-
-    fn colors() -> LightColors {
-        LightColors {
-            velvet: Vec3::new(0.03, 0.01, 0.09),
-            mood: Vec3::new(0.25, 0.1, 0.8),
-            ice: Vec3::new(0.8, 0.9, 1.0),
-            azure: Vec3::new(0.1, 0.4, 0.9),
-        }
-    }
-
-    fn input(density: f32) -> LightInput {
-        let fog = FogModulation::default().step(
-            &FogTuning::default(),
-            &FogInput {
-                dt_s: 1.0 / 60.0,
-                ..FogInput::default()
-            },
-        );
-        LightInput {
-            density,
-            fog,
-            kick_ages: [60.0; 4],
-            source: DVec3::new(0.0, 0.5, -40_000.0),
-            tubes: [Tube::default(); TUBES],
-            spectrum: [0.7; SPECTRUM_BANDS],
-        }
-    }
-
-    #[test]
-    fn le_rapport_principale_remplissage_va_de_8_a_16() {
-        let calm = compose(&LightTuning::default(), &colors(), &input(0.0));
-        let peak = compose(&LightTuning::default(), &colors(), &input(1.0));
-        assert!((luma(calm.c_key) / luma(calm.c_fill) - 8.0).abs() < 0.01);
-        assert!((luma(peak.c_key) / luma(peak.c_fill) - 16.0).abs() < 0.02);
-        assert!((calm.dir_key.length() - 1.0).abs() < 1e-6 && (calm.dir_rim.length() - 1.0).abs() < 1e-6);
-    }
-
-    #[test]
-    fn les_positions_du_bloc_sont_relatives_a_l_origine() {
-        let light = compose(&LightTuning::default(), &colors(), &input(0.5));
-        let p = light.params(DVec3::new(0.0, 0.0, -40_000.0), 4.0);
-        assert!((p.source.truncate() - Vec3::new(0.0, 0.5, 0.0)).length() < 1e-4);
-        assert!((p.fog.x - 0.0037).abs() < 1e-6 && (p.fog.w - 1.0).abs() < f32::EPSILON);
-        assert!((luma(p.rayleigh.truncate()) - 1.0).abs() < 1e-5);
-    }
-
-    #[test]
-    fn respiration_la_coquille_de_kick_est_a_plat() {
-        let mut i = input(0.5);
-        i.fog.shell = false;
-        let light = compose(&LightTuning::default(), &colors(), &i);
-        assert!(light.shell.depth.abs() < f32::EPSILON);
-        // Et le vu-mètre des façades est à plat ; hors respiration il passe tel quel dans le bloc.
-        assert!(light.spectrum.iter().all(|v| v.abs() < f32::EPSILON));
-        let live = compose(&LightTuning::default(), &colors(), &input(0.5)).params(DVec3::ZERO, 4.0);
-        assert!(
-            live.spectrum
-                .iter()
-                .all(|q| (q.x - 0.7).abs() < 1e-6 && (q.w - 0.7).abs() < 1e-6)
-        );
-    }
-
-    /// DA §1.2, règles 1 et 2, sur la formule. La ville est faite de corps sombres piqués de fenêtres : c'est la brume
-    /// qui sépare les plans, du plus sombre (proche) au plus clair (lointain). Les corps éteints de P3 (20 m), P2
-    /// (150 m) et P1 (900 m) sont séparés d'au moins 0,12 en luminance affichée (après la courbe de transfert de
-    /// l'écran), et une silhouette d'horizon reste **sous** la brume qui est derrière elle.
-    #[test]
-    fn les_plans_sont_separes_en_valeur() {
-        let light = compose(&LightTuning::default(), &colors(), &input(0.5));
-        let cam = Vec3::new(0.0, 2.0, 0.0);
-        let shade = |surface: Vec3, dist: f32, y: f32| {
-            let p = Vec3::new(20.0, y, -dist);
-            let ray = p - cam;
-            let d = ray.length();
-            let dir = ray / d;
-            let tau = formula::optical_depth(light.fog.sigma_rho, light.fog.height_m, 0.0, cam, dir, d);
-            let t = formula::transmittance(tau);
-            let scatter = light.c_key * formula::phase_hg(dir.dot(light.dir_key), light.fog.g)
-                + light.c_rim * formula::phase_hg(dir.dot(light.dir_rim), light.fog.g);
-            let mist = light.c_fog + scatter * light.scatter;
-            luma(formula::aerial(surface, mist, t))
-        };
-        let display = |l: f32| l.max(0.0).powf(1.0 / 2.2);
-        let body = Vec3::new(0.004, 0.003, 0.008);
-        let (p3, p2, p1) = (
-            display(shade(body, 20.0, 8.0)),
-            display(shade(body, 150.0, 8.0)),
-            display(shade(body, 900.0, 8.0)),
-        );
-        assert!(p2 - p3 >= 0.12 && p1 - p2 >= 0.12, "P3 {p3}, P2 {p2}, P1 {p1}");
-        let silhouette = shade(Vec3::new(0.004, 0.003, 0.008), 700.0, 40.0);
-        let fog_behind = shade(Vec3::ZERO, 5000.0, 40.0);
-        assert!(silhouette < fog_behind, "silhouette {silhouette}, brume {fog_behind}");
-    }
-}
+#[path = "light_tests.rs"]
+mod tests;

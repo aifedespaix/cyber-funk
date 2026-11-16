@@ -329,7 +329,7 @@ Statuts : ⬜ à faire · 🟨 en cours (le journal dit où reprendre) · ✅ te
 | C1 | Signaux et dramaturgie | ✅ | voir `git log` (dernier commit « C1 ») | Sur le matériel cible : seuils de `z` des transitoires et étalonnage `FFT_TO_RMS` sur une vraie entrée ligne/micro ; ressenti du creux d'avant-drop. Routage non encore lu par les shaders (C2 à C4). |
 | C2 | Image finale | ✅ | voir `git log` (« C2 ») | Critères `[~]` : Ȳ et bloom mesurés sur la démo, pas sur la ville (à refaire en C3/C4) ; référence de parité Sillage non régénérée (bun/Playwright absents) ; remise à zéro GPU de la persistance non testée ; rayons à valider à l'œil. Matériel cible : cadence, bloom fin, couleurs sur projecteur. |
 | C3 | Atmosphère et profondeur | ✅ | voir `git log` (« C3 ») | Critères `[~]` : séparation des plans à rejuger sur capture après C4 (corps de façade trop clairs aujourd'hui) ; coût GPU aux trois paliers non mesuré. Matériel cible : densité `σ_t·ρ` et luminance de la brume sur projecteur, lisibilité de la coquille de kick, taille des poussières. `FogReach` publié mais pas encore lu par le culling (C7) ; `AtmosphereLook::apnea` pas encore écrit (EV4, C7) ; `SceneLight` (principale, remplissage, contre-jour) publié mais l'ombrage des faces est pour C4. |
-| C4 | Sol, façades et matériaux | 🟨 | voir `git log` (« C4 ») | Fait : relief des façades, fenêtres hiérarchisées et plafonnées, vu-mètre, micro-détail, néons d'arête à cœur blanc, grain, flaque de lumière, ondes de kick et reflet des fenêtres de la route. Reste : fenêtres habitées, halo des sockets, profil néon des enseignes, rugosité réactive ; vu-mètre à juger à l'œil. Voir le journal (point de reprise numéroté). |
+| C4 | Sol, façades et matériaux | ✅ | voir `git log` (« C4 ») | À juger sur le matériel cible : lisibilité des fenêtres habitées à 20 m de l'écran, aberration des reflets (`ROAD_ABERRATION`), gain du halo du sujet sur les murs (`halo_gain`), vu-mètre des façades avec un vrai spectre, coût GPU des pièces (un lancer de boîte par pixel de fenêtre proche). Halo des **sockets** d'enseigne (P2 §1.2) : la fonction existe (`wall_halo`), elle lit les quatre tubes du bloc ; les sockets viennent en C5/C6. |
 | C5 | Ville : distribution et archétypes | ⬜ | — | — |
 | C6 | Ville : habillage | ⬜ | — | — |
 | C7 | Tunnel, événements, LOD et culling | ⬜ | — | — |
@@ -340,6 +340,59 @@ Statuts : ⬜ à faire · 🟨 en cours (le journal dit où reprendre) · ✅ te
 
 Une entrée par session, la plus récente en haut : date, chantier, ce qui est fait, décisions prises, critères
 non tenus et pourquoi, point de reprise si le chantier reste 🟨.
+
+### 2026-11-16 · C4 Sol, façades et matériaux · ✅ (suite et fin)
+
+**Fait (façades)**
+- **Fenêtres habitées** (DA §5, idée 1), `facade_rooms.wesl` : chaque fenêtre pleine ouvre sur une pièce en fausse profondeur
+  (boîte unité en espace tangent, `t = min_axe((step(0, d) − p)/d)`), profonde de 2,2 à 4,5 m. Plafond et sa rampe lumineuse,
+  sol sombre, murs de côté inégaux, porte au fond, mobilier (plan à 60 %), habitant qui fait les cent pas dans une pièce sur
+  quatre (plan à 45 %, aller-retour de 48 s), store dans une pièce sur cinq, montant de vitre. Aplat entre 90 et 150 m, en
+  qualité basse (niveau ≥ 2, fondu de 1,5 s) et bloc à zéro. La pièce module la vitre **avant** `window_cap` : le plafond de
+  `0,9·θ_b` tient. Miroir Rust `facade/rooms.rs` (proptest : le rayon touche toujours une paroi de la boîte).
+- **Halo des tubes sur les murs** (P2 §1.2), `wall_halo` : `Σ c_i·exp(−d/ℓ)/(1 + (d/d0)²)·(0,7 + 0,3·grain)` pour les quatre tubes
+  du bloc `SceneLight` (le sujet, puis les immeubles-vitrines). Le sujet éclaire les façades qu'il longe.
+- **Chanfrein lumineux de toit** : filet E2 de 1,5 pixel sous l'arête, un immeuble sur trois.
+- **Paliers** : ceinture lumineuse en E2 (1,5 à 2,5·θ_b), bande de caisse claire en E1 (≤ 0,7·θ_b : un mur ne monte que d'un palier).
+- `facade.wesl` allégé : la matière du chantier est dans `facade_light.wesl`.
+
+**Fait (enseignes, `sign.wesl`)**
+- Tubes néon : cœur qui vire à la glace (couverture > 0,55), bord saturé, palier E2 (×1,5 ; 2·θ_b au plus avec le pouls).
+- Saturation liée au haut-médium (`Target::NeonSaturation`) sur les enseignes additives, à luminance constante.
+
+**Fait (route, `road_surface.wesl`)**
+- **Rugosité réactive** : le kick élargit le reflet des flaques (`Target::Puddles`), un break (`calme = 1 − sat(E_s/0,25)`) aplanit
+  leur relief en miroir. **Aberration** des reflets : rouge et bleu séparés le long de la route, près de la caméra, en plein
+  détail seulement (un second lancer). Miroir Rust `road/surface.rs` : rugosité, calme, flaque de lumière, ondes de kick.
+- Les constantes de la hiérarchie des fenêtres reflétées sont nommées et comparées à celles des façades par un test.
+
+**Bloc `SceneLight`** : champ `surface` (frémissement des flaques, saturation des néons, calme, détail), à plat en respiration ou
+flashs coupés (testé) ; `tube_pos.w` porte le gain du halo des murs.
+
+**Correctif hors chantier, trouvé par la capture : saut de la brume au recentrage de l'origine.** Le verdict « même ville de part
+et d'autre d'un recentrage » de `city_demo` échouait (38 % des pixels), y compris bloc à zéro. Cause : la brume basse, la nappe
+et les flaques tirent leur bruit de la position rendue, qui saute de 28 800 m au recentrage ; le motif sautait d'un banc à une
+éclaircie toutes les 14 minutes de route. Les treillis de bruit sont maintenant périodiques sur le pas d'origine (`tile`,
+`vnoise_world`, échelles arrondies à un nombre entier de cellules, lacunarité 2). Le verdict porte sur ce qui ne dépend que de
+la position (sol : 0,000 % ; façades des bords : 0,8 %) ; faisceaux, planètes et étoiles, animés par l'horloge, en sont exclus.
+Écart à Sillage : l'échelle de la brume change de moins de 3 %, sa lacunarité passe de 2,03 et 2,07 à 2 ; les flaques sont
+identiques à moins de 14,4 km de l'origine.
+
+**Critères**
+- Palette : mesurée par `cf_render::postfx::measure` avec les rôles de la palette (dominante cyan `Mint`, accent corail `Rose`),
+  dans `city_demo` (lignes `mesure …` de la sortie, verdict « moins de 2 % de glace ») ; chiffres non relevés dans cette
+  session (disque), à relire en relançant `CF_CHECK=1`.
+- Fenêtre ≤ `0,9·θ_b` : inchangé, et un test vérifie que la pièce entre dans `pane` avant le plafond.
+- Un seul lot de dessin : aucun maillage ni matériau ajouté (un `varying` et un champ d'uniformes de plus).
+- Captures `docs/captures/C4/` : 6 à 9 ajoutées (fenêtres de face et de biais, sol mouillé pendant un break et sur un kick).
+
+**Outils** : `CF_SCENES=6-,13` ne joue que les scènes nommées de `city_demo` ; une scène peut imposer son point de vue (`view`).
+
+**Reste (C5 non commencé)** : une ébauche de distribution (`parcels.rs`, sites, canaux, archétypes) a été écartée du dépôt car elle
+dépend d'un type `Seed` (hiérarchie de graines, P2 §3.1) à écrire dans `rng.rs`.
+
+**Non vérifié** : cadence (rendu logiciel, ~0,35 s par image) ; lisibilité des pièces sur projecteur ; vu-mètre avec un vrai
+spectre ; halo des sockets d'enseigne (pas de sockets avant C5/C6).
 
 ### 2026-11-14 · C4 Sol, façades et matériaux · 🟨
 

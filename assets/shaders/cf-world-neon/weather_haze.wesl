@@ -23,30 +23,46 @@ struct Haze {
 
 @group(constants::MATERIAL_BIND_GROUP) @binding(0) var<uniform> haze: Haze;
 
+// Continuité au recentrage de l'origine flottante : la position rendue saute d'un multiple de 28 800 m (`ORIGIN_STEP`
+// de `cf-render`). Le bruit est donc rendu périodique : chaque échelle vaut `N / 28 800` avec `N` entier, et le treillis
+// de chaque appel est replié sur sa période (`tile`). Le motif est alors le même de part et d'autre d'un recentrage,
+// au lieu de sauter d'un banc de brume à une éclaircie. Le repli est centré : les entrées du hachage restent petites
+// (précision), et rien ne change à moins d'une demi-période de l'origine.
+const ORIGIN_STEP_M: f32 = 28800.0;
+
+// Replie un nœud du treillis sur la période `t` (centrée sur zéro).
+fn tile(i: vec2<f32>, t: vec2<f32>) -> vec2<f32> {
+    return i - t * round(i / t);
+}
+
 fn h2(p_in: vec2<f32>) -> f32 {
     var p = fract(p_in * vec2<f32>(123.34, 456.21));
     p += dot(p, p + 45.32);
     return fract(p.x * p.y);
 }
 
-fn n2(p: vec2<f32>) -> f32 {
+fn n2(p: vec2<f32>, t: vec2<f32>) -> f32 {
     let i = floor(p);
     var f = fract(p);
     f = f * f * (3.0 - 2.0 * f);
     return mix(
-        mix(h2(i), h2(i + vec2<f32>(1.0, 0.0)), f.x),
-        mix(h2(i + vec2<f32>(0.0, 1.0)), h2(i + vec2<f32>(1.0, 1.0)), f.x),
+        mix(h2(tile(i, t)), h2(tile(i + vec2<f32>(1.0, 0.0), t)), f.x),
+        mix(h2(tile(i + vec2<f32>(0.0, 1.0), t)), h2(tile(i + vec2<f32>(1.0, 1.0), t)), f.x),
         f.y,
     );
 }
 
-fn fbm(p_in: vec2<f32>, octaves: i32) -> f32 {
+// `t` : période du treillis de la première octave. La lacunarité vaut exactement 2 : la période de l'octave k est
+// `t·2^k`, toujours entière.
+fn fbm(p_in: vec2<f32>, octaves: i32, t_in: vec2<f32>) -> f32 {
     var p = p_in;
+    var t = t_in;
     var v = 0.0;
     var a = 0.5;
     for (var i = 0; i < octaves; i++) {
-        v += a * n2(p);
-        p = p * 2.03 + 7.1;
+        v += a * n2(p, t);
+        p = p * 2.0 + 7.1;
+        t = t * 2.0;
         a *= 0.5;
     }
     return v;
@@ -59,7 +75,10 @@ fn fragment(in: VertexOutput) -> @location(0) vec4<f32> {
     let world = in.world_position.xz;
 
     // Les voiles sont étirés dans le sens de la route (x resserré, z allongé) : des filaments, pas des taches.
-    let stretch = vec2<f32>(0.055, 0.016) * (1.0 + layer * 0.35);
+    // L'échelle est arrondie à un nombre pair de cellules par pas d'origine (voir `tile`) : pair, pour que le pli (× 0,5) et
+    // les bouffées (× 1,5) gardent une période entière.
+    let cells = 2.0 * round(0.5 * ORIGIN_STEP_M * vec2<f32>(0.055, 0.016) * (1.0 + layer * 0.35));
+    let stretch = cells / ORIGIN_STEP_M;
     // Chaque couche dérive à sa vitesse, un peu de travers : elles se croisent.
     let drift = vec2<f32>(sin(layer * 2.1 + time * 0.05) * 0.8, 1.6 + layer * 0.9) * time;
     let p = (world + drift) * stretch + vec2<f32>(layer * 13.7, layer * 5.3);
@@ -67,19 +86,21 @@ fn fragment(in: VertexOutput) -> @location(0) vec4<f32> {
     // Relief du nuage : bruit « bouffant » (la valeur absolue plisse les crêtes), plus net que le bruit lisse.
     var cloud: f32;
     if haze.frame.w > 0.5 {
-        cloud = fbm(p, 3);
+        cloud = fbm(p, 3, cells);
     } else {
         // Un second échelon, lent, qui plisse le premier : la brume respire.
-        let warp = vec2<f32>(n2(p * 0.7 + time * 0.03), n2(p * 0.7 - time * 0.04)) - 0.5;
+        let warp = vec2<f32>(n2(p * 0.5 + time * 0.03, cells * 0.5), n2(p * 0.5 - time * 0.04, cells * 0.5)) - 0.5;
         let q = p + warp * 1.4;
-        let billow = 1.0 - abs(fbm(q * 1.6 + 3.0, 3) * 2.0 - 1.0);
-        cloud = mix(fbm(q, 4), billow, 0.45);
+        let billow = 1.0 - abs(fbm(q * 1.5 + 3.0, 3, cells * 1.5) * 2.0 - 1.0);
+        cloud = mix(fbm(q, 4, cells), billow, 0.45);
     }
 
     // Couverture à grande échelle : de vrais bancs de brume épais, séparés de trouées presque claires. Elle varie d'une
     // couche à l'autre et dérive lentement, donc la route traverse tantôt un banc, tantôt une éclaircie.
-    let coverage_p = (world + drift * 0.35) * vec2<f32>(0.0045, 0.0016) + vec2<f32>(layer * 31.0, layer * 9.0);
-    let coverage = smoothstep(0.30, 0.68, fbm(coverage_p, 3));
+    // 130 × 46 cellules par pas d'origine (0,0045 et 0,0016 m⁻¹ à 0,3 % près).
+    let coverage_cells = vec2<f32>(130.0, 46.0);
+    let coverage_p = (world + drift * 0.35) * (coverage_cells / ORIGIN_STEP_M) + vec2<f32>(layer * 31.0, layer * 9.0);
+    let coverage = smoothstep(0.30, 0.68, fbm(coverage_p, 3, coverage_cells));
     // Dans un banc la brume est dense et pleine ; dans une trouée il n'en reste que de fins lambeaux.
     let thickness = mix(0.3, 1.0, coverage);
     let body = smoothstep(mix(0.52, 0.38, coverage), mix(0.76, 0.62, coverage), cloud);

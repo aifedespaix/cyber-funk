@@ -18,6 +18,8 @@ pub(crate) const ROAD_SHADER: Handle<Shader> = uuid_handle!("6f0d3e2a-8b41-4c57-
 pub(crate) const ROAD_SOURCE: &str = concat!(
     include_str!("../../../../assets/shaders/cf-world-neon/road.wesl"),
     "\n",
+    include_str!("../../../../assets/shaders/cf-world-neon/road_surface.wesl"),
+    "\n",
     include_str!("../../../../assets/shaders/cf-world-neon/field.wesl"),
     "\n",
     include_str!("../../../../assets/shaders/cf-world-neon/glyph.wesl"),

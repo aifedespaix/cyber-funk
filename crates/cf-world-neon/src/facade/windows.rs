@@ -78,6 +78,22 @@ pub fn neon_tube(color: Vec3, white: Vec3, d: f32, r: f32) -> Vec3 {
     color.lerp(white, core * core) * core + color * (-d / (4.0 * r)).exp() * NEON_HALO
 }
 
+/// Bande de caisse claire sur un mur : elle reste au palier E1 (un mur ne monte que d'un palier sous la musique).
+pub const SNARE_BAND_E1: f32 = 0.7;
+/// Halo d'un tube sur un mur : longueur d'extinction `ℓ`, m.
+pub const HALO_LENGTH_M: f32 = 18.0;
+/// Halo d'un tube sur un mur : distance de demi-intensité `d0`, m.
+pub const HALO_HALF_M: f32 = 5.0;
+/// Part des immeubles à chanfrein lumineux de toit (un sur trois).
+pub const CHAMFER_SHARE: f32 = 0.3333;
+
+/// Atténuation du halo d'un tube à la distance `d` : `exp(−d/ℓ)/(1 + (d/d0)²)` (P2 §1.2). Miroir de `halo_falloff`.
+#[must_use]
+pub fn halo_falloff(d: f32) -> f32 {
+    let q = d / HALO_HALF_M;
+    (-d / HALO_LENGTH_M).exp() / (1.0 + q * q)
+}
+
 #[cfg(test)]
 mod tests {
     use proptest::prelude::*;
@@ -126,6 +142,36 @@ mod tests {
         for (name, rust) in [("NEON_E2", NEON_E2), ("NEON_HALO", NEON_HALO)] {
             assert!((wesl_const(name) - rust).abs() < 1e-9, "{name}");
         }
+    }
+
+    #[test]
+    fn le_halo_d_un_tube_decroit_et_reste_un_eclairage_de_mur() {
+        // Monotone, 1 au contact, moitié à d0 (à l'extinction près), négligeable au-delà de la rue.
+        assert!((halo_falloff(0.0) - 1.0).abs() < 1e-6);
+        let mut last = 1.0_f32;
+        for k in 1..=200 {
+            let v = halo_falloff(k as f32 * 0.5);
+            assert!(v < last && v > 0.0);
+            last = v;
+        }
+        assert!((halo_falloff(HALO_HALF_M) - 0.5 * (-HALO_HALF_M / HALO_LENGTH_M).exp()).abs() < 1e-6);
+        assert!(halo_falloff(60.0) < 1e-3);
+        // Au plus près d'une façade (la voiture au bord de la route, 7 m), le halo du sujet multiplié par l'albédo du
+        // béton reste au palier E0/E1 : jamais un émissif, jamais au-dessus du plafond d'une fenêtre.
+        let gain = crate::atmosphere::LightTuning::default().halo_gain;
+        let wall = gain * halo_falloff(7.0) * 0.18;
+        assert!(wall < CAP_SHARE * THETA_B, "{wall}");
+        for (name, rust) in [
+            ("HALO_LENGTH_M", HALO_LENGTH_M),
+            ("HALO_HALF_M", HALO_HALF_M),
+            ("CHAMFER_SHARE", CHAMFER_SHARE),
+            ("SNARE_BAND_E1", SNARE_BAND_E1),
+        ] {
+            assert!((wesl_const(name) - rust).abs() < 1e-9, "{name}");
+        }
+        // E1 va de 0,2 à 0,7·θ_b : la bande de caisse claire n'en sort pas.
+        let band = SNARE_BAND_E1;
+        assert!((0.2 * THETA_B..=0.7 * THETA_B).contains(&band), "{band}");
     }
 
     #[test]

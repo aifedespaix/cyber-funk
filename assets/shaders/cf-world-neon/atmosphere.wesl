@@ -35,12 +35,16 @@ struct SceneLight {
     shell: vec4<f32>,
     // xyz : source de la coquille (le sujet), w : altitude du sol.
     source: vec4<f32>,
-    // Les quatre tubes proches. xyz : position, w : inutilisé.
+    // Les quatre tubes proches. xyz : position, w : gain du halo qu'ils posent sur les murs (C4, `wall_halo`).
     tube_pos: array<vec4<f32>, 4>,
     // rgb : couleur déjà multipliée par l'intensité et par σ_s·ρ.
     tube_col: array<vec4<f32>, 4>,
     // Spectre lissé en 32 bandes logarithmiques, 0..1, quatre bandes par vec4 (façades égaliseur, C4). À plat en respiration.
     spectrum: array<vec4<f32>, 8>,
+    // Surfaces (C4). x : frémissement des flaques (0..1, kick), y : saturation des néons (0..1, haut-médium), z : calme
+    // (1 pendant un break : les flaques deviennent un miroir net), w : détail des surfaces (1 plein, 0 en qualité basse :
+    // fenêtres habitées en aplat, reflets sans aberration).
+    surface: vec4<f32>,
 }
 
 @group(constants::MATERIAL_BIND_GROUP) @binding(9) var<uniform> scene: SceneLight;

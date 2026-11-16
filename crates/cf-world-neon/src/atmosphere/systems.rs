@@ -3,7 +3,7 @@
 
 use bevy::math::{DVec3, Vec3};
 use bevy::prelude::*;
-use cf_render::audio::{FilteredSignals, VisualDensity};
+use cf_render::audio::{FilteredSignals, Target, VisualDensity};
 use cf_render::palette::{LinearRgb, NEUTRAL_INTENSITY, mood_color};
 use cf_render::{
     AbsolutePosition, AudioFeatures, CameraPose, CurrentShowFx, FloatingOrigin, QualityLevers, SceneColor, SceneMood,
@@ -12,13 +12,16 @@ use cf_render::{
 
 use super::dust::{Dust, DustMaterial, DustRig, dust_params, shell_shares};
 use super::light::{
-    FogReach, LightColors, LightInput, LightTuning, SceneLightParams, SceneLightUniform, TUBES, Tube, compose,
+    FogReach, LightColors, LightInput, LightTuning, SceneLightParams, SceneLightUniform, Surface, TUBES, Tube, compose,
 };
 use super::modulation::{FogInput, FogModulation, FogTuning};
 use crate::car::CarState;
 use crate::landmarks::CityField;
 use crate::road::RoadLook;
 use crate::sky::SkyLook;
+
+/// Durée du fondu du détail des surfaces quand la qualité change de niveau, s.
+const DETAIL_FADE_S: f32 = 1.5;
 
 /// Ce que le spectacle demande à l'atmosphère, en plus du son. Écrit par les événements (apnée d'EV4, chantier C7).
 #[derive(Resource, Debug, Clone, Copy, PartialEq, Default)]
@@ -82,7 +85,8 @@ pub(super) fn update_scene_light(
     origin: Option<Res<FloatingOrigin>>,
     field: Option<Res<CityField>>,
     focus: Query<Focus, With<StreamFocus>>,
-    mut modulation: Local<FogModulation>,
+    // Regroupés : un système Bevy a seize paramètres au plus.
+    (mut modulation, levers, mut detail): (Local<FogModulation>, Option<Res<QualityLevers>>, Local<Option<f32>>),
     mut uniform: ResMut<SceneLightUniform>,
     mut reach: ResMut<FogReach>,
 ) {
@@ -133,6 +137,18 @@ pub(super) fn update_scene_light(
             };
         }
     }
+    // Détail des surfaces : plein aux deux premiers niveaux de qualité, coupé ensuite. Il glisse en 1,5 s : un changement
+    // de niveau ne fait jamais sauter l'image.
+    let detail_goal = levers.map_or(1.0, |l| if l.level < 2 { 1.0 } else { 0.0 });
+    let detail_now = detail.get_or_insert(detail_goal);
+    let step = time.delta_secs() / DETAIL_FADE_S;
+    *detail_now += (detail_goal - *detail_now).clamp(-step, step);
+    let surface = Surface {
+        puddles: signals.as_deref().map_or(0.0, |s| s.get(Target::Puddles)),
+        neon_saturation: signals.as_deref().map_or(0.0, |s| s.get(Target::NeonSaturation)),
+        energy_slow: f.map_or(0.5, |f| f.intensity),
+        detail: *detail_now,
+    };
     let light = compose(
         &tuning.light,
         &colors,
@@ -145,9 +161,14 @@ pub(super) fn update_scene_light(
             spectrum: signals
                 .as_deref()
                 .map_or([0.0; cf_analysis::SPECTRUM_BANDS], |s| s.spectrum),
+            surface,
         },
     );
-    uniform.set_if_neq(SceneLightUniform(light.params(origin.origin(), tuning.light.tube_gain)));
+    uniform.set_if_neq(SceneLightUniform(light.params(
+        origin.origin(),
+        tuning.light.tube_gain,
+        tuning.light.calm_energy,
+    )));
 }
 
 /// `CfSet::Present` : recopie le bloc de l'image dans chaque matériau `M` du monde. Un matériau déjà à jour n'est pas

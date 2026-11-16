@@ -12,6 +12,7 @@
 
 mod collapse;
 mod material;
+pub mod rooms;
 mod systems;
 mod temperament;
 mod trail;

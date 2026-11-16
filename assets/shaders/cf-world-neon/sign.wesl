@@ -75,6 +75,19 @@ const LOOK_GHOST: i32 = 2;
 const LOOK_NEON: i32 = 3;
 const LOOK_CAMERA: i32 = 4;
 
+// Néons d'enseigne (C4, DA §2.2), actifs quand le bloc `SceneLight` est rempli. Palier E2 au repos (en θ_b) : avec le
+// pouls (× 1,33 au plus) un tube reste sous 3·θ_b. Le cœur d'un tube (couverture au-dessus de `SIGN_CORE_FROM`) vire à
+// la glace, le bord reste saturé. Le haut-médium sature les enseignes additives d'au plus `SIGN_SATURATION`.
+const SIGN_E2: f32 = 1.5;
+const SIGN_CORE_FROM: f32 = 0.55;
+const SIGN_SATURATION: f32 = 0.35;
+
+// Un tube dont la couverture est `cov` : la teinte au bord, la glace au cœur (`mix(c, blanc, cœur²)`).
+fn sign_tube(c: vec3<f32>, cov: f32) -> vec3<f32> {
+    let core = smoothstep(SIGN_CORE_FROM, 0.95, cov) * scene.fog.w;
+    return mix(c, sign.ice.rgb, core * core);
+}
+
 // `dst` est prémultiplié : rgb déjà multiplié par l'alpha. Composition « source over ».
 fn over(dst: vec4<f32>, color: vec3<f32>, a: f32) -> vec4<f32> {
     let s = clamp(a, 0.0, 1.0);
@@ -344,9 +357,11 @@ fn fragment(in: VertexOutput, @builtin(front_facing) is_front: bool) -> @locatio
         let bright = (0.75 + pulse * 0.25) / 0.75;
         // Les tubes morts respirent lentement, jamais en stroboscope.
         let dead = 0.35 + 0.65 * (0.5 + 0.5 * sin(sign.state.w * 0.9 + sign.velvet.w * 3.0));
-        c = over(c, sign.accent.rgb, cov.r * bright);
+        c = over(c, sign_tube(sign.accent.rgb, cov.r), cov.r * bright);
         c = over(c, sign.ice.rgb, cov.g * bright);
-        c = over(c, sign.accent.rgb, cov.b * dead * bright);
+        c = over(c, sign_tube(sign.accent.rgb, cov.b), cov.b * dead * bright);
+        // Palier E2 : le tube rayonne (halo court du bloom), ce que l'aplat d'avant ne faisait pas.
+        c = vec4<f32>(c.rgb * mix(1.0, SIGN_E2, scene.fog.w), c.a);
     } else {
         additive = false;
         c = camera(p);
@@ -357,7 +372,11 @@ fn fragment(in: VertexOutput, @builtin(front_facing) is_front: bool) -> @locatio
     // caisson opaque la reçoit comme une façade. Bloc à zéro : rien ne change.
     let world = in.world_position.xyz;
     if additive {
-        return vec4<f32>(c.rgb * k * atmo_fade(world, view.world_position), 0.0);
+        // Le haut-médium sature les enseignes (signal déjà filtré et à plat en respiration) : la teinte s'écarte du gris,
+        // la luminance ne bouge pas.
+        let luma = dot(c.rgb, vec3<f32>(0.2126, 0.7152, 0.0722));
+        let vivid = max(mix(vec3<f32>(luma), c.rgb, 1.0 + SIGN_SATURATION * scene.surface.y), vec3<f32>(0.0));
+        return vec4<f32>(vivid * k * atmo_fade(world, view.world_position), 0.0);
     }
     let a = c.a * opacity;
     let lit = c.rgb * k;

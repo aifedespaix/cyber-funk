@@ -15,6 +15,7 @@
 //! Sans écran : `xvfb-run -a` et le rendu logiciel de Mesa (`VK_ICD_FILENAMES=/usr/share/vulkan/icd.d/lvp_icd.json`).
 
 mod check;
+mod scenes;
 #[path = "../road_demo/shots.rs"]
 #[allow(
     dead_code,
@@ -82,6 +83,11 @@ fn main() {
     if check {
         app.init_resource::<check::Check>()
             .insert_resource(TimeUpdateStrategy::ManualDuration(Duration::from_secs_f64(1.0 / 60.0)))
+            .init_resource::<scenes::ForcedView>()
+            .add_systems(
+                Update,
+                scenes::override_view.after(CfSet::Direct).before(CfSet::Present),
+            )
             .add_systems(Update, check::run_check.after(CfSet::Present));
     } else {
         app.add_systems(Update, (keys, beat).chain().in_set(CfSet::Input));

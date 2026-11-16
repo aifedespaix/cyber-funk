@@ -10,131 +10,18 @@ use std::time::Instant;
 use bevy::math::DVec3;
 use bevy::prelude::*;
 use bevy::render::view::screenshot::{Screenshot, ScreenshotCaptured, save_to_disk};
-use cf_render::audio::{FilteredSignals, VisualDensity};
-use cf_render::{AbsolutePosition, AudioFeatures, DiagnosticsSnapshot, FloatingOrigin};
+use cf_render::audio::{FilteredSignals, Target, VisualDensity};
+use cf_render::postfx::measure::{PaletteHues, hue_degrees, measure};
+use cf_render::{AbsolutePosition, AudioFeatures, DiagnosticsSnapshot, FloatingOrigin, SceneColor, ScenePalette};
 use cf_show::density::DensityState;
 use cf_world_neon::{FacadeLook, RoadLook, Runner};
 
 use crate::SIZE;
+use crate::scenes::{ForcedView, SCENES};
 use crate::shots::{Shot, differing_share, luma, worst_diff};
 
 /// Temps réel (s) laissé au démarrage (compilation des pipelines par le rendu logiciel).
 const WARMUP_S: f64 = 10.0;
-/// Images laissées à une scène pour que l'origine, les transforms, les tronçons et le matériau soient à jour.
-const SETTLE_FRAMES: u32 = 10;
-/// Scènes d'atmosphère : assez long pour que la densité de la brume (constante de temps de 1,5 s) ait rejoint l'énergie
-/// de la scène.
-const ATMO_SETTLE_FRAMES: u32 = 240;
-
-#[derive(Clone, Copy)]
-struct Scene {
-    name: &'static str,
-    via_z: Option<f64>,
-    car_z: f64,
-    time_s: f64,
-    pulse: f32,
-    beat: f64,
-    wet: f32,
-    rain: f32,
-    build: f32,
-    /// Énergie lente de l'analyse (densité de la brume) et densité visuelle `Δ` (C3).
-    intensity: f32,
-    density: f32,
-    /// Âge (s) du dernier kick, pour la coquille de vide de la brume (C3).
-    kick_age: Option<f32>,
-    /// Images laissées à la scène avant la capture.
-    settle: u32,
-}
-
-const BASE: Scene = Scene {
-    name: "",
-    via_z: None,
-    car_z: -1234.5,
-    time_s: 3.0,
-    pulse: 0.0,
-    beat: 4.0,
-    wet: 0.0,
-    rain: 0.0,
-    build: 1.0,
-    intensity: 0.7,
-    density: 0.65,
-    kick_age: None,
-    settle: SETTLE_FRAMES,
-};
-
-const SCENES: [Scene; 11] = [
-    Scene {
-        name: "1-depart",
-        ..BASE
-    },
-    Scene {
-        name: "2-kick",
-        pulse: 1.0,
-        beat: 4.0,
-        ..BASE
-    },
-    Scene {
-        name: "3-pluie",
-        wet: 1.0,
-        rain: 0.8,
-        time_s: 12.0,
-        ..BASE
-    },
-    Scene {
-        name: "4-revelation",
-        build: 0.45,
-        ..BASE
-    },
-    // À 110 m de la première arche (z = −1 203,4 m) : plus loin, la brume l'a déjà avalée (elle est pleine à 380 m).
-    Scene {
-        name: "5-arche",
-        car_z: -1203.4 + 110.0,
-        ..BASE
-    },
-    // Même point de vue de part et d'autre d'un recentrage d'origine (28 800 m) : la ville doit être identique.
-    Scene {
-        name: "6-seuil-direct",
-        car_z: -14_000.0,
-        ..BASE
-    },
-    Scene {
-        name: "7-seuil-via-km30",
-        via_z: Some(-30_000.0),
-        car_z: -14_000.0,
-        ..BASE
-    },
-    // Atmosphère (C3) : calme, sommet, et la coquille de vide d'un kick vieux de 0,45 s (front à 18 m du sujet).
-    Scene {
-        name: "8-atmo-calme",
-        intensity: 0.2,
-        density: 0.35,
-        settle: ATMO_SETTLE_FRAMES,
-        ..BASE
-    },
-    Scene {
-        name: "9-atmo-sommet",
-        intensity: 1.0,
-        density: 1.0,
-        settle: ATMO_SETTLE_FRAMES,
-        pulse: 0.6,
-        ..BASE
-    },
-    Scene {
-        name: "10-atmo-coquille",
-        kick_age: Some(0.45),
-        ..BASE
-    },
-    // Sol mouillé (C4) : flaques, reflets, et l'anneau d'un kick vieux de 0,35 s sur l'eau.
-    Scene {
-        name: "11-mouille-kick",
-        wet: 1.0,
-        rain: 0.2,
-        time_s: 12.0,
-        kick_age: Some(0.35),
-        ..BASE
-    },
-];
-
 #[derive(Clone, Copy, PartialEq, Eq, Default)]
 enum Stage {
     #[default]
@@ -152,6 +39,25 @@ pub(crate) struct Check {
     shots: std::collections::HashMap<&'static str, Shot>,
     counters: String,
     origins: std::collections::HashMap<&'static str, f64>,
+    /// Teintes des rôles de la palette (dominante : le cyan des tours, accent : le corail), lues à la première scène.
+    hues: Option<PaletteHues>,
+}
+
+/// `CF_SCENES=6-,7-` : ne joue que les scènes dont le nom contient l'un des fragments (itérer vite sur une capture).
+fn wanted(name: &str) -> bool {
+    std::env::var("CF_SCENES").map_or(true, |list| list.split(',').any(|part| name.contains(part.trim())))
+}
+
+/// Teintes des rôles de la palette : dominante, le cyan des tours ; accent, le corail.
+fn palette_hues(palette: &ScenePalette) -> PaletteHues {
+    let hue = |c: SceneColor| {
+        let c = palette.get(c);
+        hue_degrees([c.r, c.g, c.b]).unwrap_or(0.0)
+    };
+    PaletteHues {
+        dominant: hue(SceneColor::Mint),
+        accent: hue(SceneColor::Rose),
+    }
 }
 
 #[allow(clippy::too_many_arguments, reason = "un exemple : chaque réglage a sa ressource")]
@@ -162,13 +68,18 @@ pub(crate) fn run_check(
     mut road: ResMut<RoadLook>,
     mut facade: ResMut<FacadeLook>,
     origin: Res<FloatingOrigin>,
+    palette: Res<ScenePalette>,
     snapshot: Res<DiagnosticsSnapshot>,
     mut runner: Query<(&mut AbsolutePosition, &mut Visibility), With<Runner>>,
     mut exit: MessageWriter<AppExit>,
 ) {
     let start = *check.start.get_or_insert_with(Instant::now);
+    check.hues.get_or_insert_with(|| palette_hues(&palette));
     if start.elapsed().as_secs_f64() < WARMUP_S {
         return;
+    }
+    while SCENES.get(check.index).is_some_and(|s| !wanted(s.name)) {
+        check.index += 1;
     }
     let Some(scene) = SCENES.get(check.index).copied() else {
         if let Some(dir) = std::env::var_os("CF_SNAPSHOT_DIR") {
@@ -204,7 +115,8 @@ pub(crate) fn run_check(
                 delta: scene.density,
                 ..DensityState::NEUTRAL
             }));
-            let mut signals = FilteredSignals::default();
+            commands.insert_resource(ForcedView(scene.view));
+            let mut signals = FilteredSignals::default().with(Target::Puddles, scene.puddles);
             // Un spectre en pente (graves forts, aigus faibles), pour les façades égaliseur (C4).
             for (i, band) in signals.spectrum.iter_mut().enumerate() {
                 *band = scene.intensity * (1.0 - 0.6 * i as f32 / 31.0);
@@ -339,14 +251,54 @@ fn evaluate(check: &Check) -> AppExit {
             format!("arche : la scène est dessinée ({arch} pixels lumineux)"),
         );
     }
+    recenter_verdicts(check, &mut verdict);
+    measure_verdicts(check, &mut verdict);
+    if ok {
+        info!("vérification : tout est bon");
+        AppExit::Success
+    } else {
+        error!("vérification : échec");
+        AppExit::error()
+    }
+}
+
+/// Recentrage de l'origine flottante : la même ville de part et d'autre.
+fn recenter_verdicts(check: &Check, verdict: &mut impl FnMut(bool, String)) {
+    let shot = |name: &str| check.shots.get(name);
     if let (Some(a), Some(b)) = (shot("6-seuil-direct"), shot("7-seuil-via-km30")) {
-        let (worst, share) = (worst_diff(a, b), differing_share(a, b, 3.0));
+        // Les faisceaux, les planètes et les étoiles sont animés par l'horloge : ils diffèrent d'une capture à l'autre quelle
+        // que soit l'origine. Le verdict porte donc sur ce qui ne dépend que de la position : le sol (chaussée, brume
+        // basse, nappe) et les façades des deux bords de l'image, que rien d'animé ne traverse.
+        let share_in = |(x0, y0): (u32, u32), (x1, y1): (u32, u32)| {
+            let mut n = 0_u32;
+            for y in y0..y1 {
+                for x in x0..x1 {
+                    let (p, q) = (a.pixel(x, y), b.pixel(x, y));
+                    n += u32::from((0..3).any(|c| (p[c] - q[c]).abs() > 3.0));
+                }
+            }
+            n as f32 / ((x1 - x0) * (y1 - y0)) as f32
+        };
+        let ground = share_in((0, 405), (SIZE.0, SIZE.1));
         verdict(
-            share < 0.002,
+            ground < 0.002,
             format!(
-                "recentrage d'origine : même ville ({:.3} % des pixels à plus de 3/255, écart max {worst}/255)",
-                share * 100.0
+                "recentrage d'origine : même sol ({:.3} % des pixels à plus de 3/255)",
+                ground * 100.0
             ),
+        );
+        let facades = share_in((0, 0), (160, 225)).max(share_in((800, 45), (SIZE.0, 225)));
+        verdict(
+            facades < 0.02,
+            format!(
+                "recentrage d'origine : mêmes façades ({:.3} % des pixels à plus de 3/255)",
+                facades * 100.0
+            ),
+        );
+        let (worst, share) = (worst_diff(a, b), differing_share(a, b, 3.0));
+        info!(
+            "recentrage d'origine : image entière, {:.1} % des pixels diffèrent (faisceaux et ciel animés), écart max {worst}/255",
+            share * 100.0
         );
         let (oa, ob) = (
             check.origins.get("6-seuil-direct"),
@@ -357,11 +309,31 @@ fn evaluate(check: &Check) -> AppExit {
             format!("recentrage d'origine : origines différentes ({oa:?}, {ob:?})"),
         );
     }
-    if ok {
-        info!("vérification : tout est bon");
-        AppExit::Success
-    } else {
-        error!("vérification : échec");
-        AppExit::error()
+}
+
+/// Mesures de palette et de luminance sur les scènes d'atmosphère et de surface.
+fn measure_verdicts(check: &Check, verdict: &mut impl FnMut(bool, String)) {
+    let shot = |name: &str| check.shots.get(name);
+    // Mesures de DA §1.1 et §3.1 sur les scènes d'atmosphère et de surface (rôles de la palette, pas les pics de
+    // l'histogramme) : `Ȳ`, part d'émissifs, part des émissifs dans la dominante ou l'accent, part de glace.
+    if let Some(hues) = check.hues {
+        for name in ["8-atmo-calme", "9-atmo-sommet", "11-mouille-kick", "12-fenetres-face"] {
+            if let Some(s) = shot(name) {
+                let r = measure(&s.rgba, s.width, hues, None);
+                info!(
+                    "mesure {name} : Ȳ {:.3}, émissifs {:.1} %, dans la palette {:.0} %, glace {:.2} %",
+                    r.mean_y,
+                    r.emissive_share * 100.0,
+                    r.emissive_in_palette * 100.0,
+                    r.ice_share * 100.0
+                );
+                if name != "12-fenetres-face" {
+                    verdict(
+                        r.ice_share < 0.02,
+                        format!("{name} : moins de 2 % de glace ({:.2} %)", r.ice_share * 100.0),
+                    );
+                }
+            }
+        }
     }
 }

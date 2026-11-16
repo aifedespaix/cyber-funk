@@ -87,57 +87,8 @@ const FLOOR_HEIGHT: f32 = 2.4;
 const BAY_WIDTH: f32 = 1.3;
 // Altitude de la nappe de brouillard sous la route, en mètres.
 const MIST_Y: f32 = -50.0;
-// Albédo du béton (DA §2.2) : la part des lumières de scène que le corps d'une tour renvoie.
-const FACADE_ALBEDO: f32 = 0.18;
-// Fenêtres hiérarchisées (C4) : part des étages allumés au calme, ce que `Δ` y ajoute, et chance d'une fenêtre d'être
-// allumée dans un étage allumé ou éteint. Miroir Rust : `facade/windows.rs`.
-const WINDOW_SHARE_CALM: f32 = 0.18;
-const WINDOW_SHARE_DELTA: f32 = 0.42;
-const WINDOW_ON_FLOOR: f32 = 0.9;
-const WINDOW_OFF_FLOOR: f32 = 0.03;
-// Intensité log-normale d'une fenêtre : palier E1 et écart-type du logarithme.
-const WINDOW_E1: f32 = 0.8;
-const WINDOW_SIGMA: f32 = 0.6;
-
-// Joints de banche du béton : un tous les 3 m.
-const FACADE_JOINT_M: f32 = 3.0;
-// Façades égaliseur : part des tours, et largeur du fondu au sommet d'une colonne (en part de la hauteur).
-const METER_SHARE: f32 = 0.125;
-const METER_SOFT: f32 = 0.02;
-
-// Une fenêtre du vu-mètre est allumée si son étage (0 au pied, 1 au sommet) est sous le niveau de sa bande.
-fn meter_lit(floor_level: f32, level: f32) -> f32 {
-    return 1.0 - smoothstep(level - METER_SOFT, level + METER_SOFT, floor_level);
-}
-
-// Tubes néon (C4, DA §2.2) : rayon des arêtes et des bordures de toit (m), palier E2 au repos (en θ_b), part du halo.
-const NEON_EDGE_RADIUS: f32 = 0.07;
-const NEON_ROOF_RADIUS: f32 = 0.17;
-const NEON_E2: f32 = 1.5;
-const NEON_HALO: f32 = 0.35;
-
-// Profil d'un tube à la distance `d` de son axe : `cœur = 1 − smoothstep(r/2, r, d)`, le cœur vire au blanc (la glace de
-// la palette), le halo reste saturé et s'éteint en `exp(−d/4r)`. Le blanc ne couvre que le cœur.
-fn neon_tube(c: vec3<f32>, white: vec3<f32>, d: f32, r: f32) -> vec3<f32> {
-    let core = 1.0 - smoothstep(0.5 * r, r, d);
-    return mix(c, white, core * core) * core + c * exp(-d / (4.0 * r)) * NEON_HALO;
-}
-
-// Part des étages allumés : 0,18 + 0,42·Δ, décalée par le tempérament de l'immeuble.
-fn window_share(delta: f32, bias: f32) -> f32 {
-    return clamp(WINDOW_SHARE_CALM + WINDOW_SHARE_DELTA * clamp(delta, 0.0, 1.0) + bias, 0.02, 0.95);
-}
-
-// Gain log-normal d'une fenêtre, `n` gaussien (somme de trois hachages, bornée à ±3).
-fn window_gain(n: f32) -> f32 {
-    return WINDOW_E1 * exp(WINDOW_SIGMA * clamp(n, -3.0, 3.0));
-}
-
-// Plafond d'une fenêtre : aucun canal ne dépasse `cap` (0,9·θ_b), la teinte est gardée.
-fn window_cap(c: vec3<f32>, cap: f32) -> vec3<f32> {
-    let top = max(c.r, max(c.g, c.b));
-    return c * min(1.0, cap / max(top, 0.0001));
-}
+// Les constantes et les fonctions de matière du chantier C4 (fenêtres hiérarchisées, tubes néon, halo des murs, chanfrein
+// de toit) sont dans `facade_light.wesl` ; les fenêtres habitées dans `facade_rooms.wesl`.
 
 // `smoothstep(edge0, edge1, x)` de GLSL accepte edge0 > edge1 ; WGSL l'interdit. 1 - smoothstep(e1, e0, x) donne la même
 // courbe.
@@ -210,6 +161,8 @@ struct FacadeVarying {
     @location(8) @interpolate(flat) graffiti: u32,
     // Décalage propre à la tour (0..1) : les tours apparaissent en cascade, pas en mur.
     @location(9) @interpolate(flat) cascade: f32,
+    // La caméra dans le repère de la pièce, en mètres (fenêtres habitées : le rayon de vue en espace tangent).
+    @location(10) @interpolate(flat) cam_l: vec3<f32>,
 }
 
 @vertex
@@ -237,6 +190,8 @@ fn vertex(v: FacadeVertex) -> FacadeVarying {
     out.temper = (tag >> 24u) & 7u;
     out.graffiti = tag >> 27u;
     out.cascade = tower_offset(m[3].xz);
+    let to_cam = view.world_position - m[3].xyz;
+    out.cam_l = vec3<f32>(dot(to_cam, m[0].xyz) / out.size.x, dot(to_cam, m[1].xyz) / out.size.y, dot(to_cam, m[2].xyz) / out.size.z);
     out.clip = position_world_to_clip(wp.xyz);
     return out;
 }
@@ -276,6 +231,8 @@ fn fragment(in: FacadeVarying) -> @location(0) vec4<f32> {
     let uu = u / BAY_WIDTH + 64.0;
     let vv = h / FLOOR_HEIGHT;
     let px = max(fwidth(uu), fwidth(vv));
+    // Taille d'un pixel sur la façade, en mètres de hauteur (chanfrein de toit).
+    let px_m = fwidth(in.local.y);
 
     // Révélation holographique (pré-intro) : la ville monte, les tours proches d'abord ; une ligne de balayage marque la
     // coupe.
@@ -338,7 +295,10 @@ fn fragment(in: FacadeVarying) -> @location(0) vec4<f32> {
         let streaks = 0.8 + 0.4 * vnoise(vec2<f32>(u * 2.2 + seed, h * 0.16));
         let joint = 1.0 - 0.3 * sstep(0.03, 0.0, abs(fract(h / FACADE_JOINT_M) - 0.5) - 0.47);
         let body = col * mix(1.0, streaks * joint, detail);
-        col = mix(col, (body * shade + fill) * ao + scene.c_rim.rgb * rim * FACADE_ALBEDO, lit_scene);
+        // Halo des tubes proches sur le mur (P2 §1.2, `L_halo`) : le sujet éclaire les façades qu'il longe, cassé par le
+        // grain du béton. Aucune lumière dynamique.
+        let halo = wall_halo(in.world, n, mix(0.5, streaks - 0.3, detail)) * FACADE_ALBEDO * select(1.0, 0.0, far);
+        col = mix(col, (body * shade + fill) * ao + scene.c_rim.rgb * rim * FACADE_ALBEDO + halo, lit_scene);
     }
 
     let roof = in.normal_l.y > 0.5;
@@ -422,7 +382,16 @@ fn fragment(in: FacadeVarying) -> @location(0) vec4<f32> {
         }
         // Règle 7 : le gain de mouvement ne s'ajoute qu'à la base stable (0,55), jamais au pouls brut du kick contenu dans
         // `glow` ; sans mouvement (`motion` = 1) le terme est exactement nul et le rendu d'avant est inchangé.
-        let pane = window_color * lit * mask * (glow + 0.55 * (motion - 1.0)) * (1.0 + 0.45 * wet) * power_left;
+        // Fenêtres habitées (C4, DA §5 idée 1) : la vitre ouvre sur une pièce en fausse profondeur, seulement pour les
+        // fenêtres pleines ; aplat au loin, en qualité basse et bloc à zéro (`room` vaut alors 1).
+        var room = 1.0;
+        if !far && temper_b.x < 0.5 {
+            let ray_l = in.local - in.cam_l;
+            let ray_t = select(vec3<f32>(ray_l.x, ray_l.y, -ray_l.z * sign(in.normal_l.z)), vec3<f32>(ray_l.z, ray_l.y, -ray_l.x * sign(in.normal_l.x)), along_x);
+            let room_fade = lit_scene * scene.surface.w * (1.0 - smoothstep(0.03, 0.12, px)) * (1.0 - smoothstep(ROOM_FADE_NEAR_M, ROOM_FADE_FAR_M, dist));
+            room = mix(1.0, room_shade(f, ray_t, cell, seed + face * 7.0, time), room_fade);
+        }
+        let pane = window_color * lit * mask * room * (glow + 0.55 * (motion - 1.0)) * (1.0 + 0.45 * wet) * power_left;
         // Intensité log-normale par fenêtre, plafonnée sous le seuil du bloom (C4, DA §1.1) : une fenêtre reste au palier
         // E1, quoi que fasse la musique. Bloc à zéro : la fenêtre d'avant.
         let pane_n = (h21(cell + 41.0) + h21(cell + 43.0) + h21(cell + 47.0) - 1.5) * 2.0;
@@ -441,7 +410,8 @@ fn fragment(in: FacadeVarying) -> @location(0) vec4<f32> {
             let fall = 1.0 - onset;
             let band_y = mix(in.size.y * 1.1, 0.0, fall * fall);
             let band_d = (in.local.y - band_y) / 2.2;
-            col += mix(ice, v_c, 0.5) * exp(-band_d * band_d) * onset * reacts * 0.9;
+            // Un mur monte d'un palier au plus sous la musique (DA §1.1) : la bande reste en E1 quand la scène est éclairée.
+            col += mix(ice, v_c, 0.5) * exp(-band_d * band_d) * onset * reacts * mix(0.9, SNARE_BAND_E1, lit_scene);
         }
 
         // Ruissellement : des filets d'eau qui descendent, éclairés par les fenêtres et la teinte de la tour.
@@ -468,7 +438,8 @@ fn fragment(in: FacadeVarying) -> @location(0) vec4<f32> {
 
         // Ceinture lumineuse à l'étage des projecteurs.
         let spot = step(0.0, in.info.y) * sstep(0.7, 0.2, abs(h - in.info.y));
-        col += mix(ice, v_c, 0.35) * spot * (1.2 + pulse * 1.6);
+        // Palier E2 avec les néons (1,5 à 2,5·θ_b) quand la scène est éclairée.
+        col += mix(ice, v_c, 0.35) * spot * mix(1.2 + pulse * 1.6, NEON_E2 + pulse * 1.0, lit_scene);
 
         // Arêtes verticales en néon sur une partie des tours.
         let edge = sstep(0.14, 0.0, min(abs(u - width * 0.5), abs(u + width * 0.5)));
@@ -479,6 +450,9 @@ fn fragment(in: FacadeVarying) -> @location(0) vec4<f32> {
             let edge_d = min(abs(u - width * 0.5), abs(u + width * 0.5));
             let tube = neon_tube(v_c, ice, edge_d, NEON_EDGE_RADIUS) * (NEON_E2 + pulse * 1.0 + bass * 0.5);
             col += mix(v_c * edge * (0.7 + pulse * 1.0 + bass * 0.4), tube, lit_scene) * trimmed;
+            // Chanfrein lumineux de toit (DA §2.1) : un filet E2 de 1,5 pixel au sommet d'un immeuble sur trois.
+            let top_d = in.size.y - in.local.y;
+            col += v_c * roof_chamfer(top_d, px_m, seed) * NEON_E2 * awake * lit_scene * select(0.0, 1.0, tier < 1.5);
         }
     } else if roof {
         // Toit : bordure néon et lueur sourde.

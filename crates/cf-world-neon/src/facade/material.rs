@@ -16,7 +16,8 @@ use crate::landmarks::field::FieldParams;
 
 /// Le shader des façades, embarqué dans le binaire : aucun fichier lu pendant un show (règle 8 de `CLAUDE.md`).
 pub(crate) const FACADE_SHADER: Handle<Shader> = uuid_handle!("2b8c5e1d-7a43-4f9b-86d0-c3e17a5b9d24");
-/// Source du shader : `facade.wesl`, suivi de `facade_shapes.wesl` (formes de lumière), `facade_motion.wesl` (mouvements),
+/// Source du shader : `facade.wesl`, suivi de `facade_shapes.wesl` (formes de lumière), `facade_light.wesl` (matière, C4),
+/// `facade_rooms.wesl` (fenêtres habitées, C4), `facade_motion.wesl` (mouvements),
 /// `facade_trail.wesl` (traîne de la voiture), `facade_life.wesl` (vie des fenêtres), `field.wesl` (champ de la ville,
 /// partagé avec la route : immeubles-vitrines, zone de glitch, panne de courant), `facade_collapse.wesl` (chute des tours) et
 /// `facade_paint.wesl` (graffitis muraux, toujours en dernier : un test lit tout ce qui suit `paint_wall`).
@@ -24,6 +25,10 @@ pub(crate) const FACADE_SOURCE: &str = concat!(
     include_str!("../../../../assets/shaders/cf-world-neon/facade.wesl"),
     "\n",
     include_str!("../../../../assets/shaders/cf-world-neon/facade_shapes.wesl"),
+    "\n",
+    include_str!("../../../../assets/shaders/cf-world-neon/facade_light.wesl"),
+    "\n",
+    include_str!("../../../../assets/shaders/cf-world-neon/facade_rooms.wesl"),
     "\n",
     include_str!("../../../../assets/shaders/cf-world-neon/facade_motion.wesl"),
     "\n",

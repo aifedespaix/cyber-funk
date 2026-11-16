@@ -17,6 +17,7 @@
 mod lamps;
 mod look;
 mod material;
+pub mod surface;
 mod systems;
 
 use bevy::prelude::*;

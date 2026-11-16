@@ -97,13 +97,24 @@ fn h21(p_in: vec2<f32>) -> f32 {
     return fract(p.x * p.y);
 }
 
-fn vnoise(p: vec2<f32>) -> f32 {
+// Pas de recentrage de l'origine flottante (`ORIGIN_STEP` de `cf-render`), m.
+const ORIGIN_STEP_M: f32 = 28800.0;
+
+// Bruit de valeur (`NOISE_GLSL` de Sillage), continu au recentrage de l'origine : `scale` (m⁻¹) est l'échelle appliquée à la position rendue, et le
+// treillis est replié sur `28 800 × scale` cellules (entier pour toutes les échelles de ce fichier), période centrée sur
+// zéro. Près de l'origine (moins d'une demi-période) le résultat est celui du bruit de Sillage, au bit près ; au
+// recentrage, les flaques et le relief ne sautent plus.
+fn vnoise_world(p: vec2<f32>, scale: vec2<f32>) -> f32 {
+    let t = round(ORIGIN_STEP_M * scale);
     let i = floor(p);
     var f = fract(p);
     f = f * f * (3.0 - 2.0 * f);
+    let j = i + vec2<f32>(1.0);
+    let a = i - t * round(i / t);
+    let b = j - t * round(j / t);
     return mix(
-        mix(h21(i), h21(i + vec2<f32>(1.0, 0.0)), f.x),
-        mix(h21(i + vec2<f32>(0.0, 1.0)), h21(i + vec2<f32>(1.0, 1.0)), f.x),
+        mix(h21(a), h21(vec2<f32>(b.x, a.y)), f.x),
+        mix(h21(vec2<f32>(a.x, b.y)), h21(b), f.x),
         f.y,
     );
 }
@@ -162,11 +173,11 @@ fn facade_reflection(p: vec3<f32>, r: vec3<f32>) -> vec3<f32> {
         let id = floor(cell);
         let f = fract(cell);
         // Avec l'éclairage de scène (C4), le reflet suit la hiérarchie des façades : part des étages allumés
-        // `0,18 + 0,42·Δ`, fenêtres allumées par étages entiers (mêmes constantes que `facade.wesl`). Bloc à zéro : une
-        // fenêtre sur deux, comme avant.
-        let share = 0.18 + 0.42 * clamp(scene.c_fill.w, 0.0, 1.0);
+        // `0,18 + 0,42·Δ`, fenêtres allumées par étages entiers (constantes de `facade_light.wesl`, comparées par un test
+        // Rust). Bloc à zéro : une fenêtre sur deux, comme avant.
+        let share = ROAD_WINDOW_SHARE_CALM + ROAD_WINDOW_SHARE_DELTA * clamp(scene.c_fill.w, 0.0, 1.0);
         let floor_on = step(h21(vec2<f32>(id.y * 1.37 + 5.0, side * 9.0)), share);
-        let lit = step(h21(id + vec2<f32>(side * 9.0, 3.0)), mix(0.5, mix(0.03, 0.9, floor_on), scene.fog.w));
+        let lit = step(h21(id + vec2<f32>(side * 9.0, 3.0)), mix(0.5, mix(ROAD_WINDOW_OFF_FLOOR, ROAD_WINDOW_ON_FLOOR, floor_on), scene.fog.w));
         let pane = smoothstep(0.1, 0.22, f.x) * (1.0 - smoothstep(0.78, 0.9, f.x))
             * smoothstep(0.15, 0.3, f.y) * (1.0 - smoothstep(0.7, 0.85, f.y));
         let tone = h21(id + 57.0);
@@ -210,28 +221,8 @@ fn rain_ripples(p: vec2<f32>, time: f32, rain: f32) -> vec4<f32> {
     return out;
 }
 
-// Flaque de lumière sous le sujet : rayon (m) et gain.
-const ROAD_POOL_SIGMA_M: f32 = 6.0;
-const ROAD_POOL_GAIN: f32 = 0.12;
-// Ondes de kick sur l'eau : vitesse du front (m/s), épaisseur (m), durée de vie (s), pente maximale.
-const ROAD_KICK_SPEED: f32 = 14.0;
-const ROAD_KICK_WIDTH: f32 = 0.9;
-const ROAD_KICK_LIFE: f32 = 0.7;
-const ROAD_KICK_SLOPE: f32 = 0.05;
-
-// Pente ajoutée à la surface de l'eau par les quatre derniers kicks (âges dans `scene.kick_age`, source `scene.source`).
-// La pente est la dérivée radiale d'une gaussienne : elle s'annule sur la crête et s'éteint avec l'âge.
-fn kick_ripples(p: vec2<f32>) -> vec2<f32> {
-    let to = p - scene.source.xz;
-    let r = max(length(to), 0.001);
-    var slope = 0.0;
-    for (var i = 0; i < 4; i++) {
-        let age = scene.kick_age[i];
-        let x = (r - ROAD_KICK_SPEED * age) / ROAD_KICK_WIDTH;
-        slope += -x * exp(-x * x) * exp(-age / ROAD_KICK_LIFE);
-    }
-    return (to / r) * slope * ROAD_KICK_SLOPE * scene.shell.w * 2.0;
-}
+// Les constantes et fonctions de surface du chantier C4 (rugosité réactive, ondes de kick, flaque de lumière) sont dans
+// `road_surface.wesl`, ajouté au bout de ce fichier.
 
 @fragment
 fn fragment(in: VertexOutput) -> @location(0) vec4<f32> {
@@ -259,7 +250,8 @@ fn fragment(in: VertexOutput) -> @location(0) vec4<f32> {
     var col = ink * (0.82 + 0.3 * grain);
 
     // Pluie : des flaques irrégulières. Mouillé, l'asphalte s'assombrit et reflète ; sec, il reste mat.
-    let pud = smoothstep(0.34, 0.66, vnoise(p * vec2<f32>(0.35, 0.12) + 7.0) * 0.6 + vnoise(p * vec2<f32>(1.3, 0.5)) * 0.4);
+    let pud = smoothstep(0.34, 0.66, vnoise_world(p * vec2<f32>(0.35, 0.12) + 7.0, vec2<f32>(0.35, 0.12)) * 0.6
+        + vnoise_world(p * vec2<f32>(1.3, 0.5), vec2<f32>(1.3, 0.5)) * 0.4);
     let wet_k = wet * (0.55 + 0.45 * pud);
     col *= 1.0 - 0.35 * wet_k;
 
@@ -268,7 +260,7 @@ fn fragment(in: VertexOutput) -> @location(0) vec4<f32> {
     let edge_color = mix(prism((p.y + road.phase.x) * 0.035 + time * 0.35), mood, 0.55);
     let edge = sstep(0.16, 0.0, abs(abs(p.x) - 8.4));
     col += edge_color * (edge * (1.1 + pulse * 1.2)
-        + wet_k * sstep(1.2, 0.0, abs(abs(p.x) - 8.4)) * (0.3 + 0.14 * pulse) * (0.6 + 0.4 * vnoise(vec2<f32>(p.y * 0.5, p.x * 2.0))));
+        + wet_k * sstep(1.2, 0.0, abs(abs(p.x) - 8.4)) * (0.3 + 0.14 * pulse) * (0.6 + 0.4 * vnoise_world(vec2<f32>(p.y * 0.5, p.x * 2.0), vec2<f32>(0.5, 2.0))));
 
     // Tirets centraux
     let dash_d = abs(gl_mod(p.y + 1000.0, 9.0) - 4.5) - 1.9;
@@ -321,10 +313,11 @@ fn fragment(in: VertexOutput) -> @location(0) vec4<f32> {
             rip = rain_ripples(p, time, rain);
         }
         // Relief de l'asphalte, étiré dans le sens de la marche : les reflets des lumières s'étirent en traînées verticales.
-        let sigma = mix(0.14, 0.015, pudk) * (1.0 + 1.5 * rain);
-        let n1 = vnoise(p * vec2<f32>(2.1, 0.55) + 3.0) - 0.5;
-        let n2 = vnoise(p * vec2<f32>(0.9, 0.22) + 11.0) - 0.5;
-        let n3 = vnoise(p * vec2<f32>(7.0, 2.6) + 29.0 + vec2<f32>(0.0, time * 0.4)) - 0.5;
+        // Rugosité réactive (C4) : un break aplanit les flaques en miroir. Bloc à zéro : le relief d'avant.
+        let sigma = mix(0.14, 0.015, pudk) * (1.0 + 1.5 * rain) * mix(1.0, road_calm_relief(pudk, scene.surface.z), scene.fog.w);
+        let n1 = vnoise_world(p * vec2<f32>(2.1, 0.55) + 3.0, vec2<f32>(2.1, 0.55)) - 0.5;
+        let n2 = vnoise_world(p * vec2<f32>(0.9, 0.22) + 11.0, vec2<f32>(0.9, 0.22)) - 0.5;
+        let n3 = vnoise_world(p * vec2<f32>(7.0, 2.6) + 29.0 + vec2<f32>(0.0, time * 0.4), vec2<f32>(7.0, 2.6)) - 0.5;
         // Ondes de kick (C4) : chaque kick pousse un anneau sur l'eau depuis le sujet. Bloc à zéro : aucune onde.
         let slope = vec2<f32>((n1 + 0.5 * n3) * 2.0, (n2 + 0.5 * n3) * 5.0) * sigma
             + (rip.xy + kick_ripples(p) * scene.fog.w) * near_k;
@@ -334,8 +327,17 @@ fn fragment(in: VertexOutput) -> @location(0) vec4<f32> {
         // Fresnel : presque un miroir sous une incidence rasante, presque rien en regardant droit dessous.
         let facing = clamp(dot(normal, -incident), 0.0, 1.0);
         let fresnel = 0.04 + 0.96 * pow(1.0 - facing, 5.0);
-        let rough = mix(0.09, 0.006, pudk);
-        let seen = lamp_reflection(world, reflected, rough) + facade_reflection(world, reflected) * 0.8;
+        // Le kick fait frémir les flaques : le reflet s'élargit pendant 180 ms (signal filtré, à plat en respiration).
+        let rough = mix(mix(0.09, 0.006, pudk), road_roughness(pudk, scene.surface.x, rain), scene.fog.w);
+        var seen = lamp_reflection(world, reflected, rough) + facade_reflection(world, reflected) * 0.8;
+        // Aberration du reflet (C4) : près de la caméra et en plein détail, le rouge et le bleu se séparent le long de la
+        // route, comme dans un film d'eau. Un second lancer seulement : le vert est la moyenne des deux.
+        if scene.surface.w * scene.fog.w > 0.5 && near_k > 0.0 {
+            let tilt = vec3<f32>(0.0, 0.0, ROAD_ABERRATION * near_k);
+            let blue = normalize(reflected + tilt);
+            let seen_b = lamp_reflection(world, blue, rough) + facade_reflection(world, blue) * 0.8;
+            seen = vec3<f32>(seen.r, 0.5 * (seen.g + seen_b.g), seen_b.b);
+        }
         col += min(seen, vec3<f32>(3.0)) * fresnel * refl * 1.3;
 
         // Les gouttes : anneaux qui s'élargissent (éclairés par la lumière ambiante et celle des immeubles-vitrines) et

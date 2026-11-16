@@ -88,6 +88,14 @@ impl FilteredSignals {
         self.values[target.index()]
     }
 
+    /// Les mêmes signaux, la cible `target` fixée à la main. Pour les démos, les captures et les tests : en show, seul le
+    /// moteur de routage écrit les cibles (bornes, pente, limiteur).
+    #[must_use]
+    pub const fn with(mut self, target: Target, value: f32) -> Self {
+        self.values[target.index()] = value;
+        self
+    }
+
     pub(super) fn set(&mut self, target: Target, value: f32) {
         self.values[target.index()] = value;
     }
