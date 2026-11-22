@@ -15,6 +15,7 @@ publish = false
 cf-audio = { path = "crates/cf-audio" }
 cf-analysis = { path = "crates/cf-analysis" }
 cf-control = { path = "crates/cf-control" }
+cf-probe-proto = { path = "crates/cf-probe-proto" }
 cf-show = { path = "crates/cf-show" }
 cf-debuglog = { path = "crates/cf-debuglog" }
 cf-render = { path = "crates/cf-render" }

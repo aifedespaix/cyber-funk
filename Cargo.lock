@@ -2506,6 +2506,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "cf-probe-proto"
+version = "0.1.0"
+dependencies = [
+ "cf-control",
+ "serde",
+ "serde_json",
+ "thiserror 2.0.21",
+]
+
+[[package]]
 name = "cf-render"
 version = "0.1.0"
 dependencies = [
