@@ -3,7 +3,9 @@
 //! stdout est le transport MCP : rien d'autre n'y est jamais écrit, les journaux vont sur stderr.
 
 mod client;
+mod logs;
 mod mcp;
+mod process;
 
 use anyhow::Context as _;
 use rmcp::ServiceExt as _;

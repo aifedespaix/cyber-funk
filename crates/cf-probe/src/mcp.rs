@@ -1,6 +1,7 @@
 //! Outils MCP : un par fonction. Toute erreur devient un résultat d'outil `isError`, jamais un plantage.
 
 use std::path::PathBuf;
+use std::process::Command;
 use std::sync::{Arc, Mutex, MutexGuard, PoisonError};
 use std::time::Duration;
 
@@ -13,6 +14,8 @@ use schemars::JsonSchema;
 use serde::Deserialize;
 
 use crate::client::{ProbeClient, READ_TIMEOUT};
+use crate::logs::{self, LogArgs};
+use crate::process::{self, DEFAULT_STARTUP_TIMEOUT, LaunchOptions, Launched};
 
 /// Nom du fichier d'état écrit par l'application (voir `cyber-funk::probe`).
 const STATE_FILE: &str = "probe.json";
@@ -47,12 +50,43 @@ pub struct StepParams {
     pub frames: u32,
 }
 
-/// Serveur MCP : tient la connexion à l'application une fois `attach` fait.
+/// Paramètres de `launch`.
+#[derive(Debug, Default, Deserialize, JsonSchema)]
+pub struct LaunchParams {
+    /// Show à jouer (`--show`), chemin d'un fichier RON.
+    pub show: Option<String>,
+    /// Épingle le pas de temps des `step` (`CF_PROBE_STEP_S`).
+    pub fixed_step: Option<bool>,
+    /// Rendu logiciel (variable wgpu `WGPU_FORCE_FALLBACK_ADAPTER=1`).
+    pub software_render: Option<bool>,
+    /// Arguments supplémentaires de l'application.
+    pub extra_args: Option<Vec<String>>,
+    /// Délai de démarrage en secondes (120 par défaut : la première compilation est longue).
+    pub startup_timeout_s: Option<u64>,
+}
+
+/// Paramètres de `log`.
+#[derive(Debug, Deserialize, JsonSchema)]
+pub struct LogParams {
+    /// Sous-commande de dbg.py : crash, summary, timeline, find, spans, check ou sessions.
+    pub subcommand: String,
+    /// Arguments de la sous-commande (ex. `--around 83500 --window 3000`, ou une référence `slot1/cue2`).
+    pub args: Option<Vec<String>>,
+    /// Nombre de lignes au plus (40 par défaut, 400 au maximum).
+    pub limit: Option<usize>,
+    /// Session voulue (la dernière par défaut).
+    pub session: Option<String>,
+}
+
+/// Serveur MCP : tient la connexion à l'application une fois `attach` ou `launch` fait.
 #[derive(Debug, Clone)]
 pub struct ProbeServer {
     client: Arc<Mutex<Option<ProbeClient>>>,
+    /// Application lancée par `launch` (absente après `stop`, ou une fois sa mort signalée).
+    child: Arc<Mutex<Option<Launched>>>,
     state_dir: Option<PathBuf>,
     read_timeout: Duration,
+    startup_timeout: Duration,
 }
 
 fn ok(text: impl Into<String>) -> CallToolResult {
@@ -84,6 +118,21 @@ fn lock(client: &Mutex<Option<ProbeClient>>) -> MutexGuard<'_, Option<ProbeClien
     client.lock().unwrap_or_else(PoisonError::into_inner)
 }
 
+/// Prend le verrou de l'enfant, même empoisonné (l'état est un simple `Option`).
+fn lock_child(child: &Mutex<Option<Launched>>) -> MutexGuard<'_, Option<Launched>> {
+    child.lock().unwrap_or_else(PoisonError::into_inner)
+}
+
+/// Si l'application lancée par `launch` est morte : l'oublie et rend le message à montrer (code de sortie, stderr).
+fn dead_child_message(child: &mut Option<Launched>) -> Option<String> {
+    let status = child.as_mut()?.exited()?;
+    let launched = child.take()?;
+    Some(format!(
+        "l'application s'est arrêtée ({status}) ; rappeler `launch`. Fin de stderr :\n{}",
+        launched.stderr_tail()
+    ))
+}
+
 impl ProbeServer {
     /// Délai de lecture des requêtes courtes (les tests le raccourcissent).
     #[cfg(test)]
@@ -97,15 +146,63 @@ impl ProbeServer {
     pub fn new(state_dir: Option<PathBuf>) -> Self {
         Self {
             client: Arc::new(Mutex::new(None)),
+            child: Arc::new(Mutex::new(None)),
             state_dir,
             read_timeout: READ_TIMEOUT,
+            startup_timeout: DEFAULT_STARTUP_TIMEOUT,
+        }
+    }
+
+    /// Lance `command` (remplace une application déjà lancée), attend sa sonde et s'y connecte.
+    async fn launch_with(&self, command: Command, startup_timeout: Duration) -> CallToolResult {
+        let Some(dir) = self.state_dir.clone() else {
+            return fail("pas de dossier de données sur ce système : probe.json introuvable");
+        };
+        let (client, child, read_timeout) = (Arc::clone(&self.client), Arc::clone(&self.child), self.read_timeout);
+        let outcome = tokio::task::spawn_blocking(move || {
+            let mut slot = lock_child(&child);
+            if let Some(old) = slot.as_mut() {
+                old.kill();
+            }
+            *slot = None;
+            *lock(&client) = None;
+            let mut launched = process::launch_command(command, &dir, startup_timeout)?;
+            match ProbeClient::connect_with(launched.port, read_timeout) {
+                Ok(connection) => {
+                    *lock(&client) = Some(connection);
+                    let summary = format!(
+                        "application lancée (pid {}, port {})",
+                        launched.child.id(),
+                        launched.port
+                    );
+                    *slot = Some(launched);
+                    Ok(summary)
+                }
+                Err(error) => {
+                    launched.kill();
+                    Err(error.context(format!("sonde annoncée sur le port {} mais injoignable", launched.port)))
+                }
+            }
+        })
+        .await;
+        match outcome {
+            Ok(Ok(summary)) => ok(summary),
+            Ok(Err(error)) => fail(format!("{error:#}")),
+            Err(error) => fail(format!("tâche interrompue : {error}")),
         }
     }
 
     /// Envoie une requête sur la connexion ouverte ; rend le texte d'erreur à montrer à l'appelant.
     async fn request(&self, request: ProbeRequest) -> Result<ProbeReply, String> {
         let client = Arc::clone(&self.client);
+        let child = Arc::clone(&self.child);
         let outcome = tokio::task::spawn_blocking(move || {
+            // Ordre des verrous : enfant puis connexion, partout.
+            let mut child = lock_child(&child);
+            if let Some(why) = dead_child_message(&mut child) {
+                *lock(&client) = None;
+                return Err(why);
+            }
             let mut guard = lock(&client);
             let Some(connection) = guard.as_mut() else {
                 return Err("pas de connexion : appeler d'abord l'outil `attach`".to_owned());
@@ -113,7 +210,9 @@ impl ProbeServer {
             connection.call(&request).map_err(|error| {
                 // Une réponse tardive fausserait la requête suivante : on referme, il faut se rattacher.
                 *guard = None;
-                format!("{error:#} ; connexion fermée, rappeler `attach`")
+                // Si l'application vient de mourir en pleine requête, c'est la vraie explication.
+                dead_child_message(&mut child)
+                    .unwrap_or_else(|| format!("{error:#} ; connexion fermée, rappeler `attach`"))
             })
         })
         .await;
@@ -168,6 +267,60 @@ impl ProbeServer {
         }
     }
 
+    /// Lance l'application avec la sonde et s'y connecte.
+    #[tool(
+        description = "Lance l'application cyber-funk avec --probe (binaire déjà compilé, sinon cargo run), attend \
+                          sa sonde et s'y connecte : remplace attach. Rend l'erreur avec la fin de stderr si elle \
+                          meurt au démarrage."
+    )]
+    pub async fn launch(&self, Parameters(params): Parameters<LaunchParams>) -> CallToolResult {
+        let options = LaunchOptions {
+            show: params.show.map(PathBuf::from),
+            fixed_step: params.fixed_step.unwrap_or(false),
+            software_render: params.software_render.unwrap_or(false),
+            extra_args: params.extra_args.unwrap_or_default(),
+        };
+        let timeout = params
+            .startup_timeout_s
+            .map_or(self.startup_timeout, Duration::from_secs);
+        self.launch_with(process::build_command(&options), timeout).await
+    }
+
+    /// Arrête l'application lancée par `launch`.
+    #[tool(description = "Tue l'application lancée par `launch` et ferme la connexion. `log` reste utilisable.")]
+    pub async fn stop(&self) -> CallToolResult {
+        let (client, child) = (Arc::clone(&self.client), Arc::clone(&self.child));
+        let outcome = tokio::task::spawn_blocking(move || {
+            *lock(&client) = None;
+            lock_child(&child).take().map(|mut launched| launched.kill()).is_some()
+        })
+        .await;
+        match outcome {
+            Ok(true) => ok("application arrêtée"),
+            Ok(false) => ok("aucune application lancée par `launch` ; connexion fermée"),
+            Err(error) => fail(format!("tâche interrompue : {error}")),
+        }
+    }
+
+    /// Lit les journaux de session via dbg.py.
+    #[tool(
+        description = "Lit les journaux de session (tools/debuglog/dbg.py) : crash, summary, timeline, find, spans, \
+                          check, sessions. Fonctionne même si l'application est morte."
+    )]
+    pub async fn log(&self, Parameters(params): Parameters<LogParams>) -> CallToolResult {
+        let args = LogArgs {
+            subcommand: params.subcommand,
+            args: params.args.unwrap_or_default(),
+            limit: params.limit.unwrap_or(logs::DEFAULT_LIMIT),
+            root: self.state_dir.as_ref().map(|dir| dir.display().to_string()),
+            session: params.session,
+        };
+        match tokio::task::spawn_blocking(move || logs::run(&args)).await {
+            Ok(text) => ok(text),
+            Err(error) => fail(format!("tâche interrompue : {error}")),
+        }
+    }
+
     /// Injecte une action comme si l'opérateur l'avait produite.
     #[tool(description = "Injecte une Action (JSON de cf_control::Action, ex. \"Go\") dans l'application.")]
     pub async fn send_action(&self, Parameters(params): Parameters<SendActionParams>) -> CallToolResult {
@@ -205,185 +358,9 @@ impl ProbeServer {
 impl ServerHandler for ProbeServer {}
 
 #[cfg(test)]
-mod tests {
-    use std::io::{BufRead as _, BufReader, Write as _};
-    use std::net::TcpListener;
-    use std::thread::JoinHandle;
+#[path = "mcp_tests.rs"]
+mod tests;
 
-    use cf_control::Action;
-    use cf_probe_proto::{ProbeReply, ProbeRequest, StateSnapshot, decode_line, encode_line};
-    use rmcp::handler::server::wrapper::Parameters;
-
-    use super::*;
-
-    /// Fausse application : répond `reply` à la première requête reçue et la rend au test.
-    fn fake_app(reply: ProbeReply) -> (u16, JoinHandle<ProbeRequest>) {
-        let listener = TcpListener::bind(("127.0.0.1", 0)).unwrap();
-        let port = listener.local_addr().unwrap().port();
-        let handle = std::thread::spawn(move || {
-            let (stream, _) = listener.accept().unwrap();
-            let mut line = String::new();
-            BufReader::new(stream.try_clone().unwrap())
-                .read_line(&mut line)
-                .unwrap();
-            let request: ProbeRequest = decode_line(&line).unwrap();
-            (&stream).write_all(encode_line(&reply).as_bytes()).unwrap();
-            request
-        });
-        (port, handle)
-    }
-
-    fn server_attached_to(port: u16) -> (ProbeServer, tempfile::TempDir) {
-        let dir = tempfile::tempdir().unwrap();
-        std::fs::write(dir.path().join("probe.json"), format!(r#"{{"port":{port},"pid":1}}"#)).unwrap();
-        (ProbeServer::new(Some(dir.path().to_path_buf())), dir)
-    }
-
-    fn text(result: &CallToolResult) -> String {
-        serde_json::to_string(&result.content).unwrap()
-    }
-
-    #[tokio::test]
-    async fn send_action_transmet_l_action_et_rend_ack() {
-        let (port, app) = fake_app(ProbeReply::Ack);
-        let (server, _dir) = server_attached_to(port);
-        assert_ne!(server.attach().await.is_error, Some(true));
-        let action = serde_json::to_value(Action::Go).unwrap();
-        let result = server.send_action(Parameters(SendActionParams { action })).await;
-        assert_ne!(result.is_error, Some(true), "{}", text(&result));
-        assert_eq!(app.join().unwrap(), ProbeRequest::SendAction(Action::Go));
-    }
-
-    #[tokio::test]
-    async fn state_rend_le_snapshot() {
-        let snapshot = StateSnapshot {
-            sim_time_s: 1.5,
-            phase: "Show".into(),
-            cue: Some("intro".into()),
-            shot: None,
-            beat_phase: 0.25,
-            bar_phase: 0.5,
-            grid_beat: 3.0,
-            grid_trust: 0.5,
-            kick_count: 2,
-            kick_now: false,
-            fps: 60.0,
-        };
-        let (port, app) = fake_app(ProbeReply::State(snapshot));
-        let (server, _dir) = server_attached_to(port);
-        server.attach().await;
-        let result = server.state().await;
-        assert_ne!(result.is_error, Some(true));
-        assert!(text(&result).contains("intro"));
-        assert_eq!(app.join().unwrap(), ProbeRequest::State);
-    }
-
-    #[tokio::test]
-    async fn un_outil_sans_attach_dit_d_attacher_d_abord() {
-        let server = ProbeServer::new(None);
-        let result = server.state().await;
-        assert_eq!(result.is_error, Some(true));
-        assert!(text(&result).contains("attach"));
-    }
-
-    #[tokio::test]
-    async fn une_action_json_invalide_est_une_erreur_d_outil_pas_un_plantage() {
-        let (port, _app) = fake_app(ProbeReply::Ack);
-        let (server, _dir) = server_attached_to(port);
-        server.attach().await;
-        let action = serde_json::json!({ "NExistePas": 3 });
-        let result = server.send_action(Parameters(SendActionParams { action })).await;
-        assert_eq!(result.is_error, Some(true));
-    }
-
-    /// Ce que fait la fausse application d'une connexion.
-    enum Behavior {
-        /// Lit une requête puis la ferme sans répondre.
-        CloseAfterRead,
-        /// Lit une requête et reste muette plus longtemps que le délai de lecture.
-        Silent,
-        /// Lit une requête et répond.
-        Reply(ProbeReply),
-    }
-
-    /// Fausse application qui sert une connexion par comportement, dans l'ordre.
-    fn fake_app_script(script: Vec<Behavior>) -> u16 {
-        let listener = TcpListener::bind(("127.0.0.1", 0)).unwrap();
-        let port = listener.local_addr().unwrap().port();
-        std::thread::spawn(move || {
-            for behavior in script {
-                let Ok((stream, _)) = listener.accept() else { return };
-                let mut line = String::new();
-                BufReader::new(stream.try_clone().unwrap())
-                    .read_line(&mut line)
-                    .unwrap();
-                match behavior {
-                    Behavior::CloseAfterRead => {}
-                    Behavior::Silent => std::thread::sleep(Duration::from_millis(800)),
-                    Behavior::Reply(reply) => (&stream).write_all(encode_line(&reply).as_bytes()).unwrap(),
-                }
-            }
-        });
-        port
-    }
-
-    fn write_port(dir: &tempfile::TempDir, port: u16) {
-        std::fs::write(dir.path().join("probe.json"), format!(r#"{{"port":{port},"pid":1}}"#)).unwrap();
-    }
-
-    fn short_server(dir: &tempfile::TempDir) -> ProbeServer {
-        ProbeServer::new(Some(dir.path().to_path_buf())).with_read_timeout(Duration::from_millis(150))
-    }
-
-    /// Après une chute : le second appel dit de rappeler `attach`, et un `attach` réussi remet le serveur d'aplomb.
-    async fn assert_recovers(server: &ProbeServer, dir: &tempfile::TempDir) {
-        let again = server.state().await;
-        assert_eq!(again.is_error, Some(true));
-        assert!(text(&again).contains("attach"), "{}", text(&again));
-        let port = fake_app_script(vec![Behavior::Reply(ProbeReply::Pong)]);
-        write_port(dir, port);
-        assert_ne!(server.attach().await.is_error, Some(true));
-        let result = server.state().await;
-        assert_ne!(result.is_error, Some(true), "{}", text(&result));
-    }
-
-    #[tokio::test]
-    async fn une_connexion_fermee_en_pleine_requete_est_une_erreur_d_outil() {
-        let dir = tempfile::tempdir().unwrap();
-        write_port(&dir, fake_app_script(vec![Behavior::CloseAfterRead]));
-        let server = short_server(&dir);
-        server.attach().await;
-        let result = server.state().await;
-        assert_eq!(result.is_error, Some(true));
-        assert!(text(&result).contains("fermé"), "{}", text(&result));
-        assert_recovers(&server, &dir).await;
-    }
-
-    #[tokio::test]
-    async fn un_delai_de_lecture_depasse_est_une_erreur_d_outil() {
-        let dir = tempfile::tempdir().unwrap();
-        write_port(&dir, fake_app_script(vec![Behavior::Silent]));
-        let server = short_server(&dir);
-        server.attach().await;
-        let result = server.state().await;
-        assert_eq!(result.is_error, Some(true));
-        assert!(text(&result).contains("délai"), "{}", text(&result));
-        assert_recovers(&server, &dir).await;
-    }
-
-    #[tokio::test]
-    async fn attach_sur_un_port_perime_est_une_erreur_d_outil_et_le_serveur_reste_utilisable() {
-        let dir = tempfile::tempdir().unwrap();
-        let stale = TcpListener::bind(("127.0.0.1", 0))
-            .unwrap()
-            .local_addr()
-            .unwrap()
-            .port();
-        write_port(&dir, stale);
-        let server = short_server(&dir);
-        let result = server.attach().await;
-        assert_eq!(result.is_error, Some(true));
-        assert!(text(&result).contains("lancée"), "{}", text(&result));
-        assert_recovers(&server, &dir).await;
-    }
-}
+#[cfg(test)]
+#[path = "mcp_lifecycle_tests.rs"]
+mod lifecycle_tests;
