@@ -331,7 +331,7 @@ Statuts : ⬜ à faire · 🟨 en cours (le journal dit où reprendre) · ✅ te
 | C3 | Atmosphère et profondeur | ✅ | voir `git log` (« C3 ») | Critères `[~]` : séparation des plans à rejuger sur capture après C4 (corps de façade trop clairs aujourd'hui) ; coût GPU aux trois paliers non mesuré. Matériel cible : densité `σ_t·ρ` et luminance de la brume sur projecteur, lisibilité de la coquille de kick, taille des poussières. `FogReach` publié mais pas encore lu par le culling (C7) ; `AtmosphereLook::apnea` pas encore écrit (EV4, C7) ; `SceneLight` (principale, remplissage, contre-jour) publié mais l'ombrage des faces est pour C4. |
 | C4 | Sol, façades et matériaux | ✅ | voir `git log` (« C4 ») | À juger sur le matériel cible : lisibilité des fenêtres habitées à 20 m de l'écran, aberration des reflets (`ROAD_ABERRATION`), gain du halo du sujet sur les murs (`halo_gain`), vu-mètre des façades avec un vrai spectre, coût GPU des pièces (un lancer de boîte par pixel de fenêtre proche). Halo des **sockets** d'enseigne (P2 §1.2) : la fonction existe (`wall_halo`), elle lit les quatre tubes du bloc ; les sockets viennent en C5/C6. |
 | R1 | Contrat rythmique : qui lit quoi (phase, coups, énergie) et branchement des effets existants | ✅ | 2026-11-22 | `docs/rythme.md`. Cliquet `rhythm_contract.rs`. Voir le journal R1. |
-| R2 | Sonde de test : CLI/MCP (lancer, envoyer une `Action`, capturer, mesurer, lire le journal) et test de synchronisation musique/image | ✅ | 2026-11-22 | `docs/sonde.md`. Premier relevé : `NoData` (la luminance commandée monte à l'image même du kick, `analyze` ne la voit pas) ; seuils 60/25/40 non validés. Voir le journal R2. |
+| R2 | Sonde de test : CLI/MCP (lancer, envoyer une `Action`, capturer, mesurer, lire le journal) et test de synchronisation musique/image | ✅ | 2026-11-22 | `docs/sonde.md`. Premier relevé (Chase, 20 s) : 54 kicks, 0 ms, verdict `Ok`, borne basse à une image près ; seuils 60/25/40 non validés. Voir le journal R2. |
 | C5+C6 | Ville : distribution, archétypes **et** habillage (un seul lot, même moteur de quartiers) | ⬜ | — | Les critères de C5 puis de C6 restent distincts. |
 | C7 | Tunnel, événements, LOD et culling | ⬜ | — | — |
 | C8 | Personnages et tenues | ⬜ | — | À rejuger après le choix du concept : le lecteur de GLB est statique, pas d'animation de squelette. |
@@ -671,16 +671,16 @@ exemples et lecture du rapport : `docs/sonde.md`.
 - `measure_sync` : trace par image (temps simulé et mural, `kick_now`, phase, confiance, luminance de la commande d'image),
   analyse pure `analyze` (retard moyen, gigue, pente, délai de confiance), verdict `Ok/TooLate/TooJittery/Drifting/NoData/Unreliable`,
   seuils 60 ms / 25 ms / 40 ms par minute. Temps réel par défaut ; `fixed_step` en option.
-- Premier relevé réel (piste `Chase`, 20 s, temps réel, `sim_to_wall_ratio` 1,0002) : **`NoData`**. La luminance commandée
-  monte à l'image même du `kick_now` (0 ms) et `analyze` ne cherche une montée qu'après cette image : 54 kicks écartés.
-  Aucun retard n'est annoncé. Détail et capture : `docs/sonde.md`, `docs/captures/R2/chase-20s.png`.
+- Premier relevé réel (piste `Chase`, 20 s, temps réel, 1135 images, `sim_to_wall_ratio` 1,0002) : 54 kicks, retard
+  moyen 0 ms, gigue 0 ms, dérive 0, verdict `Ok`. Portée : la commande de luminance (bloom + flash + sweep) réagit dans
+  l'image même du kick, résolution d'une image (environ 1/60 s) ; borne basse interne, rien sur la latence
+  audio → haut-parleur ni GPU → écran, ni sur la justesse de la grille (`trust_rise_s` nul). Une piste, une machine.
+  Le relevé a démasqué un bug d'`analyze` (`NoData` sur cette trace : la montée était cherchée après l'image du kick),
+  corrigé au commit 23fc9f3. Détail et capture : `docs/sonde.md`, `docs/captures/R2/chase-20s.png`.
 
 **Écarts / non tenu**
 - Relevé pris par un script TCP jetable (non versionné), pas par le serveur MCP branché dans Claude Code ; non vérifié :
   carte son de la cible, projecteur, GPU de la cible. Les seuils 60/25/40 restent provisoires.
-- `analyze` : à corriger pour comparer la luminance du kick à celle de l'image précédente (aujourd'hui la montée qui
-  survient dans l'image du kick lui-même rend le rapport `NoData`). Sans cela `measure_sync` ne donne pas de chiffre sur
-  l'application réelle.
 - Variables d'environnement de `launch` non vérifiées : `fixed_step` (`CF_PROBE_STEP_S=0.05`), `software_render`
   (`WGPU_FORCE_FALLBACK_ADAPTER=1`).
 - `capture` est asynchrone : le fichier apparaît quelques images après la réponse ; le nom reçoit `.png` (passer un nom
@@ -691,5 +691,4 @@ exemples et lecture du rapport : `docs/sonde.md`.
 - Un `Ping` juste après `probe.json` peut répondre `Error("délai")` tant que l'application charge.
 - Test rouge antérieur, inchangé : `cf-world-neon` `facade::rooms::tests::le_rayon_touche_une_paroi_de_la_boite`.
 
-**Prochaine session** : C5+C6 · Ville (distribution, archétypes et habillage), après correction d'`analyze` si l'on veut
-régler `grid_trust` et les coupes de `cf-cinema` avec la sonde.
+**Prochaine session** : C5+C6 · Ville (distribution, archétypes et habillage).

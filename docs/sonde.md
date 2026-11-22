@@ -83,17 +83,17 @@ celui de l'horloge audio, donc le verdict y est le plus souvent `Unreliable`.
 
 ```json
 {
-  "kicks": 0,
-  "mean_delay_ms": null,
-  "jitter_ms": null,
-  "phase_drift_ms_per_min": null,
+  "kicks": 54,
+  "mean_delay_ms": 0.0,
+  "jitter_ms": 0.0,
+  "phase_drift_ms_per_min": 0.0,
   "trust_rise_s": null,
-  "verdict": "NoData",
+  "verdict": "Ok",
   "sim_to_wall_ratio": 1.0001900722288477,
   "thresholds": { "max_delay_ms": 60.0, "max_jitter_ms": 25.0, "max_drift_ms_per_min": 40.0 },
   "seconds": 20,
   "samples": 1135,
-  "notes": ["aucun kick mesuré : ..."]
+  "notes": []
 }
 ```
 
@@ -151,21 +151,24 @@ script jetable (non versionné), pas par le serveur MCP lui-même : mêmes messa
 - `sim_to_wall_ratio` = 1,0002 : la mesure est bien en temps réel.
 - 54 fronts de `kick_now` (un toutes les 0,3 s environ), `grid_trust` encore à 0,15 en fin de trace.
 
-Rapport rendu par `analyze` :
+Rapport rendu par `analyze` (version corrigée, voir plus bas) :
 
 ```json
-{ "kicks": 0, "mean_delay_ms": null, "jitter_ms": null, "phase_drift_ms_per_min": null,
-  "trust_rise_s": null, "verdict": "NoData", "sim_to_wall_ratio": 1.0001900722288477, "notes": [] }
+{ "kicks": 54, "mean_delay_ms": 0.0, "jitter_ms": 0.0, "phase_drift_ms_per_min": 0.0,
+  "trust_rise_s": null, "verdict": "Ok", "sim_to_wall_ratio": 1.0001900722288477, "notes": [] }
 ```
 
-**Il n'y a donc pas de retard à citer** : `NoData`, aucun nombre inventé. La raison se lit dans la trace : la luminance
-commandée saute à 0,55 **à l'image même du `kick_now`** (de 0,454 à 0,55 entre l'image précédente et l'image du kick)
-puis décroît vers 0,454. Le pic est donc à 0 ms de la détection, ce qui est vrai (la commande d'image est calculée dans
-la même image que la détection), mais `analyze` cherche une montée *après* l'image du kick (hausse minimale 0,02) et
-n'en voit pas : les 54 kicks sont écartés. La borne basse de ce chemin est ainsi « moins d'une image » ; la vraie
-latence est dans le GPU, l'affichage et l'audio, que cette sonde ne voit pas. Pour obtenir un chiffre, il faudra soit
-que `analyze` compare à l'image qui précède le kick, soit une mesure externe (capteur de lumière, micro) : voir le
-journal R2. Capture prise en fin de relevé : `docs/captures/R2/chase-20s.png`.
+**Portée de ce 0 ms.** La luminance commandée (bloom + flash + sweep) saute de 0,454 à 0,55 à l'image même du
+`kick_now`, puis décroît. Le retard de 0 ms veut dire : « la commande de luminance réagit dans l'image du kick »,
+avec la résolution d'une image (environ 1/60 s à la cadence réelle, soit 17 ms ici). C'est une borne basse interne.
+Cela ne dit rien de la latence audio → haut-parleur, ni GPU → écran, ni de la justesse de la grille (`grid_trust`
+n'a pas franchi 0,6 : `trust_rise_s` est `null`). Les seuils 60/25/40 restent provisoires. Une seule piste, une seule
+machine, un seul passage. Capture prise en fin de relevé : `docs/captures/R2/chase-20s.png`.
+
+**Ce que le relevé a démasqué.** Une première version d'`analyze` rendait `NoData` sur cette même trace : elle
+cherchait la montée de luminance après l'image du kick, alors qu'elle a lieu dans cette image. La sonde a ainsi prouvé
+son utilité dès son premier usage réel ; le bug est corrigé au commit 23fc9f3 (la base de comparaison est l'image
+avant le kick).
 
 Autres constats de ce relevé :
 
