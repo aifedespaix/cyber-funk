@@ -17,7 +17,7 @@ const DEFAULT_STEP_S: f32 = 0.05;
 const MAX_NAME_LEN: usize = 64;
 /// Plafond d'images d'un `Step` (1 min à 20 images/s de pas fixe) : un client ne peut pas figer le temps réel pour
 /// toujours, ce qui rend la restauration de la stratégie de temps réelle.
-pub const MAX_STEP_FRAMES: u32 = 1200;
+pub use cf_probe_proto::MAX_STEP_FRAMES;
 /// Noms réservés par Windows : ils désignent un périphérique, quel que soit le suffixe.
 const WINDOWS_RESERVED: [&str; 22] = [
     "CON", "PRN", "AUX", "NUL", "COM1", "COM2", "COM3", "COM4", "COM5", "COM6", "COM7", "COM8", "COM9", "LPT1", "LPT2",
