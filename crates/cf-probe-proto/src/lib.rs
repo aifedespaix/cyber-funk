@@ -6,8 +6,8 @@ mod sync_report;
 mod timing;
 
 pub use message::{
-    MAX_LINE_BYTES, MAX_REPLY_BYTES, ProbeReply, ProbeRequest, ProtoError, StateSnapshot, SyncSample, SyncTrace,
-    decode_line, decode_reply_line, encode_line,
+    MAX_LINE_BYTES, MAX_REPLY_BYTES, MAX_SYNC_SAMPLES, ProbeReply, ProbeRequest, ProtoError, StateSnapshot, SyncSample,
+    SyncTrace, decode_line, decode_reply_line, encode_line,
 };
 pub use sync_report::{MIN_PEAK_RISE, PEAK_WINDOW_S, SyncReport, SyncThresholds, TRUST_LEVEL, Verdict, analyze};
 pub use timing::{

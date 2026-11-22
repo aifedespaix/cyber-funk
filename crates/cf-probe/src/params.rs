@@ -51,3 +51,13 @@ pub struct LogParams {
     /// Session voulue (la dernière par défaut).
     pub session: Option<String>,
 }
+
+/// Paramètres de `measure_sync`.
+#[derive(Debug, Deserialize, JsonSchema)]
+pub struct MeasureSyncParams {
+    /// Piste de démo à jouer : titre, ou « artiste - titre », ou un fragment qui n'en désigne qu'une. Absent : la piste
+    /// en cours (la lecture est lancée si besoin).
+    pub track: Option<String>,
+    /// Durée à mesurer, en secondes de simulation : de 1 à 300 (0 est refusé, au-delà la durée est ramenée à 300).
+    pub seconds: u32,
+}

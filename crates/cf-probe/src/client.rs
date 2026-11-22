@@ -5,7 +5,9 @@ use std::net::{Ipv4Addr, TcpStream};
 use std::time::Duration;
 
 use anyhow::{Context as _, bail};
-use cf_probe_proto::{MAX_LINE_BYTES, ProbeReply, ProbeRequest, client_step_read_timeout, decode_line, encode_line};
+use cf_probe_proto::{
+    MAX_REPLY_BYTES, ProbeReply, ProbeRequest, client_step_read_timeout, decode_reply_line, encode_line,
+};
 
 /// Délai de lecture par défaut d'une réponse.
 pub const READ_TIMEOUT: Duration = Duration::from_secs(3);
@@ -66,12 +68,12 @@ impl ProbeClient {
         let mut line = String::new();
         // `take` borne la lecture : une application détraquée ne peut pas nous faire allouer sans limite.
         let read = (&mut self.reader)
-            .take(MAX_LINE_BYTES as u64 + 1)
+            .take(MAX_REPLY_BYTES as u64 + 1)
             .read_line(&mut line)
             .context("lecture de la réponse (délai dépassé ?)")?;
         if read == 0 {
             bail!("l'application a fermé la connexion");
         }
-        decode_line(&line).context("réponse illisible")
+        decode_reply_line(&line).context("réponse illisible")
     }
 }

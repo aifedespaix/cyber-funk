@@ -12,6 +12,10 @@ pub const MAX_LINE_BYTES: usize = 64 * 1024;
 /// accepte des lignes aussi longues ; l'application, elle, garde [`MAX_LINE_BYTES`] pour ce qu'elle reçoit.
 pub const MAX_REPLY_BYTES: usize = 8 * 1024 * 1024;
 
+/// Échantillons conservés au plus par l'enregistreur de synchronisation : dix minutes à 60 images/s, environ 4 Mio en
+/// JSON, donc sous [`MAX_REPLY_BYTES`]. Au-delà, l'application garde le début et jette la suite.
+pub const MAX_SYNC_SAMPLES: usize = 36_000;
+
 /// Erreur de décodage d'une ligne du protocole.
 #[derive(Debug, thiserror::Error)]
 pub enum ProtoError {
@@ -275,13 +279,13 @@ mod tests {
     #[test]
     fn une_longue_trace_tient_dans_une_reponse() {
         // Le plafond d'échantillons de la sonde (36 000, dix minutes à 60 images/s) doit passer le codec de réponse.
-        let samples = (0..36_000)
+        let samples = (0..MAX_SYNC_SAMPLES)
             .map(|i| SyncSample {
-                t_s: f64::from(i) * 0.016_666_666_666_666_666,
+                t_s: i as f64 * 0.016_666_666_666_666_666,
                 kick_now: i % 30 == 0,
                 beat_phase: 0.123_456_79,
                 grid_trust: 0.987_654_3,
-                luminance: 0.456_789_12,
+                luminance: 0.456_789,
             })
             .collect();
         let line = encode_line(&ProbeReply::Trace(SyncTrace { samples }));
@@ -291,7 +295,7 @@ mod tests {
             line.len()
         );
         assert!(line.len() <= MAX_REPLY_BYTES, "{} octets", line.len());
-        assert!(matches!(decode_reply_line(&line), Ok(ProbeReply::Trace(t)) if t.samples.len() == 36_000));
+        assert!(matches!(decode_reply_line(&line), Ok(ProbeReply::Trace(t)) if t.samples.len() == MAX_SYNC_SAMPLES));
         // Les requêtes, elles, restent bornées à 64 Kio.
         assert!(matches!(
             decode_line::<ProbeReply>(&line),

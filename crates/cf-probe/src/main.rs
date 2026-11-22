@@ -5,6 +5,7 @@
 mod client;
 mod logs;
 mod mcp;
+mod mcp_sync;
 mod params;
 mod process;
 

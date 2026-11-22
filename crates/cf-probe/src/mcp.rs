@@ -13,7 +13,7 @@ use rmcp::{ServerHandler, tool, tool_handler, tool_router};
 
 use crate::client::{ProbeClient, READ_TIMEOUT};
 use crate::logs::{self, LogArgs};
-use crate::params::{CaptureParams, LaunchParams, LogParams, SendActionParams, StepParams};
+use crate::params::{CaptureParams, LaunchParams, LogParams, MeasureSyncParams, SendActionParams, StepParams};
 use crate::process::{self, DEFAULT_STARTUP_TIMEOUT, LaunchOptions, Launched};
 
 /// Nom du fichier d'état écrit par l'application (voir `cyber-funk::probe`).
@@ -39,11 +39,11 @@ pub struct ProbeServer {
     startup_timeout: Duration,
 }
 
-fn ok(text: impl Into<String>) -> CallToolResult {
+pub(crate) fn ok(text: impl Into<String>) -> CallToolResult {
     CallToolResult::success(vec![ContentBlock::text(text)])
 }
 
-fn fail(text: impl Into<String>) -> CallToolResult {
+pub(crate) fn fail(text: impl Into<String>) -> CallToolResult {
     CallToolResult::error(vec![ContentBlock::text(text)])
 }
 
@@ -147,7 +147,7 @@ impl ProbeServer {
     }
 
     /// Envoie une requête sur la connexion ouverte ; rend le texte d'erreur à montrer à l'appelant.
-    async fn request(&self, request: ProbeRequest) -> Result<ProbeReply, String> {
+    pub(crate) async fn request(&self, request: ProbeRequest) -> Result<ProbeReply, String> {
         let client = Arc::clone(&self.client);
         let child = Arc::clone(&self.child);
         let outcome = tokio::task::spawn_blocking(move || {
@@ -317,6 +317,14 @@ impl ProbeServer {
     pub async fn step(&self, Parameters(params): Parameters<StepParams>) -> CallToolResult {
         self.reply_as_result(ProbeRequest::Step { frames: params.frames }).await
     }
+
+    /// Mesure la synchronisation musique/image.
+    #[tool(
+        description = "Mesure le retard entre les kicks de la musique de démo et la réponse lumineuse de l'image :                           joue la piste `track` (ou l'actuelle) `seconds` secondes de simulation (1 à 300) et rend un                           rapport JSON (kicks, retard moyen, gigue, dérive, délai de confiance, verdict, notes).                           Résolution limitée par le pas de simulation de `step` ; verdict NoData sans kick mesuré."
+    )]
+    pub async fn measure_sync(&self, Parameters(params): Parameters<MeasureSyncParams>) -> CallToolResult {
+        self.run_measure_sync(params).await
+    }
 }
 
 // Le code généré par `tool_handler` déclare `async` des méthodes sans `.await`.
@@ -331,3 +339,7 @@ mod tests;
 #[cfg(test)]
 #[path = "mcp_lifecycle_tests.rs"]
 mod lifecycle_tests;
+
+#[cfg(test)]
+#[path = "mcp_sync_tests.rs"]
+mod sync_tests;

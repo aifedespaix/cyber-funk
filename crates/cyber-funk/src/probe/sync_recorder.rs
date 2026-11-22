@@ -32,10 +32,7 @@ use cf_render::Compositor;
 use cf_render::audio::FilteredSignals;
 use cf_render::postfx::GradeUniforms;
 
-/// Échantillons conservés au plus : dix minutes à 60 images/s. Au-delà, le début est gardé et la suite jetée (un
-/// `Vec` qui grandit alloue pendant l'image, règle 4 ; et la trace doit tenir dans une réponse, voir
-/// `cf_probe_proto::MAX_REPLY_BYTES`). Le serveur MCP détecte la troncature : la trace finit avant la durée demandée.
-pub const MAX_SYNC_SAMPLES: usize = 36_000;
+pub use cf_probe_proto::MAX_SYNC_SAMPLES;
 
 /// La trace en cours. Le tampon est réservé en entier à `StartSyncRecording` : aucune allocation par image.
 #[derive(Resource, Debug)]
