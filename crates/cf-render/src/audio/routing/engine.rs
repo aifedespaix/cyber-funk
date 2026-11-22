@@ -19,6 +19,9 @@ pub struct RoutingEngine {
     chains: Vec<Chain>,
     limiter: FlashLimiter,
     trust: GridTrust,
+    /// Phase de mesure de l'image d'avant et temps continu accumulé (voir `FilteredSignals::grid_beat`).
+    prev_bar_phase: Option<f32>,
+    grid_beat: f64,
 }
 
 impl RoutingEngine {
@@ -29,6 +32,8 @@ impl RoutingEngine {
             chains: matrix.routes.iter().map(Chain::new).collect(),
             limiter: FlashLimiter::new(),
             trust: GridTrust::new(),
+            prev_bar_phase: None,
+            grid_beat: 0.0,
         }
     }
 
@@ -74,6 +79,15 @@ impl RoutingEngine {
         out.bar_phase = bar_phase;
         out.beat_phase = (bar_phase * 4.0).rem_euclid(1.0);
         out.kick_wave.age(dt);
+        // Temps continu : on intègre l'écart signé de phase (le plus court chemin sur le cercle). Une correction vers
+        // l'arrière de la grille est avalée (le mouvement s'arrête un instant au lieu de reculer).
+        if let Some(prev) = self.prev_bar_phase {
+            let delta = f64::from((bar_phase - prev + 0.5).rem_euclid(1.0) - 0.5) * 4.0;
+            self.grid_beat += delta.max(0.0);
+        }
+        self.prev_bar_phase = Some(bar_phase);
+        out.grid_beat = self.grid_beat;
+        out.kick_beat = features.beat;
         out.grid_trust = self.trust.step(
             dt,
             trust_target(features.tempo_source, features.confidence, features.live),

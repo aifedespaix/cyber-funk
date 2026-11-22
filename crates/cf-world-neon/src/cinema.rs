@@ -14,7 +14,8 @@ use cf_cinema::{
     BeatView, Cabin, CinemaWorld, CinemaWorldPlugin, FlightPhase as CinemaPhase, MAX_DT, Obstacles,
     RingPlanet as CinemaRing, ShowView, Trick, TrickKind as CinemaTrick,
 };
-use cf_render::{AbsolutePosition, AudioFeatures, CfSet, CurrentShow, ShowRuntime, StreamFocus, WorldSet};
+use cf_render::audio::{FilteredSignals, KICK_PULSE_TAU_S, RhythmInputs};
+use cf_render::{AbsolutePosition, CfSet, CurrentShow, ShowRuntime, StreamFocus, WorldSet};
 use cf_show::director::ShowState;
 
 use crate::meteors::{MeteorSet, Meteors};
@@ -47,6 +48,8 @@ pub struct CinemaInput<'a> {
     pub animation: &'a CarAnimation,
     /// L'audio de l'image.
     pub features: &'a Features,
+    /// Les signaux filtrés de l'image : accents (kick, pouls, compteur) lus par le contrat rythmique.
+    pub signals: &'a FilteredSignals,
     /// Le spectacle de l'image, s'il y en a un.
     pub show: Option<&'a ShowState>,
     /// La géante à anneau du ciel, si elle est affichée.
@@ -113,9 +116,9 @@ pub fn fill_cinema_world(world: &mut CinemaWorld, input: &CinemaInput<'_>) {
     });
     let f = input.features;
     world.beat = BeatView {
-        count: f.count,
+        count: input.signals.kick_count,
         bpm: f.bpm,
-        pulse: f.pulse,
+        pulse: input.signals.kick_wave.pulse(KICK_PULSE_TAU_S),
         bass: f.bass,
     };
     world.section = section;
@@ -158,7 +161,7 @@ impl Plugin for NeonCinemaPlugin {
 #[allow(clippy::too_many_arguments)] // Les paramètres d'un système Bevy : ressources et requêtes.
 fn build_cinema_world(
     time: Res<Time>,
-    features: Option<Res<AudioFeatures>>,
+    rhythm: RhythmInputs,
     show: Option<Res<CurrentShow>>,
     runtime: Option<Res<ShowRuntime>>,
     brain: Option<Res<PilotBrain>>,
@@ -177,7 +180,8 @@ fn build_cinema_world(
     let Ok(car) = car.single() else { return };
     let neutral = CarAnimation::default();
     let speed = brain.as_deref().map_or(0.0, |b| b.0.frame().speed);
-    let features = features.as_deref().map_or(Features::NEUTRAL, |f| f.0);
+    let signals = rhythm.signals();
+    let features = rhythm.features.as_deref().map_or(Features::NEUTRAL, |f| f.0);
     fill_cinema_world(
         &mut world,
         &CinemaInput {
@@ -187,6 +191,7 @@ fn build_cinema_world(
             speed,
             animation: animation.as_deref().unwrap_or(&neutral),
             features: &features,
+            signals: &signals,
             show: show.as_deref().map(|s| &s.0),
             ring: ring.as_deref(),
         },

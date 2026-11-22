@@ -5,7 +5,8 @@
 use bevy::color::LinearRgba;
 use bevy::math::DVec3;
 use bevy::prelude::*;
-use cf_render::{AbsolutePosition, AudioFeatures, CurrentShow, ScenePalette, ShowRuntime};
+use cf_render::audio::RhythmInputs;
+use cf_render::{AbsolutePosition, CurrentShow, ScenePalette, ShowRuntime};
 use cf_show::director::Order;
 
 use super::director::{StuntDirector, StuntFrame, StuntView};
@@ -96,7 +97,7 @@ fn linear(c: cf_render::palette::LinearRgb) -> LinearRgba {
 #[allow(clippy::too_many_arguments)] // Les paramètres d'un système Bevy : ressources et requêtes.
 pub(crate) fn drive_stunts(
     time: Res<Time>,
-    features: Option<Res<AudioFeatures>>,
+    rhythm: RhythmInputs,
     show: Option<Res<CurrentShow>>,
     runtime: Option<ResMut<ShowRuntime>>,
     palette: Option<Res<ScenePalette>>,
@@ -113,7 +114,8 @@ pub(crate) fn drive_stunts(
 ) {
     let Ok(mut position) = cars.single_mut() else { return };
 
-    let features = features.as_deref().map(|f| f.0);
+    let signals = rhythm.signals();
+    let features = rhythm.features.as_deref().map(|f| f.0);
     let planned = runtime
         .as_deref()
         .and_then(|r| r.director().drop_plan())
@@ -139,7 +141,9 @@ pub(crate) fn drive_stunts(
         car_z: position.z,
         altitude: f64::from(animation.altitude),
         road_speed: brain.as_deref().map_or(0.0, |b| b.0.frame().speed),
-        beat: features.as_ref().map_or(TrafficBeat::SILENT, TrafficBeat::from),
+        beat: features
+            .as_ref()
+            .map_or(TrafficBeat::SILENT, |f| TrafficBeat::from_signals(&signals, f)),
         // Hors spectacle, aucune source de drop : seul le chef du spectacle en annonce (`drop_now`).
         drop: false,
         intensity: features.map_or(0.4, |f| f64::from(f.intensity)),

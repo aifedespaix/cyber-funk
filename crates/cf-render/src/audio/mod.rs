@@ -13,6 +13,7 @@
 mod bridge;
 mod config;
 mod latency;
+mod rhythm;
 mod routing;
 mod runtime;
 mod types;
@@ -24,9 +25,11 @@ pub use cf_audio::player::PlayerState;
 pub use cf_audio::playlist::{PlayMode, Track};
 pub use config::{AudioConfig, InputBackendChoice, OutputChoice};
 pub use latency::{LatencyLine, MAX_LATENCY_MS};
+pub use rhythm::RhythmInputs;
 pub use routing::{
-    Curve, Detector, FilteredSignals, KICK_NEVER_S, KickWave, LimiterLane, Quantize, Route, RoutingEngine,
-    RoutingError, RoutingMatrix, RoutingPlugin, Slew, Smooth, Source, Target, VisualDensity, visual_phase,
+    Curve, Detector, FilteredSignals, KICK_NEVER_S, KICK_PULSE_TAU_S, KickWave, LimiterLane, Quantize, Route,
+    RoutingEngine, RoutingError, RoutingMatrix, RoutingPlugin, Slew, Smooth, Source, Target, VisualDensity,
+    visual_phase,
 };
 pub use runtime::AudioRuntime;
 pub use types::{

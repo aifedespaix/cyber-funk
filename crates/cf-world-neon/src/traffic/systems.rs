@@ -6,9 +6,10 @@ use bevy::color::LinearRgba;
 use bevy::ecs::system::SystemParam;
 use bevy::math::{DVec3, Vec4};
 use bevy::prelude::*;
+use cf_render::audio::{FilteredSignals, KICK_PULSE_TAU_S, RhythmInputs};
 use cf_render::{
-    AbsolutePosition, AudioFeatures, ChunkStream, CurrentShow, CurrentShowFx, FloatingOrigin, QualityLevers,
-    SceneColor, ScenePalette, ShowRuntime, SimulationLod, StreamFocus,
+    AbsolutePosition, ChunkStream, CurrentShow, CurrentShowFx, FloatingOrigin, QualityLevers, SceneColor, ScenePalette,
+    ShowRuntime, SimulationLod, StreamFocus,
 };
 use cf_show::director::Order;
 use cf_show::limiter::MAX_FLASH_PEAK;
@@ -201,7 +202,7 @@ fn dj_title(names: &SignShow) -> Option<&str> {
 #[allow(clippy::too_many_arguments)] // Les paramètres d'un système Bevy : ressources et requêtes.
 pub(crate) fn drive_traffic(
     time: Res<Time>,
-    features: Option<Res<AudioFeatures>>,
+    rhythm: RhythmInputs,
     show: Option<Res<CurrentShow>>,
     mut runtime: Option<ResMut<ShowRuntime>>,
     levers: Option<Res<QualityLevers>>,
@@ -232,10 +233,10 @@ pub(crate) fn drive_traffic(
     }
     state.last_z = Some(car.z);
 
-    let beat = features
-        .as_deref()
-        .map_or(TrafficBeat::SILENT, |f| TrafficBeat::from(&f.0));
-    let drive = match (features.as_deref(), show.as_deref()) {
+    let signals = rhythm.signals();
+    let features = rhythm.features.as_deref();
+    let beat = features.map_or(TrafficBeat::SILENT, |f| TrafficBeat::from_signals(&signals, &f.0));
+    let drive = match (features, show.as_deref()) {
         (Some(f), s) => TrafficDrive {
             drop: s.is_some_and(|s| s.0.drop_now),
             intensity: f.0.intensity,
@@ -272,7 +273,7 @@ pub(crate) fn drive_traffic(
         speed: state.speed,
         beat,
         drive,
-        dance_beat: f64::from(beat.count),
+        dance_beat: signals.dance_beat(),
         playing: true,
         calm: settings.calm,
         show: show
@@ -375,13 +376,13 @@ pub(crate) fn apply_clearings(
 /// aussi les demandes des événements (éclair, salve, variation de lumière de la ville) et rendent les niveaux accordés.
 pub(crate) fn update_flash(
     time: Res<Time>,
-    features: Option<Res<AudioFeatures>>,
+    signals: Option<Res<FilteredSignals>>,
     show: Option<Res<CurrentShowFx>>,
     mut flash: ResMut<TrafficFlash>,
     mut director: ResMut<TrafficDirector>,
 ) {
     let policy = show.map(|s| (s.0.flashes, s.0.breathing));
-    let pulse = features.map_or(0.0, |f| f.0.pulse);
+    let pulse = signals.map_or(0.0, |s| s.kick_wave.pulse(KICK_PULSE_TAU_S));
     let now = time.elapsed_secs_f64();
     flash.update(time.delta_secs(), now, policy, pulse);
     flash.serve(now, &mut director.scene.fx);

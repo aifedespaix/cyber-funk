@@ -45,8 +45,9 @@ fn route_signals(
     show: Option<Res<CurrentShow>>,
 ) {
     let (flashes, breathing) = show.map_or((true, false), |s| (s.flashes, s.breathing));
+    signals.begin_frame();
     for _ in kicks.read() {
-        signals.kick_wave.push();
+        signals.register_kick();
     }
     engine.update(
         &mut signals,

@@ -8,6 +8,7 @@ use bevy::color::LinearRgba;
 use bevy::math::DVec3;
 use cf_analysis::{AudioFeatures, Section};
 use cf_render::SceneColor;
+use cf_render::audio::{FilteredSignals, KICK_PULSE_TAU_S};
 use cf_show::director::ShowState;
 use cf_show::model::EventName as ShowEventName;
 
@@ -56,17 +57,21 @@ impl TrafficBeat {
     };
 }
 
-impl From<&AudioFeatures> for TrafficBeat {
-    fn from(f: &AudioFeatures) -> Self {
+impl TrafficBeat {
+    /// Le rythme vu par le trafic, d'après le contrat rythmique (`docs/rythme.md`) : les accents (kick, pouls, compteur de
+    /// kicks, temps continu des kicks) viennent de [`FilteredSignals`], toujours justes sans grille ; l'énergie (basses,
+    /// médiums, aigus, volume, tempo) reste lue dans les `AudioFeatures`.
+    #[must_use]
+    pub fn from_signals(signals: &FilteredSignals, f: &AudioFeatures) -> Self {
         Self {
-            kick: f.kick,
+            kick: signals.kick_now,
             bass: f.bass,
             mid: f.mid,
             high: f.high,
             loud: f.loud,
-            pulse: f.pulse,
-            count: f.count,
-            beat: f.beat,
+            pulse: signals.kick_wave.pulse(KICK_PULSE_TAU_S),
+            count: signals.kick_count,
+            beat: signals.kick_beat,
             bpm: f.bpm,
         }
     }
@@ -313,5 +318,51 @@ mod tests {
         assert!(show.allows(EventName::Chase));
         assert!(show.allows(EventName::CityPulse));
         assert!(!show.allows(EventName::Storm));
+    }
+}
+
+#[cfg(test)]
+mod signal_tests {
+    use cf_analysis::AudioFeatures;
+    use cf_render::audio::{FilteredSignals, KICK_PULSE_TAU_S};
+
+    use super::TrafficBeat;
+
+    #[test]
+    fn from_signals_takes_accents_from_the_signals_and_energy_from_the_features() {
+        let mut signals = FilteredSignals::default();
+        signals.register_kick();
+        signals.kick_beat = 12.4;
+        let features = AudioFeatures {
+            bass: 0.6,
+            mid: 0.3,
+            high: 0.2,
+            loud: 0.5,
+            bpm: Some(128.0),
+            // Ce que les anciennes lectures auraient pris : doit être ignoré.
+            kick: false,
+            pulse: 0.0,
+            count: 99,
+            ..AudioFeatures::NEUTRAL
+        };
+        let beat = TrafficBeat::from_signals(&signals, &features);
+        assert!(beat.kick, "l'accent vient de l'image où le kick est vu");
+        assert_eq!(beat.pulse, signals.kick_wave.pulse(KICK_PULSE_TAU_S));
+        assert_eq!(beat.count, 1, "le compteur de kicks vient des signaux");
+        assert_eq!(beat.beat, 12.4);
+        assert_eq!((beat.bass, beat.mid, beat.high, beat.loud), (0.6, 0.3, 0.2, 0.5));
+        assert_eq!(beat.bpm, Some(128.0));
+    }
+
+    #[test]
+    fn an_accent_survives_a_distrusted_grid() {
+        let mut signals = FilteredSignals::default();
+        signals.grid_trust = 0.0;
+        signals.register_kick();
+        let beat = TrafficBeat::from_signals(&signals, &AudioFeatures::NEUTRAL);
+        assert!(
+            beat.kick && beat.pulse > 0.99,
+            "sans confiance, le kick reste un accent"
+        );
     }
 }

@@ -17,8 +17,9 @@ use bevy::prelude::*;
 use bevy::reflect::TypePath;
 use bevy::render::render_resource::{AsBindGroup, RenderPipelineDescriptor, ShaderType, SpecializedMeshPipelineError};
 use bevy::shader::{Shader, ShaderRef};
+use cf_render::audio::FilteredSignals;
 use cf_render::palette::{LinearRgb, SceneColor};
-use cf_render::{AbsolutePosition, AudioFeatures, ScenePalette};
+use cf_render::{AbsolutePosition, ScenePalette};
 
 use super::TrafficEntities;
 use crate::traffic::director::TrafficDirector;
@@ -270,7 +271,7 @@ pub(crate) fn sync_panels(
 pub(crate) fn update_panel_materials(
     palette: Res<ScenePalette>,
     time: Res<Time>,
-    features: Option<Res<AudioFeatures>>,
+    signals: Option<Res<FilteredSignals>>,
     director: Res<TrafficDirector>,
     entities: Res<TrafficEntities>,
     mut solid: ResMut<Assets<PanelMaterial>>,
@@ -279,7 +280,7 @@ pub(crate) fn update_panel_materials(
     if director.scene.panels.used() == 0 {
         return;
     }
-    let beat = features.map_or(0.0, |f| f.0.beat);
+    let beat = signals.map_or(0.0, |s| s.kick_beat);
     let params = PanelParams::new(&palette, time.elapsed_secs_f64(), beat);
     if let Some(mut material) = solid.get_mut(&entities.panel_solid_material) {
         material.params = params;

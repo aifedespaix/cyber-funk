@@ -23,7 +23,7 @@ mod types;
 pub use engine::RoutingEngine;
 pub use matrix::{RoutingError, RoutingMatrix};
 pub use plugin::{RoutingPlugin, VisualDensity};
-pub use signals::{FilteredSignals, KICK_NEVER_S, KickWave, visual_phase};
+pub use signals::{FilteredSignals, KICK_NEVER_S, KICK_PULSE_TAU_S, KickWave, visual_phase};
 pub use types::{Curve, Detector, LimiterLane, Quantize, Route, Slew, Smooth, Source, Target};
 
 #[cfg(test)]

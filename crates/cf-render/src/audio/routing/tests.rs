@@ -381,3 +381,82 @@ fn the_engine_publishes_grid_trust_from_the_tempo_source() {
     assert!(out.grid_trust < 0.05, "signal perdu : {}", out.grid_trust);
     assert_eq!(out.movement(1.0), out.grid_trust);
 }
+
+#[test]
+fn register_kick_counts_flags_and_starts_the_wave() {
+    let mut s = FilteredSignals::default();
+    assert_eq!((s.kick_count, s.kick_now), (0, false));
+    s.register_kick();
+    s.register_kick();
+    assert_eq!(s.kick_count, 2);
+    assert!(s.kick_now);
+    assert_eq!(s.kick_wave.pulse(KICK_PULSE_TAU_S), 1.0);
+    s.begin_frame();
+    assert!(!s.kick_now, "le drapeau ne dure qu'une image");
+    assert_eq!(s.kick_count, 2, "le compteur ne retombe jamais");
+}
+
+#[test]
+fn grid_beat_advances_four_per_bar_and_never_goes_back() {
+    let mut e = RoutingEngine::new(&RoutingMatrix::default_matrix());
+    let mut out = FilteredSignals::default();
+    // 120 BPM : une mesure = 2 s. La phase de mesure monte de 0 à 1 puis reboucle, comme celle de l'arbitre.
+    let dt = 1.0 / 60.0;
+    let mut last = 0.0;
+    for i in 0..(60 * 6) {
+        let t = f64::from(i) * f64::from(dt);
+        let f = features(|f| {
+            f.live = true;
+            f.bpm = Some(120.0);
+            f.phase = ((t / 2.0).rem_euclid(1.0)) as f32;
+        });
+        e.update(&mut out, &f, dt, t, 0.0, (true, false));
+        assert!(out.grid_beat >= last, "recul à {t} s : {} < {last}", out.grid_beat);
+        last = out.grid_beat;
+    }
+    // 6 s = 3 mesures = 12 temps (à une image près).
+    assert!((out.grid_beat - 12.0).abs() < 0.2, "{}", out.grid_beat);
+}
+
+#[test]
+fn grid_beat_ignores_a_backward_phase_correction() {
+    let mut e = RoutingEngine::new(&RoutingMatrix::default_matrix());
+    let mut out = FilteredSignals::default();
+    for (i, phase) in [0.0_f32, 0.2, 0.4, 0.35, 0.37].into_iter().enumerate() {
+        let f = features(|f| {
+            f.live = true;
+            f.bpm = Some(120.0);
+            f.phase = phase;
+        });
+        e.update(&mut out, &f, 1.0 / 60.0, i as f64 / 60.0, 0.0, (true, false));
+    }
+    assert!(
+        (out.grid_beat - 1.68).abs() < 0.02,
+        "la correction arrière est avalée : {}",
+        out.grid_beat
+    );
+}
+
+#[test]
+fn dance_beat_follows_the_grid_when_trusted_and_the_kicks_otherwise() {
+    let mut s = FilteredSignals::default();
+    s.grid_beat = 9.25;
+    s.kick_count = 7;
+    s.grid_trust = 0.9;
+    assert_eq!(s.dance_beat(), 9.25, "grille fiable : temps continu de la grille");
+    s.grid_trust = 0.2;
+    assert_eq!(
+        s.dance_beat(),
+        7.0,
+        "grille douteuse : on compte les kicks, comme avant"
+    );
+}
+
+#[test]
+fn the_engine_copies_the_kick_driven_beat_clock() {
+    let mut e = RoutingEngine::new(&RoutingMatrix::default_matrix());
+    let mut out = FilteredSignals::default();
+    let f = features(|f| f.beat = 41.5);
+    e.update(&mut out, &f, 1.0 / 60.0, 0.0, 0.0, (true, false));
+    assert_eq!(out.kick_beat, 41.5);
+}

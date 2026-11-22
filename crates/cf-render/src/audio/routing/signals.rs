@@ -8,6 +8,13 @@ use super::types::Target;
 /// Âge (s) attribué à un kick qui n'a pas eu lieu : assez grand pour que toute onde soit éteinte.
 pub const KICK_NEVER_S: f32 = 60.0;
 
+/// Constante de temps (s) de l'impulsion d'accent d'un kick (`KickWave::pulse`). L'ancien `pulse` d'`AudioFeatures` était
+/// linéaire (1 → 0 en 0,22 s, `PULSE_DECAY` = 4,5 /s) ; une exponentielle de même aire a pour constante 1/(2·4,5).
+pub const KICK_PULSE_TAU_S: f32 = 0.11;
+
+/// Seuil de `grid_trust` à partir duquel l'horloge de danse suit la grille plutôt que les kicks.
+const DANCE_TRUST: f32 = 0.5;
+
 /// Les quatre derniers kicks sous forme d'âges (s), du plus récent au plus ancien : l'« onde de kick » commune de
 /// P1 §0. Des âges plutôt que des horodatages absolus : un `f32` perd la milliseconde au bout d'une heure d'horloge,
 /// pas un âge borné à [`KICK_NEVER_S`].
@@ -81,6 +88,16 @@ pub struct FilteredSignals {
     pub kick_wave: KickWave,
     /// Confiance dans la grille rythmique, 0..1 (voir [`GridTrust`](super::trust::GridTrust)). Pondère le Mouvement.
     pub grid_trust: f32,
+    /// Temps musical continu, en temps (4 par mesure), calé sur la phase de la grille et compensé de la latence : il ne
+    /// recule jamais. C'est l'horloge du Mouvement ; à pondérer par [`movement`](Self::movement).
+    pub grid_beat: f64,
+    /// Temps continu piloté par les kicks (`count` plus une montée douce) : l'horloge des motifs pas-à-pas de Sillage.
+    /// Il ne dépend pas de la grille.
+    pub kick_beat: f64,
+    /// Nombre de kicks vus depuis le démarrage. Ne retombe jamais à zéro : on compte les kicks par différence.
+    pub kick_count: u32,
+    /// Vrai pendant l'image où un kick vient d'être vu (accent).
+    pub kick_now: bool,
 }
 
 impl Default for FilteredSignals {
@@ -92,6 +109,10 @@ impl Default for FilteredSignals {
             bar_phase: 0.0,
             kick_wave: KickWave::default(),
             grid_trust: 0.0,
+            grid_beat: 0.0,
+            kick_beat: 0.0,
+            kick_count: 0,
+            kick_now: false,
         }
     }
 }
@@ -101,6 +122,29 @@ impl FilteredSignals {
     #[must_use]
     pub const fn get(&self, target: Target) -> f32 {
         self.values[target.index()]
+    }
+
+    /// L'horloge de danse : le temps continu de la grille quand elle est fiable (`grid_trust` ≥ 0,5), sinon le nombre
+    /// de kicks. Une mesure commence quand `floor(dance_beat / 4)` change.
+    #[must_use]
+    pub fn dance_beat(&self) -> f64 {
+        if self.grid_trust >= DANCE_TRUST {
+            self.grid_beat
+        } else {
+            f64::from(self.kick_count)
+        }
+    }
+
+    /// Début d'image : efface ce qui ne dure qu'une image (`kick_now`).
+    pub fn begin_frame(&mut self) {
+        self.kick_now = false;
+    }
+
+    /// Un kick vient d'être vu : l'accent part (onde, compteur, drapeau d'image).
+    pub fn register_kick(&mut self) {
+        self.kick_wave.push();
+        self.kick_count = self.kick_count.wrapping_add(1);
+        self.kick_now = true;
     }
 
     /// Une amplitude de **mouvement** (calée sur la phase), pondérée par la confiance dans la grille : nulle quand la

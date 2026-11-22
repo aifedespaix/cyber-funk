@@ -18,7 +18,4 @@ cf-world-neon/src/run/apply.rs
 cf-world-neon/src/signs/audio.rs
 cf-world-neon/src/signs/systems.rs
 cf-world-neon/src/sky/systems.rs
-cf-world-neon/src/traffic/frame.rs
-cf-world-neon/src/traffic/render/panels.rs
-cf-world-neon/src/traffic/systems.rs
 cf-world-neon/src/weather/systems.rs

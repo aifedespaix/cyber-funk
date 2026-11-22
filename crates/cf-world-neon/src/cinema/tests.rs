@@ -5,6 +5,7 @@ use bevy::math::DVec3;
 use cf_analysis::{AudioFeatures as Features, Section};
 use cf_cinema::{CAMERA_RADIUS, CinemaDirector, CinemaFrame, CinemaWorld, MAX_AHEAD, MAX_BEHIND, MAX_HEIGHT, shots};
 use cf_render::CameraPose;
+use cf_render::audio::{FilteredSignals, KICK_PULSE_TAU_S};
 use cf_show::model::CutGrid;
 
 use super::*;
@@ -12,6 +13,17 @@ use crate::pilot::{BeatInput, Pilot, PilotSettings, PilotTick, PilotTraffic};
 
 const DT: f64 = 1.0 / 60.0;
 const BPM: f64 = 128.0;
+
+/// Les signaux filtrés qui correspondent à `features(time)` : compteur de kicks et onde du dernier kick.
+fn signals(time: f64) -> FilteredSignals {
+    let beat = time * BPM / 60.0;
+    let mut s = FilteredSignals::default();
+    s.kick_count = beat.floor() as u32;
+    s.register_kick();
+    s.kick_count = beat.floor() as u32;
+    s.kick_wave.age((beat.fract() * 60.0 / BPM) as f32);
+    s
+}
 
 fn features(time: f64) -> Features {
     let beats = (time * BPM / 60.0).floor() as u32;
@@ -55,6 +67,7 @@ fn dix_minutes_dans_neon_city_sans_pose_dans_un_mur() {
     while time < 600.0 {
         time += DT;
         let f = features(time);
+        let sig = signals(time);
         let frame = pilot.update(&PilotTick {
             dt: DT,
             beat: BeatInput {
@@ -76,6 +89,7 @@ fn dix_minutes_dans_neon_city_sans_pose_dans_un_mur() {
                 speed: frame.speed,
                 animation: &frame.animation,
                 features: &f,
+                signals: &sig,
                 show: None,
                 ring: None,
             },
@@ -163,6 +177,7 @@ fn le_monde_du_realisateur_suit_la_voiture() {
         ..CarAnimation::default()
     };
     let mut world = CinemaWorld::default();
+    let sig = FilteredSignals::default();
     let f = Features {
         live: true,
         section: Section::Peak,
@@ -175,6 +190,7 @@ fn le_monde_du_realisateur_suit_la_voiture() {
         speed: 40.0,
         animation: &animation,
         features: &f,
+        signals: &sig,
         show: None,
         ring: None,
     };
@@ -197,4 +213,41 @@ fn le_monde_du_realisateur_suit_la_voiture() {
     assert!((world.car_velocity.z + 40.0).abs() < 1e-3, "{}", world.car_velocity);
     assert!((world.cabin.forward - Vec3::NEG_Z).length() < 1e-4);
     assert!(!world.show.active);
+}
+
+#[test]
+fn the_beat_view_takes_its_accents_from_the_signals_not_the_features() {
+    let animation = CarAnimation::default();
+    let mut world = CinemaWorld::default();
+    let mut sig = FilteredSignals::default();
+    sig.register_kick();
+    sig.register_kick();
+    // Ce que les anciennes lectures auraient pris : doit être ignoré.
+    let f = Features {
+        live: true,
+        count: 99,
+        pulse: 0.0,
+        bass: 0.7,
+        bpm: Some(126.0),
+        ..Features::NEUTRAL
+    };
+    let input = CinemaInput {
+        time: 1.0,
+        dt: 0.016,
+        car: DVec3::ZERO,
+        speed: 10.0,
+        animation: &animation,
+        features: &f,
+        signals: &sig,
+        show: None,
+        ring: None,
+    };
+    fill_cinema_world(&mut world, &input);
+    assert_eq!(world.beat.count, 2, "le compteur de kicks vient des signaux");
+    assert_eq!(world.beat.pulse, sig.kick_wave.pulse(KICK_PULSE_TAU_S));
+    assert_eq!(
+        (world.beat.bass, world.beat.bpm),
+        (0.7, Some(126.0)),
+        "l'énergie reste lue dans les features"
+    );
 }
