@@ -27,7 +27,7 @@ L'énergie reste lue dans `AudioFeatures` : elle ne dépend pas de la grille et 
 
 Elle est lissée : montée lente (τ = 2,0 s), descente plus rapide (τ = 0,8 s), indépendante du taux d'images.
 **Seule la couche Mouvement l'utilise.** Aucun effet ne lit `confidence` ou `tempo_source` lui-même.
-Valeurs de départ, à régler avec la sonde de R2 sur le matériel cible.
+Valeurs de départ, à régler avec la sonde de R2 sur le matériel cible (mode d'emploi : `docs/sonde.md`).
 
 ## Horloge de danse
 

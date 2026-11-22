@@ -331,7 +331,7 @@ Statuts : ⬜ à faire · 🟨 en cours (le journal dit où reprendre) · ✅ te
 | C3 | Atmosphère et profondeur | ✅ | voir `git log` (« C3 ») | Critères `[~]` : séparation des plans à rejuger sur capture après C4 (corps de façade trop clairs aujourd'hui) ; coût GPU aux trois paliers non mesuré. Matériel cible : densité `σ_t·ρ` et luminance de la brume sur projecteur, lisibilité de la coquille de kick, taille des poussières. `FogReach` publié mais pas encore lu par le culling (C7) ; `AtmosphereLook::apnea` pas encore écrit (EV4, C7) ; `SceneLight` (principale, remplissage, contre-jour) publié mais l'ombrage des faces est pour C4. |
 | C4 | Sol, façades et matériaux | ✅ | voir `git log` (« C4 ») | À juger sur le matériel cible : lisibilité des fenêtres habitées à 20 m de l'écran, aberration des reflets (`ROAD_ABERRATION`), gain du halo du sujet sur les murs (`halo_gain`), vu-mètre des façades avec un vrai spectre, coût GPU des pièces (un lancer de boîte par pixel de fenêtre proche). Halo des **sockets** d'enseigne (P2 §1.2) : la fonction existe (`wall_halo`), elle lit les quatre tubes du bloc ; les sockets viennent en C5/C6. |
 | R1 | Contrat rythmique : qui lit quoi (phase, coups, énergie) et branchement des effets existants | ✅ | 2026-11-22 | `docs/rythme.md`. Cliquet `rhythm_contract.rs`. Voir le journal R1. |
-| R2 | Sonde de test : CLI/MCP (lancer, envoyer une `Action`, capturer, mesurer, lire le journal) et test de synchronisation musique/image | ⬜ | — | Dépend de R1. |
+| R2 | Sonde de test : CLI/MCP (lancer, envoyer une `Action`, capturer, mesurer, lire le journal) et test de synchronisation musique/image | ✅ | 2026-11-22 | `docs/sonde.md`. Premier relevé : `NoData` (la luminance commandée monte à l'image même du kick, `analyze` ne la voit pas) ; seuils 60/25/40 non validés. Voir le journal R2. |
 | C5+C6 | Ville : distribution, archétypes **et** habillage (un seul lot, même moteur de quartiers) | ⬜ | — | Les critères de C5 puis de C6 restent distincts. |
 | C7 | Tunnel, événements, LOD et culling | ⬜ | — | — |
 | C8 | Personnages et tenues | ⬜ | — | À rejuger après le choix du concept : le lecteur de GLB est statique, pas d'animation de squelette. |
@@ -650,11 +650,46 @@ toujours calés sur le son), Énergie (inchangée). Détail et mode d'emploi : `
   producteur de la grille et des faux positifs justifiés.
 
 **Écarts / non tenu**
-- Les coupes `Beat/Bar/Phrase` de `cf-cinema` (`CueTracker`) comptent encore les kicks ; à recaler sur la grille avec R2 et C9.
+- Les coupes `Beat/Bar/Phrase` de `cf-cinema` (`CueTracker`) comptent encore les kicks ; à recaler sur la grille avec C9 (R2 a livré la sonde pour juger le recalage, voir le journal R2).
 - Constantes (`grid_trust`, `KICK_PULSE_TAU_S` = 0,11 s) non réglées sur le matériel cible ; rien n'a pu être jugé à
   l'image ni à l'oreille ici.
 - Test rouge antérieur à R1 : `cf-world-neon` `facade::rooms::tests::le_rayon_touche_une_paroi_de_la_boite` (cas proptest figé).
 - Tests de migration : surtout via les primitives partagées (`KickWave::pulse`, `register_kick`, `dance_beat`, `from_signals`)
   et le cliquet ; un test de confiance dédié seulement pour le conducteur.
 
-**Prochaine session** : R2 · Sonde de test.
+**Prochaine session** : R2 · Sonde de test (fait, voir ci-dessous).
+
+### R2 · Sonde de test (2026-11-22)
+
+Un serveur MCP `cf-probe` (`crates/cf-probe`) et une sonde dans l'application (feature `probe`, drapeau `--probe`,
+`crates/cyber-funk/src/probe/`), reliés par un canal TCP local en JSON par ligne (`crates/cf-probe-proto`). Mode d'emploi,
+exemples et lecture du rapport : `docs/sonde.md`.
+
+**Fait**
+- Outils : `launch`, `stop`, `attach`, `send_action`, `state`, `capture`, `step`, `log` (via `dbg.py`), `measure_sync`.
+  Toute erreur est un résultat d'outil, jamais un plantage ; l'application lancée ne survit pas au serveur.
+- `measure_sync` : trace par image (temps simulé et mural, `kick_now`, phase, confiance, luminance de la commande d'image),
+  analyse pure `analyze` (retard moyen, gigue, pente, délai de confiance), verdict `Ok/TooLate/TooJittery/Drifting/NoData/Unreliable`,
+  seuils 60 ms / 25 ms / 40 ms par minute. Temps réel par défaut ; `fixed_step` en option.
+- Premier relevé réel (piste `Chase`, 20 s, temps réel, `sim_to_wall_ratio` 1,0002) : **`NoData`**. La luminance commandée
+  monte à l'image même du `kick_now` (0 ms) et `analyze` ne cherche une montée qu'après cette image : 54 kicks écartés.
+  Aucun retard n'est annoncé. Détail et capture : `docs/sonde.md`, `docs/captures/R2/chase-20s.png`.
+
+**Écarts / non tenu**
+- Relevé pris par un script TCP jetable (non versionné), pas par le serveur MCP branché dans Claude Code ; non vérifié :
+  carte son de la cible, projecteur, GPU de la cible. Les seuils 60/25/40 restent provisoires.
+- `analyze` : à corriger pour comparer la luminance du kick à celle de l'image précédente (aujourd'hui la montée qui
+  survient dans l'image du kick lui-même rend le rapport `NoData`). Sans cela `measure_sync` ne donne pas de chiffre sur
+  l'application réelle.
+- Variables d'environnement de `launch` non vérifiées : `fixed_step` (`CF_PROBE_STEP_S=0.05`), `software_render`
+  (`WGPU_FORCE_FALLBACK_ADAPTER=1`).
+- `capture` est asynchrone : le fichier apparaît quelques images après la réponse ; le nom reçoit `.png` (passer un nom
+  sans extension).
+- `measure_sync` n'est valide qu'en temps réel (`sim_to_wall_ratio` proche de 1, contrôle à 10 %) ; en `fixed_step` le
+  verdict est `Unreliable`. Le retard mesuré est une borne basse (ni émissif du monde, ni GPU, ni affichage).
+- Pas de grille de référence pour les pistes de démo : aucune vérité terrain pour `grid_trust`, pas de `*.grid.ron`.
+- Un `Ping` juste après `probe.json` peut répondre `Error("délai")` tant que l'application charge.
+- Test rouge antérieur, inchangé : `cf-world-neon` `facade::rooms::tests::le_rayon_touche_une_paroi_de_la_boite`.
+
+**Prochaine session** : C5+C6 · Ville (distribution, archétypes et habillage), après correction d'`analyze` si l'on veut
+régler `grid_trust` et les coupes de `cf-cinema` avec la sonde.
