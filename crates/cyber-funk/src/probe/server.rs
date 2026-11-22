@@ -5,9 +5,11 @@
 
 use std::io::{BufRead, BufReader, Read, Write};
 use std::net::{TcpListener, TcpStream};
+use std::sync::Arc;
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::mpsc::{self, Receiver, RecvTimeoutError, Sender};
 use std::thread::JoinHandle;
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 use cf_probe_proto::{MAX_LINE_BYTES, ProbeReply, ProbeRequest, decode_line, encode_line};
 
@@ -21,22 +23,36 @@ const REPLY_TIMEOUT: Duration = Duration::from_secs(2);
 pub struct Pending {
     /// La requête décodée.
     pub request: ProbeRequest,
+    /// Instant au-delà duquel le client a déjà reçu `Error("délai")` : la requête est alors périmée et le système
+    /// Bevy la jette sans l'appliquer (sinon un nouvel essai du client l'exécuterait deux fois).
+    pub deadline: Instant,
     /// Où le système Bevy dépose la réponse.
     pub reply: Sender<ProbeReply>,
 }
 
-/// Lance le thread d'écoute sur ce `listener`. Les requêtes arrivent dans le `Receiver`, lu par `try_recv` côté Bevy.
-pub fn spawn(listener: TcpListener) -> (Receiver<Pending>, JoinHandle<()>) {
+/// Lance le thread d'écoute sur ce `listener`. Les requêtes arrivent dans le `Receiver`, lu par `try_recv` côté Bevy ;
+/// chaque ligne refusée (JSON invalide ou trop longue) incrémente `malformed`.
+pub fn spawn(listener: TcpListener, malformed: Arc<AtomicU64>) -> (Receiver<Pending>, JoinHandle<()>) {
+    spawn_with_timeout(listener, malformed, REPLY_TIMEOUT)
+}
+
+/// Comme [`spawn`], avec un délai de réponse réglable (les tests le raccourcissent).
+pub fn spawn_with_timeout(
+    listener: TcpListener,
+    malformed: Arc<AtomicU64>,
+    timeout: Duration,
+) -> (Receiver<Pending>, JoinHandle<()>) {
     let (tx, rx) = mpsc::channel();
     let handle = std::thread::spawn(move || {
         for stream in listener.incoming() {
             match stream {
                 Ok(stream) => {
                     let tx = tx.clone();
+                    let malformed = Arc::clone(&malformed);
                     // Un échec de création de thread perd ce client seulement ; l'écoute continue.
                     if let Err(error) = std::thread::Builder::new()
                         .name("probe-client".into())
-                        .spawn(move || serve_client(stream, &tx))
+                        .spawn(move || serve_client(stream, &tx, &malformed, timeout))
                     {
                         tracing::warn!(%error, "sonde : thread client non créé");
                     }
@@ -49,7 +65,7 @@ pub fn spawn(listener: TcpListener) -> (Receiver<Pending>, JoinHandle<()>) {
 }
 
 /// Sert une connexion jusqu'à sa fermeture ou jusqu'à ce que l'application s'arrête.
-fn serve_client(stream: TcpStream, tx: &Sender<Pending>) {
+fn serve_client(stream: TcpStream, tx: &Sender<Pending>, malformed: &AtomicU64, timeout: Duration) {
     let Ok(read_half) = stream.try_clone() else {
         return;
     };
@@ -59,13 +75,15 @@ fn serve_client(stream: TcpStream, tx: &Sender<Pending>) {
         let reply = match read_line(&mut reader) {
             Ok(Line::Eof) | Err(_) => return,
             Ok(Line::TooLong) => {
+                malformed.fetch_add(1, Ordering::Relaxed);
                 // Le reste de la ligne n'est pas lu : on ne sait plus où commence la suivante, on coupe.
                 let _ = write_reply(&mut writer, &ProbeReply::Error("ligne trop longue".into()));
                 return;
             }
             Ok(Line::Text(text)) => match decode_line::<ProbeRequest>(&text) {
-                Ok(request) => ask(tx, request),
+                Ok(request) => ask(tx, request, timeout),
                 Err(error) => {
+                    malformed.fetch_add(1, Ordering::Relaxed);
                     tracing::warn!(%error, "sonde : ligne malformée ignorée");
                     ProbeReply::Error(format!("requête invalide : {error}"))
                 }
@@ -77,13 +95,21 @@ fn serve_client(stream: TcpStream, tx: &Sender<Pending>) {
     }
 }
 
-/// Dépose la requête et attend sa réponse, au plus [`REPLY_TIMEOUT`].
-fn ask(tx: &Sender<Pending>, request: ProbeRequest) -> ProbeReply {
+/// Dépose la requête et attend sa réponse, au plus `timeout`.
+fn ask(tx: &Sender<Pending>, request: ProbeRequest, timeout: Duration) -> ProbeReply {
     let (reply, answer) = mpsc::channel();
-    if tx.send(Pending { request, reply }).is_err() {
+    let deadline = Instant::now() + timeout;
+    if tx
+        .send(Pending {
+            request,
+            deadline,
+            reply,
+        })
+        .is_err()
+    {
         return ProbeReply::Error("application arrêtée".into());
     }
-    match answer.recv_timeout(REPLY_TIMEOUT) {
+    match answer.recv_timeout(timeout) {
         Ok(reply) => reply,
         Err(RecvTimeoutError::Timeout) => ProbeReply::Error("délai".into()),
         Err(RecvTimeoutError::Disconnected) => ProbeReply::Error("application arrêtée".into()),

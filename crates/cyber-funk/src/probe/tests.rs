@@ -2,14 +2,15 @@
 
 use std::io::{BufRead, BufReader, Write};
 use std::net::{Ipv4Addr, TcpListener, TcpStream};
+use std::sync::Arc;
 use std::time::Duration;
 
 use bevy::prelude::*;
 use cf_control::{Action, Level};
 use cf_probe_proto::{ProbeReply, ProbeRequest, decode_line, encode_line};
-use cf_render::{CfSet, ControlAction};
+use cf_render::{CfSet, ControlAction, ControlBridge, ControlsStatus};
 
-use super::bridge::{ProbeInbox, drain_probe};
+use super::bridge::{ProbeInbox, ProbeStats, drain_probe};
 use super::{STATE_FILE, server, write_state_file};
 
 /// Les messages lus par l'application de test.
@@ -21,12 +22,18 @@ fn collect(mut reader: MessageReader<ControlAction>, mut seen: ResMut<Seen>) {
 }
 
 fn probe_app() -> (App, u16) {
+    probe_app_with_timeout(Duration::from_secs(2))
+}
+
+fn probe_app_with_timeout(timeout: Duration) -> (App, u16) {
     let listener = TcpListener::bind((Ipv4Addr::LOCALHOST, 0)).unwrap();
     let port = listener.local_addr().unwrap().port();
-    let (inbox, _handle) = server::spawn(listener);
+    let stats = ProbeStats::default();
+    let (inbox, _handle) = server::spawn_with_timeout(listener, Arc::clone(&stats.malformed), timeout);
     let mut app = App::new();
     app.add_message::<ControlAction>()
         .init_resource::<Seen>()
+        .insert_resource(stats)
         .insert_resource(ProbeInbox::new(inbox))
         .add_systems(Update, (drain_probe.in_set(CfSet::Input), collect.after(CfSet::Input)));
     (app, port)
@@ -98,6 +105,76 @@ fn une_ligne_malformee_est_comptee_et_ignoree() {
     let replies = exchange(&mut app, port, lines);
     assert!(matches!(replies[0], ProbeReply::Error(_)), "{replies:?}");
     assert_eq!(replies[1], ProbeReply::Pong, "la connexion reste utilisable");
+    assert_eq!(app.world().resource::<ProbeStats>().malformed(), 1);
+}
+
+#[test]
+fn une_ligne_trop_longue_est_comptee_et_coupe_la_connexion() {
+    let (mut app, port) = probe_app();
+    let long = "x".repeat(cf_probe_proto::MAX_LINE_BYTES + 10) + "\n";
+    let replies = exchange(&mut app, port, vec![long]);
+    assert!(matches!(replies[0], ProbeReply::Error(_)), "{replies:?}");
+    assert_eq!(app.world().resource::<ProbeStats>().malformed(), 1);
+}
+
+#[test]
+fn une_requete_expiree_est_jetee_sans_effet() {
+    let (mut app, port) = probe_app_with_timeout(Duration::from_millis(50));
+    // L'application ne tourne pas : le client reçoit `Error("délai")` et la requête reste en file.
+    let client = std::thread::spawn(move || {
+        let stream = TcpStream::connect((Ipv4Addr::LOCALHOST, port)).unwrap();
+        stream.set_read_timeout(Some(Duration::from_secs(5))).unwrap();
+        let mut reader = BufReader::new(stream.try_clone().unwrap());
+        let mut stream = stream;
+        stream
+            .write_all(encode_line(&ProbeRequest::SendAction(Action::Go)).as_bytes())
+            .unwrap();
+        let mut answer = String::new();
+        reader.read_line(&mut answer).unwrap();
+        decode_line::<ProbeReply>(&answer).unwrap()
+    });
+    assert_eq!(client.join().unwrap(), ProbeReply::Error("délai".into()));
+    // Quand l'application se réveille, la requête périmée ne doit rien déclencher.
+    app.update();
+    app.update();
+    assert!(seen(&app).is_empty(), "une requête expirée ne doit pas être appliquée");
+}
+
+#[test]
+fn avec_un_pont_de_controles_l_action_est_horodatee_et_routee_comme_le_clavier() {
+    // Le vrai `ControlBridge` : construit par `ControlsPlugin` dans une application à part, puis prélevé.
+    let mut donor = App::new();
+    donor.add_plugins(cf_render::ControlsPlugin::default());
+    let bridge = donor.world_mut().remove_resource::<ControlBridge>().unwrap();
+    let status = donor.world_mut().remove_resource::<ControlsStatus>().unwrap();
+
+    let (mut app, port) = probe_app();
+    app.insert_resource(bridge).insert_resource(status);
+    std::thread::sleep(Duration::from_millis(30)); // l'horloge du pont avance : `time_s` > 0 prouve que c'est elle.
+    let actions = [
+        Action::Go,
+        Action::TapTempo,
+        Action::Resync,
+        Action::NudgePhase { beats: 0.25 },
+    ];
+    let lines = actions
+        .iter()
+        .cloned()
+        .map(|action| encode_line(&ProbeRequest::SendAction(action)))
+        .collect();
+    let replies = exchange(&mut app, port, lines);
+    assert!(replies.iter().all(|reply| *reply == ProbeReply::Ack), "{replies:?}");
+    app.update();
+    let emitted = seen(&app);
+    assert_eq!(emitted.len(), 4);
+    assert!(
+        emitted.iter().all(|message| message.0.time_s >= 0.03),
+        "horloge du pont : {emitted:?}"
+    );
+    assert!(emitted.windows(2).all(|pair| pair[0].0.time_s <= pair[1].0.time_s));
+    // `last_action` n'est écrit que par `Emitter::emit`, le chemin qui route aussi tap, resync et nudge.
+    let status = app.world().resource::<ControlsStatus>();
+    assert_eq!(status.last_action.as_ref().map(|(_, action)| action), Some(&actions[3]));
 }
 
 #[test]

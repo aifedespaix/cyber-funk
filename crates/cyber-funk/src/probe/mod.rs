@@ -16,6 +16,7 @@ mod tests;
 
 use std::net::{Ipv4Addr, TcpListener};
 use std::path::Path;
+use std::sync::Arc;
 
 use bevy::prelude::*;
 use cf_render::CfSet;
@@ -53,9 +54,11 @@ impl Plugin for ProbePlugin {
         } else {
             tracing::warn!("sonde : pas de dossier de session, {STATE_FILE} non écrit");
         }
-        let (inbox, _handle) = server::spawn(listener);
+        let stats = bridge::ProbeStats::default();
+        let (inbox, _handle) = server::spawn(listener, Arc::clone(&stats.malformed));
         tracing::info!(port, "sonde de test à l'écoute sur 127.0.0.1");
-        app.insert_resource(bridge::ProbeInbox::new(inbox))
+        app.insert_resource(stats)
+            .insert_resource(bridge::ProbeInbox::new(inbox))
             .add_systems(Update, bridge::drain_probe.in_set(CfSet::Input));
     }
 }

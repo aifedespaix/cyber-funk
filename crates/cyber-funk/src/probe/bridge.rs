@@ -1,7 +1,9 @@
 //! Le pont côté Bevy : vide les requêtes de la sonde et les traduit en messages `ControlAction`.
 
-use std::sync::Mutex;
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::mpsc::{Receiver, TryRecvError};
+use std::sync::{Arc, Mutex};
+use std::time::Instant;
 
 use bevy::prelude::*;
 use cf_control::{Action, Level, TimedAction};
@@ -26,6 +28,28 @@ impl ProbeInbox {
     }
 }
 
+/// Compteurs de la sonde, lisibles côté Bevy (panneau, tests) ; écrits par les threads du serveur.
+#[derive(Resource, Debug, Clone, Default)]
+pub struct ProbeStats {
+    /// Lignes reçues puis refusées : JSON invalide ou ligne trop longue.
+    pub malformed: Arc<AtomicU64>,
+}
+
+impl ProbeStats {
+    /// Nombre de lignes refusées depuis le début.
+    #[cfg_attr(
+        not(test),
+        allow(
+            dead_code,
+            reason = "lecture prévue par le panneau et la sonde d état (tâches suivantes)"
+        )
+    )]
+    #[must_use]
+    pub fn malformed(&self) -> u64 {
+        self.malformed.load(Ordering::Relaxed)
+    }
+}
+
 /// Vide le canal sans jamais bloquer (`try_recv`) et répond à chaque requête.
 ///
 /// Sans `ControlBridge` (application de test), le message est publié directement, horodaté par le temps de simulation.
@@ -46,6 +70,11 @@ pub fn drain_probe(
             Err(TryRecvError::Empty | TryRecvError::Disconnected) => return,
         };
         drop(receiver);
+        // Le client a déjà reçu `Error("délai")` : appliquer maintenant doublerait l'effet de son nouvel essai.
+        if Instant::now() > pending.deadline {
+            tracing::warn!("sonde : requête périmée jetée");
+            continue;
+        }
         let reply = match pending.request {
             ProbeRequest::Ping => ProbeReply::Pong,
             ProbeRequest::SendAction(action) => match validate(&action) {
