@@ -144,7 +144,10 @@ fn une_requete_expiree_est_jetee_sans_effet() {
 fn avec_un_pont_de_controles_l_action_est_horodatee_et_routee_comme_le_clavier() {
     // Le vrai `ControlBridge` : construit par `ControlsPlugin` dans une application à part, puis prélevé.
     let mut donor = App::new();
-    donor.add_plugins(cf_render::ControlsPlugin::default());
+    donor.add_plugins(cf_render::ControlsPlugin::new(cf_render::ControlsConfig {
+        midi: cf_render::MidiChoice::Off, // aucun matériel dans un test
+        ..cf_render::ControlsConfig::default()
+    }));
     let bridge = donor.world_mut().remove_resource::<ControlBridge>().unwrap();
     let status = donor.world_mut().remove_resource::<ControlsStatus>().unwrap();
 
@@ -172,7 +175,10 @@ fn avec_un_pont_de_controles_l_action_est_horodatee_et_routee_comme_le_clavier()
         "horloge du pont : {emitted:?}"
     );
     assert!(emitted.windows(2).all(|pair| pair[0].0.time_s <= pair[1].0.time_s));
-    // `last_action` n'est écrit que par `Emitter::emit`, le chemin qui route aussi tap, resync et nudge.
+    // `last_action` n'est écrit que par `Emitter::emit`, le chemin qui route aussi tap, resync et nudge. Le routage
+    // lui-même n'est PAS observable d'ici : le tap est `pub(super)` dans cf-render, et sans source de tempo l'arbitre
+    // ignore resync et nudge (`beat_at` vaut `None`). On vérifie seulement qu'ils n'ont rien inventé.
+    assert!(app.world().resource::<ControlBridge>().arbiter().beat().is_none());
     let status = app.world().resource::<ControlsStatus>();
     assert_eq!(status.last_action.as_ref().map(|(_, action)| action), Some(&actions[3]));
 }
