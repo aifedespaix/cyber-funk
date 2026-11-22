@@ -29,7 +29,7 @@
 
 ---
 
-### Tâche 1 : `cf-probe-proto`
+### Task 1: `cf-probe-proto`
 
 **Files :** Create `crates/cf-probe-proto/{Cargo.toml,src/lib.rs,src/message.rs}` ; Modify `Cargo.toml` (membre du workspace, dépendance `cf-probe-proto`).
 
@@ -49,7 +49,7 @@
 - [ ] **Étape 4 :** `cargo test -p cf-probe-proto` : vert.
 - [ ] **Étape 5 :** commit `R2 : protocole de la sonde (cf-probe-proto)`.
 
-### Tâche 2 : `ProbePlugin`, canal TCP et `send_action`
+### Task 2: `ProbePlugin`, canal TCP et `send_action`
 
 **Files :** Create `crates/cyber-funk/src/probe/{mod.rs,server.rs,bridge.rs}` ; Modify `crates/cyber-funk/Cargo.toml` (`probe = []`, dépendance `cf-probe-proto`), `crates/cyber-funk/src/main.rs` (ajoute `ProbePlugin` sous `#[cfg(feature = "probe")]`, option `--probe` qui l'active, sans quoi rien n'écoute même compilé).
 
@@ -63,7 +63,7 @@
 - [ ] **Étape 4 :** tests verts.
 - [ ] **Étape 5 :** commit `R2 : canal de contrôle local et send_action`.
 
-### Tâche 3 : `state`, `capture` et `step`
+### Task 3: `state`, `capture` et `step`
 
 **Files :** Create `crates/cyber-funk/src/probe/{snapshot.rs,capture.rs}` ; Modify `probe/bridge.rs`.
 
@@ -77,7 +77,7 @@
 - [ ] **Étape 4 :** tests verts.
 - [ ] **Étape 5 :** commit `R2 : état, capture et pas de temps fixe`.
 
-### Tâche 4 : serveur MCP `cf-probe` (squelette et outils de lecture/écriture)
+### Task 4: serveur MCP `cf-probe` (squelette et outils de lecture/écriture)
 
 **Files :** Create `crates/cf-probe/{Cargo.toml,src/main.rs,src/mcp.rs,src/client.rs}` ; Modify `Cargo.toml` (membre).
 
@@ -91,7 +91,7 @@
 - [ ] **Étape 4 :** tests verts ; essai manuel : `cf-probe` listé par `claude mcp add -s local cf-probe -- cargo run -q -p cf-probe` (hors dépôt, noté dans la doc de la tâche 7).
 - [ ] **Étape 5 :** commit `R2 : serveur MCP cf-probe (attach, send_action, state, capture, step)`.
 
-### Tâche 5 : `launch`, `stop` et `log` (survie aux plantages)
+### Task 5: `launch`, `stop` et `log` (survie aux plantages)
 
 **Files :** Create `crates/cf-probe/src/{process.rs,logs.rs}` ; Modify `mcp.rs`.
 
@@ -105,7 +105,7 @@
 - [ ] **Étape 4 :** tests verts.
 - [ ] **Étape 5 :** commit `R2 : launch, stop et log, le MCP survit aux plantages`.
 
-### Tâche 6 : `measure_sync`
+### Task 6: `measure_sync`
 
 **Files :** Create `crates/cf-probe-proto/src/sync_report.rs`, `crates/cyber-funk/src/probe/sync_recorder.rs` ; Modify `mcp.rs`, `probe/bridge.rs`.
 
@@ -119,7 +119,7 @@
 - [ ] **Étape 4 :** outil `measure_sync { track: Option<String>, seconds: u32 }` : lance la piste de démo en pas fixe, enregistre, analyse, rend le rapport. Tests verts.
 - [ ] **Étape 5 :** commit `R2 : mesure de synchronisation musique/image`.
 
-### Tâche 7 : documentation, premier relevé, clôture
+### Task 7: documentation, premier relevé, clôture
 
 **Files :** Create `docs/sonde.md` ; Modify `docs/worldbuilding/CHANTIERS.md` (journal R2, ligne R2), `docs/rythme.md` (renvoi vers `docs/sonde.md`).
 
