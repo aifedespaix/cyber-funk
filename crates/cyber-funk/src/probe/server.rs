@@ -124,7 +124,7 @@ fn ask(tx: &Sender<Pending>, request: ProbeRequest, timeout: Duration) -> ProbeR
 /// Un `Step` ne répond qu'après N images : sous rendu logiciel une image peut durer plusieurs centaines de ms, donc le
 /// délai de base est allongé de `STEP_FRAME_BUDGET` par image (au plus `MAX_STEP_TIMEOUT`). Le même délai sert de
 /// date de péremption à la requête, le client et l'application restent d'accord.
-fn timeout_for(request: &ProbeRequest, base: Duration) -> Duration {
+pub(super) fn timeout_for(request: &ProbeRequest, base: Duration) -> Duration {
     match request {
         ProbeRequest::Step { frames } => {
             (base + STEP_FRAME_BUDGET.saturating_mul(*frames)).min(MAX_STEP_TIMEOUT.max(base))

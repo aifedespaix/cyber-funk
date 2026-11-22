@@ -121,3 +121,117 @@ fn capture_nettoie_le_nom_et_respecte_le_dossier_configure() {
         })
     );
 }
+
+fn strategy_is_automatic(app: &App) -> bool {
+    matches!(
+        app.world().resource::<TimeUpdateStrategy>(),
+        TimeUpdateStrategy::Automatic
+    )
+}
+
+fn expect_error(answer: &Receiver<ProbeReply>) {
+    assert!(
+        matches!(answer.try_recv(), Ok(ProbeReply::Error(_))),
+        "une erreur était attendue"
+    );
+}
+
+#[test]
+fn un_second_step_est_rejete_et_le_premier_se_termine() {
+    let (mut app, tx) = app_with_channel();
+    app.update();
+    let first = ask(&tx, ProbeRequest::Step { frames: 3 });
+    app.update();
+    let second = ask(&tx, ProbeRequest::Step { frames: 5 });
+    app.update();
+    expect_error(&second);
+    assert_eq!(first.try_recv(), Err(TryRecvError::Empty));
+    app.update();
+    app.update();
+    assert_eq!(first.try_recv(), Ok(ProbeReply::Ack), "le premier pas va à son terme");
+    assert!(strategy_is_automatic(&app));
+}
+
+#[test]
+fn step_zero_et_step_enorme_sont_refuses_sans_toucher_au_temps() {
+    let (mut app, tx) = app_with_channel();
+    for frames in [0, super::capture::MAX_STEP_FRAMES + 1, u32::MAX] {
+        let answer = ask(&tx, ProbeRequest::Step { frames });
+        app.update();
+        expect_error(&answer);
+        assert!(strategy_is_automatic(&app), "frames = {frames}");
+    }
+    // Le plafond lui-même est accepté.
+    let answer = ask(
+        &tx,
+        ProbeRequest::Step {
+            frames: super::capture::MAX_STEP_FRAMES,
+        },
+    );
+    app.update();
+    assert_eq!(answer.try_recv(), Err(TryRecvError::Empty));
+    assert!(!strategy_is_automatic(&app));
+}
+
+#[test]
+fn un_step_perime_est_jete_sans_avancer_le_temps() {
+    let (mut app, tx) = app_with_channel();
+    app.update();
+    let (reply, answer) = mpsc::channel();
+    tx.send(Pending {
+        request: ProbeRequest::Step { frames: 4 },
+        deadline: Instant::now().checked_sub(Duration::from_secs(1)).unwrap(),
+        reply,
+    })
+    .unwrap();
+    app.update();
+    assert!(strategy_is_automatic(&app));
+    assert!(answer.try_recv().is_err(), "aucune réponse pour une requête jetée");
+}
+
+#[test]
+fn un_client_parti_pendant_un_step_ne_bloque_pas_le_temps() {
+    let (mut app, tx) = app_with_channel();
+    app.update();
+    let answer = ask(&tx, ProbeRequest::Step { frames: 2 });
+    app.update();
+    assert!(!strategy_is_automatic(&app));
+    drop(answer);
+    app.update();
+    app.update();
+    assert!(
+        strategy_is_automatic(&app),
+        "la stratégie est restaurée malgré l'absence de destinataire"
+    );
+}
+
+#[test]
+fn le_delai_d_un_step_croit_avec_les_images_et_est_plafonne() {
+    use super::server::timeout_for;
+    let base = Duration::from_secs(2);
+    assert_eq!(timeout_for(&ProbeRequest::Ping, base), base);
+    assert_eq!(
+        timeout_for(&ProbeRequest::Step { frames: 10 }, base),
+        Duration::from_millis(4500)
+    );
+    assert_eq!(
+        timeout_for(&ProbeRequest::Step { frames: u32::MAX }, base),
+        Duration::from_secs(300)
+    );
+    let long = Duration::from_secs(600);
+    assert_eq!(
+        timeout_for(&ProbeRequest::Step { frames: 100 }, long),
+        long,
+        "base au-dessus du plafond"
+    );
+}
+
+#[test]
+fn les_noms_reserves_de_windows_sont_refuses() {
+    for name in ["CON", "nul", "Com1", "LPT9"] {
+        let (mut app, tx) = app_with_channel();
+        let answer = ask(&tx, ProbeRequest::Capture { name: name.into() });
+        app.update();
+        expect_error(&answer);
+    }
+}

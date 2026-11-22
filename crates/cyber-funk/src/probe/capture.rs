@@ -15,6 +15,14 @@ pub const CAPTURE_DIR: &str = "captures/probe";
 const DEFAULT_STEP_S: f32 = 0.05;
 /// Longueur maximale d'un nom de capture.
 const MAX_NAME_LEN: usize = 64;
+/// Plafond d'images d'un `Step` (1 min à 20 images/s de pas fixe) : un client ne peut pas figer le temps réel pour
+/// toujours, ce qui rend la restauration de la stratégie de temps réelle.
+pub const MAX_STEP_FRAMES: u32 = 1200;
+/// Noms réservés par Windows : ils désignent un périphérique, quel que soit le suffixe.
+const WINDOWS_RESERVED: [&str; 22] = [
+    "CON", "PRN", "AUX", "NUL", "COM1", "COM2", "COM3", "COM4", "COM5", "COM6", "COM7", "COM8", "COM9", "LPT1", "LPT2",
+    "LPT3", "LPT4", "LPT5", "LPT6", "LPT7", "LPT8", "LPT9",
+];
 
 /// Dossier d'écriture des captures (ressource optionnelle : [`CAPTURE_DIR`] sans elle).
 #[derive(Resource, Debug, Clone)]
@@ -36,6 +44,12 @@ pub fn capture_path(dir: &std::path::Path, name: &str) -> Result<PathBuf, String
     }
     if name.contains(['/', '\\']) || name.contains("..") {
         return Err(format!("nom de capture avec chemin refusé : {name}"));
+    }
+    if WINDOWS_RESERVED
+        .iter()
+        .any(|reserved| name.eq_ignore_ascii_case(reserved))
+    {
+        return Err(format!("nom réservé par Windows refusé : {name}"));
     }
     let clean: String = name
         .chars()
@@ -103,8 +117,10 @@ pub fn begin_step(
     if state.reply.is_some() {
         return Some((reply, ProbeReply::Error("un pas est déjà en cours".into())));
     }
-    if frames == 0 {
-        return Some((reply, ProbeReply::Ack));
+    // Refus avant toute modification de la stratégie de temps.
+    if frames == 0 || frames > MAX_STEP_FRAMES {
+        let why = format!("nombre d'images hors de 1..={MAX_STEP_FRAMES} : {frames}");
+        return Some((reply, ProbeReply::Error(why)));
     }
     // Le pas fixe vaut à partir de l'image suivante : la requête arrive en cours d'image, son temps est déjà écoulé.
     state.previous = Some(std::mem::replace(
