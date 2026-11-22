@@ -51,3 +51,5 @@ __pycache__/
 # Archives de polices graffiti (seuls les .ttf/.otf utilisés sont versionnés dans assets/fonts/)
 /assets/font/
 .superpowers/
+# Sorties de --rehearse et de la sonde
+/captures/

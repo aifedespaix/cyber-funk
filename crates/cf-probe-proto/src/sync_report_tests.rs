@@ -212,3 +212,14 @@ fn le_ratio_ignore_le_temps_mort_avant_le_premier_echantillon() {
     assert_eq!(report.verdict, Verdict::Ok);
     assert_eq!(report.notes, Vec::<String>::new());
 }
+
+#[test]
+fn la_vraie_trace_de_chase_est_mesuree_avec_un_retard_dans_l_image_du_kick() {
+    // Extrait réel (Chase, temps réel, ~17 ms par image) : la luminance saute de 0,454 à 0,55 sur l'image même du
+    // kick. Avant la correction, aucune montée n'était cherchée *avant* le pic et les kicks étaient tous écartés.
+    let trace: SyncTrace = serde_json::from_str(include_str!("real_trace_fixture.json")).unwrap();
+    let report = analyze(&trace, &SyncThresholds::default());
+    assert!(report.kicks >= 3, "{report:?}");
+    assert!(report.mean_delay_ms.unwrap().abs() < 1.0, "{report:?}");
+    assert_eq!(report.verdict, Verdict::Ok, "{report:?}");
+}

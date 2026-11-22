@@ -8,7 +8,7 @@ use crate::{SyncSample, SyncTrace};
 
 /// Fenêtre de recherche du pic visible après un kick (s) : au-delà, la lumière vue n'est plus la réponse à ce kick.
 pub const PEAK_WINDOW_S: f64 = 0.25;
-/// Hausse minimale de luminance (0..1) entre l'image du kick et le pic pour que celui-ci compte : en dessous, l'image
+/// Hausse minimale de luminance (0..1) entre l'image précédant le kick et le pic pour que celui-ci compte : en dessous, l'image
 /// n'a pas réagi (bloom coupé, silence) et le kick est ignoré plutôt que mesuré sur du bruit.
 pub const MIN_PEAK_RISE: f32 = 0.02;
 /// Confiance au-dessus de laquelle la grille est crue (le seuil de `dance_beat`, voir `docs/rythme.md`).
@@ -85,8 +85,11 @@ pub struct SyncReport {
 ///
 /// Pour chaque front montant de `kick_now`, le pic visible est le maximum de luminance dans les [`PEAK_WINDOW_S`] qui
 /// suivent (l'image du kick comprise) ; le retard est l'écart de temps entre les deux. Un kick dont la luminance ne
-/// monte pas d'au moins [`MIN_PEAK_RISE`] est ignoré. La gigue est l'écart-type de population des retards, la dérive
+/// monte pas d'au moins [`MIN_PEAK_RISE`] au-dessus de l'image précédente est ignoré. La gigue est l'écart-type de population des retards, la dérive
 /// la pente des moindres carrés du retard au fil des kicks.
+///
+/// La résolution est celle d'une image (≈ 16 à 50 ms selon la cadence) : un retard de 0 signifie « dans l'image du
+/// kick », pas « instantané ».
 #[must_use]
 pub fn analyze(trace: &SyncTrace, thresholds: &SyncThresholds) -> SyncReport {
     let (clean, dropped) = sanitize(&trace.samples);
@@ -205,26 +208,28 @@ fn measure_kicks(samples: &[SyncSample]) -> Vec<Measured> {
     out
 }
 
-/// Retard (ms) du pic de luminance dans la fenêtre qui suit le kick de l'image `kick` ; `None` sans vrai pic.
+/// Retard (ms) du pic de luminance dans la fenêtre qui suit le kick de l'image `kick` ; `None` sans vraie montée.
+///
+/// La base de comparaison est la luminance de l'image **juste avant** le kick (la sienne si le kick est le premier
+/// échantillon) : la commande d'image réagit souvent dans l'image même du kick, une base prise après elle écarterait
+/// ces kicks. La fenêtre commence à l'image du kick, incluse ; le retard peut donc valoir 0.
 fn peak_delay_ms(samples: &[SyncSample], kick: usize) -> Option<f64> {
     let start = samples.get(kick)?;
+    let base = kick
+        .checked_sub(1)
+        .and_then(|i| samples.get(i))
+        .map_or(start.luminance, |s| s.luminance);
     let mut peak = start;
-    // Niveau de départ de la montée : le minimum jusqu'au pic seulement. Un minimum pris après le pic ferait passer une
-    // lueur qui décroît (pic = image du kick) pour une réponse de 0 ms.
-    let mut running_min = start.luminance;
-    let mut floor = start.luminance;
     for sample in &samples[kick + 1..] {
         if sample.t_s - start.t_s > PEAK_WINDOW_S {
             break;
         }
-        running_min = running_min.min(sample.luminance);
         // Strictement supérieur : sur un plateau, le premier instant atteint compte.
         if sample.luminance > peak.luminance {
             peak = sample;
-            floor = running_min;
         }
     }
-    (peak.luminance - floor >= MIN_PEAK_RISE).then_some((peak.t_s - start.t_s) * 1000.0)
+    (peak.luminance - base >= MIN_PEAK_RISE).then_some((peak.t_s - start.t_s) * 1000.0)
 }
 
 /// Pente de la droite des moindres carrés retard(instant du kick), en ms par minute.
