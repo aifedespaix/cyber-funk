@@ -6,11 +6,14 @@ use std::sync::{Arc, Mutex};
 use std::time::Instant;
 
 use bevy::prelude::*;
+use bevy::time::TimeUpdateStrategy;
 use cf_control::{Action, Level, TimedAction};
 use cf_probe_proto::{ProbeReply, ProbeRequest};
 use cf_render::{ControlAction, ControlBridge, ControlsStatus, submit_action};
 
+use super::capture::{CaptureDir, StepState, begin_step, request_capture};
 use super::server::Pending;
+use super::snapshot::SnapshotSources;
 
 /// Requêtes lues au plus par image : un client bavard ne retient pas l'image (le reste attend la suivante).
 const MAX_REQUESTS_PER_FRAME: usize = 64;
@@ -53,8 +56,14 @@ impl ProbeStats {
 /// Vide le canal sans jamais bloquer (`try_recv`) et répond à chaque requête.
 ///
 /// Sans `ControlBridge` (application de test), le message est publié directement, horodaté par le temps de simulation.
+#[allow(clippy::too_many_arguments)] // Paramètres de système Bevy : chacun est une ressource distincte.
 pub fn drain_probe(
     inbox: Res<ProbeInbox>,
+    snapshot: SnapshotSources,
+    capture_dir: Option<Res<CaptureDir>>,
+    mut step: ResMut<StepState>,
+    mut strategy: Option<ResMut<TimeUpdateStrategy>>,
+    mut commands: Commands,
     time: Option<Res<Time<Virtual>>>,
     mut bridge: Option<ResMut<ControlBridge>>,
     mut status: Option<ResMut<ControlsStatus>>,
@@ -75,7 +84,8 @@ pub fn drain_probe(
             tracing::warn!("sonde : requête périmée jetée");
             continue;
         }
-        let reply = match pending.request {
+        let Pending { request, reply, .. } = pending;
+        let answer = match request {
             ProbeRequest::Ping => ProbeReply::Pong,
             ProbeRequest::SendAction(action) => match validate(&action) {
                 Ok(()) => {
@@ -91,15 +101,26 @@ pub fn drain_probe(
                 }
                 Err(why) => ProbeReply::Error(why),
             },
-            // Branchées par les tâches suivantes (état, capture, pas à pas, trace de synchronisation).
-            ProbeRequest::State
-            | ProbeRequest::Capture { .. }
-            | ProbeRequest::Step { .. }
-            | ProbeRequest::StartSyncRecording
-            | ProbeRequest::StopSyncRecording => ProbeReply::Error("non implémenté".into()),
+            ProbeRequest::State => ProbeReply::State(snapshot.snapshot()),
+            ProbeRequest::Capture { name } => request_capture(&mut commands, capture_dir.as_deref(), &name),
+            ProbeRequest::Step { frames } => {
+                let Some(strategy) = strategy.as_deref_mut() else {
+                    let _ = reply.send(ProbeReply::Error("pas de temps non pilotable".into()));
+                    continue;
+                };
+                // La réponse part plus tard (après `frames` images) : `begin_step` garde le canal, sauf refus.
+                if let Some((reply, answer)) = begin_step(&mut step, strategy, frames, reply) {
+                    let _ = reply.send(answer);
+                }
+                continue;
+            }
+            // Branchée par la tâche suivante (trace de synchronisation).
+            ProbeRequest::StartSyncRecording | ProbeRequest::StopSyncRecording => {
+                ProbeReply::Error("non implémenté".into())
+            }
         };
         // Le client a pu partir ou expirer : sa réponse n'a plus de destinataire, ce n'est pas une erreur.
-        let _ = pending.reply.send(reply);
+        let _ = reply.send(answer);
     }
 }
 

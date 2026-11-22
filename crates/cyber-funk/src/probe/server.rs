@@ -16,6 +16,10 @@ use cf_probe_proto::{MAX_LINE_BYTES, ProbeReply, ProbeRequest, decode_line, enco
 /// Délai d'attente de la réponse de l'application avant de répondre `Error("délai")` : une image gelée ne doit
 /// pas retenir le client indéfiniment.
 const REPLY_TIMEOUT: Duration = Duration::from_secs(2);
+/// Temps accordé à chaque image d'un `Step`, en plus du délai de base.
+const STEP_FRAME_BUDGET: Duration = Duration::from_millis(250);
+/// Plafond du délai d'un `Step`, quel que soit le nombre d'images.
+const MAX_STEP_TIMEOUT: Duration = Duration::from_secs(300);
 
 /// Une requête reçue et le canal où poser la réponse. Le système Bevy répond sur `reply` ; si le client est parti,
 /// l'envoi échoue et il l'ignore.
@@ -97,6 +101,7 @@ fn serve_client(stream: TcpStream, tx: &Sender<Pending>, malformed: &AtomicU64, 
 
 /// Dépose la requête et attend sa réponse, au plus `timeout`.
 fn ask(tx: &Sender<Pending>, request: ProbeRequest, timeout: Duration) -> ProbeReply {
+    let timeout = timeout_for(&request, timeout);
     let (reply, answer) = mpsc::channel();
     let deadline = Instant::now() + timeout;
     if tx
@@ -113,6 +118,18 @@ fn ask(tx: &Sender<Pending>, request: ProbeRequest, timeout: Duration) -> ProbeR
         Ok(reply) => reply,
         Err(RecvTimeoutError::Timeout) => ProbeReply::Error("délai".into()),
         Err(RecvTimeoutError::Disconnected) => ProbeReply::Error("application arrêtée".into()),
+    }
+}
+
+/// Un `Step` ne répond qu'après N images : sous rendu logiciel une image peut durer plusieurs centaines de ms, donc le
+/// délai de base est allongé de `STEP_FRAME_BUDGET` par image (au plus `MAX_STEP_TIMEOUT`). Le même délai sert de
+/// date de péremption à la requête, le client et l'application restent d'accord.
+fn timeout_for(request: &ProbeRequest, base: Duration) -> Duration {
+    match request {
+        ProbeRequest::Step { frames } => {
+            (base + STEP_FRAME_BUDGET.saturating_mul(*frames)).min(MAX_STEP_TIMEOUT.max(base))
+        }
+        _ => base,
     }
 }
 

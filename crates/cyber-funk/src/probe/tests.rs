@@ -10,7 +10,7 @@ use cf_control::{Action, Level};
 use cf_probe_proto::{ProbeReply, ProbeRequest, decode_line, encode_line};
 use cf_render::{CfSet, ControlAction, ControlBridge, ControlsStatus};
 
-use super::bridge::{ProbeInbox, ProbeStats, drain_probe};
+use super::bridge::{ProbeInbox, ProbeStats};
 use super::{STATE_FILE, server, write_state_file};
 
 /// Les messages lus par l'application de test.
@@ -35,7 +35,8 @@ fn probe_app_with_timeout(timeout: Duration) -> (App, u16) {
         .init_resource::<Seen>()
         .insert_resource(stats)
         .insert_resource(ProbeInbox::new(inbox))
-        .add_systems(Update, (drain_probe.in_set(CfSet::Input), collect.after(CfSet::Input)));
+        .add_systems(Update, collect.after(CfSet::Input));
+    super::install_systems(&mut app);
     (app, port)
 }
 
@@ -201,7 +202,7 @@ fn un_client_qui_se_deconnecte_ne_bloque_pas_le_plugin() {
 #[test]
 fn les_requetes_pas_encore_branchees_repondent_non_implemente() {
     let (mut app, port) = probe_app();
-    let replies = exchange(&mut app, port, vec![encode_line(&ProbeRequest::State)]);
+    let replies = exchange(&mut app, port, vec![encode_line(&ProbeRequest::StartSyncRecording)]);
     assert_eq!(replies, vec![ProbeReply::Error("non implémenté".into())]);
 }
 

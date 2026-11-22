@@ -10,7 +10,11 @@
 //! `--probe`, et ses actions passent par le même chemin que le clavier : le limiteur photosensible les voit.
 
 mod bridge;
+mod capture;
 mod server;
+mod snapshot;
+#[cfg(test)]
+mod state_tests;
 #[cfg(test)]
 mod tests;
 
@@ -54,13 +58,25 @@ impl Plugin for ProbePlugin {
         } else {
             tracing::warn!("sonde : pas de dossier de session, {STATE_FILE} non écrit");
         }
+        // Le moteur d'image écrit dans ce dossier sans le créer : on le prépare une fois ici.
+        if let Err(error) = std::fs::create_dir_all(capture::CAPTURE_DIR) {
+            tracing::warn!(%error, "sonde : dossier des captures non créé, `capture` échouera");
+        }
         let stats = bridge::ProbeStats::default();
         let (inbox, _handle) = server::spawn(listener, Arc::clone(&stats.malformed));
         tracing::info!(port, "sonde de test à l'écoute sur 127.0.0.1");
         app.insert_resource(stats)
-            .insert_resource(bridge::ProbeInbox::new(inbox))
-            .add_systems(Update, bridge::drain_probe.in_set(CfSet::Input));
+            .insert_resource(bridge::ProbeInbox::new(inbox));
+        install_systems(app);
     }
+}
+
+/// Les systèmes de la sonde : le compte des images d'un `Step`, puis le vidage des requêtes (partagé avec les tests).
+fn install_systems(app: &mut App) {
+    app.init_resource::<capture::StepState>().add_systems(
+        Update,
+        (capture::tick_step.before(bridge::drain_probe), bridge::drain_probe).in_set(CfSet::Input),
+    );
 }
 
 /// Écrit `probe.json` dans `dir` (créé au besoin) : le port d'écoute et le pid, pour que le serveur MCP trouve
