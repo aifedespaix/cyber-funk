@@ -153,6 +153,12 @@ pub struct Cli {
     /// des captures du projecteur dans ce dossier, puis ferme l'application.
     #[arg(long, value_name = "DOSSIER", conflicts_with = "soak", hide = true)]
     pub rehearse: Option<PathBuf>,
+
+    /// Sonde de test : ouvre un canal de contrôle local (127.0.0.1, port choisi par le système, écrit dans
+    /// `probe.json`). Disponible seulement dans un binaire compilé avec la feature `probe`.
+    #[cfg(feature = "probe")]
+    #[arg(long, hide = true)]
+    pub probe: bool,
 }
 
 #[cfg(test)]

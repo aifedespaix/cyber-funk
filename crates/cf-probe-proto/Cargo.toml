@@ -1,0 +1,17 @@
+[package]
+name = "cf-probe-proto"
+description = "Protocole de la sonde de test : messages JSON (une ligne par message) entre le serveur MCP et l'application"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+repository.workspace = true
+publish.workspace = true
+
+[lints]
+workspace = true
+
+[dependencies]
+cf-control.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+thiserror.workspace = true

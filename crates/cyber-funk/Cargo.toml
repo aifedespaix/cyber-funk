@@ -13,6 +13,8 @@ workspace = true
 [features]
 # Développement uniquement : liaison dynamique de Bevy (compilation plus rapide) et rechargement à chaud des assets.
 dev = ["bevy/dynamic_linking", "bevy/file_watcher"]
+# Sonde de test : canal de contrôle local (TCP, 127.0.0.1) pour le serveur MCP. Rien n'écoute sans `--probe`.
+probe = ["dep:cf-probe-proto", "dep:serde_json"]
 
 [dependencies]
 anyhow.workspace = true
@@ -22,6 +24,8 @@ cf-audio.workspace = true
 cf-cinema.workspace = true
 cf-debuglog.workspace = true
 cf-operator.workspace = true
+cf-probe-proto = { workspace = true, optional = true }
+serde_json = { workspace = true, optional = true }
 cf-render.workspace = true
 cf-show.workspace = true
 cf-world-neon.workspace = true

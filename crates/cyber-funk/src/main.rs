@@ -8,6 +8,8 @@ mod cli;
 mod icon;
 mod logging;
 mod preload;
+#[cfg(feature = "probe")]
+mod probe;
 mod projector;
 mod rehearse;
 mod selfcheck;
@@ -85,6 +87,10 @@ fn main() -> anyhow::Result<ExitCode> {
         // Le journal en direct de l'onglet Statistiques : la même poignée que celle que remplit l'enregistreur. Sans
         // enregistreur (disque refusé), la ressource manque et l'onglet dit « Journal indisponible ».
         .insert_resource(cf_operator::OperatorLog(recorder.log_buffer()));
+    }
+    #[cfg(feature = "probe")]
+    if cli.probe {
+        app.add_plugins(probe::ProbePlugin);
     }
     if cli.self_check {
         return Ok(selfcheck::run(&mut app));
