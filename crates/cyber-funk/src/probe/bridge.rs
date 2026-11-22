@@ -9,11 +9,14 @@ use bevy::prelude::*;
 use bevy::time::TimeUpdateStrategy;
 use cf_control::{Action, Level, TimedAction};
 use cf_probe_proto::{ProbeReply, ProbeRequest};
+use cf_render::audio::{AudioCommand, AudioStatus};
 use cf_render::{ControlAction, ControlBridge, ControlsStatus, submit_action};
 
 use super::capture::{CaptureDir, StepState, begin_step, request_capture};
+use super::demo_track::select_track;
 use super::server::Pending;
 use super::snapshot::SnapshotSources;
+use super::sync_recorder::SyncRecorder;
 
 /// Requêtes lues au plus par image : un client bavard ne retient pas l'image (le reste attend la suivante).
 const MAX_REQUESTS_PER_FRAME: usize = 64;
@@ -68,6 +71,9 @@ pub fn drain_probe(
     mut bridge: Option<ResMut<ControlBridge>>,
     mut status: Option<ResMut<ControlsStatus>>,
     mut out: MessageWriter<ControlAction>,
+    mut recorder: ResMut<SyncRecorder>,
+    audio: Option<Res<AudioStatus>>,
+    mut audio_out: MessageWriter<AudioCommand>,
 ) {
     for _ in 0..MAX_REQUESTS_PER_FRAME {
         // Un verrou empoisonné ne peut venir que d'un panic ailleurs : on suspend la sonde plutôt que de planter.
@@ -114,9 +120,17 @@ pub fn drain_probe(
                 }
                 continue;
             }
-            // Branchée par la tâche suivante (trace de synchronisation).
-            ProbeRequest::StartSyncRecording | ProbeRequest::StopSyncRecording => {
-                ProbeReply::Error("non implémenté".into())
+            ProbeRequest::StartSyncRecording => recorder.start().map_or_else(ProbeReply::Error, |()| ProbeReply::Ack),
+            ProbeRequest::StopSyncRecording => recorder.stop().map_or_else(ProbeReply::Error, ProbeReply::Trace),
+            ProbeRequest::SelectTrack { name } => {
+                let tracks = audio.as_deref().map_or(&[][..], |status| &status.tracks[..]);
+                match select_track(tracks, &name) {
+                    Ok(index) => {
+                        audio_out.write(AudioCommand::DemoSelect(index));
+                        ProbeReply::Ack
+                    }
+                    Err(why) => ProbeReply::Error(why),
+                }
             }
         };
         // Le client a pu partir ou expirer : sa réponse n'a plus de destinataire, ce n'est pas une erreur.

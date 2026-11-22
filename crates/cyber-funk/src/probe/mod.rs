@@ -11,10 +11,14 @@
 
 mod bridge;
 mod capture;
+mod demo_track;
 mod server;
 mod snapshot;
 #[cfg(test)]
 mod state_tests;
+mod sync_recorder;
+#[cfg(test)]
+mod sync_tests;
 #[cfg(test)]
 mod tests;
 
@@ -24,6 +28,7 @@ use std::sync::Arc;
 
 use bevy::prelude::*;
 use cf_render::CfSet;
+use cf_render::audio::AudioCommand;
 
 use crate::logging;
 
@@ -71,12 +76,19 @@ impl Plugin for ProbePlugin {
     }
 }
 
-/// Les systèmes de la sonde : le compte des images d'un `Step`, puis le vidage des requêtes (partagé avec les tests).
+/// Les systèmes de la sonde : le compte des images d'un `Step`, le vidage des requêtes et l'enregistreur de
+/// synchronisation (partagé avec les tests).
 fn install_systems(app: &mut App) {
-    app.init_resource::<capture::StepState>().add_systems(
-        Update,
-        (capture::tick_step.before(bridge::drain_probe), bridge::drain_probe).in_set(CfSet::Input),
-    );
+    app.init_resource::<capture::StepState>()
+        .init_resource::<sync_recorder::SyncRecorder>()
+        // Déjà enregistré par le pont audio dans l'application ; nécessaire pour `SelectTrack` dans les tests.
+        .add_message::<AudioCommand>()
+        .add_systems(
+            Update,
+            (capture::tick_step.before(bridge::drain_probe), bridge::drain_probe).in_set(CfSet::Input),
+        )
+        // `Last` : après `update_postfx` (`CfSet::Present`) dont l'enregistreur lit les sorties, voir `sync_recorder`.
+        .add_systems(Last, sync_recorder::record_sync.run_if(sync_recorder::recording));
 }
 
 /// Écrit `probe.json` dans `dir` (créé au besoin) : le port d'écoute et le pid, pour que le serveur MCP trouve

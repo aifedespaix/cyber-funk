@@ -200,10 +200,20 @@ fn un_client_qui_se_deconnecte_ne_bloque_pas_le_plugin() {
 }
 
 #[test]
-fn les_requetes_pas_encore_branchees_repondent_non_implemente() {
+fn la_trace_de_synchronisation_fait_l_aller_retour_par_le_socket() {
     let (mut app, port) = probe_app();
-    let replies = exchange(&mut app, port, vec![encode_line(&ProbeRequest::StartSyncRecording)]);
-    assert_eq!(replies, vec![ProbeReply::Error("non implémenté".into())]);
+    let lines = vec![
+        encode_line(&ProbeRequest::StartSyncRecording),
+        encode_line(&ProbeRequest::StopSyncRecording),
+        encode_line(&ProbeRequest::StopSyncRecording),
+    ];
+    let replies = exchange(&mut app, port, lines);
+    assert_eq!(replies[0], ProbeReply::Ack);
+    assert!(
+        matches!(&replies[1], ProbeReply::Trace(trace) if !trace.samples.is_empty()),
+        "{replies:?}"
+    );
+    assert!(matches!(&replies[2], ProbeReply::Error(why) if why.contains("aucun enregistrement")));
 }
 
 #[test]

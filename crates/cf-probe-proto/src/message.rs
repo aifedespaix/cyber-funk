@@ -7,6 +7,11 @@ use serde::{Deserialize, Serialize};
 /// Taille maximale d'une ligne reçue, en octets : au-delà, la ligne est refusée sans être analysée.
 pub const MAX_LINE_BYTES: usize = 64 * 1024;
 
+/// Taille maximale d'une réponse lue par le client, en octets : la trace de synchronisation (36 000 échantillons au
+/// plus, environ 4 Mio en JSON) dépasse largement une requête. Seul le client, qui se connecte à sa propre application,
+/// accepte des lignes aussi longues ; l'application, elle, garde [`MAX_LINE_BYTES`] pour ce qu'elle reçoit.
+pub const MAX_REPLY_BYTES: usize = 8 * 1024 * 1024;
+
 /// Erreur de décodage d'une ligne du protocole.
 #[derive(Debug, thiserror::Error)]
 pub enum ProtoError {
@@ -44,6 +49,11 @@ pub enum ProbeRequest {
     StartSyncRecording,
     /// Arrête l'enregistrement et renvoie la trace.
     StopSyncRecording,
+    /// Choisit la piste de démo dont le titre (ou « artiste - titre ») correspond à ce nom, sans casse.
+    SelectTrack {
+        /// Titre, « artiste - titre », ou un fragment qui ne désigne qu'une piste.
+        name: String,
+    },
 }
 
 /// Réponse de l'application.
@@ -130,7 +140,19 @@ pub fn encode_line(value: &impl Serialize) -> String {
 /// # Errors
 /// [`ProtoError::TooLong`] au-delà de [`MAX_LINE_BYTES`], [`ProtoError::Json`] si le contenu est invalide.
 pub fn decode_line<T: DeserializeOwned>(line: &str) -> Result<T, ProtoError> {
-    if line.len() > MAX_LINE_BYTES {
+    decode_line_max(line, MAX_LINE_BYTES)
+}
+
+/// Décode une réponse de l'application, qui peut porter une trace entière : plafond [`MAX_REPLY_BYTES`].
+///
+/// # Errors
+/// [`ProtoError::TooLong`] au-delà de [`MAX_REPLY_BYTES`], [`ProtoError::Json`] si le contenu est invalide.
+pub fn decode_reply_line(line: &str) -> Result<ProbeReply, ProtoError> {
+    decode_line_max(line, MAX_REPLY_BYTES)
+}
+
+fn decode_line_max<T: DeserializeOwned>(line: &str, max: usize) -> Result<T, ProtoError> {
+    if line.len() > max {
         return Err(ProtoError::TooLong { len: line.len() });
     }
     Ok(serde_json::from_str(line.trim_end_matches(['\n', '\r']))?)
@@ -179,6 +201,7 @@ mod tests {
             ProbeRequest::Step { frames: 7 },
             ProbeRequest::StartSyncRecording,
             ProbeRequest::StopSyncRecording,
+            ProbeRequest::SelectTrack { name: "Chase".into() },
         ];
         for r in &requests {
             roundtrip(r);
@@ -247,6 +270,39 @@ mod tests {
         for a in actions {
             roundtrip(&ProbeRequest::SendAction(a));
         }
+    }
+
+    #[test]
+    fn une_longue_trace_tient_dans_une_reponse() {
+        // Le plafond d'échantillons de la sonde (36 000, dix minutes à 60 images/s) doit passer le codec de réponse.
+        let samples = (0..36_000)
+            .map(|i| SyncSample {
+                t_s: f64::from(i) * 0.016_666_666_666_666_666,
+                kick_now: i % 30 == 0,
+                beat_phase: 0.123_456_79,
+                grid_trust: 0.987_654_3,
+                luminance: 0.456_789_12,
+            })
+            .collect();
+        let line = encode_line(&ProbeReply::Trace(SyncTrace { samples }));
+        assert!(
+            line.len() > MAX_LINE_BYTES,
+            "sinon le test ne prouve rien : {}",
+            line.len()
+        );
+        assert!(line.len() <= MAX_REPLY_BYTES, "{} octets", line.len());
+        assert!(matches!(decode_reply_line(&line), Ok(ProbeReply::Trace(t)) if t.samples.len() == 36_000));
+        // Les requêtes, elles, restent bornées à 64 Kio.
+        assert!(matches!(
+            decode_line::<ProbeReply>(&line),
+            Err(ProtoError::TooLong { .. })
+        ));
+    }
+
+    #[test]
+    fn une_reponse_demesuree_est_refusee() {
+        let line = "a".repeat(MAX_REPLY_BYTES + 1);
+        assert!(matches!(decode_reply_line(&line), Err(ProtoError::TooLong { .. })));
     }
 
     #[test]
