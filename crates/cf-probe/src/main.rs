@@ -5,6 +5,7 @@
 mod client;
 mod logs;
 mod mcp;
+mod params;
 mod process;
 
 use anyhow::Context as _;

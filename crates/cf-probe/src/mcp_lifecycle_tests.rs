@@ -19,6 +19,15 @@ fn fake_app_entry() {
     let Ok(mode) = std::env::var("CF_FAKE_MODE") else {
         return;
     };
+    if mode == "hang" {
+        // Application qui ne démarre jamais : pas de probe.json.
+        std::thread::sleep(Duration::from_secs(120));
+        return;
+    }
+    if mode == "clap" {
+        eprintln!("error: unexpected argument '--probe' found");
+        std::process::exit(2);
+    }
     if mode == "exit1" {
         for index in 0..60 {
             eprintln!("ligne d'erreur {index}");
@@ -102,7 +111,9 @@ async fn launch_attend_probe_json_puis_se_connecte() {
     // Un probe.json périmé (d'un lancement précédent) ne doit jamais être pris pour le bon.
     std::fs::write(dir.path().join("probe.json"), r#"{"port":1,"pid":1}"#).unwrap();
     let server = server_in(&dir);
-    let result = server.launch_with(fake_command("serve", dir.path()), STARTUP).await;
+    let result = server
+        .launch_with(fake_command("serve", dir.path()), STARTUP, String::new())
+        .await;
     assert_ne!(result.is_error, Some(true), "{}", text(&result));
     let state = server.state().await;
     assert_ne!(state.is_error, Some(true), "{}", text(&state));
@@ -113,7 +124,9 @@ async fn launch_attend_probe_json_puis_se_connecte() {
 async fn launch_echoue_proprement_si_l_app_meurt_au_demarrage() {
     let dir = tempfile::tempdir().unwrap();
     let server = server_in(&dir);
-    let result = server.launch_with(fake_command("exit1", dir.path()), STARTUP).await;
+    let result = server
+        .launch_with(fake_command("exit1", dir.path()), STARTUP, String::new())
+        .await;
     assert_eq!(result.is_error, Some(true));
     let message = text(&result);
     assert!(message.contains("PANIC simulé"), "{message}");
@@ -125,7 +138,9 @@ async fn launch_echoue_proprement_si_l_app_meurt_au_demarrage() {
 async fn un_appel_apres_la_mort_de_l_app_rend_une_erreur_claire_et_log_reste_utilisable() {
     let dir = tempfile::tempdir().unwrap();
     let server = server_in(&dir);
-    let launched = server.launch_with(fake_command("serve", dir.path()), STARTUP).await;
+    let launched = server
+        .launch_with(fake_command("serve", dir.path()), STARTUP, String::new())
+        .await;
     assert_ne!(launched.is_error, Some(true), "{}", text(&launched));
     server.kill_child_for_test();
     let result = tokio::time::timeout(Duration::from_secs(10), server.state())
@@ -145,7 +160,9 @@ async fn un_appel_apres_la_mort_de_l_app_rend_une_erreur_claire_et_log_reste_uti
 async fn stop_tue_le_processus_enfant() {
     let dir = tempfile::tempdir().unwrap();
     let server = server_in(&dir);
-    server.launch_with(fake_command("serve", dir.path()), STARTUP).await;
+    server
+        .launch_with(fake_command("serve", dir.path()), STARTUP, String::new())
+        .await;
     let pid = server.child_id_for_test().expect("un enfant tourne");
     assert_ne!(server.stop().await.is_error, Some(true));
     assert!(server.child_id_for_test().is_none());
@@ -156,6 +173,9 @@ async fn stop_tue_le_processus_enfant() {
 
 #[test]
 fn log_transmet_la_sous_commande_et_borne_la_sortie() {
+    if !python_or_skip() {
+        return;
+    }
     let dir = tempfile::tempdir().unwrap();
     let script = dir.path().join("fake_dbg.py");
     std::fs::write(
@@ -180,4 +200,144 @@ fn log_transmet_la_sous_commande_et_borne_la_sortie() {
         ..args
     };
     assert!(logs::run_with(&logs::python_program(), &script, &bad).contains("sous-commande"));
+}
+
+#[tokio::test]
+async fn detruire_le_serveur_tue_l_application() {
+    let dir = tempfile::tempdir().unwrap();
+    let server = server_in(&dir);
+    server
+        .launch_with(fake_command("serve", dir.path()), STARTUP, String::new())
+        .await;
+    let pid = server.child_id_for_test().expect("un enfant tourne");
+    assert!(process::is_alive(pid));
+    drop(server);
+    assert!(!process::is_alive(pid), "le processus {pid} a survécu au serveur");
+}
+
+#[tokio::test]
+async fn un_delai_de_demarrage_depasse_tue_l_application() {
+    let dir = tempfile::tempdir().unwrap();
+    let server = server_in(&dir);
+    let result = server
+        .launch_with(fake_command("hang", dir.path()), Duration::from_secs(1), String::new())
+        .await;
+    assert_eq!(result.is_error, Some(true));
+    assert!(text(&result).contains("tuée"), "{}", text(&result));
+    assert!(server.child_id_for_test().is_none());
+}
+
+#[tokio::test]
+async fn stop_pendant_un_lancement_le_fait_echouer_sans_bloquer() {
+    let dir = tempfile::tempdir().unwrap();
+    let server = server_in(&dir);
+    let launching = {
+        let server = server.clone();
+        let path = dir.path().to_path_buf();
+        tokio::spawn(async move {
+            server
+                .launch_with(fake_command("hang", &path), STARTUP, String::new())
+                .await
+        })
+    };
+    while server.child_id_for_test().is_none() {
+        tokio::time::sleep(Duration::from_millis(20)).await;
+    }
+    let pid = server.child_id_for_test().unwrap();
+    let stopped = tokio::time::timeout(Duration::from_secs(5), server.stop())
+        .await
+        .expect("stop ne doit pas attendre la fin du lancement");
+    assert_ne!(stopped.is_error, Some(true));
+    let result = tokio::time::timeout(Duration::from_secs(10), launching)
+        .await
+        .expect("le lancement doit échouer vite")
+        .unwrap();
+    assert_eq!(result.is_error, Some(true));
+    assert!(text(&result).contains("interrompu"), "{}", text(&result));
+    assert!(!process::is_alive(pid));
+}
+
+#[tokio::test]
+async fn un_binaire_sans_la_feature_probe_est_explique() {
+    let dir = tempfile::tempdir().unwrap();
+    let server = server_in(&dir);
+    let result = server
+        .launch_with(fake_command("clap", dir.path()), STARTUP, String::new())
+        .await;
+    assert_eq!(result.is_error, Some(true));
+    assert!(text(&result).contains("--features probe"), "{}", text(&result));
+}
+
+/// Python disponible ? Sinon le test est ignoré EXPLICITEMENT (message sur stderr), pas validé à vide.
+fn python_or_skip() -> bool {
+    let present = Command::new(logs::python_program())
+        .arg("--version")
+        .output()
+        .is_ok_and(|out| out.status.success());
+    if !present {
+        eprintln!("SKIP : python introuvable, test de logs ignoré");
+    }
+    present
+}
+
+fn script_args(limit: usize) -> LogArgs {
+    LogArgs {
+        subcommand: "summary".into(),
+        args: vec![],
+        limit,
+        root: None,
+        session: None,
+    }
+}
+
+#[test]
+fn log_tue_dbg_py_apres_le_delai_de_garde() {
+    if !python_or_skip() {
+        return;
+    }
+    let dir = tempfile::tempdir().unwrap();
+    let script = dir.path().join("sleepy.py");
+    std::fs::write(
+        &script,
+        "import time
+time.sleep(60)
+",
+    )
+    .unwrap();
+    let started = std::time::Instant::now();
+    let out = logs::run_with_limits(
+        &logs::python_program(),
+        &script,
+        &script_args(10),
+        Duration::from_secs(1),
+        1 << 20,
+    );
+    assert!(out.contains("dépassé"), "{out}");
+    assert!(
+        started.elapsed() < Duration::from_secs(15),
+        "le processus n'a pas été tué"
+    );
+}
+
+#[test]
+fn log_borne_la_lecture_d_une_sortie_enorme() {
+    if !python_or_skip() {
+        return;
+    }
+    let dir = tempfile::tempdir().unwrap();
+    let script = dir.path().join("huge.py");
+    std::fs::write(
+        &script,
+        "import sys
+line = 'x' * 99 + '\\n'
+while True:
+    sys.stdout.write(line * 1000)
+",
+    )
+    .unwrap();
+    let started = std::time::Instant::now();
+    let out = logs::run_with(&logs::python_program(), &script, &script_args(20));
+    assert!(out.lines().count() <= 22, "{} lignes", out.lines().count());
+    assert!(out.contains("bornée") || out.contains("tronquées"), "{out}");
+    assert!(started.elapsed() < Duration::from_secs(15));
 }

@@ -10,11 +10,10 @@ use cf_probe_proto::{ProbeReply, ProbeRequest};
 use rmcp::handler::server::wrapper::Parameters;
 use rmcp::model::{CallToolResult, ContentBlock};
 use rmcp::{ServerHandler, tool, tool_handler, tool_router};
-use schemars::JsonSchema;
-use serde::Deserialize;
 
 use crate::client::{ProbeClient, READ_TIMEOUT};
 use crate::logs::{self, LogArgs};
+use crate::params::{CaptureParams, LaunchParams, LogParams, SendActionParams, StepParams};
 use crate::process::{self, DEFAULT_STARTUP_TIMEOUT, LaunchOptions, Launched};
 
 /// Nom du fichier d'état écrit par l'application (voir `cyber-funk::probe`).
@@ -27,55 +26,6 @@ const APP_DIR: &str = "cyber-funk";
 #[must_use]
 pub fn default_state_dir() -> Option<PathBuf> {
     dirs::data_dir().map(|dir| dir.join(APP_DIR).join("logs"))
-}
-
-/// Paramètres de `send_action`.
-#[derive(Debug, Deserialize, JsonSchema)]
-pub struct SendActionParams {
-    /// Action au format JSON de `cf_control::Action` (serde par défaut : `"Go"`, `{"Cue": 3}`...).
-    pub action: serde_json::Value,
-}
-
-/// Paramètres de `capture`.
-#[derive(Debug, Deserialize, JsonSchema)]
-pub struct CaptureParams {
-    /// Nom du fichier image, sans dossier.
-    pub name: String,
-}
-
-/// Paramètres de `step`.
-#[derive(Debug, Deserialize, JsonSchema)]
-pub struct StepParams {
-    /// Nombre d'images à avancer : de 1 à 1200 (0 est refusé, au-delà l'application plafonne).
-    pub frames: u32,
-}
-
-/// Paramètres de `launch`.
-#[derive(Debug, Default, Deserialize, JsonSchema)]
-pub struct LaunchParams {
-    /// Show à jouer (`--show`), chemin d'un fichier RON.
-    pub show: Option<String>,
-    /// Épingle le pas de temps des `step` (`CF_PROBE_STEP_S`).
-    pub fixed_step: Option<bool>,
-    /// Rendu logiciel (variable wgpu `WGPU_FORCE_FALLBACK_ADAPTER=1`).
-    pub software_render: Option<bool>,
-    /// Arguments supplémentaires de l'application.
-    pub extra_args: Option<Vec<String>>,
-    /// Délai de démarrage en secondes (120 par défaut : la première compilation est longue).
-    pub startup_timeout_s: Option<u64>,
-}
-
-/// Paramètres de `log`.
-#[derive(Debug, Deserialize, JsonSchema)]
-pub struct LogParams {
-    /// Sous-commande de dbg.py : crash, summary, timeline, find, spans, check ou sessions.
-    pub subcommand: String,
-    /// Arguments de la sous-commande (ex. `--around 83500 --window 3000`, ou une référence `slot1/cue2`).
-    pub args: Option<Vec<String>>,
-    /// Nombre de lignes au plus (40 par défaut, 400 au maximum).
-    pub limit: Option<usize>,
-    /// Session voulue (la dernière par défaut).
-    pub session: Option<String>,
 }
 
 /// Serveur MCP : tient la connexion à l'application une fois `attach` ou `launch` fait.
@@ -153,36 +103,40 @@ impl ProbeServer {
         }
     }
 
-    /// Lance `command` (remplace une application déjà lancée), attend sa sonde et s'y connecte.
-    async fn launch_with(&self, command: Command, startup_timeout: Duration) -> CallToolResult {
+    /// Lance `command` (remplace une application déjà lancée), attend sa sonde et s'y connecte. Le verrou de l'enfant
+    /// n'est tenu que pour le ranger et le sonder : `stop` peut interrompre l'attente. `note` est ajouté à la réponse.
+    async fn launch_with(&self, command: Command, startup_timeout: Duration, note: String) -> CallToolResult {
         let Some(dir) = self.state_dir.clone() else {
             return fail("pas de dossier de données sur ce système : probe.json introuvable");
         };
         let (client, child, read_timeout) = (Arc::clone(&self.client), Arc::clone(&self.child), self.read_timeout);
         let outcome = tokio::task::spawn_blocking(move || {
-            let mut slot = lock_child(&child);
-            if let Some(old) = slot.as_mut() {
-                old.kill();
-            }
-            *slot = None;
-            *lock(&client) = None;
-            let mut launched = process::launch_command(command, &dir, startup_timeout)?;
-            match ProbeClient::connect_with(launched.port, read_timeout) {
-                Ok(connection) => {
-                    *lock(&client) = Some(connection);
-                    let summary = format!(
-                        "application lancée (pid {}, port {})",
-                        launched.child.id(),
-                        launched.port
-                    );
-                    *slot = Some(launched);
-                    Ok(summary)
+            let pid = {
+                let mut slot = lock_child(&child);
+                if let Some(mut old) = slot.take() {
+                    old.kill();
                 }
+                *lock(&client) = None;
+                let launched = Launched::spawn(command, &dir)?;
+                let pid = launched.child.id();
+                *slot = Some(launched);
+                pid
+            };
+            let port = process::wait_for_probe(&child, pid, &dir, startup_timeout)?;
+            let connection = match ProbeClient::connect_with(port, read_timeout) {
+                Ok(connection) => connection,
                 Err(error) => {
-                    launched.kill();
-                    Err(error.context(format!("sonde annoncée sur le port {} mais injoignable", launched.port)))
+                    let ours = lock_child(&child).take_if(|launched| launched.child.id() == pid);
+                    drop(ours);
+                    return Err(error.context(format!("sonde annoncée sur le port {port} mais injoignable")));
                 }
+            };
+            let slot = lock_child(&child);
+            if slot.as_ref().map(|launched| launched.child.id()) != Some(pid) {
+                anyhow::bail!("lancement interrompu : `stop` ou un nouveau `launch` a retiré l'application");
             }
+            *lock(&client) = Some(connection);
+            Ok(format!("application lancée (pid {pid}, port {port}) ; {note}"))
         })
         .await;
         match outcome {
@@ -197,21 +151,24 @@ impl ProbeServer {
         let client = Arc::clone(&self.client);
         let child = Arc::clone(&self.child);
         let outcome = tokio::task::spawn_blocking(move || {
-            // Ordre des verrous : enfant puis connexion, partout.
-            let mut child = lock_child(&child);
-            if let Some(why) = dead_child_message(&mut child) {
+            // Le verrou de l'enfant n'est jamais tenu pendant l'appel (il peut durer longtemps) : `stop` reste libre.
+            if let Some(why) = dead_child_message(&mut lock_child(&child)) {
                 *lock(&client) = None;
                 return Err(why);
             }
-            let mut guard = lock(&client);
-            let Some(connection) = guard.as_mut() else {
-                return Err("pas de connexion : appeler d'abord l'outil `attach`".to_owned());
+            let called = {
+                let mut guard = lock(&client);
+                let Some(connection) = guard.as_mut() else {
+                    return Err("pas de connexion : appeler d'abord l'outil `launch` (ou `attach`)".to_owned());
+                };
+                connection.call(&request).inspect_err(|_| {
+                    // Une réponse tardive fausserait la requête suivante : on referme, il faut se rattacher.
+                    *guard = None;
+                })
             };
-            connection.call(&request).map_err(|error| {
-                // Une réponse tardive fausserait la requête suivante : on referme, il faut se rattacher.
-                *guard = None;
+            called.map_err(|error| {
                 // Si l'application vient de mourir en pleine requête, c'est la vraie explication.
-                dead_child_message(&mut child)
+                dead_child_message(&mut lock_child(&child))
                     .unwrap_or_else(|| format!("{error:#} ; connexion fermée, rappeler `attach`"))
             })
         })
@@ -280,10 +237,16 @@ impl ProbeServer {
             software_render: params.software_render.unwrap_or(false),
             extra_args: params.extra_args.unwrap_or_default(),
         };
+        let resolved = match process::build_command(&options) {
+            Ok(resolved) => resolved,
+            Err(error) => return fail(format!("{error:#}")),
+        };
         let timeout = params
             .startup_timeout_s
-            .map_or(self.startup_timeout, Duration::from_secs);
-        self.launch_with(process::build_command(&options), timeout).await
+            .map_or(self.startup_timeout, Duration::from_secs)
+            .min(process::MAX_STARTUP_TIMEOUT);
+        let note = resolved.describe();
+        self.launch_with(resolved.command, timeout, note).await
     }
 
     /// Arrête l'application lancée par `launch`.
@@ -291,8 +254,12 @@ impl ProbeServer {
     pub async fn stop(&self) -> CallToolResult {
         let (client, child) = (Arc::clone(&self.client), Arc::clone(&self.child));
         let outcome = tokio::task::spawn_blocking(move || {
+            // D'abord l'enfant : sa mort fait échouer un appel en cours (qui tient le verrou de la connexion).
+            let taken = lock_child(&child).take();
+            let had_child = taken.is_some();
+            drop(taken);
             *lock(&client) = None;
-            lock_child(&child).take().map(|mut launched| launched.kill()).is_some()
+            had_child
         })
         .await;
         match outcome {
