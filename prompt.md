@@ -6,7 +6,7 @@ mémoire est dans le dépôt.
 
 ## Ce que tu fais dans cette session
 
-**Un chantier, un seul, en entier.**
+**Un lot, un seul, en entier** (une ligne du tableau d'état ; C5+C6 forment un seul lot, voir « Lots fusionnés »).
 
 1. Lis `CLAUDE.md`, puis `docs/worldbuilding/CHANTIERS.md` : les règles communes, les arbitrages, le tableau
    d'état et le journal.

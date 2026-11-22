@@ -330,11 +330,26 @@ Statuts : ⬜ à faire · 🟨 en cours (le journal dit où reprendre) · ✅ te
 | C2 | Image finale | ✅ | voir `git log` (« C2 ») | Critères `[~]` : Ȳ et bloom mesurés sur la démo, pas sur la ville (à refaire en C3/C4) ; référence de parité Sillage non régénérée (bun/Playwright absents) ; remise à zéro GPU de la persistance non testée ; rayons à valider à l'œil. Matériel cible : cadence, bloom fin, couleurs sur projecteur. |
 | C3 | Atmosphère et profondeur | ✅ | voir `git log` (« C3 ») | Critères `[~]` : séparation des plans à rejuger sur capture après C4 (corps de façade trop clairs aujourd'hui) ; coût GPU aux trois paliers non mesuré. Matériel cible : densité `σ_t·ρ` et luminance de la brume sur projecteur, lisibilité de la coquille de kick, taille des poussières. `FogReach` publié mais pas encore lu par le culling (C7) ; `AtmosphereLook::apnea` pas encore écrit (EV4, C7) ; `SceneLight` (principale, remplissage, contre-jour) publié mais l'ombrage des faces est pour C4. |
 | C4 | Sol, façades et matériaux | ✅ | voir `git log` (« C4 ») | À juger sur le matériel cible : lisibilité des fenêtres habitées à 20 m de l'écran, aberration des reflets (`ROAD_ABERRATION`), gain du halo du sujet sur les murs (`halo_gain`), vu-mètre des façades avec un vrai spectre, coût GPU des pièces (un lancer de boîte par pixel de fenêtre proche). Halo des **sockets** d'enseigne (P2 §1.2) : la fonction existe (`wall_halo`), elle lit les quatre tubes du bloc ; les sockets viennent en C5/C6. |
-| C5 | Ville : distribution et archétypes | ⬜ | — | — |
-| C6 | Ville : habillage | ⬜ | — | — |
+| R1 | Contrat rythmique : qui lit quoi (phase, coups, énergie) et branchement des effets existants | ⬜ | — | Fiche à écrire en début de session (voir « Lots fusionnés »). |
+| R2 | Sonde de test : CLI/MCP (lancer, envoyer une `Action`, capturer, mesurer, lire le journal) et test de synchronisation musique/image | ⬜ | — | Dépend de R1. |
+| C5+C6 | Ville : distribution, archétypes **et** habillage (un seul lot, même moteur de quartiers) | ⬜ | — | Les critères de C5 puis de C6 restent distincts. |
 | C7 | Tunnel, événements, LOD et culling | ⬜ | — | — |
-| C8 | Personnages et tenues | ⬜ | — | — |
-| C9 | Mise en scène et signatures | ⬜ | — | — |
+| C8 | Personnages et tenues | ⬜ | — | À rejuger après le choix du concept : le lecteur de GLB est statique, pas d'animation de squelette. |
+| C9 | Mise en scène et signatures | ⬜ | — | Après R1 (la caméra lit le contrat rythmique). |
+
+## Lots fusionnés (décision du 2026-11-22)
+
+Une session = une ligne du tableau d'état (et non plus un seul chantier Cn). Pour limiter les relances, C5 et C6 forment
+un lot. Les tâches J restantes (`docs/TASKS.md`) se regroupent par nature : J8-03 + J9-04 ; J9-01 + les corrections
+connues ; J9-05 seul (matériel cible).
+
+Garde-fous d'un lot fusionné :
+
+- un commit par sous-lot, journal à jour à chaque étape (c'est la mémoire en cas de coupure) ;
+- les critères mesurables passent par la sonde de R2 dès qu'elle existe ;
+- bloqué deux fois sur le même critère : le noter dans le journal et passer au sous-lot suivant.
+
+Ordre : R1 → R2 → C5+C6 → C7 → C9 → C8 (C8 selon le concept).
 
 ## Journal
 
