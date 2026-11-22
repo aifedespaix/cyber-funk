@@ -1,6 +1,6 @@
 # Contrat rythmique (lot R1) : design
 
-> Statut : à valider. Rien n'est codé. Lot R1 du plan `docs/worldbuilding/CHANTIERS.md`.
+> Statut : livré (2026-11-22). Corrections faites à l'exécution : voir la fin du document. Lot R1 du plan `docs/worldbuilding/CHANTIERS.md`.
 
 ## Intention
 
@@ -106,6 +106,17 @@ Chaque étape est un commit qui compile ; le journal de `CHANTIERS.md` dit où r
 - Le découpage des PR en commits à l'intérieur d'une étape.
 - Les cas particuliers de modules où un accent doit rester lié au son sans passer par la matrice (à justifier par un
   commentaire).
+
+## Corrections faites à l'exécution
+
+- La migration touchait une quarantaine de fichiers « ponts » (ceux qui nomment `AudioFeatures` et lisent un champ de
+  grille ou d'accent), pas ~90 lectures : le décompte initial comptait des champs sans lien (`.phase` d'une
+  animation, `.pulse` d'un état local).
+- Aucune route de phase ou de mesure n'a été ajoutée au routage par défaut : le Mouvement lit
+  `FilteredSignals::beat_phase` / `bar_phase` / `grid_beat`, déjà publiés, pondérés par `movement()`.
+- `FilteredSignals` publie en plus les accents du son réel (`kick_now`, `kick_count`, `kick_beat`, `transient_accent`,
+  `onset_accent`, `hat_accent`) pour que les ponts n'aient qu'une porte.
+- Le contrat est décrit dans `docs/rythme.md`.
 
 ## Vérification
 

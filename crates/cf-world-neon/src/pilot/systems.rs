@@ -42,6 +42,7 @@ pub(super) fn spawn_car(mut commands: Commands, settings: Res<PilotSettings>) {
 pub(super) fn drive_pilot(
     time: Res<Time>,
     features: Option<Res<AudioFeatures>>,
+    signals: Option<Res<cf_render::audio::FilteredSignals>>,
     show: Option<Res<CurrentShow>>,
     settings: Res<PilotSettings>,
     mut brain: ResMut<PilotBrain>,
@@ -55,7 +56,8 @@ pub(super) fn drive_pilot(
     if let Some(manual) = manual.as_deref_mut() {
         relay_manual(&mut brain.0, manual);
     }
-    let beat = features.map_or_else(BeatInput::default, |f| BeatInput::from(&f.0));
+    let signals = signals.as_deref().copied().unwrap_or_default();
+    let beat = features.map_or_else(BeatInput::default, |f| BeatInput::from_signals(&signals, &f.0));
     // Un dépassement consommé par le pilote : ne pas marquer la ressource modifiée quand il n'y en a pas.
     let overtakes = if traffic.overtakes > 0 {
         std::mem::take(&mut traffic.overtakes)

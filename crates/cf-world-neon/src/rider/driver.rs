@@ -13,6 +13,7 @@ use bevy::ecs::system::{Local, Query, Res};
 use bevy::math::{EulerRot, Quat, Vec3};
 use bevy::prelude::{Commands, Component, Entity, ResMut, Resource, Time, Transform, With, Without};
 use cf_render::AudioFeatures;
+use cf_render::audio::FilteredSignals;
 
 use super::arm_ik::turned_grip;
 use super::gearbox::{Gear, LEVER_LENGTH_M, Shift, lever_angles};
@@ -123,17 +124,22 @@ impl Gearshift {
 fn nod_head(
     time: &Time,
     features: Option<&AudioFeatures>,
+    signals: &FilteredSignals,
     view: &mut DriverView,
     rig: &CarRig,
     driver: &DriverRig,
     transforms: &mut Query<&mut Transform, Without<Car>>,
 ) {
-    let (phase, pulse) = match features.map(|f| &f.0) {
-        Some(f) if f.bpm.is_some() => (f.phase, f.pulse),
+    let (phase, pulse, trust) = match features.map(|f| &f.0) {
+        Some(f) if f.bpm.is_some() => (signals.beat_phase, signals.kick_pulse(), signals.grid_trust),
         // Sans tempo détecté, la tête garde une cadence tranquille plutôt que de se figer.
-        _ => ((time.elapsed_secs_f64() * FALLBACK_BEATS_PER_S).fract() as f32, 0.0),
+        _ => (
+            (time.elapsed_secs_f64() * FALLBACK_BEATS_PER_S).fract() as f32,
+            0.0,
+            1.0,
+        ),
     };
-    let target = head_nod_target(phase, pulse);
+    let target = head_nod_target(phase, pulse, trust);
     let k = 1.0 - (-time.delta_secs() / NOD_SMOOTHING_S).exp();
     let nod = view.nod_rad + (target - view.nod_rad) * k;
     if let Some((entity, rest)) = driver.0.body
@@ -229,13 +235,14 @@ impl Default for DriverView {
 }
 
 /// Hochement visé : la tête plonge sur le temps fort et se redresse jusqu'au suivant. `phase` : position dans la mesure
-/// (0 sur le temps, 1 juste avant le suivant) ; `pulse` : le pouls du kick (0 à 1), qui y ajoute un coup sec.
+/// (0 sur le temps, 1 juste avant le suivant) ; `pulse` : le pouls du kick (0 à 1), qui y ajoute un coup sec ; `trust` : la
+/// confiance dans la grille (0 à 1), qui pondère le balancement (Mouvement) mais pas le coup de kick (Accent).
 #[must_use]
-pub fn head_nod_target(phase: f32, pulse: f32) -> f32 {
+pub fn head_nod_target(phase: f32, pulse: f32, trust: f32) -> f32 {
     // `cos` redescend de 1 à 0 puis remonte : le plongeon est à 0 (le temps), le redressement lent, comme un mouvement de tête
     // qui suit la musique. Le pouls ajoute l'attaque.
     let swell = 0.5 + 0.5 * (std::f32::consts::TAU * phase).cos();
-    NOD_MAX_RAD * (0.65 * swell + 0.35 * pulse.clamp(0.0, 1.0))
+    NOD_MAX_RAD * (0.65 * swell * trust.clamp(0.0, 1.0) + 0.35 * pulse.clamp(0.0, 1.0))
 }
 
 /// Les yeux au repos pivotés de `nod_rad` autour du bassin, repère du modèle.
@@ -262,6 +269,7 @@ pub fn body_nod(rest: Transform, hips_local: Vec3, nod_rad: f32) -> Transform {
 pub(crate) fn animate_driver(
     time: Res<Time>,
     features: Option<Res<AudioFeatures>>,
+    signals: Option<Res<FilteredSignals>>,
     mut view: ResMut<DriverView>,
     cars: Query<(&CarRig, &CarState), With<Car>>,
     mut drivers: Query<(&DriverRig, &mut Gearshift), With<Driver>>,
@@ -273,7 +281,15 @@ pub(crate) fn animate_driver(
         }
         return;
     };
-    nod_head(&time, features.as_deref(), &mut view, rig, driver, &mut transforms);
+    nod_head(
+        &time,
+        features.as_deref(),
+        &signals.as_deref().copied().unwrap_or_default(),
+        &mut view,
+        rig,
+        driver,
+        &mut transforms,
+    );
     // Pas de vitesse mesurée avant la deuxième image : la boîte attend, le levier reste au point mort.
     if state.warm {
         gearshift.advance(state.speed_mps, time.delta_secs());
@@ -320,23 +336,39 @@ mod tests {
 
     #[test]
     fn la_tete_plonge_sur_le_temps_et_se_redresse_avant_le_suivant() {
-        let on_beat = head_nod_target(0.0, 0.0);
-        let mid = head_nod_target(0.5, 0.0);
+        let on_beat = head_nod_target(0.0, 0.0, 1.0);
+        let mid = head_nod_target(0.5, 0.0, 1.0);
         assert!(on_beat > mid, "le plongeon est sur le temps : {on_beat} contre {mid}");
         // Continu au passage d'un temps à l'autre : pas de saut quand la phase revient à 0.
-        assert!((head_nod_target(0.999, 0.0) - head_nod_target(0.0, 0.0)).abs() < 1e-3);
+        assert!((head_nod_target(0.999, 0.0, 1.0) - head_nod_target(0.0, 0.0, 1.0)).abs() < 1e-3);
+    }
+
+    #[test]
+    fn sans_confiance_dans_la_grille_le_balancement_se_detend_mais_l_accent_reste() {
+        let sway_off = head_nod_target(0.0, 0.0, 0.0);
+        assert!(
+            sway_off.abs() < 1e-6,
+            "plus de balancement calé sur la grille : {sway_off}"
+        );
+        let accent = head_nod_target(0.0, 1.0, 0.0);
+        assert!(accent > 0.3 * NOD_MAX_RAD, "le coup de kick reste : {accent}");
+        let half = head_nod_target(0.0, 0.0, 0.5);
+        assert!(
+            half > sway_off && half < head_nod_target(0.0, 0.0, 1.0),
+            "détente progressive"
+        );
     }
 
     #[test]
     fn le_hochement_est_leger_mais_visible() {
-        let strongest = head_nod_target(0.0, 1.0);
+        let strongest = head_nod_target(0.0, 1.0, 1.0);
         assert!(strongest <= NOD_MAX_RAD * 1.001, "borné : {strongest}");
         assert!(
-            (NOD_MAX_RAD.to_degrees() - 3.15).abs() < 0.1 && head_nod_target(0.0, 0.0) > 0.03,
+            (NOD_MAX_RAD.to_degrees() - 3.15).abs() < 0.1 && head_nod_target(0.0, 0.0, 1.0) > 0.03,
             "de l'ordre de 2 à 3 degrés"
         );
         // Un pouls hors bornes ne l'emballe pas.
-        assert!(head_nod_target(0.0, 9.0) <= NOD_MAX_RAD * 1.001);
+        assert!(head_nod_target(0.0, 9.0, 1.0) <= NOD_MAX_RAD * 1.001);
     }
 
     #[test]

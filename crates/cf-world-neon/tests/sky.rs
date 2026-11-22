@@ -291,7 +291,9 @@ fn un_ordre_lance_une_etoile_tout_de_suite_mais_la_cadence_le_borne() {
 #[test]
 fn un_kick_sur_vingt_quatre_lance_une_etoile_sauf_flashs_coupes() {
     let kick = |app: &mut App, count: u32| {
-        app.world_mut().resource_mut::<AudioFeatures>().0.count = count;
+        let mut signals = cf_render::audio::FilteredSignals::default();
+        signals.kick_count = count;
+        app.insert_resource(signals);
         app.update();
     };
     // Sans spectacle : le 24e kick lance une étoile.
@@ -327,7 +329,7 @@ fn les_materiaux_suivent_le_pouls_la_palette_et_le_fondu() {
     let mut app = app(0.0, 0.0);
     with_audio(&mut app);
     app.world_mut().resource_mut::<SkyLook>().reveal = 0.25;
-    app.world_mut().resource_mut::<AudioFeatures>().0.pulse = 0.8;
+    app.insert_resource(cf_render::audio::FilteredSignals::at_pulse(0.8));
     app.update();
     app.update();
     let palette = *app.world().resource::<ScenePalette>();

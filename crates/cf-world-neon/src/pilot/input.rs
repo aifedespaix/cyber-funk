@@ -2,6 +2,7 @@
 //! ressources Bevy par le système : toute la logique du pilote reste testable sans `App`.
 
 use cf_analysis::{AudioFeatures, Section};
+use cf_render::audio::FilteredSignals;
 use cf_show::director::ShowState;
 
 use super::flight::{Band, Obstruction};
@@ -30,21 +31,24 @@ pub struct BeatInput {
 
 impl Default for BeatInput {
     fn default() -> Self {
-        Self::from(&AudioFeatures::NEUTRAL)
+        Self::from_signals(&FilteredSignals::default(), &AudioFeatures::NEUTRAL)
     }
 }
 
-impl From<&AudioFeatures> for BeatInput {
-    fn from(f: &AudioFeatures) -> Self {
+impl BeatInput {
+    /// Le rythme vu par le pilote (contrat rythmique, `docs/rythme.md`) : le kick et le compteur de kicks viennent des
+    /// signaux filtrés ; l'énergie, la section et le tempo restent lus dans les `AudioFeatures`.
+    #[must_use]
+    pub fn from_signals(signals: &FilteredSignals, f: &AudioFeatures) -> Self {
         Self {
             live: f.live,
-            kick: f.kick,
+            kick: signals.kick_now,
             loud: f64::from(f.loud),
             bass: f64::from(f.bass),
             bpm: f.bpm.map(f64::from),
             intensity: f64::from(f.intensity),
             section: f.section,
-            count: f.count,
+            count: signals.kick_count,
         }
     }
 }

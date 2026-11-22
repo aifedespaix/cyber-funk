@@ -10,6 +10,7 @@ use std::time::Instant;
 use bevy::prelude::*;
 use bevy::render::view::screenshot::{Screenshot, ScreenshotCaptured, save_to_disk};
 use cf_render::AudioFeatures;
+use cf_render::audio::FilteredSignals;
 use cf_world_neon::car::CarRig;
 use cf_world_neon::pilot::{BeatInput, PilotBrain, PilotSettings, PilotTick, PilotTraffic};
 use cf_world_neon::{CarAnimation, RoadLook};
@@ -66,6 +67,7 @@ pub(crate) fn fast_forward(
     mut check: ResMut<Check>,
     level: Res<Level>,
     features: Res<AudioFeatures>,
+    signals: Option<Res<FilteredSignals>>,
     settings: Res<PilotSettings>,
     traffic: Res<PilotTraffic>,
     mut brain: ResMut<PilotBrain>,
@@ -79,7 +81,8 @@ pub(crate) fn fast_forward(
     if rigs.is_empty() || !hunting || check.stage == Stage::Warm {
         return;
     }
-    let mut beat = BeatInput::from(&features.0);
+    let signals = signals.as_deref().copied().unwrap_or_default();
+    let mut beat = BeatInput::from_signals(&signals, &features.0);
     beat.kick = false;
     for _ in 0..STEPS_PER_FRAME {
         let out = brain.0.update(&PilotTick {

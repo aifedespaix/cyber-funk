@@ -2,6 +2,7 @@
 //! fois par image.
 
 use cf_analysis::AudioFeatures;
+use cf_render::audio::FilteredSignals;
 
 /// Front montant des aigus qui compte pour un coup de charleston ou de caisse claire.
 const SNARE_RISE: f32 = 0.1;
@@ -80,6 +81,7 @@ impl SignListener {
         time: f64,
         dt: f32,
         features: &AudioFeatures,
+        signals: &FilteredSignals,
         drop: bool,
         calm: bool,
         kmh: f32,
@@ -92,11 +94,11 @@ impl SignListener {
         SignAudio {
             time,
             dt,
-            kick: features.kick,
+            kick: signals.kick_now,
             bass: features.bass,
             mid: features.mid,
             high: features.high,
-            pulse: features.pulse,
+            pulse: signals.kick_pulse(),
             snare,
             drop,
             calm,
@@ -113,7 +115,10 @@ mod tests {
     fn le_charleston_est_un_front_montant_avec_une_periode_refractaire() {
         let mut l = SignListener::default();
         let mut f = AudioFeatures::NEUTRAL;
-        let at = |l: &mut SignListener, f: &AudioFeatures, t: f64| l.listen(t, 0.016, f, false, false, 0.0).snare;
+        let at = |l: &mut SignListener, f: &AudioFeatures, t: f64| {
+            l.listen(t, 0.016, f, &FilteredSignals::default(), false, false, 0.0)
+                .snare
+        };
         f.high = 0.05;
         assert!(!at(&mut l, &f, 1.0));
         f.high = 0.4;

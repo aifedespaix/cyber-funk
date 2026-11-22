@@ -4,13 +4,6 @@ cf-render/src/controls/bridge.rs # producteur : complète bpm, tempo_source, con
 cf-render/src/postfx/systems.rs # faux positif : lit `state.transient` (lissage propre au post-process), pas AudioFeatures
 cf-world-neon/src/beams/systems.rs # faux positif : `r.0.phase` est la phase du spectacle, `pulse.pulse()` le limiteur local
 cf-world-neon/src/cinema.rs # faux positif : `a.phase` est la phase de vol de la voiture
-cf-world-neon/src/djsign/plugin.rs
-cf-world-neon/src/facade/systems.rs
-cf-world-neon/src/pilot/input.rs
-cf-world-neon/src/rider/driver.rs
+cf-world-neon/src/facade/systems.rs # faux positif : `frame.pulse`, `frame.beat` sont les champs du cadre de façade, remplis depuis les signaux
 cf-world-neon/src/road/systems.rs # faux positif : `frame.pulse` est un champ du cadre de la route, déjà filtré
-cf-world-neon/src/run/apply.rs
-cf-world-neon/src/signs/audio.rs
-cf-world-neon/src/signs/systems.rs
-cf-world-neon/src/sky/systems.rs
-cf-world-neon/src/weather/systems.rs
+cf-world-neon/src/signs/systems.rs # faux positif : `d.pulse` et `flash.pulse()` sont des états propres aux enseignes, déjà filtrés par le limiteur

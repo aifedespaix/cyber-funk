@@ -91,6 +91,7 @@ pub(crate) struct Targets<'w> {
 }
 
 /// `CfSet::Simulate` : avance la pré-intro d'une image et applique ses étapes au monde.
+#[allow(clippy::too_many_arguments)] // Les paramètres d'un système Bevy : ressources et requêtes.
 fn drive_intro(
     time: Res<Time>,
     show: Option<Res<CurrentShow>>,

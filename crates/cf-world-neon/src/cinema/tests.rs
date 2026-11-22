@@ -70,10 +70,7 @@ fn dix_minutes_dans_neon_city_sans_pose_dans_un_mur() {
         let sig = signals(time);
         let frame = pilot.update(&PilotTick {
             dt: DT,
-            beat: BeatInput {
-                kick: f.count != features(time - DT).count,
-                ..BeatInput::from(&f)
-            },
+            beat: BeatInput::from_signals(&sig, &f),
             show: None,
             settings: &settings,
             traffic: &traffic,

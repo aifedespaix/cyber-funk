@@ -54,7 +54,12 @@ fn main() {
         }),
         ..default()
     }))
-    .add_plugins((CorePlugin, LayersPlugin::default(), PostFxPlugin))
+    .add_plugins((
+        CorePlugin,
+        cf_render::audio::DemoRhythmPlugin,
+        LayersPlugin::default(),
+        PostFxPlugin,
+    ))
     .insert_resource(CameraPose {
         position: DVec3::new(0.0, 1.6, 0.0),
         ..default()

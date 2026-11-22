@@ -8,10 +8,11 @@
 use bevy::math::Vec4;
 use bevy::prelude::*;
 use cf_render::RainMode;
+use cf_render::audio::FilteredSignals;
 use cf_render::postfx::LensWeather;
 use cf_render::{
-    AbsolutePosition, AudioFeatures, CameraPose, CurrentShow, CurrentShowFx, FloatingOrigin, QualityLevers, SceneMood,
-    ScenePalette, StreamFocus, WeatherControl,
+    AbsolutePosition, CameraPose, CurrentShow, CurrentShowFx, FloatingOrigin, QualityLevers, SceneMood, ScenePalette,
+    StreamFocus, WeatherControl,
 };
 
 use super::haze::{Haze, HazeFrame, HazeMaterial, HazeRig, haze_params, haze_position};
@@ -200,7 +201,7 @@ pub(super) fn update_haze(
     time: Res<Time>,
     palette: Res<ScenePalette>,
     mood: Option<Res<SceneMood>>,
-    features: Option<Res<AudioFeatures>>,
+    signals: Option<Res<FilteredSignals>>,
     levers: Option<Res<QualityLevers>>,
     state: Res<WeatherState>,
     control: Option<Res<WeatherControl>>,
@@ -219,7 +220,7 @@ pub(super) fn update_haze(
     let frame = HazeFrame {
         mood,
         time_s: time.elapsed_secs_f64(),
-        pulse: features.map_or(0.0, |f| f.0.pulse),
+        pulse: signals.as_deref().map_or(0.0, FilteredSignals::kick_pulse),
         density: (0.8 + 0.5 * state.weather.rain) * particles.clamp(0.0, 1.0).max(0.35),
         cheap: particles < 1.0,
         speed_mps: car.single().map_or(0.0, |c| c.speed_mps.max(0.0)),
@@ -251,7 +252,7 @@ pub(super) fn update_mist(
     time: Res<Time>,
     palette: Res<ScenePalette>,
     mood: Option<Res<SceneMood>>,
-    features: Option<Res<AudioFeatures>>,
+    signals: Option<Res<FilteredSignals>>,
     levers: Option<Res<QualityLevers>>,
     state: Res<WeatherState>,
     control: Option<Res<WeatherControl>>,
@@ -273,7 +274,7 @@ pub(super) fn update_mist(
         || cf_render::palette::mood_color(&palette, cf_render::palette::NEUTRAL_INTENSITY),
         |m| m.color,
     );
-    let pulse = features.map_or(0.0, |f| f.0.pulse);
+    let pulse = signals.as_deref().map_or(0.0, FilteredSignals::kick_pulse);
     // Le bruit allégé suit la densité de particules de la qualité adaptative.
     let cheap = levers.is_some_and(|l| l.particle_density < 1.0);
     let params = mist_params(

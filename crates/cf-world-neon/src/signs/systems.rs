@@ -6,6 +6,7 @@
 use bevy::math::{Vec3, Vec4};
 use bevy::prelude::*;
 use cf_analysis::AudioFeatures as Features;
+use cf_render::audio::FilteredSignals;
 use cf_render::palette::LinearRgb;
 use cf_render::{AbsolutePosition, AudioFeatures, CurrentShow, CurrentShowFx, SceneColor, ScenePalette, StreamFocus};
 
@@ -60,6 +61,7 @@ fn linear(palette: &ScenePalette, color: SceneColor) -> Vec3 {
 pub fn update_signs(
     time: Res<Time>,
     features: Option<Res<AudioFeatures>>,
+    signals: Option<Res<FilteredSignals>>,
     show: Option<Res<CurrentShow>>,
     fx: Option<Res<CurrentShowFx>>,
     brain: Option<Res<PilotBrain>>,
@@ -80,9 +82,10 @@ pub fn update_signs(
     let calm = fx.as_ref().is_some_and(|f| f.0.breathing);
     let speed = brain.as_deref().map_or(0.0, |b| b.0.frame().speed);
     let features = features.as_deref().map_or(Features::NEUTRAL, |f| f.0);
+    let signals = signals.as_deref().copied().unwrap_or_default();
     let drop = show.as_ref().is_some_and(|s| s.drop_now);
     let SignFrame { audio, flash, listener } = &mut *frame;
-    *audio = listener.listen(now, dt, &features, drop, calm, to_kmh(speed) as f32);
+    *audio = listener.listen(now, dt, &features, &signals, drop, calm, to_kmh(speed) as f32);
     let altitude = animation.as_deref().map_or(0.0, |a| a.altitude);
     road.0.update(
         &RoadFrame {
@@ -113,7 +116,7 @@ pub fn update_signs(
         }
     }
     let policy = fx.as_ref().map(|f| (f.0.flashes, f.0.breathing));
-    flash.update(dt, now, policy, features.pulse, event);
+    flash.update(dt, now, policy, signals.kick_pulse(), event);
     obstructions.0.clear();
     road.0.obstructions(car.0.z, &mut obstructions.0);
 }

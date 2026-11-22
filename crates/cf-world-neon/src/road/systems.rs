@@ -120,6 +120,7 @@ pub(super) struct ReflectedWorld<'w> {
 
 /// `CfSet::Present` : remplit le matériau (voiture, temps, pouls, basses, teinte). Le matériau n'est touché que si
 /// quelque chose a changé : Bevy ne re-prépare pas un asset qu'on n'a pas écrit.
+#[allow(clippy::too_many_arguments)] // Les paramètres d'un système Bevy : ressources et requêtes.
 pub(super) fn update_material(
     time: Res<Time<Real>>,
     features: Option<Res<AudioFeatures>>,

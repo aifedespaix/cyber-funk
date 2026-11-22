@@ -6,6 +6,7 @@ use bevy::image::{Image, ImageSampler};
 use bevy::prelude::*;
 use bevy::render::render_resource::{Extent3d, TextureDimension, TextureFormat};
 use bevy::shader::Shader;
+use cf_render::audio::FilteredSignals;
 use cf_render::{
     AbsolutePosition, AudioFeatures, CfSet, ChunkStream, CurrentShow, EventCategory, LoadTracker, SceneMood,
     ScenePalette, ShowSheet, StreamFocus, WarmupAppExt, WorldSet,
@@ -179,6 +180,7 @@ pub(crate) fn bake_glyphs(
 pub(crate) fn step_sign(
     time: Res<Time>,
     features: Option<Res<AudioFeatures>>,
+    signals: Option<Res<FilteredSignals>>,
     show: Option<Res<CurrentShow>>,
     sheet: Option<Res<ShowSheet>>,
     palette: Option<Res<ScenePalette>>,
@@ -201,9 +203,9 @@ pub(crate) fn step_sign(
     let dt = time.delta_secs().min(MAX_DT_S);
     let now = time.elapsed_secs_f64();
     let palette = palette.as_deref().copied().unwrap_or_default();
-    let (kick, beat_pulse, bpm) = features
-        .as_deref()
-        .map_or((false, 0.0, None), |f| (f.0.kick, f.0.pulse, f.0.bpm));
+    let kick = signals.as_deref().is_some_and(|s| s.kick_now);
+    let beat_pulse = signals.as_deref().map_or(0.0, FilteredSignals::kick_pulse);
+    let bpm = features.as_deref().and_then(|f| f.0.bpm);
 
     // Le pouls des kicks passe par le limiteur ; les flashs coupés ou la respiration le ramènent à zéro.
     let policy = show.as_deref().map(|s| (s.0.flashes, s.0.breathing));

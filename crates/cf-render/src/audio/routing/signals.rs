@@ -133,6 +133,18 @@ impl FilteredSignals {
         self.values[target.index()]
     }
 
+    /// Des signaux au repos dont l'impulsion d'accent vaut `pulse` (0 à 1) : pour les démos et les tests qui n'ont pas de
+    /// moteur de routage et veulent pourtant un kick à un niveau donné.
+    #[must_use]
+    pub fn at_pulse(pulse: f32) -> Self {
+        let mut s = Self::default();
+        if pulse > 0.0 {
+            s.kick_wave.push();
+            s.kick_wave.age(-KICK_PULSE_TAU_S * pulse.min(1.0).ln());
+        }
+        s
+    }
+
     /// L'impulsion d'accent du dernier kick (1 → 0), avec la constante de temps commune [`KICK_PULSE_TAU_S`].
     #[must_use]
     pub fn kick_pulse(&self) -> f32 {

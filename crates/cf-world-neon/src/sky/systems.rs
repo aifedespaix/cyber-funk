@@ -2,7 +2,8 @@
 
 use bevy::ecs::system::SystemParam;
 use bevy::prelude::*;
-use cf_render::{AudioFeatures, CurrentShowFx, ScenePalette};
+use cf_render::audio::FilteredSignals;
+use cf_render::{CurrentShowFx, ScenePalette};
 
 use super::material::{
     AuroraMaterial, DomeMaterial, PlanetMaterial, PlanetParams, RingMaterial, SkyParams, StarsMaterial, StreakMaterial,
@@ -246,9 +247,9 @@ pub(super) fn spawn_sky(
 pub(super) fn step_sky(
     time: Res<Time>,
     look: Res<SkyLook>,
-    features: Option<Res<AudioFeatures>>,
     show_fx: Option<Res<CurrentShowFx>>,
     mut requests: MessageReader<ShootingStarRequest>,
+    signals: Option<Res<FilteredSignals>>,
     mut state: ResMut<SkyState>,
     mut planets: Query<(&SkyPlanet, &mut Transform), Without<SkyStreak>>,
     mut streaks: Query<(&SkyStreak, &mut Transform, &mut Visibility), Without<SkyPlanet>>,
@@ -256,8 +257,8 @@ pub(super) fn step_sky(
     let dt = time.delta_secs();
     let state = &mut *state;
 
-    if let Some(features) = features {
-        let count = features.0.count;
+    if let Some(signals) = signals.as_deref() {
+        let count = signals.kick_count;
         // Sans spectacle (démo), les kicks lancent des étoiles ; avec un spectacle, seulement si les flashs sont permis
         // et hors mode respiration : une étoile qui part sur le temps est un événement lumineux rythmé.
         let allowed = show_fx.is_none_or(|fx| fx.flashes && !fx.breathing);
@@ -303,7 +304,7 @@ pub(super) fn step_sky(
 pub(super) fn update_materials(
     time: Res<Time<Real>>,
     look: Res<SkyLook>,
-    features: Option<Res<AudioFeatures>>,
+    signals: Option<Res<FilteredSignals>>,
     palette: Res<ScenePalette>,
     rig: Res<SkyRig>,
     state: Res<SkyState>,
@@ -311,7 +312,7 @@ pub(super) fn update_materials(
 ) {
     let frame = SkyFrame {
         time_s: look.clock_s.unwrap_or_else(|| time.elapsed_secs_f64()) as f32,
-        pulse: features.map_or(0.0, |f| f.0.pulse),
+        pulse: signals.as_deref().map_or(0.0, FilteredSignals::kick_pulse),
         reveal: look.reveal.clamp(0.0, 1.0),
     };
     write(&mut materials.dome, &rig.dome, build_dome(&palette, &frame));

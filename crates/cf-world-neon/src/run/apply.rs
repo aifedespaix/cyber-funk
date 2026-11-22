@@ -15,8 +15,8 @@ use bevy::ecs::system::SystemParam;
 use bevy::prelude::*;
 use cf_cinema::{ShotOrder, TransitionKind};
 use cf_render::{
-    AudioCommand, AudioFeatures, AudioSequenceGain, CfSet, ControlAction, CurrentShow, Phase, RunHandover, RunOrder,
-    RunPhase, SceneIdle, ShowSheet, SimControl, Staging, StagingFeed, StagingView,
+    AudioCommand, AudioSequenceGain, CfSet, ControlAction, CurrentShow, Phase, RunHandover, RunOrder, RunPhase,
+    SceneIdle, ShowSheet, SimControl, Staging, StagingFeed, StagingView,
 };
 
 use super::machine::{RunOutput, RunSequencer};
@@ -86,7 +86,7 @@ struct ShowLinks<'w> {
 fn drive_run(
     time: Res<Time>,
     mut orders: MessageReader<RunOrder>,
-    features: Option<Res<AudioFeatures>>,
+    signals: Option<Res<cf_render::audio::FilteredSignals>>,
     sim: Option<ResMut<SimControl>>,
     mut shots: MessageWriter<ShotOrder>,
     mut audio: MessageWriter<AudioCommand>,
@@ -102,7 +102,7 @@ fn drive_run(
 ) {
     let order = orders.read().last().copied();
     let before = sequencer.0.phase();
-    let kick = features.is_some_and(|f| f.0.kick);
+    let kick = signals.is_some_and(|s| s.kick_now);
     // L'arrêt freine depuis la vitesse réelle de la voiture, pas depuis une vitesse supposée.
     if let Some(car) = cars.iter().next() {
         sequencer.0.set_speed(car.speed_mps);

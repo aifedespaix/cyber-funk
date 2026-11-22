@@ -195,10 +195,10 @@ fn le_materiau_suit_le_pouls_les_basses_et_la_teinte() {
     app.world_mut().resource_mut::<RoadLook>().wet = 0.5;
     {
         let mut features = app.world_mut().resource_mut::<AudioFeatures>();
-        features.0.pulse = 0.8;
         features.0.bass = 0.3;
         features.0.intensity = 1.0;
     }
+    app.insert_resource(cf_render::audio::FilteredSignals::at_pulse(0.8));
     for _ in 0..3 {
         app.update();
     }

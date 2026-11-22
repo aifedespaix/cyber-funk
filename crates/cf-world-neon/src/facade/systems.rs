@@ -2,6 +2,7 @@
 
 use bevy::math::Vec4;
 use bevy::prelude::*;
+use cf_render::audio::FilteredSignals;
 use cf_render::palette::LinearRgb;
 use cf_render::{AudioFeatures, CurrentShowFx, FloatingOrigin, QualityLevers, SceneColor, ScenePalette};
 
@@ -291,6 +292,7 @@ impl MotionFlash {
 pub(super) fn update_material(
     time: Res<Time<Real>>,
     features: Option<Res<AudioFeatures>>,
+    signals: Option<Res<FilteredSignals>>,
     palette: Res<ScenePalette>,
     look: Res<FacadeLook>,
     road: Res<RoadLook>,
@@ -308,15 +310,16 @@ pub(super) fn update_material(
     let (Some(mut materials), Some(scenery)) = (materials, scenery) else {
         return;
     };
+    let signals = signals.as_deref().copied().unwrap_or_default();
     let frame = features.as_deref().map_or_else(FrameInputs::default, |f| FrameInputs {
         time_s: 0.0,
-        pulse: f.0.pulse,
+        pulse: signals.kick_pulse(),
         bass: f.0.bass,
         mid: f.0.mid,
         high: f.0.high,
-        beat: f.0.beat,
-        onset: f.0.onset,
-        hat: f.0.hat,
+        beat: signals.kick_beat,
+        onset: signals.onset_accent,
+        hat: signals.hat_accent,
         brightness: f.0.brightness,
         noisiness: f.0.noisiness,
         ..FrameInputs::default()

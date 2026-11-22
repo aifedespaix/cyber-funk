@@ -91,22 +91,24 @@ fn frame(app: &mut App, i: usize, hostile: bool) {
         }
     }
     let period = if hostile { 6 } else { 28 };
+    let pulse = if i % period < 3 {
+        1.0 - (i % period) as f32 / 3.0
+    } else {
+        0.0
+    };
     {
         let mut audio = app.world_mut().resource_mut::<AudioFeatures>();
         audio.0.live = true;
         audio.0.section = Section::Peak;
         audio.0.intensity = 0.9;
-        audio.0.kick = i.is_multiple_of(period);
-        audio.0.pulse = if i % period < 3 {
-            1.0 - (i % period) as f32 / 3.0
-        } else {
-            0.0
-        };
         audio.0.bass = 0.7;
         audio.0.mid = 0.5;
-        audio.0.count = (i / period) as u32;
-        audio.0.beat = i as f64 / period as f64;
     }
+    let mut signals = cf_render::audio::FilteredSignals::at_pulse(pulse);
+    signals.kick_now = i.is_multiple_of(period);
+    signals.kick_count = (i / period) as u32;
+    signals.kick_beat = i as f64 / period as f64;
+    app.insert_resource(signals);
     app.update();
 }
 

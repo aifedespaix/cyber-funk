@@ -330,7 +330,7 @@ Statuts : ⬜ à faire · 🟨 en cours (le journal dit où reprendre) · ✅ te
 | C2 | Image finale | ✅ | voir `git log` (« C2 ») | Critères `[~]` : Ȳ et bloom mesurés sur la démo, pas sur la ville (à refaire en C3/C4) ; référence de parité Sillage non régénérée (bun/Playwright absents) ; remise à zéro GPU de la persistance non testée ; rayons à valider à l'œil. Matériel cible : cadence, bloom fin, couleurs sur projecteur. |
 | C3 | Atmosphère et profondeur | ✅ | voir `git log` (« C3 ») | Critères `[~]` : séparation des plans à rejuger sur capture après C4 (corps de façade trop clairs aujourd'hui) ; coût GPU aux trois paliers non mesuré. Matériel cible : densité `σ_t·ρ` et luminance de la brume sur projecteur, lisibilité de la coquille de kick, taille des poussières. `FogReach` publié mais pas encore lu par le culling (C7) ; `AtmosphereLook::apnea` pas encore écrit (EV4, C7) ; `SceneLight` (principale, remplissage, contre-jour) publié mais l'ombrage des faces est pour C4. |
 | C4 | Sol, façades et matériaux | ✅ | voir `git log` (« C4 ») | À juger sur le matériel cible : lisibilité des fenêtres habitées à 20 m de l'écran, aberration des reflets (`ROAD_ABERRATION`), gain du halo du sujet sur les murs (`halo_gain`), vu-mètre des façades avec un vrai spectre, coût GPU des pièces (un lancer de boîte par pixel de fenêtre proche). Halo des **sockets** d'enseigne (P2 §1.2) : la fonction existe (`wall_halo`), elle lit les quatre tubes du bloc ; les sockets viennent en C5/C6. |
-| R1 | Contrat rythmique : qui lit quoi (phase, coups, énergie) et branchement des effets existants | ⬜ | — | Fiche à écrire en début de session (voir « Lots fusionnés »). |
+| R1 | Contrat rythmique : qui lit quoi (phase, coups, énergie) et branchement des effets existants | ✅ | 2026-11-22 | `docs/rythme.md`. Cliquet `rhythm_contract.rs`. Voir le journal R1. |
 | R2 | Sonde de test : CLI/MCP (lancer, envoyer une `Action`, capturer, mesurer, lire le journal) et test de synchronisation musique/image | ⬜ | — | Dépend de R1. |
 | C5+C6 | Ville : distribution, archétypes **et** habillage (un seul lot, même moteur de quartiers) | ⬜ | — | Les critères de C5 puis de C6 restent distincts. |
 | C7 | Tunnel, événements, LOD et culling | ⬜ | — | — |
@@ -635,3 +635,26 @@ test GPU de la remise à zéro de l'historique à la coupe, rayons à valider à
 densité (+ instantané `insta`), 11 de routage ; clippy `-D warnings` du workspace vert.
 
 **Prochaine session** : C2 · Image finale.
+
+### R1 · Contrat rythmique (2026-11-22)
+
+Trois couches : Mouvement (phase, pondéré par `grid_trust`), Accents (kick, pouls, transitoire, attaque, charleston :
+toujours calés sur le son), Énergie (inchangée). Détail et mode d'emploi : `docs/rythme.md`.
+
+- `grid_trust` : une seule confiance dans la grille (`routing/trust.rs`), lissée (montée 2,0 s, descente 0,8 s).
+- `FilteredSignals` publie `grid_beat`, `kick_count`, `kick_now`, `kick_beat`, `*_accent` ; `RhythmInputs` regroupe énergie
+  et signaux pour les systèmes Bevy.
+- Migrés : cinéma, trafic, cascades, pilote, voiture, faisceaux, enseignes DJ, façades, ciel, météo, route, post-process,
+  atmosphère, chute, intro, conducteur (le hochement se détend sans confiance, le coup de kick reste).
+- Cliquet : `crates/cf-render/tests/rhythm_contract.rs` ; la liste `rhythm_allowlist.txt` ne contient plus que le
+  producteur de la grille et des faux positifs justifiés.
+
+**Écarts / non tenu**
+- Les coupes `Beat/Bar/Phrase` de `cf-cinema` (`CueTracker`) comptent encore les kicks ; à recaler sur la grille avec R2 et C9.
+- Constantes (`grid_trust`, `KICK_PULSE_TAU_S` = 0,11 s) non réglées sur le matériel cible ; rien n'a pu être jugé à
+  l'image ni à l'oreille ici.
+- Test rouge antérieur à R1 : `cf-world-neon` `facade::rooms::tests::le_rayon_touche_une_paroi_de_la_boite` (cas proptest figé).
+- Tests de migration : surtout via les primitives partagées (`KickWave::pulse`, `register_kick`, `dance_beat`, `from_signals`)
+  et le cliquet ; un test de confiance dédié seulement pour le conducteur.
+
+**Prochaine session** : R2 · Sonde de test.

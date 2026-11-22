@@ -264,9 +264,9 @@ fn play_kicks(app: &mut App, root: Entity, bpm: f64, seconds: f64) -> Vec<[f32; 
         {
             let mut features = app.world_mut().resource_mut::<AudioFeatures>();
             features.0.live = true;
-            features.0.pulse = pulse;
             features.0.bass = 0.5 * pulse;
         }
+        app.insert_resource(cf_render::audio::FilteredSignals::at_pulse(pulse));
         app.update();
         series.push(glow_metrics(app, root));
     }

@@ -490,3 +490,12 @@ fn the_engine_publishes_the_sound_accents_without_the_grid() {
         "les accents ne dépendent pas de la confiance de la grille"
     );
 }
+
+#[test]
+fn at_pulse_builds_signals_whose_kick_pulse_is_that_value() {
+    for p in [0.0_f32, 0.3, 0.8, 1.0] {
+        let s = FilteredSignals::at_pulse(p);
+        assert!((s.kick_pulse() - p).abs() < 1e-4, "{p} -> {}", s.kick_pulse());
+    }
+    assert_eq!(FilteredSignals::at_pulse(9.0).kick_pulse(), 1.0, "borné à 1");
+}

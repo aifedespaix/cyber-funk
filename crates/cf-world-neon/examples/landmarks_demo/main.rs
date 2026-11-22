@@ -68,6 +68,7 @@ fn main() {
     }))
     .add_plugins((
         CorePlugin,
+        cf_render::audio::DemoRhythmPlugin,
         WarmupPlugin,
         LayersPlugin::default(),
         CullingPlugin::default(),

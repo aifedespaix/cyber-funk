@@ -245,12 +245,13 @@ fn le_materiau_de_facade_suit_la_musique_la_meteo_et_la_palette() {
     app.insert_resource(AudioFeatures(cf_analysis::AudioFeatures::NEUTRAL));
     {
         let mut features = app.world_mut().resource_mut::<AudioFeatures>();
-        features.0.pulse = 0.8;
         features.0.bass = 0.3;
         features.0.mid = 0.4;
         features.0.high = 0.6;
-        features.0.beat = 17.25;
     }
+    let mut signals = cf_render::audio::FilteredSignals::at_pulse(0.8);
+    signals.kick_beat = 17.25;
+    app.insert_resource(signals);
     app.world_mut()
         .resource_mut::<cf_world_neon::WeatherSettings>()
         .drive_road_look = false;
