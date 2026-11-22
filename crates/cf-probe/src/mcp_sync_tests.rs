@@ -34,6 +34,7 @@ fn synthetic_trace(seconds: f64, kicks: bool, delay_s: f64) -> SyncTrace {
             };
             SyncSample {
                 t_s,
+                wall_s: t_s,
                 kick_now: kicks && f % 50 == 0,
                 beat_phase: 0.0,
                 grid_trust: 1.0,
@@ -257,6 +258,7 @@ async fn une_trace_pleine_est_signalee_comme_tronquee() {
         samples: vec![
             SyncSample {
                 t_s: 0.0,
+                wall_s: 0.0,
                 kick_now: false,
                 beat_phase: 0.0,
                 grid_trust: 0.0,

@@ -25,6 +25,7 @@ fn trace(seconds: f64, delay_ms: impl Fn(usize) -> Option<f64>, trust_ramp_s: f6
                 .fold(0.0_f64, f64::max);
             SyncSample {
                 t_s,
+                wall_s: t_s,
                 kick_now: kick_frames.contains(&f),
                 beat_phase: 0.0,
                 grid_trust: (t_s / trust_ramp_s).min(1.0) as f32,
@@ -118,4 +119,82 @@ fn un_pic_de_luminance_manquant_ignore_ce_kick_sans_fausser_la_moyenne() {
     let mean = report.mean_delay_ms.unwrap();
     assert!((mean - 50.0).abs() <= 3.0, "retard trouvé : {mean}");
     assert_eq!(report.verdict, Verdict::Ok);
+}
+
+#[test]
+fn un_rapport_sim_sur_mural_a_un_ne_porte_aucune_note() {
+    let report = analyze(&trace(10.0, |_| Some(30.0), 2.0), &SyncThresholds::default());
+    let ratio = report.sim_to_wall_ratio.unwrap();
+    assert!((ratio - 1.0).abs() < 1e-9, "{ratio}");
+    assert!(report.notes.is_empty(), "{:?}", report.notes);
+    assert_eq!(report.verdict, Verdict::Ok);
+}
+
+#[test]
+fn un_temps_simule_decouple_du_mural_n_est_jamais_ok() {
+    // Le temps mural court deux fois plus vite que le temps simulé : ratio 0,5.
+    let mut slow = trace(10.0, |_| Some(30.0), 2.0);
+    for sample in &mut slow.samples {
+        sample.wall_s *= 2.0;
+    }
+    let report = analyze(&slow, &SyncThresholds::default());
+    assert!((report.sim_to_wall_ratio.unwrap() - 0.5).abs() < 1e-9);
+    assert_eq!(report.verdict, Verdict::Unreliable);
+    assert!(
+        report
+            .notes
+            .iter()
+            .any(|n| n.contains("pas de temps fixe découplé de l'horloge audio")),
+        "{:?}",
+        report.notes
+    );
+    // Les chiffres restent rendus, seul le verdict dégrade.
+    assert!(report.mean_delay_ms.is_some());
+}
+
+#[test]
+fn sans_horodatage_mural_le_ratio_est_inconnu_et_le_verdict_inchange() {
+    let mut old = trace(10.0, |_| Some(30.0), 2.0);
+    for sample in &mut old.samples {
+        sample.wall_s = 0.0;
+    }
+    let report = analyze(&old, &SyncThresholds::default());
+    assert_eq!(report.sim_to_wall_ratio, None);
+    assert_eq!(report.verdict, Verdict::Ok);
+}
+
+#[test]
+fn une_lueur_qui_decroit_sans_nouveau_pic_ne_compte_pas_comme_un_retard_nul() {
+    // Un seul kick, la lumière redescend depuis un niveau haut : aucune montée, donc aucun retard à mesurer.
+    let mut glow = trace(2.0, |_| None, 2.0);
+    for (f, sample) in glow.samples.iter_mut().enumerate() {
+        sample.luminance = (0.9 - f as f32 * 0.01).max(0.0);
+        sample.kick_now = f == 50;
+    }
+    let report = analyze(&glow, &SyncThresholds::default());
+    assert_eq!(report.kicks, 0);
+    assert_eq!(report.verdict, Verdict::NoData);
+}
+
+#[test]
+fn un_kick_unique_donne_un_retard_sans_gigue_ni_derive() {
+    let mut one = trace(3.0, |_| Some(40.0), 2.0);
+    for sample in &mut one.samples {
+        sample.kick_now = sample.t_s.abs() < 1e-9;
+    }
+    let report = analyze(&one, &SyncThresholds::default());
+    assert_eq!(report.kicks, 1);
+    assert!((report.mean_delay_ms.unwrap() - 40.0).abs() <= 3.0);
+    assert_eq!((report.jitter_ms, report.phase_drift_ms_per_min), (None, None));
+}
+
+#[test]
+fn des_echantillons_non_finis_ou_non_tries_sont_ecartes_avec_une_note() {
+    let mut bad = trace(10.0, |_| Some(30.0), 2.0);
+    bad.samples[100].t_s = f64::NAN;
+    bad.samples[200].luminance = f32::INFINITY;
+    bad.samples[300].t_s = 0.5; // recule dans le temps
+    let report = analyze(&bad, &SyncThresholds::default());
+    assert!(report.mean_delay_ms.is_some_and(f64::is_finite), "{report:?}");
+    assert!(report.notes.iter().any(|n| n.contains("écarté")), "{:?}", report.notes);
 }

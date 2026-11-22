@@ -25,6 +25,8 @@
 //! précédente et ajouterait une image de retard à la mesure ; `update_postfx` n'étant pas public, on ne peut pas
 //! l'ordonner par `.after`.
 
+use std::time::Instant;
+
 use bevy::post_process::bloom::Bloom;
 use bevy::prelude::*;
 use cf_probe_proto::{SyncSample, SyncTrace};
@@ -41,6 +43,8 @@ pub struct SyncRecorder {
     cap: usize,
     active: bool,
     overflowed: bool,
+    /// Début de l'enregistrement : origine de `wall_s`.
+    started: Option<Instant>,
 }
 
 impl Default for SyncRecorder {
@@ -58,6 +62,7 @@ impl SyncRecorder {
             cap,
             active: false,
             overflowed: false,
+            started: None,
         }
     }
 
@@ -73,6 +78,7 @@ impl SyncRecorder {
         self.samples.reserve_exact(self.cap);
         self.overflowed = false;
         self.active = true;
+        self.started = Some(Instant::now());
         Ok(())
     }
 
@@ -86,6 +92,7 @@ impl SyncRecorder {
         }
         self.active = false;
         self.overflowed = false;
+        self.started = None;
         Ok(SyncTrace {
             samples: std::mem::take(&mut self.samples),
         })
@@ -154,8 +161,11 @@ pub fn record_sync(
         visible_light(bloom.map(|b| b.intensity), grade.flash, grade.sweep)
     });
     let signals = signals.as_deref();
+    // Horloge murale : le lecteur audio date ses kicks dessus, pas sur le temps simulé (voir `analyze`).
+    let wall_s = recorder.started.map_or(0.0, |start| start.elapsed().as_secs_f64());
     recorder.push(SyncSample {
         t_s: time.as_ref().map_or(0.0, |time| time.elapsed_secs_f64()),
+        wall_s,
         kick_now: signals.is_some_and(|s| s.kick_now),
         beat_phase: signals.map_or(0.0, |s| s.beat_phase),
         grid_trust: signals.map_or(0.0, |s| s.grid_trust),

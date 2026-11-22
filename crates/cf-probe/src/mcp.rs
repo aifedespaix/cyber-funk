@@ -320,7 +320,14 @@ impl ProbeServer {
 
     /// Mesure la synchronisation musique/image.
     #[tool(
-        description = "Mesure le retard entre les kicks de la musique de démo et la réponse lumineuse de l'image :                           joue la piste `track` (ou l'actuelle) `seconds` secondes de simulation (1 à 300) et rend un                           rapport JSON (kicks, retard moyen, gigue, dérive, délai de confiance, verdict, notes).                           Résolution limitée par le pas de simulation de `step` ; verdict NoData sans kick mesuré."
+        description = concat!(
+            "Mesure la latence interne détection du kick → commande d'image (borne basse : ne voit ni l'émissif du ",
+            "monde, ni le GPU, ni l'affichage). Joue la piste `track` (ou l'actuelle) `seconds` secondes de ",
+            "simulation (1 à 300) et rend un rapport JSON (kicks, retard moyen, gigue, pente du retard, délai de ",
+            "confiance, verdict, notes). ATTENTION : avec un pas de temps fixe (`step`) découplé de l'horloge audio, ",
+            "le retard n'est pas comparable à un retard musique → image : le verdict est alors Unreliable. ",
+            "NoData sans kick mesuré."
+        )
     )]
     pub async fn measure_sync(&self, Parameters(params): Parameters<MeasureSyncParams>) -> CallToolResult {
         self.run_measure_sync(params).await

@@ -112,6 +112,9 @@ pub struct StateSnapshot {
 pub struct SyncSample {
     /// Temps de simulation, en secondes.
     pub t_s: f64,
+    /// Horloge murale depuis le début de l'enregistrement, en secondes (0 si l'application ne la fournit pas).
+    #[serde(default)]
+    pub wall_s: f64,
     /// Un kick est détecté à cette image.
     pub kick_now: bool,
     /// Phase dans le temps, 0..1.
@@ -213,6 +216,7 @@ mod tests {
         let trace = SyncTrace {
             samples: vec![SyncSample {
                 t_s: 1.0,
+                wall_s: 1.0,
                 kick_now: true,
                 beat_phase: 0.5,
                 grid_trust: 1.0,
@@ -282,6 +286,7 @@ mod tests {
         let samples = (0..MAX_SYNC_SAMPLES)
             .map(|i| SyncSample {
                 t_s: i as f64 * 0.016_666_666_666_666_666,
+                wall_s: i as f64 * 0.016,
                 kick_now: i % 30 == 0,
                 beat_phase: 0.123_456_79,
                 grid_trust: 0.987_654_3,

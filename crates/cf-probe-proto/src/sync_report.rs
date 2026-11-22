@@ -15,6 +15,8 @@ pub const MIN_PEAK_RISE: f32 = 0.02;
 pub const TRUST_LEVEL: f32 = 0.6;
 /// Nombre minimal de kicks mesurés pour estimer une dérive.
 const MIN_KICKS_FOR_DRIFT: usize = 3;
+/// Écart relatif toléré entre temps simulé et temps mural avant de juger la mesure non comparable.
+const MAX_RATIO_ERROR: f64 = 0.10;
 
 /// Seuils du verdict, à valider avec le premier relevé sur le matériel cible.
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
@@ -51,6 +53,9 @@ pub enum Verdict {
     Drifting,
     /// Aucun kick n'a pu être mesuré (silence, image qui ne réagit pas) : jamais un retard nul inventé.
     NoData,
+    /// Les chiffres sont rendus mais la mesure n'est pas comparable à un retard musique → image (temps simulé
+    /// découplé de l'horloge murale) ; jamais `Ok` dans ce cas.
+    Unreliable,
 }
 
 /// Résultat de [`analyze`].
@@ -62,13 +67,18 @@ pub struct SyncReport {
     pub mean_delay_ms: Option<f64>,
     /// Écart-type des retards (ms) ; `None` sous deux kicks mesurés.
     pub jitter_ms: Option<f64>,
-    /// Pente du retard au fil de la piste (ms par minute) ; `None` sous trois kicks mesurés.
+    /// Pente du retard au fil de la piste (ms par minute, pas une dérive de phase de la grille) ; `None` sous trois
+    /// kicks mesurés.
     pub phase_drift_ms_per_min: Option<f64>,
     /// Temps écoulé depuis le début de la trace avant que `grid_trust` dépasse [`TRUST_LEVEL`] (s) ; `None` s'il ne
     /// l'a jamais fait.
     pub trust_rise_s: Option<f64>,
     /// Conclusion contre les seuils.
     pub verdict: Verdict,
+    /// Temps simulé / temps mural sur la trace ; `None` sans horodatage mural.
+    pub sim_to_wall_ratio: Option<f64>,
+    /// Remarques sur la validité de la mesure (échantillons écartés, temps découplé).
+    pub notes: Vec<String>,
 }
 
 /// Mesure la synchronisation d'une trace (échantillons triés par `t_s`, un par image).
@@ -79,7 +89,15 @@ pub struct SyncReport {
 /// la pente des moindres carrés du retard au fil des kicks.
 #[must_use]
 pub fn analyze(trace: &SyncTrace, thresholds: &SyncThresholds) -> SyncReport {
-    let samples = &trace.samples;
+    let (clean, dropped) = sanitize(&trace.samples);
+    let samples = clean.as_slice();
+    let mut notes = Vec::new();
+    if dropped > 0 {
+        notes.push(format!(
+            "{dropped} échantillon(s) écarté(s) : temps ou luminance non fini, ou temps qui recule"
+        ));
+    }
+    let sim_to_wall_ratio = sim_to_wall(samples);
     let measured = measure_kicks(samples);
     let trust_rise_s = samples.first().and_then(|first| {
         samples
@@ -96,6 +114,8 @@ pub fn analyze(trace: &SyncTrace, thresholds: &SyncThresholds) -> SyncReport {
             phase_drift_ms_per_min: None,
             trust_rise_s,
             verdict: Verdict::NoData,
+            sim_to_wall_ratio,
+            notes,
         };
     }
     let count = measured.len() as f64;
@@ -114,6 +134,20 @@ pub fn analyze(trace: &SyncTrace, thresholds: &SyncThresholds) -> SyncReport {
     } else {
         Verdict::Ok
     };
+    // Un temps simulé qui ne suit pas l'horloge murale (pas fixe) découple les kicks, datés sur l'horloge audio, de la
+    // lumière : le retard n'est plus celui que verrait le public, donc jamais `Ok`.
+    let decoupled = sim_to_wall_ratio.is_some_and(|r| (r - 1.0).abs() > MAX_RATIO_ERROR);
+    let verdict = if decoupled && verdict == Verdict::Ok {
+        Verdict::Unreliable
+    } else {
+        verdict
+    };
+    if decoupled {
+        notes.push(format!(
+            "pas de temps fixe découplé de l'horloge audio : le retard n'est pas comparable à un retard musique→image (temps simulé / temps mural = {:.2})",
+            sim_to_wall_ratio.unwrap_or(0.0)
+        ));
+    }
     SyncReport {
         kicks,
         mean_delay_ms: Some(mean),
@@ -121,7 +155,29 @@ pub fn analyze(trace: &SyncTrace, thresholds: &SyncThresholds) -> SyncReport {
         phase_drift_ms_per_min: drift,
         trust_rise_s,
         verdict,
+        sim_to_wall_ratio,
+        notes,
     }
+}
+
+/// Garde les échantillons exploitables (temps et luminance finis, temps non décroissant) et compte les autres.
+fn sanitize(samples: &[SyncSample]) -> (Vec<SyncSample>, usize) {
+    let mut clean: Vec<SyncSample> = Vec::with_capacity(samples.len());
+    for sample in samples {
+        let finite = sample.t_s.is_finite() && sample.wall_s.is_finite() && sample.luminance.is_finite();
+        if finite && clean.last().is_none_or(|last| sample.t_s >= last.t_s) {
+            clean.push(sample.clone());
+        }
+    }
+    let dropped = samples.len() - clean.len();
+    (clean, dropped)
+}
+
+/// Temps simulé / temps mural entre le premier et le dernier échantillon ; `None` sans horodatage mural.
+fn sim_to_wall(samples: &[SyncSample]) -> Option<f64> {
+    let (first, last) = (samples.first()?, samples.last()?);
+    let wall = last.wall_s - first.wall_s;
+    (wall > 0.0).then(|| (last.t_s - first.t_s) / wall)
 }
 
 /// Un kick dont le pic visible a été trouvé.
@@ -153,15 +209,19 @@ fn measure_kicks(samples: &[SyncSample]) -> Vec<Measured> {
 fn peak_delay_ms(samples: &[SyncSample], kick: usize) -> Option<f64> {
     let start = samples.get(kick)?;
     let mut peak = start;
+    // Niveau de départ de la montée : le minimum jusqu'au pic seulement. Un minimum pris après le pic ferait passer une
+    // lueur qui décroît (pic = image du kick) pour une réponse de 0 ms.
+    let mut running_min = start.luminance;
     let mut floor = start.luminance;
     for sample in &samples[kick + 1..] {
         if sample.t_s - start.t_s > PEAK_WINDOW_S {
             break;
         }
-        floor = floor.min(sample.luminance);
+        running_min = running_min.min(sample.luminance);
         // Strictement supérieur : sur un plateau, le premier instant atteint compte.
         if sample.luminance > peak.luminance {
             peak = sample;
+            floor = running_min;
         }
     }
     (peak.luminance - floor >= MIN_PEAK_RISE).then_some((peak.t_s - start.t_s) * 1000.0)

@@ -66,10 +66,14 @@ impl ProbeServer {
         }
         let thresholds = SyncThresholds::default();
         let report = analyze(&trace, &thresholds);
+        notes.extend(report.notes.iter().cloned());
         if report.kicks == 0 {
             notes.push(
-                "aucun kick mesuré : silence, piste non lue, bloom coupé par la qualité adaptative, ou résolution du                  pas trop grossière (voir CF_PROBE_STEP_S)"
-                    .to_owned(),
+                concat!(
+                    "aucun kick mesuré : silence, piste non lue, bloom coupé par la qualité adaptative, ",
+                    "ou résolution du pas trop grossière (voir CF_PROBE_STEP_S)"
+                )
+                .to_owned(),
             );
         }
         if report.verdict == Verdict::NoData {
