@@ -21,6 +21,7 @@ mod state;
 mod timeline;
 
 use bevy::prelude::*;
+use cf_render::audio::FilteredSignals;
 use cf_render::{AudioFeatures, CfSet, CurrentShow};
 
 use crate::car::CarControls;
@@ -95,12 +96,14 @@ fn drive_intro(
     show: Option<Res<CurrentShow>>,
     driven: Option<Res<crate::run::RunDriven>>,
     features: Option<Res<AudioFeatures>>,
+    signals: Option<Res<FilteredSignals>>,
     mut run: ResMut<IntroRun>,
     mut status: ResMut<IntroStatus>,
     mut targets: Targets,
     mut owned: Local<Owned>,
 ) {
-    let (kick, energy) = features.map_or((false, 0.0), |f| (f.0.kick, f.0.intensity));
+    let kick = signals.as_deref().is_some_and(|s| s.kick_now);
+    let energy = features.map_or(0.0, |f| f.0.intensity);
     let out = run.0.update(&IntroInput {
         // Le séquenceur de démarrage porte la construction du monde : la pré-intro de niveau 0 ne la rejoue pas.
         level: if driven.is_some() {

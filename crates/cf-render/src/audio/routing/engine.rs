@@ -88,6 +88,9 @@ impl RoutingEngine {
         self.prev_bar_phase = Some(bar_phase);
         out.grid_beat = self.grid_beat;
         out.kick_beat = features.beat;
+        out.transient_accent = features.transient;
+        out.onset_accent = features.onset;
+        out.hat_accent = features.hat;
         out.grid_trust = self.trust.step(
             dt,
             trust_target(features.tempo_source, features.confidence, features.live),

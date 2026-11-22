@@ -1,7 +1,8 @@
 //! Le système qui joue le paquet du drop : lit le spectacle de l'image, la voiture, le mode calme.
 
 use bevy::prelude::*;
-use cf_render::{AbsolutePosition, AudioFeatures, CurrentShowFx, ScenePalette, StreamFocus};
+use cf_render::audio::FilteredSignals;
+use cf_render::{AbsolutePosition, CurrentShowFx, ScenePalette, StreamFocus};
 
 use super::DropFx;
 use super::logic::DropInput;
@@ -14,7 +15,7 @@ pub(super) fn step_dropfx(
     time: Res<Time>,
     show_fx: Option<Res<CurrentShowFx>>,
     look: Option<Res<SkyLook>>,
-    features: Option<Res<AudioFeatures>>,
+    signals: Option<Res<FilteredSignals>>,
     palette: Option<Res<ScenePalette>>,
     car: Query<&AbsolutePosition, With<StreamFocus>>,
     mut fx: ResMut<DropFx>,
@@ -31,7 +32,7 @@ pub(super) fn step_dropfx(
         drop: show_fx.as_deref().and_then(|s| s.0.drop),
         at: (!calm).then_some(car.0),
         policy: show_fx.as_deref().map(|s| (s.0.flashes, s.0.breathing)),
-        seed: features.map_or(0, |f| f.0.count),
+        seed: signals.as_deref().map_or(0, |s| s.kick_count),
     };
     fx.step(&input);
 }

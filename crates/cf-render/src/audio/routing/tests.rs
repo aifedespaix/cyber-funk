@@ -460,3 +460,33 @@ fn the_engine_copies_the_kick_driven_beat_clock() {
     e.update(&mut out, &f, 1.0 / 60.0, 0.0, 0.0, (true, false));
     assert_eq!(out.kick_beat, 41.5);
 }
+
+#[test]
+fn kick_pulse_is_the_wave_read_with_the_shared_time_constant() {
+    let mut s = FilteredSignals::default();
+    assert_eq!(s.kick_pulse(), 0.0, "aucun kick : pas d'accent");
+    s.register_kick();
+    assert_eq!(s.kick_pulse(), s.kick_wave.pulse(KICK_PULSE_TAU_S));
+    assert!(s.kick_pulse() > 0.99);
+}
+
+#[test]
+fn the_engine_publishes_the_sound_accents_without_the_grid() {
+    let mut e = RoutingEngine::new(&RoutingMatrix::default_matrix());
+    let mut out = FilteredSignals::default();
+    let f = features(|f| {
+        f.transient = 0.7;
+        f.onset = 0.4;
+        f.hat = 0.2;
+        f.confidence = 0.0;
+    });
+    e.update(&mut out, &f, 1.0 / 60.0, 0.0, 0.0, (true, false));
+    assert_eq!(
+        (out.transient_accent, out.onset_accent, out.hat_accent),
+        (0.7, 0.4, 0.2)
+    );
+    assert!(
+        out.grid_trust < 0.05,
+        "les accents ne dépendent pas de la confiance de la grille"
+    );
+}

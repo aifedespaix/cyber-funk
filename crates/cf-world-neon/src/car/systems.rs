@@ -7,8 +7,9 @@ use bevy::math::{DVec3, Quat, Vec3, Vec4};
 use bevy::pbr::StandardMaterial;
 use bevy::prelude::*;
 use bevy::tasks::{AsyncComputeTaskPool, Task, futures_lite::future};
+use cf_render::audio::FilteredSignals;
 use cf_render::warmup::StepId;
-use cf_render::{AbsolutePosition, AudioFeatures, CurrentShowFx, LoadTracker, SceneColor, ScenePalette};
+use cf_render::{AbsolutePosition, CurrentShowFx, LoadTracker, SceneColor, ScenePalette};
 
 use super::effects;
 use super::glb::CarModelError;
@@ -486,7 +487,7 @@ fn glow_material(
 /// range dans [`CarState::look`] ; écrit aussi la lueur et le freinage que lit la route (`RoadLook`).
 pub(super) fn advance_look(
     time: Res<Time>,
-    features: Option<Res<AudioFeatures>>,
+    signals: Option<Res<FilteredSignals>>,
     show: Option<Res<CurrentShowFx>>,
     scene: Res<ScenePalette>,
     controls: Res<CarControls>,
@@ -496,7 +497,7 @@ pub(super) fn advance_look(
     let dt = time.delta_secs();
     let now = time.elapsed_secs_f64();
     let scene_palette = car_palette(&scene);
-    let raw_pulse = features.map_or(0.0, |f| f.0.pulse);
+    let raw_pulse = signals.as_deref().map_or(0.0, FilteredSignals::kick_pulse);
     // Même politique que le post-process (`ShowFx::update`) : permis par le spectacle, hors respiration ; sans
     // spectacle, rien ne flashe.
     let policy = show.map(|s| (s.0.flashes, s.0.breathing));

@@ -91,6 +91,12 @@ pub struct FilteredSignals {
     /// Temps musical continu, en temps (4 par mesure), calé sur la phase de la grille et compensé de la latence : il ne
     /// recule jamais. C'est l'horloge du Mouvement ; à pondérer par [`movement`](Self::movement).
     pub grid_beat: f64,
+    /// Transitoires aigus du son réel, 0 à 1 (accent, sans grille).
+    pub transient_accent: f32,
+    /// Attaque du son réel, 0 à 1 (accent, sans grille).
+    pub onset_accent: f32,
+    /// Charleston du son réel, 0 à 1 (accent, sans grille).
+    pub hat_accent: f32,
     /// Temps continu piloté par les kicks (`count` plus une montée douce) : l'horloge des motifs pas-à-pas de Sillage.
     /// Il ne dépend pas de la grille.
     pub kick_beat: f64,
@@ -110,6 +116,9 @@ impl Default for FilteredSignals {
             kick_wave: KickWave::default(),
             grid_trust: 0.0,
             grid_beat: 0.0,
+            transient_accent: 0.0,
+            onset_accent: 0.0,
+            hat_accent: 0.0,
             kick_beat: 0.0,
             kick_count: 0,
             kick_now: false,
@@ -122,6 +131,12 @@ impl FilteredSignals {
     #[must_use]
     pub const fn get(&self, target: Target) -> f32 {
         self.values[target.index()]
+    }
+
+    /// L'impulsion d'accent du dernier kick (1 → 0), avec la constante de temps commune [`KICK_PULSE_TAU_S`].
+    #[must_use]
+    pub fn kick_pulse(&self) -> f32 {
+        self.kick_wave.pulse(KICK_PULSE_TAU_S)
     }
 
     /// L'horloge de danse : le temps continu de la grille quand elle est fiable (`grid_trust` ≥ 0,5), sinon le nombre

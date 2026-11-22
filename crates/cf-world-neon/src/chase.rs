@@ -7,6 +7,7 @@
 
 use bevy::math::DVec3;
 use bevy::prelude::*;
+use cf_render::audio::FilteredSignals;
 use cf_render::{AbsolutePosition, AudioFeatures, CameraPose, CfSet, StreamFocus, WorldLayer, WorldSet};
 
 /// Vitesse de croisière du point suivi, en m/s (de l'ordre de la vitesse de Sillage en groove).
@@ -120,11 +121,13 @@ fn advance_runner(time: Res<Time>, config: Res<RunnerConfig>, mut runner: Query<
 /// `CfSet::Direct` : la caméra suit l'entité suivie (point suivi provisoire ou voiture).
 fn chase_camera(
     features: Option<Res<AudioFeatures>>,
+    signals: Option<Res<FilteredSignals>>,
     runner: Query<(&AbsolutePosition, Has<crate::pilot::PilotCar>), With<StreamFocus>>,
     mut pose: ResMut<CameraPose>,
 ) {
     let Ok((car, piloted)) = runner.single() else { return };
-    let (pulse, intensity) = features.as_deref().map_or((0.0, 0.4), |f| (f.0.pulse, f.0.intensity));
+    let pulse = signals.as_deref().map_or(0.0, FilteredSignals::kick_pulse);
+    let intensity = features.as_deref().map_or(0.4, |f| f.0.intensity);
     // La voiture du pilote vole : la caméra monte avec elle. Le pavé provisoire, lui, est posé par son centre (0,65 m).
     let at = if piloted {
         car.0

@@ -197,6 +197,7 @@ pub(super) fn update_dust(
     levers: Option<Res<QualityLevers>>,
     sky: Option<Res<SkyLook>>,
     features: Option<Res<AudioFeatures>>,
+    signals: Option<Res<FilteredSignals>>,
     show_fx: Option<Res<CurrentShowFx>>,
     focus: Query<Focus, With<StreamFocus>>,
     rig: Res<DustRig>,
@@ -227,7 +228,11 @@ pub(super) fn update_dust(
     let quiet = show_fx.is_some_and(|s| s.0.breathing || !s.0.flashes);
     let wind = tuning.fog.wind_mps * (1.0 + 2.0 * f.map_or(0.0, |f| f.mid.clamp(0.0, 1.0)));
     // En respiration, ni scintillement ni éclat sur les transitoires.
-    let transient = if quiet { 0.0 } else { f.map_or(0.0, |f| f.transient) };
+    let transient = if quiet {
+        0.0
+    } else {
+        signals.as_deref().map_or(0.0, |s| s.transient_accent)
+    };
     let params = dust_params(time.elapsed_secs_f64(), wind, transient, speed, shares, !quiet);
     if materials.get(&rig.material).is_some_and(|m| m.params == params) {
         return;

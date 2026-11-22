@@ -12,6 +12,7 @@ use super::finish::{grain_frame, grain_gain};
 use super::{
     CurrentShowFx, GradeUniforms, GrainUniforms, LensWeather, PersistUniforms, PostFxSettings, PostFxState, ShotCuts,
 };
+use crate::audio::FilteredSignals;
 use crate::{AudioFeatures, Compositor, LayerTargets};
 
 /// Aberration chromatique au sommet d'un kick (`pulse × 0.006` de `PostFX.setPulse`).
@@ -59,6 +60,7 @@ pub(super) fn update_postfx(
     weather: Res<LensWeather>,
     show: Option<Res<CurrentShowFx>>,
     audio: Option<Res<AudioFeatures>>,
+    signals: Option<Res<FilteredSignals>>,
     targets: Option<Res<LayerTargets>>,
     cuts: Option<Res<ShotCuts>>,
     mut compositors: Query<
@@ -76,14 +78,15 @@ pub(super) fn update_postfx(
     let dt = state.last_time.map_or(0.0, |last| (now - last).max(0.0) as f32);
     state.last_time = Some(now);
 
-    let (pulse, peak) = audio
-        .as_ref()
-        .map_or((0.0, false), |a| (a.pulse, a.section == Section::Peak));
+    let pulse = signals.as_deref().map_or(0.0, FilteredSignals::kick_pulse);
+    let peak = audio.as_ref().is_some_and(|a| a.section == Section::Peak);
     let show = show.as_deref().map(|current| &current.0);
     let state = &mut *state;
     state.show_fx.update(show, pulse, peak, now, settings.quality);
     state.lens.update(weather.rain, weather.speed_ratio, dt);
-    let transient = state.transient.step(audio.as_ref().map_or(0.0, |a| a.transient), dt);
+    let transient = state
+        .transient
+        .step(signals.as_deref().map_or(0.0, |s| s.transient_accent), dt);
     state.peak_mix += (f32::from(u8::from(peak)) - state.peak_mix) * (1.0 - (-dt * 2.0).exp());
     let quality = settings.quality;
     // Paliers (DA §3.1, règle 5) : rayons au plein seulement, halation et persistance jusqu'au palier 1.

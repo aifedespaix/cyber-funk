@@ -3,6 +3,7 @@
 use bevy::color::LinearRgba;
 use bevy::math::{DVec3, Vec4};
 use bevy::prelude::*;
+use cf_render::audio::FilteredSignals;
 use cf_render::{AbsolutePosition, AudioFeatures, FloatingOrigin, StreamFocus};
 
 use super::lamps::{LampInputs, RoadLamps, build_lamps};
@@ -122,6 +123,7 @@ pub(super) struct ReflectedWorld<'w> {
 pub(super) fn update_material(
     time: Res<Time<Real>>,
     features: Option<Res<AudioFeatures>>,
+    signals: Option<Res<FilteredSignals>>,
     look: Res<RoadLook>,
     origin: Res<FloatingOrigin>,
     focus: Query<&AbsolutePosition, With<StreamFocus>>,
@@ -129,9 +131,10 @@ pub(super) fn update_material(
     mut materials: ResMut<Assets<RoadMaterial>>,
     world: ReflectedWorld,
 ) {
-    let (pulse, bass, intensity) = features
+    let pulse = signals.as_deref().map_or(0.0, FilteredSignals::kick_pulse);
+    let (bass, intensity) = features
         .as_deref()
-        .map_or((0.0, 0.0, DEFAULT_INTENSITY), |f| (f.0.pulse, f.0.bass, f.0.intensity));
+        .map_or((0.0, DEFAULT_INTENSITY), |f| (f.0.bass, f.0.intensity));
     let car_render = focus.single().map_or(Vec3::ZERO, |car| origin.to_render(car.0));
     let params = build_params(
         &look,

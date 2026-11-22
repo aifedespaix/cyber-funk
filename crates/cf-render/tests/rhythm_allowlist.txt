@@ -1,19 +1,14 @@
 # Fichiers qui lisent encore la grille ou les accents d'AudioFeatures (voir rhythm_contract.rs et docs/rythme.md).
 # La liste ne fait que rétrécir : une migration retire sa ligne ; une exception durable porte sa raison après `#`.
 cf-render/src/controls/bridge.rs # producteur : complète bpm, tempo_source, confidence, phase, bar, phrase d'AudioFeatures
-cf-render/src/postfx/systems.rs
-cf-world-neon/src/atmosphere/systems.rs
-cf-world-neon/src/beams/systems.rs
-cf-world-neon/src/car/systems.rs
-cf-world-neon/src/chase.rs
-cf-world-neon/src/cinema.rs
+cf-render/src/postfx/systems.rs # faux positif : lit `state.transient` (lissage propre au post-process), pas AudioFeatures
+cf-world-neon/src/beams/systems.rs # faux positif : `r.0.phase` est la phase du spectacle, `pulse.pulse()` le limiteur local
+cf-world-neon/src/cinema.rs # faux positif : `a.phase` est la phase de vol de la voiture
 cf-world-neon/src/djsign/plugin.rs
-cf-world-neon/src/dropfx/systems.rs
 cf-world-neon/src/facade/systems.rs
-cf-world-neon/src/intro/mod.rs
 cf-world-neon/src/pilot/input.rs
 cf-world-neon/src/rider/driver.rs
-cf-world-neon/src/road/systems.rs
+cf-world-neon/src/road/systems.rs # faux positif : `frame.pulse` est un champ du cadre de la route, déjà filtré
 cf-world-neon/src/run/apply.rs
 cf-world-neon/src/signs/audio.rs
 cf-world-neon/src/signs/systems.rs
