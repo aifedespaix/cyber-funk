@@ -46,9 +46,6 @@ fn route_signals(
 ) {
     let (flashes, breathing) = show.map_or((true, false), |s| (s.flashes, s.breathing));
     signals.begin_frame();
-    for _ in kicks.read() {
-        signals.register_kick();
-    }
     engine.update(
         &mut signals,
         &features.0,
@@ -57,6 +54,12 @@ fn route_signals(
         latency.seconds() as f32,
         (flashes, breathing),
     );
+    // Les kicks s'enregistrent APRÈS `update` : l'onde vieillit de `dt` dans `update`, donc un kick posé avant verrait
+    // son accent déjà entamé à l'image où il naît (sous ~41 i/s il passerait sous le seuil 0,8 des détecteurs de front
+    // et le flash n'aurait jamais lieu).
+    for _ in kicks.read() {
+        signals.register_kick();
+    }
 }
 
 fn publish_density(show: Option<Res<CurrentShow>>, mut density: ResMut<VisualDensity>) {

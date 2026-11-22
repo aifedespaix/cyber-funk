@@ -39,7 +39,7 @@ fn app() -> App {
     let show = LoadedShow::load(&assets().join("shows/demo.ron"), &looks).expect("show de démonstration");
     let mut app = App::new();
     app.add_plugins((MinimalPlugins, CorePlugin))
-        .init_resource::<AudioFeatures>()
+        .add_plugins(cf_render::audio::DemoRhythmPlugin)
         .init_resource::<ButtonInput<KeyCode>>()
         .add_message::<KeyboardInput>()
         .add_message::<WindowFocused>()
@@ -280,4 +280,44 @@ fn flash_kill_eteint_tout_en_un_fondu_et_le_garde_eteint() {
     // Et avant le `FlashKill`, il y avait bien des flashs.
     let before = ((kill_at / FRAME_S) as usize).min(outputs.len());
     assert!(outputs[..before].iter().any(|o| o.flash > 0.05));
+}
+
+/// Plus haut flash du post-process sur 90 s (le temps que le look monte en puissance), sans drop forcé ni changement de
+/// cue : seulement des kicks à 2 Hz si `kicks`, rien sinon.
+fn flash_peak_without_drops(kicks: bool) -> f32 {
+    let mut app = app();
+    let mut peak = 0.0_f32;
+    let mut pulse = 0.0_f32;
+    for frame in 0..(90.0 / FRAME_S) as usize {
+        let kick = kicks && frame % 30 == 0;
+        pulse = if kick { 1.0 } else { pulse * 0.9 };
+        {
+            let mut audio = app.world_mut().resource_mut::<AudioFeatures>();
+            audio.0.live = true;
+            audio.0.section = Section::Peak;
+            audio.0.intensity = 0.95;
+            audio.0.pulse = pulse;
+            audio.0.kick = kick;
+            audio.0.count += u32::from(kick);
+        }
+        app.update();
+        peak = peak.max(app.world().resource::<PostFxState>().show_fx().flash());
+    }
+    peak
+}
+
+/// Preuve que les kicks atteignent le post-process : sans eux, le même scénario ne flashe pas. Sans ce test, le plafond
+/// pourrait « tenir » parce que les flashs viennent d'ailleurs, ou parce qu'il n'y en a plus.
+#[test]
+fn les_kicks_seuls_font_flasher_le_post_process() {
+    let with = flash_peak_without_drops(true);
+    let without = flash_peak_without_drops(false);
+    assert!(
+        with > 1e-3,
+        "les kicks n'atteignent pas le post-process (flash max {with})"
+    );
+    assert!(
+        without < EPS / 10.0,
+        "flash sans aucun kick ({without}) : il ne vient pas des kicks"
+    );
 }

@@ -48,6 +48,7 @@ fn mirror_features(features: Res<AudioFeatures>, mut signals: ResMut<FilteredSig
     s.kick_now = f.kick;
     s.kick_count = f.count;
     s.kick_beat = f.beat;
+    s.dance = f64::from(f.count);
     s.transient_accent = f.transient;
     s.onset_accent = f.onset;
     s.hat_accent = f.hat;

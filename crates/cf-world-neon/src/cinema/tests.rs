@@ -22,6 +22,8 @@ fn signals(time: f64) -> FilteredSignals {
     s.register_kick();
     s.kick_count = beat.floor() as u32;
     s.kick_wave.age((beat.fract() * 60.0 / BPM) as f32);
+    // Le drapeau d'image ne vaut vrai que sur l'image où un nouveau temps commence (comme l'ancien `count` qui change).
+    s.kick_now = beat.floor() as i64 != ((time - DT) * BPM / 60.0).floor() as i64;
     s
 }
 

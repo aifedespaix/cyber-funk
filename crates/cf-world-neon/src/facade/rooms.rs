@@ -99,8 +99,13 @@ pub fn wall_light(q: Vec3, wall: Wall, door_x: f32) -> f32 {
 
 /// Borne haute de la lumière d'une pièce : le plafonnier, au ras de la vitre.
 pub const LIGHT_MAX: f32 = CEILING + CEILING_LAMP;
-/// Borne basse d'une paroi nue : le sol au fond de la pièce.
-pub const LIGHT_MIN: f32 = FLOOR * DEPTH_FALL;
+/// Borne basse d'une paroi nue : le sol au fond de la pièce, ou le bas de la porte du mur du fond, selon le plus sombre.
+/// (La porte, au ras du sol, est plus sombre que le sol lui-même : 0,169 contre 0,175.)
+pub const LIGHT_MIN: f32 = {
+    let floor = FLOOR * DEPTH_FALL;
+    let door = BACK * 0.75 * DOOR * DEPTH_FALL;
+    if door < floor { door } else { floor }
+};
 
 #[cfg(test)]
 mod tests {

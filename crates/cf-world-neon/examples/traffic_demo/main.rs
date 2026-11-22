@@ -55,6 +55,7 @@ fn main() {
     }))
     .add_plugins((
         CorePlugin,
+        cf_render::audio::DemoRhythmPlugin,
         LayersPlugin::default(),
         CullingPlugin::default(),
         PostFxPlugin,

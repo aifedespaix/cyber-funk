@@ -397,6 +397,23 @@ fn register_kick_counts_flags_and_starts_the_wave() {
 }
 
 #[test]
+fn le_kick_est_plein_a_l_image_ou_il_naît_meme_a_30_images_par_seconde() {
+    // Régression I1 : l'ordre du plugin est begin_frame → update → register_kick. Un kick posé avant `update` arrivait
+    // entamé de exp(-dt/τ) et ratait le seuil 0,8 des détecteurs de front sous ~41 i/s.
+    let mut e = RoutingEngine::new(&RoutingMatrix::default_matrix());
+    let mut out = FilteredSignals::default();
+    let f = features(|_| {});
+    for _ in 0..3 {
+        out.begin_frame();
+        e.update(&mut out, &f, 1.0 / 30.0, 0.0, 0.0, (true, false));
+    }
+    out.begin_frame();
+    e.update(&mut out, &f, 1.0 / 30.0, 0.0, 0.0, (true, false));
+    out.register_kick();
+    assert!(out.kick_pulse() > 0.8, "pulse = {}", out.kick_pulse());
+}
+
+#[test]
 fn grid_beat_advances_four_per_bar_and_never_goes_back() {
     let mut e = RoutingEngine::new(&RoutingMatrix::default_matrix());
     let mut out = FilteredSignals::default();
@@ -431,24 +448,46 @@ fn grid_beat_ignores_a_backward_phase_correction() {
         e.update(&mut out, &f, 1.0 / 60.0, i as f64 / 60.0, 0.0, (true, false));
     }
     assert!(
-        (out.grid_beat - 1.68).abs() < 0.02,
+        (out.grid_beat - 1.6).abs() < 0.02,
+        // Ancré sur la phase : le temps attend que la phase rattrape son maximum (0,4 × 4), sans dérive cumulée.
         "la correction arrière est avalée : {}",
         out.grid_beat
     );
 }
 
 #[test]
-fn dance_beat_follows_the_grid_when_trusted_and_the_kicks_otherwise() {
-    let mut s = FilteredSignals::default();
-    s.grid_beat = 9.25;
-    s.kick_count = 7;
-    s.grid_trust = 0.9;
-    assert_eq!(s.dance_beat(), 9.25, "grille fiable : temps continu de la grille");
-    s.grid_trust = 0.2;
-    assert_eq!(
-        s.dance_beat(),
-        7.0,
-        "grille douteuse : on compte les kicks, comme avant"
+fn dance_beat_is_aligned_on_bars_continuous_and_has_hysteresis() {
+    let mut e = RoutingEngine::new(&RoutingMatrix::default_matrix());
+    let mut out = FilteredSignals::default();
+    let dt = 1.0 / 60.0;
+    // 120 BPM : mesure = 2 s. Démarrage au milieu d'une mesure (phase 0,3), horloge MIDI (confiance 1).
+    let mut last = f64::MIN;
+    let mut bar_changes = Vec::new();
+    let mut prev_bar = None;
+    for i in 0..(60 * 20) {
+        let t = f64::from(i) * f64::from(dt);
+        let f = features(|f| {
+            f.live = true;
+            f.bpm = Some(120.0);
+            f.tempo_source = cf_analysis::TempoSource::Clock;
+            f.confidence = 1.0;
+            f.phase = ((t / 2.0 + 0.3).fract()) as f32;
+        });
+        e.update(&mut out, &f, dt, t, 0.0, (true, false));
+        let d = out.dance_beat();
+        assert!(d >= last, "l'horloge de danse ne recule jamais");
+        last = d;
+        let bar = (d / 4.0).floor() as i64;
+        if prev_bar.is_some_and(|p| p != bar) {
+            // Une mesure commence quand la phase de mesure boucle (≈ 0).
+            bar_changes.push(out.bar_phase);
+        }
+        prev_bar = Some(bar);
+    }
+    assert!(bar_changes.len() >= 5, "{bar_changes:?}");
+    assert!(
+        bar_changes.iter().all(|p| *p < 0.05),
+        "les mesures commencent au temps 1 : {bar_changes:?}"
     );
 }
 

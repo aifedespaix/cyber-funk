@@ -12,9 +12,6 @@ pub const KICK_NEVER_S: f32 = 60.0;
 /// linéaire (1 → 0 en 0,22 s, `PULSE_DECAY` = 4,5 /s) ; une exponentielle de même aire a pour constante 1/(2·4,5).
 pub const KICK_PULSE_TAU_S: f32 = 0.11;
 
-/// Seuil de `grid_trust` à partir duquel l'horloge de danse suit la grille plutôt que les kicks.
-const DANCE_TRUST: f32 = 0.5;
-
 /// Les quatre derniers kicks sous forme d'âges (s), du plus récent au plus ancien : l'« onde de kick » commune de
 /// P1 §0. Des âges plutôt que des horodatages absolus : un `f32` perd la milliseconde au bout d'une heure d'horloge,
 /// pas un âge borné à [`KICK_NEVER_S`].
@@ -91,6 +88,9 @@ pub struct FilteredSignals {
     /// Temps musical continu, en temps (4 par mesure), calé sur la phase de la grille et compensé de la latence : il ne
     /// recule jamais. C'est l'horloge du Mouvement ; à pondérer par [`movement`](Self::movement).
     pub grid_beat: f64,
+    /// Horloge de danse, en temps : continue, ne recule jamais, calée sur les mesures de la grille quand elle est fiable
+    /// (voir [`dance_beat`](Self::dance_beat)). Écrite par le moteur.
+    pub dance: f64,
     /// Transitoires aigus du son réel, 0 à 1 (accent, sans grille).
     pub transient_accent: f32,
     /// Attaque du son réel, 0 à 1 (accent, sans grille).
@@ -116,6 +116,7 @@ impl Default for FilteredSignals {
             kick_wave: KickWave::default(),
             grid_trust: 0.0,
             grid_beat: 0.0,
+            dance: 0.0,
             transient_accent: 0.0,
             onset_accent: 0.0,
             hat_accent: 0.0,
@@ -151,15 +152,12 @@ impl FilteredSignals {
         self.kick_wave.pulse(KICK_PULSE_TAU_S)
     }
 
-    /// L'horloge de danse : le temps continu de la grille quand elle est fiable (`grid_trust` ≥ 0,5), sinon le nombre
-    /// de kicks. Une mesure commence quand `floor(dance_beat / 4)` change.
+    /// L'horloge de danse, en temps : la grille quand elle est fiable (avec hystérésis, voir le moteur), sinon le nombre de
+    /// kicks, sans saut ni recul au changement de source. Une mesure commence quand `floor(dance_beat / 4)` change ; sur
+    /// la grille, ce changement tombe sur le temps 1.
     #[must_use]
-    pub fn dance_beat(&self) -> f64 {
-        if self.grid_trust >= DANCE_TRUST {
-            self.grid_beat
-        } else {
-            f64::from(self.kick_count)
-        }
+    pub const fn dance_beat(&self) -> f64 {
+        self.dance
     }
 
     /// Début d'image : efface ce qui ne dure qu'une image (`kick_now`).

@@ -31,7 +31,7 @@ Valeurs de départ, à régler avec la sonde de R2 sur le matériel cible.
 
 ## Horloge de danse
 
-`signals.dance_beat()` : le temps continu de la grille (`grid_beat`, ne recule jamais) quand `grid_trust ≥ 0,5`,
+`signals.dance_beat()` : le temps continu de la grille (`grid_beat`, ancré sur les mesures, ne recule jamais) quand `grid_trust` dépasse 0,6 (hystérésis : on la quitte sous 0,4, sans saut ni recul),
 sinon le nombre de kicks. Une mesure commence quand `floor(dance_beat / 4)` change.
 
 ## Ajouter un effet
