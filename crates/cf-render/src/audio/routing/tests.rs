@@ -356,3 +356,28 @@ fn visual_phase_compensates_the_latency_and_wraps() {
         "une latence négative est ignorée"
     );
 }
+
+#[test]
+fn the_engine_publishes_grid_trust_from_the_tempo_source() {
+    let mut e = RoutingEngine::new(&RoutingMatrix::default_matrix());
+    let mut out = FilteredSignals::default();
+    let clock = features(|f| {
+        f.live = true;
+        f.tempo_source = cf_analysis::TempoSource::Clock;
+        f.confidence = 1.0;
+    });
+    for i in 0..600 {
+        e.update(&mut out, &clock, 1.0 / 60.0, f64::from(i) / 60.0, 0.0, (true, false));
+    }
+    assert!(out.grid_trust > 0.95, "horloge MIDI : {}", out.grid_trust);
+    let lost = features(|f| {
+        f.live = false;
+        f.tempo_source = cf_analysis::TempoSource::Clock;
+        f.confidence = 1.0;
+    });
+    for i in 600..1200 {
+        e.update(&mut out, &lost, 1.0 / 60.0, f64::from(i) / 60.0, 0.0, (true, false));
+    }
+    assert!(out.grid_trust < 0.05, "signal perdu : {}", out.grid_trust);
+    assert_eq!(out.movement(1.0), out.grid_trust);
+}

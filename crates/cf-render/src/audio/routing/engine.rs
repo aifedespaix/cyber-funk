@@ -7,6 +7,7 @@ use cf_show::limiter::FlashLimiter;
 use super::chain::{Chain, Frame};
 use super::matrix::RoutingMatrix;
 use super::signals::{FilteredSignals, visual_phase};
+use super::trust::{GridTrust, trust_target};
 use super::types::Target;
 
 /// Tempo supposé sans analyse.
@@ -17,6 +18,7 @@ const FALLBACK_BPM: f32 = 120.0;
 pub struct RoutingEngine {
     chains: Vec<Chain>,
     limiter: FlashLimiter,
+    trust: GridTrust,
 }
 
 impl RoutingEngine {
@@ -26,6 +28,7 @@ impl RoutingEngine {
         Self {
             chains: matrix.routes.iter().map(Chain::new).collect(),
             limiter: FlashLimiter::new(),
+            trust: GridTrust::new(),
         }
     }
 
@@ -71,6 +74,10 @@ impl RoutingEngine {
         out.bar_phase = bar_phase;
         out.beat_phase = (bar_phase * 4.0).rem_euclid(1.0);
         out.kick_wave.age(dt);
+        out.grid_trust = self.trust.step(
+            dt,
+            trust_target(features.tempo_source, features.confidence, features.live),
+        );
 
         self.limiter.set_policy(flashes, breathing);
         self.limiter.step(dt);

@@ -17,6 +17,7 @@ mod engine;
 mod matrix;
 mod plugin;
 mod signals;
+mod trust;
 mod types;
 
 pub use engine::RoutingEngine;

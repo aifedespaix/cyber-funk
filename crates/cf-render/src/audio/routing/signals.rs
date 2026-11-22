@@ -45,6 +45,18 @@ impl KickWave {
         self.ages
     }
 
+    /// Impulsion du dernier kick : 1 à l'instant du kick, puis `exp(-âge/τ)` ; 0 si aucun kick (ou oublié).
+    ///
+    /// C'est l'accent du contrat rythmique : il vient du son réel (message `Kick`, latence compensée), jamais de la grille.
+    #[must_use]
+    pub fn pulse(&self, tau_s: f32) -> f32 {
+        let age = self.ages[0];
+        if age >= KICK_NEVER_S || !tau_s.is_finite() || tau_s <= 0.0 {
+            return 0.0;
+        }
+        (-age / tau_s).exp()
+    }
+
     /// Rayon (m) du front de l'onde `i` à la vitesse `speed` (m/s) ; négatif si elle n'existe pas.
     #[must_use]
     pub fn radius(&self, i: usize, speed: f32) -> f32 {
@@ -67,6 +79,8 @@ pub struct FilteredSignals {
     pub bar_phase: f32,
     /// Onde de kick.
     pub kick_wave: KickWave,
+    /// Confiance dans la grille rythmique, 0..1 (voir [`GridTrust`](super::trust::GridTrust)). Pondère le Mouvement.
+    pub grid_trust: f32,
 }
 
 impl Default for FilteredSignals {
@@ -77,6 +91,7 @@ impl Default for FilteredSignals {
             beat_phase: 0.0,
             bar_phase: 0.0,
             kick_wave: KickWave::default(),
+            grid_trust: 0.0,
         }
     }
 }
@@ -86,6 +101,13 @@ impl FilteredSignals {
     #[must_use]
     pub const fn get(&self, target: Target) -> f32 {
         self.values[target.index()]
+    }
+
+    /// Une amplitude de **mouvement** (calée sur la phase), pondérée par la confiance dans la grille : nulle quand la
+    /// grille est douteuse, pleine quand elle est sûre. Les accents n'y passent pas.
+    #[must_use]
+    pub fn movement(&self, amplitude: f32) -> f32 {
+        amplitude * self.grid_trust
     }
 
     /// Les mêmes signaux, la cible `target` fixée à la main. Pour les démos, les captures et les tests : en show, seul le
