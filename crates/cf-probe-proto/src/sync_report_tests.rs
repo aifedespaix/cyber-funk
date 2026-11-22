@@ -198,3 +198,17 @@ fn des_echantillons_non_finis_ou_non_tries_sont_ecartes_avec_une_note() {
     assert!(report.mean_delay_ms.is_some_and(f64::is_finite), "{report:?}");
     assert!(report.notes.iter().any(|n| n.contains("écarté")), "{:?}", report.notes);
 }
+
+#[test]
+fn le_ratio_ignore_le_temps_mort_avant_le_premier_echantillon() {
+    // L'horloge murale a déjà 100 s au premier échantillon (attente avant la première image) : seul l'écart entre le
+    // premier et le dernier échantillon compte.
+    let mut late = trace(10.0, |_| Some(30.0), 2.0);
+    for sample in &mut late.samples {
+        sample.wall_s += 100.0;
+    }
+    let report = analyze(&late, &SyncThresholds::default());
+    assert!((report.sim_to_wall_ratio.unwrap() - 1.0).abs() < 1e-9);
+    assert_eq!(report.verdict, Verdict::Ok);
+    assert_eq!(report.notes, Vec::<String>::new());
+}

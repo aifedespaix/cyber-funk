@@ -4,6 +4,7 @@
 use std::io::{BufRead as _, BufReader, Write as _};
 use std::net::TcpListener;
 use std::sync::{Arc, Mutex};
+use std::time::Duration;
 
 use cf_control::{Action, Switch};
 use cf_probe_proto::{
@@ -121,10 +122,21 @@ fn requests(script: &Script) -> Vec<ProbeRequest> {
     script.seen.lock().unwrap().clone()
 }
 
+/// Mode pas fixe (boucle de `Step`).
 fn params(track: Option<&str>, seconds: u32) -> Parameters<MeasureSyncParams> {
     Parameters(MeasureSyncParams {
         track: track.map(str::to_owned),
         seconds,
+        fixed_step: Some(true),
+    })
+}
+
+/// Mode par défaut : temps réel.
+fn realtime(track: Option<&str>, seconds: u32) -> Parameters<MeasureSyncParams> {
+    Parameters(MeasureSyncParams {
+        track: track.map(str::to_owned),
+        seconds,
+        fixed_step: None,
     })
 }
 
@@ -277,5 +289,49 @@ async fn une_trace_pleine_est_signalee_comme_tronquee() {
             .iter()
             .any(|n| n.as_str().unwrap().contains("tronquée")),
         "{report}"
+    );
+}
+
+#[tokio::test]
+async fn par_defaut_la_mesure_est_en_temps_reel_sans_aucun_step() {
+    let (port, script) = fake_app(synthetic_trace(1.0, true, 0.03), false, true);
+    let (server, _dir) = attached(port).await;
+    let started = std::time::Instant::now();
+    let result = server.measure_sync(realtime(None, 1)).await;
+    assert_ne!(result.is_error, Some(true), "{}", text(&result));
+    assert!(
+        started.elapsed() >= Duration::from_secs(1),
+        "attente murale de la durée demandée"
+    );
+    let seen = requests(&script);
+    assert!(!seen.iter().any(|r| matches!(r, ProbeRequest::Step { .. })), "{seen:?}");
+    let start = seen
+        .iter()
+        .position(|r| *r == ProbeRequest::StartSyncRecording)
+        .unwrap();
+    let stop = seen.iter().position(|r| *r == ProbeRequest::StopSyncRecording).unwrap();
+    assert!(start < stop);
+}
+
+#[tokio::test]
+async fn le_mode_pas_fixe_decoupe_les_step_a_1200_images_au_plus() {
+    let (port, script) = fake_app(synthetic_trace(10.0, true, 0.03), false, true);
+    let (server, _dir) = attached(port).await;
+    let result = server.measure_sync(params(None, 200)).await;
+    assert_ne!(result.is_error, Some(true), "{}", text(&result));
+    let steps: Vec<u32> = requests(&script)
+        .iter()
+        .filter_map(|r| {
+            if let ProbeRequest::Step { frames } = r {
+                Some(*frames)
+            } else {
+                None
+            }
+        })
+        .collect();
+    assert!(steps.len() >= 3, "{steps:?}");
+    assert!(
+        steps.iter().all(|f| (1..=cf_probe_proto::MAX_STEP_FRAMES).contains(f)),
+        "{steps:?}"
     );
 }

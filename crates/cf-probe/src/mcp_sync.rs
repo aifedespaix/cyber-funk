@@ -47,7 +47,19 @@ impl ProbeServer {
         if let Err(why) = self.expect_ack(ProbeRequest::StartSyncRecording).await {
             return fail(why);
         }
-        let played = self.play(f64::from(seconds)).await;
+        let fixed_step = params.fixed_step.unwrap_or(false);
+        if fixed_step {
+            notes.push(
+                "mode fixed_step : reproductible mais décalé de l'horloge audio, retard non comparable".to_owned(),
+            );
+        }
+        let played = if fixed_step {
+            self.play(f64::from(seconds)).await
+        } else {
+            // Temps réel : aucune requête `Step`, l'application garde sa cadence ; le serveur attend sans bloquer.
+            tokio::time::sleep(std::time::Duration::from_secs(u64::from(seconds))).await;
+            Ok(())
+        };
         // Arrêt dans tous les cas ; la trace n'est utile que si le jeu s'est bien passé.
         let stopped = self.request(ProbeRequest::StopSyncRecording).await;
         if let Err(why) = played {

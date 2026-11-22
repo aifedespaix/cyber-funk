@@ -322,10 +322,11 @@ impl ProbeServer {
     #[tool(
         description = concat!(
             "Mesure la latence interne détection du kick → commande d'image (borne basse : ne voit ni l'émissif du ",
-            "monde, ni le GPU, ni l'affichage). Joue la piste `track` (ou l'actuelle) `seconds` secondes de ",
-            "simulation (1 à 300) et rend un rapport JSON (kicks, retard moyen, gigue, pente du retard, délai de ",
-            "confiance, verdict, notes). ATTENTION : avec un pas de temps fixe (`step`) découplé de l'horloge audio, ",
-            "le retard n'est pas comparable à un retard musique → image : le verdict est alors Unreliable. ",
+            "monde, ni le GPU, ni l'affichage). Joue la piste `track` (ou l'actuelle) `seconds` secondes (1 à 300) ",
+            "et rend un rapport JSON (kicks, retard moyen, gigue, pente du retard, délai de confiance, verdict, ",
+            "notes). Par défaut en TEMPS RÉEL : l'application tourne à sa cadence normale pendant `seconds` secondes ",
+            "murales, la mesure est valide si la cadence reste stable. `fixed_step: true` avance par `step` à pas ",
+            "fixe : reproductible mais décalé de l'horloge audio, donc le verdict est le plus souvent Unreliable. ",
             "NoData sans kick mesuré."
         )
     )]

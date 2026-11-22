@@ -60,4 +60,8 @@ pub struct MeasureSyncParams {
     pub track: Option<String>,
     /// Durée à mesurer, en secondes de simulation : de 1 à 300 (0 est refusé, au-delà la durée est ramenée à 300).
     pub seconds: u32,
+    /// `false` (défaut) : temps réel, l'application tourne à sa cadence normale pendant `seconds` secondes murales
+    /// (mesure valide, la cadence doit rester stable). `true` : boucle de `Step` à pas fixe, reproductible mais décalée
+    /// de l'horloge audio (verdict Unreliable le plus souvent).
+    pub fixed_step: Option<bool>,
 }
