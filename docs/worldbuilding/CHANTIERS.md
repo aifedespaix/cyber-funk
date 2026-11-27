@@ -332,7 +332,7 @@ Statuts : ⬜ à faire · 🟨 en cours (le journal dit où reprendre) · ✅ te
 | C4 | Sol, façades et matériaux | ✅ | voir `git log` (« C4 ») | À juger sur le matériel cible : lisibilité des fenêtres habitées à 20 m de l'écran, aberration des reflets (`ROAD_ABERRATION`), gain du halo du sujet sur les murs (`halo_gain`), vu-mètre des façades avec un vrai spectre, coût GPU des pièces (un lancer de boîte par pixel de fenêtre proche). Halo des **sockets** d'enseigne (P2 §1.2) : la fonction existe (`wall_halo`), elle lit les quatre tubes du bloc ; les sockets viennent en C5/C6. |
 | R1 | Contrat rythmique : qui lit quoi (phase, coups, énergie) et branchement des effets existants | ✅ | 2026-11-22 | `docs/rythme.md`. Cliquet `rhythm_contract.rs`. Voir le journal R1. |
 | R2 | Sonde de test : CLI/MCP (lancer, envoyer une `Action`, capturer, mesurer, lire le journal) et test de synchronisation musique/image | ✅ | 2026-11-22 | `docs/sonde.md`. Premier relevé (Chase, 20 s) : 54 kicks, 0 ms, verdict `Ok`, borne basse à une image près ; seuils 60/25/40 non validés. Voir le journal R2. |
-| C5+C6 | Ville : distribution, archétypes **et** habillage (un seul lot, même moteur de quartiers) | ⬜ | — | Les critères de C5 puis de C6 restent distincts. |
+| C5+C6 | Ville : distribution, archétypes **et** habillage (un seul lot, même moteur de quartiers) | 🟨 | — | Les critères de C5 puis de C6 restent distincts. |
 | C7 | Tunnel, événements, LOD et culling | ⬜ | — | — |
 | C8 | Personnages et tenues | ⬜ | — | À rejuger après le choix du concept : le lecteur de GLB est statique, pas d'animation de squelette. |
 | C9 | Mise en scène et signatures | ⬜ | — | Après R1 (la caméra lit le contrat rythmique). |
